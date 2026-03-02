@@ -8,6 +8,22 @@ import Image from 'next/image';
 import { useEciesDecrypt } from '../../hooks/useEciesDecrypt';
 import { ComposeEmail } from '../../components/ComposeEmail';
 
+function isAgentAddress(addr: string): boolean {
+  if (!addr) return false;
+  const local = addr.includes('@') ? addr.split('@')[0] : addr;
+  return local.endsWith('_');
+}
+
+function BlurFrom({ from }: { from: string }) {
+  if (!from || from === 'unknown') return <span className="text-white/70">unknown</span>;
+  if (isAgentAddress(from)) return <span className="text-white/70">{from}</span>;
+  return (
+    <span className="relative inline-block select-none" title="Sender identity protected">
+      <span className="blur-sm text-white/70 pointer-events-none">{from}</span>
+    </span>
+  );
+}
+
 function stripHtml(html: unknown): string {
   if (html === null || html === undefined) return '';
   return String(html)
@@ -739,7 +755,7 @@ export default function InboxPage() {
                         <span className={`text-sm font-medium ${item.redacted ? 'text-amber-300' : 'text-white'}`}>{item.subject}</span>
                         <p className="mt-0.5 text-xs text-[var(--muted)]">
                           {isOut ? 'To: ' : 'From: '}
-                          <span className="text-white/70">{item.from}</span>
+                          <BlurFrom from={isOut ? item.from : item.from} />
                         </p>
                       </div>
                       <div className="flex items-center gap-1.5 flex-shrink-0">
@@ -785,7 +801,7 @@ export default function InboxPage() {
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
                       <span className="text-sm font-medium text-white">{msg.subject}</span>
-                      <p className="mt-0.5 text-xs text-[var(--muted)]">From: <span className="text-white/70">{msg.sender}</span></p>
+                      <p className="mt-0.5 text-xs text-[var(--muted)]">From: <BlurFrom from={msg.sender} /></p>
                     </div>
                     <div className="flex items-center gap-2">
                       {msg.encrypted && (
@@ -1192,7 +1208,7 @@ export default function InboxPage() {
                           </span>
                         </div>
                         {!msg.encrypted && (
-                          <p className="mt-0.5 text-xs text-[var(--muted)] truncate">{msg.sender}</p>
+                          <p className="mt-0.5 text-xs text-[var(--muted)] truncate"><BlurFrom from={msg.sender} /></p>
                         )}
                         {!msg.encrypted && !isExpanded && msg.summary && (
                           <p className="mt-0.5 text-xs text-[var(--muted)] opacity-50 truncate">{stripHtml(msg.summary).slice(0, 120)}</p>
@@ -1235,7 +1251,7 @@ export default function InboxPage() {
                                 <div className="space-y-1">
                                   <div className="flex items-center gap-2 text-xs">
                                     <span className="text-[var(--muted)]">From:</span>
-                                    <span className="text-white">{decrypted.from}</span>
+                                    <BlurFrom from={decrypted.from} />
                                   </div>
                                   <div className="flex items-center gap-2 text-xs">
                                     <span className="text-[var(--muted)]">Subject:</span>
@@ -1289,7 +1305,7 @@ export default function InboxPage() {
                           <div className="space-y-1">
                             <div className="flex items-center gap-2 text-xs">
                               <span className="text-[var(--muted)]">From:</span>
-                              <span className="text-white">{msg.sender}</span>
+                              <BlurFrom from={msg.sender} />
                             </div>
                             <div className="flex items-center gap-2 text-xs">
                               <span className="text-[var(--muted)]">Date:</span>
@@ -1448,7 +1464,7 @@ export default function InboxPage() {
                           <svg className="h-3 w-3 text-cyan-400 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
                           <span className="truncate text-sm font-medium text-white">{dm.subject || '(no subject)'}</span>
                         </div>
-                        <p className="mt-0.5 text-xs text-[var(--muted)] truncate">{dm.from}</p>
+                        <p className="mt-0.5 text-xs text-[var(--muted)] truncate"><BlurFrom from={dm.from} /></p>
                         {!isExpanded && <p className="mt-0.5 text-xs text-[var(--muted)] opacity-50 truncate">{dm.body?.slice(0, 100)}</p>}
                       </div>
                       <div className="flex-shrink-0">
