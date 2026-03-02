@@ -39,6 +39,13 @@
   "exclude": [
     "node_modules",
     "apps",
-    "script"
+    "script",
+    "workers",
+    "components",
+    "lib",
+    "src",
+    "broadcast",
+    "cache",
+    "out"
   ]
 }
