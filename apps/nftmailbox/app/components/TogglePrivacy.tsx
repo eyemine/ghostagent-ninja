@@ -16,7 +16,7 @@ export function TogglePrivacy({ name, walletAddress, onPrivacyChange }: TogglePr
   const fetchPrivacy = useCallback(async () => {
     try {
       const res = await fetch(`/api/resolve-privacy?name=${encodeURIComponent(name)}`);
-      const data = await res.json();
+      const data = await res.json() as { privacyEnabled?: boolean };
       setPrivacyEnabled(data.privacyEnabled ?? false);
       onPrivacyChange?.(data.privacyEnabled ?? false);
     } catch {
@@ -43,7 +43,7 @@ export function TogglePrivacy({ name, walletAddress, onPrivacyChange }: TogglePr
           walletAddress,
         }),
       });
-      const data = await res.json();
+      const data = await res.json() as { error?: string };
       if (res.ok) {
         setPrivacyEnabled(newState);
         onPrivacyChange?.(newState);

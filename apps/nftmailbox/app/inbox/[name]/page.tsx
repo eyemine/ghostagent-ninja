@@ -286,7 +286,7 @@ export default function InboxPage() {
       }
 
       const res = await fetch(`/api/inbox?email=${encodeURIComponent(name + '@nftmail.box')}`);
-      const data = await res.json();
+      const data = await res.json() as { error?: string; messages?: any[]; [key: string]: any };
       if (data.error && !data.messages) {
         setError(data.error);
         setLoading(false);

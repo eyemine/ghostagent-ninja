@@ -72,7 +72,7 @@ export default function DashboardPage() {
     setError(null);
     try {
       const res = await fetch(`/api/resolve-nftmail?address=${preferredWallet.address}`);
-      const data = await res.json();
+      const data = await res.json() as { error?: string; names?: NftMailName[] };
       if (!res.ok) throw new Error(data.error || 'Failed to resolve names');
       const resolved: NftMailName[] = data.names || [];
       setNames(resolved);
@@ -94,7 +94,7 @@ export default function DashboardPage() {
     setLoadingInbox(true);
     try {
       const res = await fetch(`/api/inbox?email=${encodeURIComponent(selectedName.email)}`);
-      const data = await res.json();
+      const data = await res.json() as { error?: string; messages?: any[]; tier?: string; note?: string };
       if (!res.ok) throw new Error(data.error || 'Failed to fetch inbox');
       setMessages(data.messages || []);
       setInboxTier(data.tier || '');
@@ -134,7 +134,7 @@ export default function DashboardPage() {
           content: composeBody,
         }),
       });
-      const data = await res.json();
+      const data = await res.json() as { error?: string };
       if (!res.ok) throw new Error(data.error || 'Failed to send');
       setSendResult(`Sent to ${composeTo}`);
       setComposeTo('');
@@ -172,7 +172,7 @@ export default function DashboardPage() {
           signature,
         }),
       });
-      const data = await res.json();
+      const data = await res.json() as { error?: string; messagesDeleted?: number };
       if (!res.ok) throw new Error(data.error || 'Burn failed');
       setBurnResult(`Purged ${data.messagesDeleted} messages. Sovereign burn complete.`);
       setMessages([]);

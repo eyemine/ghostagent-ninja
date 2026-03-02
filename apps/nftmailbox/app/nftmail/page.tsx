@@ -50,7 +50,7 @@ function UpgradeTierPanel({ label, defaultTier }: { label: string; defaultTier: 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ label, ownerWallet, newTier: selectedTier === 'pro' ? 'premium' : selectedTier, paymentTxHash: hash, paymentToken }),
       });
-      const data = await res.json();
+      const data = await res.json() as { error?: string; [key: string]: any };
       if (!res.ok) throw new Error(data.error || 'Upgrade failed');
       setResult(data);
     } catch (err: any) {

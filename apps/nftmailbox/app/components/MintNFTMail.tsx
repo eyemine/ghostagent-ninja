@@ -151,7 +151,7 @@ export function MintNFTMail({ initialName }: { initialName?: string } = {}) {
         body: JSON.stringify({ label, owner: ownerAddress }),
       });
 
-      const data = await res.json();
+      const data = await res.json() as { error?: string; email?: string; tbaAddress?: string; txHash?: string; label?: string; sponsor?: string; kvRegistered?: boolean };
 
       if (!res.ok) {
         throw new Error(data.error || 'Gasless mint failed');
@@ -159,9 +159,9 @@ export function MintNFTMail({ initialName }: { initialName?: string } = {}) {
 
       setResult({
         name: label,
-        email: data.email,
+        email: data.email || '',
         tbaAddress: data.tbaAddress || '',
-        txHash: data.txHash,
+        txHash: data.txHash || '',
         gasless: true,
       });
       setStep('done');
