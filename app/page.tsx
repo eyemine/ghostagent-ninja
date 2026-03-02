@@ -55,11 +55,11 @@ export default function Home() {
           <Link
             href="/dashboard/install-brain"
             className="w-full rounded-xl px-6 py-3 text-center text-sm font-semibold transition"
-            style={{ color: 'rgb(243,238,228)', border: '1px solid rgba(243,238,228,0.2)', background: 'rgba(255,255,255,0.04)' }}
+            style={{ color: '#ffca92', border: '1px solid rgba(243,238,228,0.2)', background: 'rgba(255,255,255,0.04)' }}
             onMouseEnter={e => (e.currentTarget.style.background = '#262934')}
             onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')}
           >
-            Mint Agent Brain
+            Install Agent Brain
           </Link>
 
           <Link

@@ -32,7 +32,7 @@ export function AppNav() {
           </Link>
         </div>
         {/* Nav — center */}
-        <nav className="flex items-center gap-4">
+        <nav className="flex items-center gap-8">
           {NAV.map((item) => {
             const active = isActive(item.href);
             return (

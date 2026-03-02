@@ -17,7 +17,7 @@ export function NavConnectButton() {
         </span>
         <button
           onClick={logout}
-          className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-[11px] font-semibold text-[var(--muted)] transition hover:border-red-500/30 hover:text-red-400"
+          className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-[11px] font-semibold text-[#b0805c] transition hover:border-red-500/30 hover:text-red-400"
         >
           DISCONNECT
         </button>
