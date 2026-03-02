@@ -11,12 +11,12 @@ export default function Home() {
       <div className="flex min-h-screen flex-col items-center justify-center px-4 py-16">
 
         {/* Logo */}
-        <div className="relative h-24 w-24 mb-6">
-          <Image src={GHOST_LOGO} alt="GhostAgent" fill className="object-contain" unoptimized />
+        <div className="relative h-20 w-20 overflow-hidden rounded-2xl mb-6">
+          <Image src={GHOST_LOGO} alt="GhostAgent" fill className="object-cover" unoptimized />
         </div>
 
         {/* Title */}
-        <div className="mb-3 tracking-[0.22em] text-[#d8d4cf]" style={{ fontFamily: 'Ayuthaya, serif', fontSize: '1rem' }}>
+        <div className="text-sm font-semibold tracking-[0.22em] text-[#f2eee4] mb-3" style={{ fontFamily: 'Ayuthaya, serif' }}>
           GHOSTAGENT . NINJA
         </div>
         <h1 className="text-3xl font-bold text-[#f2eee4] mb-4 text-center">
