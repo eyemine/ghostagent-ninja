@@ -12,7 +12,7 @@ export function NavConnectButton() {
     const addr = wallets[0].address;
     return (
       <div className="flex items-center gap-2">
-        <span className="text-[11px] font-mono text-[#b0805c]">
+        <span className="whitespace-nowrap text-[11px] font-mono text-[#b0805c]">
           {addr.slice(0, 6)}…{addr.slice(-4)}
         </span>
         <button

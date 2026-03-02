@@ -27,7 +27,7 @@ export function AppNav() {
       <header className="hidden md:grid fixed top-0 left-0 right-0 z-40 h-14 border-b border-[var(--border)] bg-[#0f0703]/[0.66] backdrop-blur-md px-8" style={{ gridTemplateColumns: '1fr auto 1fr' }}>
         {/* Logo — left */}
         <div className="flex items-center">
-          <Link href="/" className="logotype-fadein tracking-[0.18em] whitespace-nowrap" style={{ fontFamily: 'Ayuthaya, "Courier New", Courier, monospace', fontSize: '0.75rem' }}>
+          <Link href="/" className="tracking-[0.18em] whitespace-nowrap" style={{ fontFamily: 'Ayuthaya, "Courier New", Courier, monospace', fontSize: '0.75rem', color: '#b0805c' }}>
             GHOSTAGENT.NINJA
           </Link>
         </div>
@@ -41,8 +41,8 @@ export function AppNav() {
                 href={item.href}
                 className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
                   active
-                    ? 'bg-[rgba(176,128,92,0.5)] text-[#f2eee4]'
-                    : 'text-[#b0805c] hover:bg-white/5 hover:text-[#f2eee4]'
+                    ? 'bg-[rgba(176,128,92,0.3)] text-[#b0805c]'
+                    : 'text-[#b0805c] hover:bg-white/5 hover:text-[#ffca92]'
                 }`}
               >
                 {item.label}
@@ -59,7 +59,7 @@ export function AppNav() {
       {/* ── Mobile: hamburger dropdown ── */}
       <header className="md:hidden fixed top-0 left-0 right-0 z-40 border-b border-[var(--border)] bg-[#0f0703]/[0.66] backdrop-blur-md">
         <div className="flex h-14 items-center justify-between px-5">
-          <Link href="/" className="logotype-fadein tracking-[0.18em]" style={{ fontFamily: 'Ayuthaya, "Courier New", Courier, monospace', fontSize: '0.75rem' }} onClick={() => setMobileOpen(false)}>
+          <Link href="/" className="tracking-[0.18em]" style={{ fontFamily: 'Ayuthaya, "Courier New", Courier, monospace', fontSize: '0.75rem', color: '#b0805c' }} onClick={() => setMobileOpen(false)}>
             GHOSTAGENT.NINJA
           </Link>
           <div className="flex items-center gap-2">
@@ -92,8 +92,8 @@ export function AppNav() {
                   onClick={() => setMobileOpen(false)}
                   className={`rounded-lg px-4 py-3 text-xs font-medium transition-colors ${
                     active
-                      ? 'bg-[rgba(176,128,92,0.5)] text-[#f2eee4]'
-                      : 'text-[#b0805c] hover:bg-white/5 hover:text-[#f2eee4]'
+                      ? 'bg-[rgba(176,128,92,0.3)] text-[#b0805c]'
+                      : 'text-[#b0805c] hover:bg-white/5 hover:text-[#ffca92]'
                   }`}
                 >
                   {item.label}
