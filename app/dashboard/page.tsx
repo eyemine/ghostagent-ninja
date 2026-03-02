@@ -1,164 +1,315 @@
 'use client';
 
 import { useState } from 'react';
-import Image from 'next/image';
-import { AgentCard } from '../components/AgentCard';
-import { WorkReceiptCard } from '../components/WorkReceiptCard';
+import Link from 'next/link';
 
 const GHOST_LOGO = '/ghost-logo.png';
 
-// Demo data — will be replaced with real data from KV/chain
-const DEMO_AGENTS = [
+type AgentTier = 'free' | 'pro';
+type BrainType = 'CF Worker' | 'Safe Brain' | 'GlassBox';
+
+interface DemoAgent {
+  name: string;
+  namespace: string;
+  tba: string;
+  tier: AgentTier;
+  hostScore: number;
+  inbox: number;
+  events: number;
+  active: boolean;
+  ipDomain?: string;
+  brainType?: BrainType;
+}
+
+interface DemoBody {
+  name: string;
+  namespace: string;
+  tokenId: number;
+  tba: string;
+  minted: string;
+}
+
+interface DemoBrain {
+  agent: string;
+  type: BrainType;
+  endpoint: string;
+  installed: string;
+}
+
+const DEMO_AGENTS: DemoAgent[] = [
   {
     name: 'eyemine',
-    namespace: 'openclaw' as const,
-    safeAddress: '0xb7e40c4b6a0e180577f6c34de944612eb8f3af13',
-    tier: 'pro' as const,
-    surgeScore: 72.3,
-    inboxCount: 12,
-    calendarCount: 3,
-    lastHeartbeat: Date.now() - 1000 * 60 * 30, // 30 min ago
+    namespace: 'openclaw.gno',
+    tba: '0xb7e4...af13',
+    tier: 'pro',
+    hostScore: 72.3,
+    inbox: 12,
+    events: 3,
+    active: true,
     ipDomain: 'eyemine.creation.ip',
   },
   {
-    name: 'scout',
-    namespace: 'agent' as const,
-    safeAddress: '0xa1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2',
-    tier: 'free' as const,
-    surgeScore: 1.0,
-    inboxCount: 3,
-    calendarCount: 0,
-    lastHeartbeat: undefined,
-  },
-  {
     name: 'treasury',
-    namespace: 'vault' as const,
-    safeAddress: '0xd4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5',
-    tier: 'pro' as const,
-    surgeScore: 95.1,
-    inboxCount: 47,
-    calendarCount: 8,
-    lastHeartbeat: Date.now() - 1000 * 60 * 5, // 5 min ago
+    namespace: 'vault.gno',
+    tba: '0xd4e5...d4e5',
+    tier: 'pro',
+    hostScore: 95.1,
+    inbox: 47,
+    events: 8,
+    active: true,
     ipDomain: 'treasury.creation.ip',
   },
   {
-    name: 'pico-news',
-    namespace: 'picoclaw' as const,
-    safeAddress: '0xf6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1',
-    tier: 'free' as const,
-    surgeScore: 8.4,
-    inboxCount: 1,
-    calendarCount: 0,
-    lastHeartbeat: Date.now() - 1000 * 60 * 60 * 48, // 2 days ago (inactive)
-  },
-  {
     name: 'hive',
-    namespace: 'molt' as const,
-    safeAddress: '0xc3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4',
-    tier: 'free' as const,
-    surgeScore: 22.0,
-    inboxCount: 6,
-    calendarCount: 1,
-    lastHeartbeat: Date.now() - 1000 * 60 * 10,
-  },
-  {
-    name: 'postmaster',
-    namespace: 'nftmail' as const,
-    safeAddress: '0xb7e493e3d226f8fe722cc9916ff164b793af13f4',
-    tier: 'pro' as const,
-    surgeScore: 50.0,
-    inboxCount: 128,
-    calendarCount: 0,
-    lastHeartbeat: Date.now() - 1000 * 60 * 2,
-    ipDomain: 'postmaster.creation.ip',
+    namespace: 'molt.gno',
+    tba: '0xc3d4...c3d4',
+    tier: 'free',
+    hostScore: 22.0,
+    inbox: 6,
+    events: 1,
+    active: true,
+    brainType: 'GlassBox',
   },
 ];
 
-const DEMO_RECEIPTS = [
-  {
-    receiptNumber: 42,
-    cid: 'bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi',
-    licenseId: '0x1234567890abcdef1234567890abcdef12345678',
-    revenue: 10,
-    agentAddress: '0xb7e40c4b6a0e180577f6c34de944612eb8f3af13',
-    surgeGained: 0.1,
-    storyTxHash: '0x9876543210fedcba9876543210fedcba98765432',
-    timestamp: Date.now() - 3600000,
-  },
+const DEMO_BODIES: DemoBody[] = [
+  { name: 'eyemine',  namespace: 'openclaw.gno', tokenId: 1, tba: '0xb7e40c...f3af13', minted: '19/02/2026' },
+  { name: 'treasury', namespace: 'vault.gno',    tokenId: 3, tba: '0xd4e5f6...c3d4e5', minted: '26/02/2026' },
+  { name: 'hive',     namespace: 'molt.gno',     tokenId: 7, tba: '0xc3d4e5...b2c3d4', minted: '28/02/2026' },
 ];
 
-export default function DashboardHome() {
-  const [moltingAgent, setMoltingAgent] = useState<string | null>(null);
+const DEMO_BRAINS: DemoBrain[] = [
+  { agent: 'eyemine',  type: 'CF Worker', endpoint: 'eyemine.ghostagent.workers.dev', installed: '20/02/2026' },
+  { agent: 'treasury', type: 'Safe Brain', endpoint: 'vault.safe.brain',              installed: '27/02/2026' },
+  { agent: 'hive',     type: 'GlassBox',  endpoint: 'hive.glassbox.agent',            installed: '01/03/2026' },
+];
 
-  function handleUpgrade(agentName: string) {
-    setMoltingAgent(agentName);
-    // In production: trigger Privy payment → relay → Story Protocol registration
-    setTimeout(() => setMoltingAgent(null), 3000);
-  }
+const NS_COLOR: Record<string, string> = {
+  'openclaw.gno': 'text-cyan-300',
+  'vault.gno':    'text-emerald-300',
+  'molt.gno':     'text-fuchsia-300',
+  'agent.gno':    'text-blue-300',
+  'picoclaw.gno': 'text-amber-300',
+  'nftmail.gno':  'text-rose-300',
+};
 
+function HeartbeatDot({ active }: { active: boolean }) {
   return (
-    <div className="max-w-4xl space-y-8">
+    <span className="relative flex h-2.5 w-2.5 shrink-0">
+      {active && <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />}
+      <span className={`relative inline-flex h-2.5 w-2.5 rounded-full ${active ? 'bg-emerald-400' : 'bg-zinc-600'}`} />
+    </span>
+  );
+}
 
-      {/* Header — logo beside title */}
-      <div className="flex items-center gap-5">
-        <div className="relative h-16 w-16 shrink-0">
-          <Image src={GHOST_LOGO} alt="GhostAgent" fill className="object-contain" unoptimized />
+function AgentCard({ agent, onEvolve }: { agent: DemoAgent; onEvolve: () => void }) {
+  const nsColor = NS_COLOR[agent.namespace] ?? 'text-zinc-400';
+  return (
+    <div className="flex flex-col justify-between rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5">
+      {/* Top row */}
+      <div>
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <HeartbeatDot active={agent.active} />
+            <span className="text-base font-semibold text-[#f2eee4]">{agent.name}</span>
+          </div>
+          <div className="flex items-center gap-1.5 flex-wrap justify-end">
+            {agent.tier === 'pro' ? (
+              <span className="inline-flex items-center gap-1 rounded-full bg-violet-500/15 px-2.5 py-0.5 text-[10px] font-bold text-violet-300 ring-1 ring-violet-500/30">
+                <svg className="h-2.5 w-2.5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                PRO
+              </span>
+            ) : (
+              <span className="inline-flex items-center rounded-full bg-zinc-500/15 px-2.5 py-0.5 text-[10px] font-medium text-zinc-400 ring-1 ring-zinc-500/20">FREE</span>
+            )}
+            {agent.ipDomain && (
+              <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-300 ring-1 ring-emerald-500/20">
+                {agent.ipDomain}
+              </span>
+            )}
+            {agent.brainType && (
+              <span className="inline-flex items-center rounded-full bg-sky-500/10 px-2 py-0.5 text-[10px] font-medium text-sky-300 ring-1 ring-sky-500/20">
+                {agent.brainType}
+              </span>
+            )}
+          </div>
         </div>
-        <div>
-          <h1 className="text-2xl font-bold text-[#f2eee4]">My Agents</h1>
-          <p className="mt-1 text-sm text-[var(--muted)]">
-            {DEMO_AGENTS.length} agents across {new Set(DEMO_AGENTS.map(a => a.namespace)).size} namespaces
-          </p>
+
+        <div className="mt-1 flex items-center gap-1.5">
+          <span className={`text-[11px] font-medium ${nsColor}`}>{agent.namespace}</span>
+        </div>
+        <code className="mt-0.5 block text-[11px] text-[var(--muted)]">{agent.tba}</code>
+
+        {/* Stats */}
+        <div className="mt-4 grid grid-cols-3 gap-2">
+          {[
+            { label: '$HOST', value: agent.hostScore.toFixed(1), color: 'text-violet-300' },
+            { label: 'INBOX', value: agent.inbox, color: 'text-[#f2eee4]' },
+            { label: 'EVENTS', value: agent.events, color: 'text-[#f2eee4]' },
+          ].map(({ label, value, color }) => (
+            <div key={label} className="rounded-lg border border-[var(--border)] bg-black/20 px-2.5 py-2">
+              <div className="text-[9px] font-semibold tracking-wider text-[var(--muted)]">{label}</div>
+              <div className={`mt-0.5 text-sm font-medium ${color}`}>{value}</div>
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* Agent Grid */}
-      <div className="grid gap-4 md:grid-cols-2">
+      {/* Actions */}
+      <div className="mt-4 flex flex-col gap-2">
+        <div className="flex gap-2">
+          {agent.tier === 'free' && (
+            <button
+              onClick={onEvolve}
+              className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-violet-600 to-fuchsia-600 px-3 py-2 text-xs font-semibold text-white transition hover:opacity-90"
+            >
+              + Evolve to Pro
+            </button>
+          )}
+          <button className="flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-black/30 px-3 py-2 text-xs font-medium text-[var(--muted)] transition hover:text-white">
+            ↻ Molt
+          </button>
+          <Link
+            href={`/dashboard/agent/${agent.name}`}
+            className="flex items-center gap-1 rounded-lg border border-[var(--border)] bg-black/30 px-3 py-2 text-xs font-medium text-[var(--muted)] transition hover:text-white"
+          >
+            View Details →
+          </Link>
+        </div>
+
+        {agent.tier === 'free' && (
+          <div className="flex items-start gap-2 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2">
+            <svg className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            <span className="text-[10px] text-amber-300/80">Free tier — inbox decays after 8 days. Evolve to Pro for persistent storage + IP protection.</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default function DashboardHome() {
+  const [evolvingAgent, setEvolvingAgent] = useState<string | null>(null);
+
+  function handleEvolve(agentName: string) {
+    setEvolvingAgent(agentName);
+    setTimeout(() => setEvolvingAgent(null), 3000);
+  }
+
+  return (
+    <div className="space-y-8">
+
+      {/* Header */}
+      <div className="mb-4 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={GHOST_LOGO} alt="GhostAgent" className="h-28 w-28 object-contain drop-shadow-[0_0_18px_rgba(184,134,97,0.4)]" />
+          <h1 className="pl-1 text-2xl font-bold text-[#f2eee4]">My Agents</h1>
+        </div>
+        <a
+          href="https://nftmail.box/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="rounded-lg border border-[rgba(176,128,92,0.3)] bg-[rgba(176,128,92,0.08)] px-4 py-1.5 text-xs font-semibold text-[#b0805c] transition hover:bg-[rgba(176,128,92,0.14)]"
+        >
+          NFTmail.box ↗
+        </a>
+      </div>
+
+      {/* Agent Cards — 3-col grid */}
+      <div className="grid gap-4 lg:grid-cols-3 md:grid-cols-2">
         {DEMO_AGENTS.map((agent) => (
           <AgentCard
             key={agent.name}
-            {...agent}
-            isMolting={moltingAgent === agent.name}
-            onUpgrade={agent.tier === 'free' ? () => handleUpgrade(agent.name) : undefined}
+            agent={agent}
+            onEvolve={() => handleEvolve(agent.name)}
           />
         ))}
       </div>
 
       {/* MY BODIES separator */}
-      <div className="flex items-center gap-4 pt-2">
+      <div className="flex items-center gap-4 py-2">
         <div className="h-px flex-1 bg-[var(--border)]" />
-        <span className="text-xs font-semibold tracking-[0.18em] text-[var(--muted)]">MY BODIES</span>
-        <div className="h-px flex-1 bg-[var(--border)]" />
-      </div>
-
-      <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5">
-        <p className="text-sm text-[var(--muted)]">
-          Agent body NFTs appear here. <a href="/dashboard/mint-body" className="text-[rgb(160,220,255)] hover:underline">Mint an Agent Body →</a>
-        </p>
-      </div>
-
-      {/* MY BRAIN separator */}
-      <div className="flex items-center gap-4 pt-2">
-        <div className="h-px flex-1 bg-[var(--border)]" />
-        <span className="text-xs font-semibold tracking-[0.18em] text-[var(--muted)]">MY BRAIN</span>
+        <span className="text-[10px] font-semibold tracking-[0.18em] text-[var(--muted)]">MY BODIES</span>
         <div className="h-px flex-1 bg-[var(--border)]" />
       </div>
 
-      <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5">
-        <p className="text-sm text-[var(--muted)]">
-          Installed brain modules appear here. <a href="/dashboard/install-brain" className="text-[rgb(160,220,255)] hover:underline">Install a Brain →</a>
-        </p>
-      </div>
-
-      {/* Recent Work Receipts */}
-      <div>
-        <h2 className="mb-4 text-lg font-semibold text-[#f2eee4]">Recent Work Receipts</h2>
-        <div className="grid gap-4">
-          {DEMO_RECEIPTS.map((receipt) => (
-            <WorkReceiptCard key={receipt.receiptNumber} {...receipt} />
-          ))}
+      {/* My Bodies section */}
+      <section>
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-xl font-semibold text-[#f2eee4]">My Bodies</h2>
+          <Link href="/dashboard/mint-body" className="text-xs text-[var(--muted)] transition hover:text-white">
+            Mint Agent Body →
+          </Link>
         </div>
+        <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)]">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-[var(--border)]">
+                {['NAME', 'NAMESPACE', 'TOKEN ID', 'TBA', 'MINTED'].map((h) => (
+                  <th key={h} className="px-4 py-3 text-left text-[10px] font-semibold tracking-wider text-[var(--muted)]">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {DEMO_BODIES.map((body, i) => {
+                const nsColor = NS_COLOR[body.namespace] ?? 'text-zinc-400';
+                return (
+                  <tr key={body.name} className={i < DEMO_BODIES.length - 1 ? 'border-b border-[var(--border)]' : ''}>
+                    <td className="px-4 py-3 font-medium text-[#f2eee4]">{body.name}</td>
+                    <td className={`px-4 py-3 text-xs font-medium ${nsColor}`}>{body.namespace}</td>
+                    <td className="px-4 py-3 text-[var(--muted)]">#{body.tokenId}</td>
+                    <td className="px-4 py-3 font-mono text-xs text-[var(--muted)]">{body.tba}</td>
+                    <td className="px-4 py-3 text-xs text-[var(--muted)]">{body.minted}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      {/* MY BRAINS separator */}
+      <div className="flex items-center gap-4 py-2">
+        <div className="h-px flex-1 bg-[var(--border)]" />
+        <span className="text-[10px] font-semibold tracking-[0.18em] text-[var(--muted)]">MY BRAINS</span>
+        <div className="h-px flex-1 bg-[var(--border)]" />
       </div>
+
+      {/* My Brains section */}
+      <section>
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-xl font-semibold text-[#f2eee4]">My Brains</h2>
+          <Link href="/dashboard/install-brain" className="text-xs text-[var(--muted)] transition hover:text-white">
+            Install Agent Brain →
+          </Link>
+        </div>
+        <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)]">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-[var(--border)]">
+                {['AGENT', 'TYPE', 'ENDPOINT', 'INSTALLED'].map((h) => (
+                  <th key={h} className="px-4 py-3 text-left text-[10px] font-semibold tracking-wider text-[var(--muted)]">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {DEMO_BRAINS.map((brain, i) => (
+                <tr key={brain.agent} className={i < DEMO_BRAINS.length - 1 ? 'border-b border-[var(--border)]' : ''}>
+                  <td className="px-4 py-3 font-medium text-[#f2eee4]">{brain.agent}</td>
+                  <td className="px-4 py-3">
+                    <span className="inline-flex items-center rounded-full bg-sky-500/10 px-2 py-0.5 text-[10px] font-medium text-sky-300 ring-1 ring-sky-500/20">
+                      {brain.type}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 font-mono text-xs text-[var(--muted)]">{brain.endpoint}</td>
+                  <td className="px-4 py-3 text-xs text-[var(--muted)]">{brain.installed}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
 
     </div>
   );
