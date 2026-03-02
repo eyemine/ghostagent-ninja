@@ -54,8 +54,10 @@ export default function Home() {
 
           <Link
             href="/dashboard/install-brain"
-            className="w-full rounded-xl px-6 py-3 text-center text-sm font-semibold transition hover:bg-white/[0.06]"
+            className="w-full rounded-xl px-6 py-3 text-center text-sm font-semibold transition"
             style={{ color: 'rgb(243,238,228)', border: '1px solid rgba(243,238,228,0.2)', background: 'rgba(255,255,255,0.04)' }}
+            onMouseEnter={e => (e.currentTarget.style.background = '#262934')}
+            onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')}
           >
             Mint Agent Brain
           </Link>
@@ -64,6 +66,8 @@ export default function Home() {
             href="https://ghostagent.ninja/nftmail"
             className="w-full rounded-xl px-6 py-3 text-center text-sm font-semibold transition"
             style={{ color: 'rgb(184,134,97)', border: '1px solid rgba(184,134,97,0.5)', background: 'rgba(184,134,97,0.07)' }}
+            onMouseEnter={e => (e.currentTarget.style.background = '#271e18')}
+            onMouseLeave={e => (e.currentTarget.style.background = 'rgba(184,134,97,0.07)')}
           >
             Get a free Agent NFTmail.box address
           </Link>
@@ -72,8 +76,10 @@ export default function Home() {
             href="https://nftmail.box/"
             target="_blank"
             rel="noopener noreferrer"
-            className="w-full rounded-xl px-6 py-3 text-center text-sm font-semibold transition hover:brightness-110"
-            style={{ color: '#d9d9d8', border: '1px solid rgba(133,147,207,0.2)', background: '#0f1323' }}
+            className="w-full rounded-xl px-6 py-3 text-center text-sm font-semibold transition"
+            style={{ color: '#9b9b9b', border: '1px solid rgba(133,147,207,0.2)', background: '#0f1323' }}
+            onMouseEnter={e => (e.currentTarget.style.background = '#161b31')}
+            onMouseLeave={e => (e.currentTarget.style.background = '#0f1323')}
           >
             Get a free Personal NFTmail.box address
           </Link>
