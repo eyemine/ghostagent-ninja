@@ -3,6 +3,7 @@ import { Inter, Roboto_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { AppNav } from "./components/AppNav";
 
 const geistSans = Inter({
   variable: "--font-geist-sans",
@@ -17,8 +18,11 @@ const geistMono = Roboto_Mono({
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: "GhostAgent Dashboard",
+  title: "GhostAgent Ninja",
   description: "GhostAgent control surface",
+  icons: {
+    icon: '/favicon.ico',
+  },
 };
 
 export default function RootLayout({
@@ -28,6 +32,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <link rel="icon" href="/favicon.ico" type="image/png" />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
@@ -47,7 +54,10 @@ export default function RootLayout({
           }}
         />
         <ErrorBoundary>
-          <Providers>{children}</Providers>
+          <Providers>
+            <AppNav />
+            {children}
+          </Providers>
         </ErrorBoundary>
       </body>
     </html>
