@@ -25,7 +25,7 @@ export function AppNav() {
     <>
       {/* ── Desktop: top bar ── */}
       <header className="hidden md:flex fixed top-0 left-0 right-0 z-40 h-14 items-center justify-between border-b border-[var(--border)] bg-[#0f0703]/[0.66] backdrop-blur-md px-8">
-        <Link href="/" className="text-xs font-bold tracking-[0.18em] text-[#b0805c] hover:text-white transition-colors">
+        <Link href="/" className="tracking-[0.18em] text-[#b0805c] hover:text-white transition-colors" style={{ fontFamily: 'Ayuthaya, serif', fontSize: '0.75rem' }}>
           GHOSTAGENT.NINJA
         </Link>
         <nav className="flex items-center gap-1">
@@ -54,7 +54,7 @@ export function AppNav() {
       {/* ── Mobile: hamburger dropdown ── */}
       <header className="md:hidden fixed top-0 left-0 right-0 z-40 border-b border-[var(--border)] bg-[#0f0703]/[0.66] backdrop-blur-md">
         <div className="flex h-14 items-center justify-between px-5">
-          <Link href="/" className="text-xs font-bold tracking-[0.18em] text-[#b0805c]" onClick={() => setMobileOpen(false)}>
+          <Link href="/" className="tracking-[0.18em] text-[#b0805c]" style={{ fontFamily: 'Ayuthaya, serif', fontSize: '0.75rem' }} onClick={() => setMobileOpen(false)}>
             GHOSTAGENT.NINJA
           </Link>
           <button
