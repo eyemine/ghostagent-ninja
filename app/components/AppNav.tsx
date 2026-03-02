@@ -5,11 +5,11 @@ import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 
 const NAV = [
-  { href: '/dashboard',            label: 'DASHBOARD' },
-  { href: '/dashboard/marketplace', label: 'MARKETPLACE' },
-  { href: '/dashboard/mint-body',   label: 'MINT AGENT BODY' },
-  { href: '/dashboard/install-brain', label: 'INSTALL AGENT BRAIN' },
-  { href: '/host',                  label: '$HOST' },
+  { href: '/dashboard', label: 'Dashboard' },
+  { href: '/dashboard/marketplace', label: 'Marketplace' },
+  { href: '/dashboard/mint-body', label: 'Mint Agent Body' },
+  { href: '/dashboard/install-brain', label: 'Install Agent Brain' },
+  { href: '/host', label: '$HOST' },
 ];
 
 export function AppNav() {
@@ -35,10 +35,10 @@ export function AppNav() {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`rounded-lg px-4 py-2 text-[11px] font-semibold tracking-[0.12em] transition-colors ${
+                className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
                   active
-                    ? 'bg-[rgba(0,163,255,0.12)] text-[rgb(160,220,255)]'
-                    : 'text-[#b0805c] hover:bg-white/5 hover:text-[rgb(160,220,255)]'
+                    ? 'border border-[rgba(176,128,92,0.5)] bg-[rgba(176,128,92,0.08)] text-[#b0805c]'
+                    : 'text-[#b0805c] hover:bg-white/5 hover:text-[#f2eee4]'
                 }`}
               >
                 {item.label}
@@ -82,10 +82,10 @@ export function AppNav() {
                   key={item.href}
                   href={item.href}
                   onClick={() => setMobileOpen(false)}
-                  className={`rounded-lg px-4 py-3 text-[11px] font-semibold tracking-[0.12em] transition-colors ${
+                  className={`rounded-lg px-4 py-3 text-xs font-medium transition-colors ${
                     active
-                      ? 'bg-[rgba(0,163,255,0.12)] text-[rgb(160,220,255)]'
-                      : 'text-[#b0805c] hover:bg-white/5 hover:text-[rgb(160,220,255)]'
+                      ? 'border border-[rgba(176,128,92,0.5)] bg-[rgba(176,128,92,0.08)] text-[#b0805c]'
+                      : 'text-[#b0805c] hover:bg-white/5 hover:text-[#f2eee4]'
                   }`}
                 >
                   {item.label}
