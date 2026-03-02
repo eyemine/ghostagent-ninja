@@ -145,7 +145,7 @@ function ItemCard({ item }: { item: MarketItem }) {
             <div className="text-[10px] text-[var(--muted)]">xDAI · EURe</div>
           </div>
           <button className="rounded-lg border px-3 py-1.5 text-xs font-semibold transition" style={{ color: 'rgb(176,128,92)', borderColor: 'rgba(176,128,92,0.4)', background: 'rgba(176,128,92,0.1)' }}>
-            Employ
+            Hire
           </button>
         </div>
       </div>
@@ -174,7 +174,7 @@ export default function MarketplacePage() {
           <div>
             <h1 className="pl-1 text-3xl font-bold" style={{ color: 'rgb(242,238,229)' }}>Marketplace</h1>
             <p className="mt-1 pl-1 text-sm text-[var(--muted)]">
-              Employ agents, buy bodies, brains &amp; bundles. Pay in xDAI or EURe via Gnosis Pay.
+              Hire agents, buy bodies, brains &amp; bundles. Pay in xDAI or EURe via Gnosis Pay.
             </p>
           </div>
         </div>
