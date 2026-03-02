@@ -53,9 +53,9 @@ export default function RootLayout({
             `,
           }}
         />
+        <AppNav />
         <ErrorBoundary>
           <Providers>
-            <AppNav />
             {children}
           </Providers>
         </ErrorBoundary>
