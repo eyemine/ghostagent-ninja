@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
       }),
     });
 
-    const data = await res.json();
+    const data = await res.json() as { error?: string; [key: string]: any };
     if (!res.ok) {
       return NextResponse.json({ error: data.error || 'Worker error' }, { status: res.status });
     }
