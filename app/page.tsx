@@ -72,7 +72,7 @@ export default function Home() {
                     <rect x="2" y="6" width="20" height="12" rx="2" />
                     <path d="M22 8l-10 5L2 8" />
                   </svg>
-                  NFTMail.box
+                  GET AN AGENT NFTMAIL.BOX ADDRESS
                   <svg className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M5 12h14" />
                     <path d="m12 5 7 7-7 7" />
@@ -82,26 +82,49 @@ export default function Home() {
             </>
           )}
 
-          {/* NFTMail.box entry — always visible */}
+          {/* NFTMail.box entries — always visible when not authenticated */}
           {!authenticated && (
             <div className="flex flex-col items-center gap-3 pt-4">
               <span className="text-[10px] tracking-wider text-[var(--muted)]">OR START WITH EMAIL</span>
+
+              {/* Agent NFTmail — internal /nftmail page, 12 xDAI */}
               <Link
                 href="/nftmail"
-                className="group inline-flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/8 px-6 py-3 text-sm font-semibold text-emerald-300 transition-all hover:bg-emerald-500/15 hover:shadow-[0_0_24px_rgba(16,185,129,0.12)]"
+                className="group inline-flex items-center gap-2 rounded-xl border border-[rgba(0,163,255,0.35)] bg-[rgba(0,163,255,0.08)] px-6 py-3 text-sm font-semibold text-[rgb(160,220,255)] transition-all hover:bg-[rgba(0,163,255,0.15)] hover:shadow-[0_0_24px_rgba(0,163,255,0.12)]"
               >
                 <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <rect x="2" y="6" width="20" height="12" rx="2" />
                   <path d="M22 8l-10 5L2 8" />
                 </svg>
-                Get a free NFTMail.box address
+                GET AN AGENT NFTMAIL.BOX ADDRESS
                 <svg className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M5 12h14" />
                   <path d="m12 5 7 7-7 7" />
                 </svg>
               </Link>
               <p className="text-[10px] text-[var(--muted)]">
-                Mint → Upgrade → Molt to Agent — same TBA, zero migration
+                Agent identity on Gnosis Chain — 12 xDAI mint
+              </p>
+
+              {/* Free personal NFTmail — external nftmail.box */}
+              <Link
+                href="https://nftmail.box"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group inline-flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/8 px-6 py-3 text-sm font-semibold text-emerald-300 transition-all hover:bg-emerald-500/15 hover:shadow-[0_0_24px_rgba(16,185,129,0.12)]"
+              >
+                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="2" y="6" width="20" height="12" rx="2" />
+                  <path d="M22 8l-10 5L2 8" />
+                </svg>
+                GET A FREE PERSONAL NFTMAIL.BOX ADDRESS
+                <svg className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M5 12h14" />
+                  <path d="m12 5 7 7-7 7" />
+                </svg>
+              </Link>
+              <p className="text-[10px] text-[var(--muted)]">
+                Sovereign email identity — free with ENS or approved NFT
               </p>
             </div>
           )}
