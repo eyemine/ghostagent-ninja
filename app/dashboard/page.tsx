@@ -1,12 +1,11 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { AgentCard } from '../components/AgentCard';
 import { WorkReceiptCard } from '../components/WorkReceiptCard';
-import { MintAgentBundle } from '../components/MintAgentBundle';
-import { InstallBrain } from '../components/InstallBrain';
-import { AttachAgent } from '../components/AttachAgent';
-import { NFTMAIL_SAFE } from '../utils/chains';
+
+const GHOST_LOGO = '/ghost-logo.png';
 
 // Demo data — will be replaced with real data from KV/chain
 const DEMO_AGENTS = [
@@ -99,12 +98,18 @@ export default function DashboardHome() {
 
   return (
     <div className="max-w-4xl space-y-8">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-white">My Agents</h1>
-        <p className="mt-1 text-sm text-[var(--muted)]">
-          {DEMO_AGENTS.length} agents across {new Set(DEMO_AGENTS.map(a => a.namespace)).size} namespaces
-        </p>
+
+      {/* Header — logo beside title */}
+      <div className="flex items-center gap-5">
+        <div className="relative h-16 w-16 shrink-0">
+          <Image src={GHOST_LOGO} alt="GhostAgent" fill className="object-contain" unoptimized />
+        </div>
+        <div>
+          <h1 className="text-2xl font-bold text-[#f2eee4]">My Agents</h1>
+          <p className="mt-1 text-sm text-[var(--muted)]">
+            {DEMO_AGENTS.length} agents across {new Set(DEMO_AGENTS.map(a => a.namespace)).size} namespaces
+          </p>
+        </div>
       </div>
 
       {/* Agent Grid */}
@@ -119,59 +124,42 @@ export default function DashboardHome() {
         ))}
       </div>
 
-      {/* Mint Agent Bundle: nftmail.gno → self-contained → @nftmail.box */}
-      <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5">
-        <div className="mb-3">
-          <h2 className="text-lg font-semibold text-white">Mint Agent Bundle</h2>
-          <p className="mt-1 text-xs text-[var(--muted)]">
-            Self-contained: mints postmaster.postmaster.nftmail.gno → postmaster.postmaster@nftmail.box — same TBA, zero dependency.
-          </p>
-        </div>
-        <MintAgentBundle
-          agentName="postmaster"
-          safeAddress={NFTMAIL_SAFE}
-          namespace="nftmail"
-        />
+      {/* MY BODIES separator */}
+      <div className="flex items-center gap-4 pt-2">
+        <div className="h-px flex-1 bg-[var(--border)]" />
+        <span className="text-xs font-semibold tracking-[0.18em] text-[var(--muted)]">MY BODIES</span>
+        <div className="h-px flex-1 bg-[var(--border)]" />
       </div>
 
-      {/* Install Brain → Awaken Agent */}
       <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5">
-        <div className="mb-3">
-          <h2 className="text-lg font-semibold text-white">Install Brain</h2>
-          <p className="mt-1 text-xs text-[var(--muted)]">
-            Install Brain module into Safe → agent starts receiving/sending A2A email via postmaster_@nftmail.box.
-          </p>
-        </div>
-        <InstallBrain
-          agentName="postmaster"
-          safeAddress={NFTMAIL_SAFE}
-          tbaAddress={NFTMAIL_SAFE}
-        />
+        <p className="text-sm text-[var(--muted)]">
+          Agent body NFTs appear here. <a href="/dashboard/mint-body" className="text-[rgb(160,220,255)] hover:underline">Mint an Agent Body →</a>
+        </p>
       </div>
 
-      {/* Attach Cloud Agent */}
+      {/* MY BRAIN separator */}
+      <div className="flex items-center gap-4 pt-2">
+        <div className="h-px flex-1 bg-[var(--border)]" />
+        <span className="text-xs font-semibold tracking-[0.18em] text-[var(--muted)]">MY BRAIN</span>
+        <div className="h-px flex-1 bg-[var(--border)]" />
+      </div>
+
       <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5">
-        <div className="mb-3">
-          <h2 className="text-lg font-semibold text-white">Attach Agent</h2>
-          <p className="mt-1 text-xs text-[var(--muted)]">
-            Deploy an OpenClaw JS Worker (free) and attach it to your agent. Cloud-native — zero dependencies, zero cost.
-          </p>
-        </div>
-        <AttachAgent
-          agentName="postmaster"
-          tbaAddress={NFTMAIL_SAFE}
-        />
+        <p className="text-sm text-[var(--muted)]">
+          Installed brain modules appear here. <a href="/dashboard/install-brain" className="text-[rgb(160,220,255)] hover:underline">Install a Brain →</a>
+        </p>
       </div>
 
       {/* Recent Work Receipts */}
       <div>
-        <h2 className="mb-4 text-lg font-semibold text-white">Recent Work Receipts</h2>
+        <h2 className="mb-4 text-lg font-semibold text-[#f2eee4]">Recent Work Receipts</h2>
         <div className="grid gap-4">
           {DEMO_RECEIPTS.map((receipt) => (
             <WorkReceiptCard key={receipt.receiptNumber} {...receipt} />
           ))}
         </div>
       </div>
+
     </div>
   );
 }

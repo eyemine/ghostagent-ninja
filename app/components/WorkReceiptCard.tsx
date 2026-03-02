@@ -156,7 +156,7 @@ export function WorkReceiptCard({
                   transition={{ duration: 0.4 }}
                   className="absolute inset-0 -m-2 rounded-full bg-violet-500/20 blur-sm"
                 />
-                +{surgeCounter.toFixed(3)} $SURGE
+                +{surgeCounter.toFixed(3)} $HOST
               </motion.div>
               <motion.div
                 initial={{ scale: 0.8, opacity: 0 }}

@@ -28,7 +28,7 @@ export function AppNav() {
         <Link href="/" className="tracking-[0.18em] text-[#b0805c] hover:text-white transition-colors" style={{ fontFamily: 'Ayuthaya, serif', fontSize: '0.75rem' }}>
           GHOSTAGENT.NINJA
         </Link>
-        <nav className="flex items-center gap-1">
+        <nav className="flex items-center gap-2">
           {NAV.map((item) => {
             const active = isActive(item.href);
             return (
@@ -37,7 +37,7 @@ export function AppNav() {
                 href={item.href}
                 className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
                   active
-                    ? 'border border-[rgba(176,128,92,0.5)] bg-[rgba(176,128,92,0.08)] text-[#b0805c]'
+                    ? 'bg-[rgba(176,128,92,0.5)] text-[#f2eee4]'
                     : 'text-[#b0805c] hover:bg-white/5 hover:text-[#f2eee4]'
                 }`}
               >
@@ -84,7 +84,7 @@ export function AppNav() {
                   onClick={() => setMobileOpen(false)}
                   className={`rounded-lg px-4 py-3 text-xs font-medium transition-colors ${
                     active
-                      ? 'border border-[rgba(176,128,92,0.5)] bg-[rgba(176,128,92,0.08)] text-[#b0805c]'
+                      ? 'bg-[rgba(176,128,92,0.5)] text-[#f2eee4]'
                       : 'text-[#b0805c] hover:bg-white/5 hover:text-[#f2eee4]'
                   }`}
                 >

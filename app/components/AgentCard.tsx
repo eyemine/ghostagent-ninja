@@ -147,7 +147,7 @@ export function AgentCard({
           <HeartbeatDot lastHeartbeat={lastHeartbeat} />
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-base font-semibold text-white">{name}</span>
+              <span className="text-base font-semibold text-[#f2eee4]">{name}</span>
               <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-medium ${nsMeta.color} ${nsMeta.bgColor}`}>
                 {nsMeta.label}
               </span>
@@ -161,16 +161,16 @@ export function AgentCard({
       {/* Stats row */}
       <div className="relative mt-4 grid grid-cols-3 gap-3">
         <div className="rounded-lg border border-[var(--border)] bg-black/20 px-3 py-2">
-          <div className="text-[10px] font-semibold tracking-wider text-[var(--muted)]">$SURGE</div>
+          <div className="text-[10px] font-semibold tracking-wider text-[var(--muted)]">$HOST</div>
           <div className="mt-0.5 text-sm font-medium text-violet-300">{surgeScore.toFixed(1)}</div>
         </div>
         <div className="rounded-lg border border-[var(--border)] bg-black/20 px-3 py-2">
           <div className="text-[10px] font-semibold tracking-wider text-[var(--muted)]">INBOX</div>
-          <div className="mt-0.5 text-sm font-medium text-white">{inboxCount}</div>
+          <div className="mt-0.5 text-sm font-medium text-[#f2eee4]">{inboxCount}</div>
         </div>
         <div className="rounded-lg border border-[var(--border)] bg-black/20 px-3 py-2">
           <div className="text-[10px] font-semibold tracking-wider text-[var(--muted)]">EVENTS</div>
-          <div className="mt-0.5 text-sm font-medium text-white">{calendarCount}</div>
+          <div className="mt-0.5 text-sm font-medium text-[#f2eee4]">{calendarCount}</div>
         </div>
       </div>
 
@@ -184,7 +184,7 @@ export function AgentCard({
             <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M12 2v20M2 12h20" />
             </svg>
-            Upgrade to Pro
+            Evolve
           </button>
         )}
         <Link
@@ -204,7 +204,7 @@ export function AgentCard({
             <line x1="12" y1="17" x2="12.01" y2="17" />
           </svg>
           <span className="text-[10px] text-amber-300/80">
-            Free tier — inbox decays after 8 days. Upgrade to Pro for persistent storage + IP protection.
+            Free tier — inbox decays after 8 days. Evolve for persistent storage + IP protection.
           </span>
         </div>
       )}
