@@ -134,9 +134,19 @@ export default function MintBodyPage() {
                 </span>
               )}
 
-              {/* Icon + domain */}
-              <div className="flex items-center gap-3">
-                <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-xl bg-black/40">
+              {/* Text left, icon right */}
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex flex-col gap-1.5">
+                  <div>
+                    <div className="text-sm font-semibold text-white">{n.title}</div>
+                    <div className="text-[10px] font-medium text-[rgb(160,220,255)]">{n.domain}</div>
+                  </div>
+                  <div className="space-y-0.5">
+                    <p className="text-xs text-[var(--muted)]">{n.line1}</p>
+                    <p className="text-xs text-[var(--muted)] opacity-75">{n.line2}</p>
+                  </div>
+                </div>
+                <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-xl">
                   <Image
                     src={PLACEHOLDER_ICON}
                     alt={n.domain}
@@ -145,16 +155,6 @@ export default function MintBodyPage() {
                     unoptimized
                   />
                 </div>
-                <div>
-                  <div className="text-sm font-semibold text-white">{n.title}</div>
-                  <div className="text-[10px] font-medium text-[rgb(160,220,255)]">{n.domain}</div>
-                </div>
-              </div>
-
-              {/* Two-line description */}
-              <div className="space-y-0.5">
-                <p className="text-xs text-[var(--muted)]">{n.line1}</p>
-                <p className="text-xs text-[var(--muted)] opacity-75">{n.line2}</p>
               </div>
             </button>
           );
