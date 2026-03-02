@@ -41,3 +41,12 @@ body {
   color: #fff;
   font-family: Arial, Helvetica, sans-serif;
 }
+
+@keyframes logotypeFadeIn {
+  0%   { color: #080911; }
+  100% { color: #f9f6f2; }
+}
+
+.logotype-fadein {
+  animation: logotypeFadeIn 0.9s ease-out forwards;
+}
