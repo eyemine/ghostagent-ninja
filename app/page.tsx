@@ -60,17 +60,27 @@ export default function Home() {
           </Link>
 
           <Link
-            href="/nftmail"
+            href="https://ghostagent.ninja/nftmail"
             className="w-full rounded-xl px-6 py-3 text-center text-sm font-semibold transition"
-            style={{ color: 'rgb(184,134,97)', border: '1px solid rgba(184,134,97,0.5)', background: 'rgba(184,134,97,0.07)' }}
+            style={{ color: '#d9d9d8', border: '1px solid rgba(217,217,216,0.3)', background: 'rgba(217,217,216,0.06)' }}
           >
-            Get a free NFTmail.box address
+            Get an Agent NFTmail.box address
+          </Link>
+
+          <Link
+            href="https://nftmail.box/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full rounded-xl px-6 py-3 text-center text-sm font-semibold transition"
+            style={{ color: '#d9d9d8', border: '1px solid rgba(217,217,216,0.3)', background: 'rgba(217,217,216,0.06)' }}
+          >
+            Get a free Personal NFTmail.box
           </Link>
         </div>
 
         {/* Tagline */}
         <p className="text-[10px] text-[var(--muted)]">
-          Mint → Upgrade → Molt to Agent — same TBA, zero migration
+          Mint → Evolve → Molt to Agent — same TBA, zero migration
         </p>
 
       </div>
