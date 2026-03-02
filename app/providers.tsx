@@ -5,15 +5,6 @@ import { PropsWithChildren, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { NavConnectButton } from './components/NavConnectButton';
 
-function NavConnectSlot() {
-  const [slot, setSlot] = useState<Element | null>(null);
-  useEffect(() => {
-    setSlot(document.getElementById('nav-connect-slot'));
-  }, []);
-  if (!slot) return null;
-  return createPortal(<NavConnectButton />, slot);
-}
-
 const PRIVY_APP_ID = process.env.NEXT_PUBLIC_PRIVY_APP_ID?.trim();
 
 const GNOSIS_CHAIN = {
@@ -43,15 +34,22 @@ function isValidPrivyAppId(appId: string | undefined) {
   return true;
 }
 
+function NavConnectSlot() {
+  const [slot, setSlot] = useState<Element | null>(null);
+  useEffect(() => { setSlot(document.getElementById('nav-connect-slot')); }, []);
+  if (!slot) return null;
+  return createPortal(<NavConnectButton />, slot);
+}
+
 export function Providers({ children }: PropsWithChildren) {
   if (!isValidPrivyAppId(PRIVY_APP_ID)) {
     return (
       <>
-        <div className="fixed top-14 left-0 right-0 z-50 border-b border-amber-500/30 bg-amber-500/10 px-4 py-2 text-center text-[11px] text-amber-300">
-          <span className="font-semibold">SETUP REQUIRED</span>
-          {' — '}Set <code className="font-mono">NEXT_PUBLIC_PRIVY_APP_ID</code> in Netlify environment variables, then redeploy.
+        <div className="fixed top-14 left-0 right-0 z-50 bg-amber-500/10 border-b border-amber-500/30 px-4 py-2 text-center text-xs text-amber-300">
+          <span className="font-semibold">SETUP REQUIRED</span> — set{' '}
+          <code className="font-mono">NEXT_PUBLIC_PRIVY_APP_ID</code> in Netlify env vars and redeploy.
         </div>
-        <div className="pt-8">{children}</div>
+        {children}
       </>
     );
   }
@@ -74,8 +72,8 @@ export function Providers({ children }: PropsWithChildren) {
         supportedChains: [GNOSIS_CHAIN],
       }}
     >
-      {children}
       <NavConnectSlot />
+      {children}
     </PrivyProvider>
   );
 }
