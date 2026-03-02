@@ -45,6 +45,9 @@ export function AppNav() {
               </Link>
             );
           })}
+          <div className="ml-3 pl-3 border-l border-[var(--border)]">
+            <div id="nav-connect-slot" />
+          </div>
         </nav>
       </header>
 

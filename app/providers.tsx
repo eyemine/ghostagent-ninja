@@ -1,7 +1,18 @@
 'use client';
 
 import { PrivyProvider } from '@privy-io/react-auth';
-import { PropsWithChildren } from 'react';
+import { PropsWithChildren, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { NavConnectButton } from './components/NavConnectButton';
+
+function NavConnectSlot() {
+  const [slot, setSlot] = useState<Element | null>(null);
+  useEffect(() => {
+    setSlot(document.getElementById('nav-connect-slot'));
+  }, []);
+  if (!slot) return null;
+  return createPortal(<NavConnectButton />, slot);
+}
 
 const PRIVY_APP_ID = process.env.NEXT_PUBLIC_PRIVY_APP_ID?.trim();
 
@@ -59,11 +70,12 @@ export function Providers({ children }: PropsWithChildren) {
           createOnLogin: 'users-without-wallets',
           noPromptOnSignature: false,
         },
-        defaultChain: GNOSIS_CHAIN, // Gnosis Chain
-        supportedChains: [GNOSIS_CHAIN], // Gnosis only for MVP
+        defaultChain: GNOSIS_CHAIN,
+        supportedChains: [GNOSIS_CHAIN],
       }}
     >
       {children}
+      <NavConnectSlot />
     </PrivyProvider>
   );
 }
