@@ -24,8 +24,8 @@ export function AppNav() {
   return (
     <>
       {/* ── Desktop: top bar ── */}
-      <header className="hidden md:flex fixed top-0 left-0 right-0 z-40 h-14 items-center justify-between border-b border-[var(--border)] bg-[#0f0703] px-8">
-        <Link href="/" className="text-xs font-bold tracking-[0.18em] text-[rgb(160,220,255)] hover:text-white transition-colors">
+      <header className="hidden md:flex fixed top-0 left-0 right-0 z-40 h-14 items-center justify-between border-b border-[var(--border)] bg-[#0f0703]/[0.66] backdrop-blur-md px-8">
+        <Link href="/" className="text-xs font-bold tracking-[0.18em] text-[#b0805c] hover:text-white transition-colors">
           GHOSTAGENT.NINJA
         </Link>
         <nav className="flex items-center gap-1">
@@ -37,8 +37,8 @@ export function AppNav() {
                 href={item.href}
                 className={`rounded-lg px-4 py-2 text-[11px] font-semibold tracking-[0.12em] transition-colors ${
                   active
-                    ? 'bg-[rgba(0,163,255,0.15)] text-[rgb(160,220,255)]'
-                    : 'text-[var(--foreground)] hover:bg-white/5 hover:text-[rgb(160,220,255)]'
+                    ? 'bg-[rgba(0,163,255,0.12)] text-[rgb(160,220,255)]'
+                    : 'text-[#b0805c] hover:bg-white/5 hover:text-[rgb(160,220,255)]'
                 }`}
               >
                 {item.label}
@@ -49,9 +49,9 @@ export function AppNav() {
       </header>
 
       {/* ── Mobile: hamburger dropdown ── */}
-      <header className="md:hidden fixed top-0 left-0 right-0 z-40 border-b border-[var(--border)] bg-[#0f0703]">
+      <header className="md:hidden fixed top-0 left-0 right-0 z-40 border-b border-[var(--border)] bg-[#0f0703]/[0.66] backdrop-blur-md">
         <div className="flex h-14 items-center justify-between px-5">
-          <Link href="/" className="text-xs font-bold tracking-[0.18em] text-[rgb(160,220,255)]" onClick={() => setMobileOpen(false)}>
+          <Link href="/" className="text-xs font-bold tracking-[0.18em] text-[#b0805c]" onClick={() => setMobileOpen(false)}>
             GHOSTAGENT.NINJA
           </Link>
           <button
@@ -71,7 +71,7 @@ export function AppNav() {
           </button>
         </div>
         {mobileOpen && (
-          <nav className="flex flex-col border-t border-[var(--border)] bg-[#0f0703] px-4 py-3 gap-1">
+          <nav className="flex flex-col border-t border-[var(--border)] bg-[#0f0703]/[0.95] px-4 py-3 gap-1">
             {NAV.map((item) => {
               const active = isActive(item.href);
               return (
@@ -81,8 +81,8 @@ export function AppNav() {
                   onClick={() => setMobileOpen(false)}
                   className={`rounded-lg px-4 py-3 text-[11px] font-semibold tracking-[0.12em] transition-colors ${
                     active
-                      ? 'bg-[rgba(0,163,255,0.15)] text-[rgb(160,220,255)]'
-                      : 'text-[var(--foreground)] hover:bg-white/5 hover:text-[rgb(160,220,255)]'
+                      ? 'bg-[rgba(0,163,255,0.12)] text-[rgb(160,220,255)]'
+                      : 'text-[#b0805c] hover:bg-white/5 hover:text-[rgb(160,220,255)]'
                   }`}
                 >
                   {item.label}

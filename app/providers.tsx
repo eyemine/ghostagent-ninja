@@ -35,18 +35,13 @@ function isValidPrivyAppId(appId: string | undefined) {
 export function Providers({ children }: PropsWithChildren) {
   if (!isValidPrivyAppId(PRIVY_APP_ID)) {
     return (
-      <div className="min-h-screen bg-[radial-gradient(1200px_circle_at_20%_-10%,rgba(0,163,255,0.16),transparent_45%),radial-gradient(900px_circle_at_90%_10%,rgba(124,77,255,0.14),transparent_40%),linear-gradient(180deg,var(--background),#03040a)]">
-        <div className="mx-auto flex min-h-screen max-w-3xl flex-col items-center justify-center gap-6 px-4 py-8">
-          <div className="w-full rounded-2xl border border-[rgba(0,163,255,0.35)] bg-[rgba(0,163,255,0.12)] p-5">
-            <div className="text-xs font-semibold tracking-[0.18em] text-[rgb(160,220,255)]">SETUP REQUIRED</div>
-            <div className="mt-2 text-lg font-semibold">Add a valid Privy App ID</div>
-            <div className="mt-2 text-sm text-[var(--muted)]">
-              Set <code className="font-mono">NEXT_PUBLIC_PRIVY_APP_ID</code> in <code className="font-mono">.env.local</code>, then restart the dev server.
-            </div>
-          </div>
-          <div className="w-full opacity-70">{children}</div>
+      <>
+        <div className="fixed top-14 left-0 right-0 z-50 border-b border-amber-500/30 bg-amber-500/10 px-4 py-2 text-center text-[11px] text-amber-300">
+          <span className="font-semibold">SETUP REQUIRED</span>
+          {' — '}Set <code className="font-mono">NEXT_PUBLIC_PRIVY_APP_ID</code> in Netlify environment variables, then redeploy.
         </div>
-      </div>
+        <div className="pt-8">{children}</div>
+      </>
     );
   }
 

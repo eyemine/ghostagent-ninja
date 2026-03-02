@@ -136,7 +136,7 @@ export default function MintBodyPage() {
 
               {/* Icon + domain */}
               <div className="flex items-center gap-3">
-                <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-xl border border-[var(--border)] bg-black/40">
+                <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-xl bg-black/40">
                   <Image
                     src={PLACEHOLDER_ICON}
                     alt={n.domain}
@@ -147,7 +147,7 @@ export default function MintBodyPage() {
                 </div>
                 <div>
                   <div className="text-sm font-semibold text-white">{n.title}</div>
-                  <div className="rounded-sm text-[10px] font-medium text-[rgb(160,220,255)]">{n.domain}</div>
+                  <div className="text-[10px] font-medium text-[rgb(160,220,255)]">{n.domain}</div>
                 </div>
               </div>
 
@@ -155,22 +155,6 @@ export default function MintBodyPage() {
               <div className="space-y-0.5">
                 <p className="text-xs text-[var(--muted)]">{n.line1}</p>
                 <p className="text-xs text-[var(--muted)] opacity-75">{n.line2}</p>
-              </div>
-
-              {/* Features */}
-              <div className="grid grid-cols-1 gap-1.5">
-                {n.features.map((f, i) => (
-                  <div key={i} className="flex items-center gap-2 text-xs">
-                    <svg
-                      className={`h-3 w-3 shrink-0 ${isSelected ? 'text-[rgb(160,220,255)]' : 'text-[var(--muted)]'}`}
-                      viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
-                      strokeLinecap="round" strokeLinejoin="round"
-                    >
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
-                    <span className={isSelected ? 'text-[rgb(160,220,255)]' : 'text-[var(--muted)]'}>{f}</span>
-                  </div>
-                ))}
               </div>
             </button>
           );
