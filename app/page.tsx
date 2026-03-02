@@ -11,8 +11,8 @@ export default function Home() {
       <div className="flex min-h-screen flex-col items-center justify-center px-4 py-16">
 
         {/* Logo */}
-        <div className="relative h-20 w-20 overflow-hidden rounded-2xl mb-6">
-          <Image src={GHOST_LOGO} alt="GhostAgent" fill className="object-cover" unoptimized />
+        <div className="relative h-24 w-24 mb-6">
+          <Image src={GHOST_LOGO} alt="GhostAgent" fill className="object-contain" unoptimized />
         </div>
 
         {/* Title */}

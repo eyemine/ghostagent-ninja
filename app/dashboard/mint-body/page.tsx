@@ -48,8 +48,8 @@ export default function MintBodyPage() {
 
       {/* ── Hero: logo left of heading ── */}
       <div className="flex items-center gap-6">
-        <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-2xl">
-          <Image src={GHOST_LOGO} alt="GhostAgent" fill className="object-cover" unoptimized />
+        <div className="relative h-24 w-24 shrink-0">
+          <Image src={GHOST_LOGO} alt="GhostAgent" fill className="object-contain" unoptimized />
         </div>
         <div>
           <h1 className="text-3xl font-bold text-[#f2eee4]">Mint Agent Body</h1>
