@@ -7,7 +7,7 @@ const GHOST_LOGO = 'https://i.imgur.com/PrJjQ5j.png';
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-[radial-gradient(900px_circle_at_20%_20%,rgba(0,60,120,0.45),transparent_60%),radial-gradient(700px_circle_at_80%_10%,rgba(60,20,100,0.35),transparent_55%),linear-gradient(180deg,#05060e,#03040a)]">
+    <div className="min-h-screen bg-[radial-gradient(1200px_circle_at_20%_-10%,rgba(0,163,255,0.16),transparent_45%),radial-gradient(900px_circle_at_90%_10%,rgba(124,77,255,0.14),transparent_40%),linear-gradient(180deg,var(--background),#03040a)]">
       <div className="flex min-h-screen flex-col items-center justify-center px-4 py-16">
 
         {/* Logo */}
