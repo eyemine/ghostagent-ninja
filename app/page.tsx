@@ -54,27 +54,28 @@ export default function Home() {
 
           <Link
             href="/dashboard/install-brain"
-            className="w-full rounded-xl border border-[var(--border)] bg-white/[0.04] px-6 py-3 text-center text-sm font-semibold text-white transition hover:bg-white/[0.07]"
+            className="w-full rounded-xl px-6 py-3 text-center text-sm font-semibold transition hover:bg-white/[0.06]"
+            style={{ color: 'rgb(243,238,228)', border: '1px solid rgba(243,238,228,0.2)', background: 'rgba(255,255,255,0.04)' }}
           >
-            Install Agent Brain
+            Mint Agent Brain
           </Link>
 
           <Link
             href="https://ghostagent.ninja/nftmail"
             className="w-full rounded-xl px-6 py-3 text-center text-sm font-semibold transition"
-            style={{ color: '#d9d9d8', border: '1px solid rgba(217,217,216,0.3)', background: 'rgba(217,217,216,0.06)' }}
+            style={{ color: 'rgb(184,134,97)', border: '1px solid rgba(184,134,97,0.5)', background: 'rgba(184,134,97,0.07)' }}
           >
-            Get an Agent NFTmail.box address
+            Get a free Agent NFTmail.box address
           </Link>
 
           <Link
             href="https://nftmail.box/"
             target="_blank"
             rel="noopener noreferrer"
-            className="w-full rounded-xl px-6 py-3 text-center text-sm font-semibold transition"
-            style={{ color: '#d9d9d8', border: '1px solid rgba(217,217,216,0.3)', background: 'rgba(217,217,216,0.06)' }}
+            className="w-full rounded-xl px-6 py-3 text-center text-sm font-semibold transition hover:brightness-110"
+            style={{ color: '#d9d9d8', border: '1px solid rgba(133,147,207,0.2)', background: '#0f1323' }}
           >
-            Get a free Personal NFTmail.box
+            Get a free Personal NFTmail.box address
           </Link>
         </div>
 
