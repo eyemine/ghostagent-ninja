@@ -27,12 +27,12 @@ export function AppNav() {
       <header className="hidden md:grid fixed top-0 left-0 right-0 z-40 h-14 border-b border-[var(--border)] bg-[#0f0703]/[0.66] backdrop-blur-md px-8" style={{ gridTemplateColumns: '1fr auto 1fr' }}>
         {/* Logo — left */}
         <div className="flex items-center">
-          <Link href="/" className="tracking-[0.18em] text-[#b0805c] hover:text-white transition-colors whitespace-nowrap" style={{ fontFamily: 'Ayuthaya, serif', fontSize: '0.75rem' }}>
+          <Link href="/" className="tracking-[0.18em] hover:text-[#f9f6f2] transition-colors whitespace-nowrap" style={{ fontFamily: 'Ayuthaya, "Courier New", Courier, monospace', fontSize: '0.75rem', color: '#f9f6f2' }}>
             GHOSTAGENT.NINJA
           </Link>
         </div>
         {/* Nav — center */}
-        <nav className="flex items-center gap-2">
+        <nav className="flex items-center gap-4">
           {NAV.map((item) => {
             const active = isActive(item.href);
             return (
@@ -59,7 +59,7 @@ export function AppNav() {
       {/* ── Mobile: hamburger dropdown ── */}
       <header className="md:hidden fixed top-0 left-0 right-0 z-40 border-b border-[var(--border)] bg-[#0f0703]/[0.66] backdrop-blur-md">
         <div className="flex h-14 items-center justify-between px-5">
-          <Link href="/" className="tracking-[0.18em] text-[#b0805c]" style={{ fontFamily: 'Ayuthaya, serif', fontSize: '0.75rem' }} onClick={() => setMobileOpen(false)}>
+          <Link href="/" className="tracking-[0.18em] hover:text-[#f9f6f2] transition-colors" style={{ fontFamily: 'Ayuthaya, "Courier New", Courier, monospace', fontSize: '0.75rem', color: '#f9f6f2' }} onClick={() => setMobileOpen(false)}>
             GHOSTAGENT.NINJA
           </Link>
           <div className="flex items-center gap-2">

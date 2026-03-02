@@ -41,6 +41,13 @@ function NavConnectSlot() {
   return createPortal(<NavConnectButton />, slot);
 }
 
+function NavConnectSlotMobile() {
+  const [slot, setSlot] = useState<Element | null>(null);
+  useEffect(() => { setSlot(document.getElementById('nav-connect-slot-mobile')); }, []);
+  if (!slot) return null;
+  return createPortal(<NavConnectButton />, slot);
+}
+
 export function Providers({ children }: PropsWithChildren) {
   if (!isValidPrivyAppId(PRIVY_APP_ID)) {
     return (
@@ -73,6 +80,7 @@ export function Providers({ children }: PropsWithChildren) {
       }}
     >
       <NavConnectSlot />
+      <NavConnectSlotMobile />
       {children}
     </PrivyProvider>
   );
