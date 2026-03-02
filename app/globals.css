@@ -1,3 +1,11 @@
+@font-face {
+  font-family: 'Ayuthaya';
+  src: url('/fonts/Ayuthaya.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -10,6 +18,8 @@
   --card-2: #070a14;
   --accent: #00a3ff;
   --accent-2: #7c4dff;
+  --font-logotype: 'Ayuthaya', serif;
+  --logotype-color: #d8d4cf;
 }
 
 @media (prefers-color-scheme: dark) {

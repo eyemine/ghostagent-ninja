@@ -16,7 +16,7 @@ export default function Home() {
         </div>
 
         {/* Title */}
-        <div className="text-sm font-semibold tracking-[0.22em] text-[#f2eee4] mb-3">
+        <div className="mb-3 tracking-[0.22em] text-[#d8d4cf]" style={{ fontFamily: 'Ayuthaya, serif', fontSize: '1rem' }}>
           GHOSTAGENT . NINJA
         </div>
         <h1 className="text-3xl font-bold text-[#f2eee4] mb-4 text-center">
