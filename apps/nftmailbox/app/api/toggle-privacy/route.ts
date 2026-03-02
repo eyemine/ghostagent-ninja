@@ -11,7 +11,7 @@ const WORKER_URL = process.env.NEXT_PUBLIC_WORKER_URL || 'https://nftmail-email-
  */
 export async function POST(req: NextRequest) {
   try {
-    const { name, enabled, walletAddress } = await req.json();
+    const { name, enabled, walletAddress } = await req.json() as { name: string; enabled: boolean; walletAddress: string };
 
     if (!name || typeof enabled !== 'boolean' || !walletAddress) {
       return NextResponse.json(
