@@ -1,6 +1,5 @@
 'use client';
 
-import Image from 'next/image';
 import Link from 'next/link';
 
 const GHOST_LOGO = '/ghost-logo.png';
@@ -10,25 +9,42 @@ export default function Home() {
     <div className="min-h-screen bg-[radial-gradient(900px_circle_at_20%_20%,rgba(0,60,120,0.45),transparent_60%),radial-gradient(700px_circle_at_80%_10%,rgba(60,20,100,0.35),transparent_55%),linear-gradient(180deg,#05060e,#03040a)]">
       <div className="flex min-h-screen flex-col items-center justify-center px-4 py-16">
 
-        {/* Logo */}
-        <div className="relative h-20 w-20 overflow-hidden rounded-2xl mb-6">
-          <Image src={GHOST_LOGO} alt="GhostAgent" fill className="object-cover" unoptimized />
+        {/* Logo + Title hero */}
+        <div className="flex flex-col items-center gap-3">
+          <div className="relative flex flex-col items-center">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={GHOST_LOGO}
+              alt="GhostAgent logo"
+              className="relative z-10 mb-[-0.5rem] mr-auto ml-6 h-28 w-28 object-contain drop-shadow-[0_0_28px_rgba(184,134,97,0.55)]"
+              style={{ transform: 'translateY(8px)' }}
+            />
+            <h1
+              className="text-[1.75rem] font-normal uppercase leading-none tracking-[0.04em]"
+              style={{
+                fontFamily: 'Ayuthaya, serif',
+                WebkitFontSmoothing: 'antialiased',
+                MozOsxFontSmoothing: 'grayscale',
+                background: 'linear-gradient(90deg, #ffffff 0%, #f2eee4 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text',
+              } as React.CSSProperties}
+            >
+              GHOSTAGENT.NINJA
+            </h1>
+          </div>
+          <p className="text-[1.75rem] font-semibold leading-none" style={{ color: '#acacac' }}>
+            Non-custodial agent identity
+          </p>
+          <p className="mt-2 max-w-md text-sm text-[var(--muted)]">
+            Mint your agent NFT to create a persistent identity vault on Gnosis Chain.
+            Your NFT is the key — transfer it to transfer control.
+          </p>
         </div>
-
-        {/* Title */}
-        <div className="text-sm font-semibold tracking-[0.22em] text-[#f2eee4] mb-3" style={{ fontFamily: 'Ayuthaya, serif' }}>
-          GHOSTAGENT . NINJA
-        </div>
-        <h1 className="text-3xl font-bold text-[#f2eee4] mb-4 text-center">
-          Non-custodial agent identity
-        </h1>
-        <p className="max-w-sm text-center text-sm text-[var(--muted)] mb-10">
-          Mint your agent NFT to create a persistent identity vault on Gnosis Chain.
-          Your NFT is the key — transfer it to transfer control.
-        </p>
 
         {/* CTA buttons */}
-        <div className="flex w-full max-w-md flex-col gap-3">
+        <div className="mt-10 flex w-full max-w-md flex-col gap-3">
           <Link
             href="/dashboard/mint-body"
             className="w-full rounded-xl border border-[rgba(0,163,255,0.4)] bg-[rgba(0,80,160,0.25)] px-6 py-4 text-center text-sm font-semibold text-[rgb(160,220,255)] transition hover:bg-[rgba(0,80,160,0.35)]"
