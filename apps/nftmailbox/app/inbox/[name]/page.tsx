@@ -240,7 +240,7 @@ export default function InboxPage() {
           try {
             const auditRes = await fetch(`https://${agentName}-proxy.richard-159.workers.dev/audit`);
             if (auditRes.ok) {
-              const auditData = await auditRes.json();
+              const auditData = await auditRes.json() as { auditLog?: any[] };
               setAuditEntries((auditData.auditLog || []).map((e: any) => ({
                 id: e.id,
                 from: e.from,
@@ -263,7 +263,7 @@ export default function InboxPage() {
             body: JSON.stringify({ action: 'getInbox', localPart: name }),
           });
           if (kvRes.ok) {
-            const kvData = await kvRes.json();
+            const kvData = await kvRes.json() as { messages?: any[] };
             const kvMessages = (kvData.messages || []).map((m: any) => ({
               id: m.id || `msg-${Math.random().toString(36).slice(2)}`,
               subject: m.subject || '(no subject)',
