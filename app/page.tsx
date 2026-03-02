@@ -3,7 +3,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 
-const GHOST_LOGO = 'https://i.imgur.com/PrJjQ5j.png';
+const GHOST_LOGO = '/ghost-logo.png';
 
 export default function Home() {
   return (

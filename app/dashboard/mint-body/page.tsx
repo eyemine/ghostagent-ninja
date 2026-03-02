@@ -6,7 +6,7 @@ import { MintAgentBundle } from '../../components/MintAgentBundle';
 
 type Namespace = 'agent' | 'openclaw' | 'molt' | 'picoclaw' | 'vault' | 'nftmail';
 
-const PLACEHOLDER_ICON = 'https://i.imgur.com/PrJjQ5j.png';
+const PLACEHOLDER_ICON = '/ghost-logo.png';
 
 const NAMESPACES: {
   key: Namespace;
