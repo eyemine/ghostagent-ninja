@@ -957,6 +957,24 @@ export default {
           return corsify(Response.json({ status: 'ok', agent, stakedHost: stakeRecord.stakedHost }), request);
         }
 
+        // Evolve Level: get raw acct-tier KV record for level scanning
+        if (email.action === 'getAcctTier') {
+          const agent = email.localPart || '';
+          if (!agent) {
+            return corsify(Response.json({ error: 'Missing localPart' }, { status: 400 }), request);
+          }
+          const raw = await env.INBOX_KV.get(`acct-tier:${agent}`);
+          if (!raw) {
+            return corsify(Response.json({ tier: 'basic', raw: null }), request);
+          }
+          try {
+            const parsed = JSON.parse(raw);
+            return corsify(Response.json({ ...parsed, raw }), request);
+          } catch {
+            return corsify(Response.json({ tier: 'basic', raw }), request);
+          }
+        }
+
         // Open Agency: resolve agent TLD and public status
         if (email.action === 'getAgentTLD') {
           const agent = email.localPart || '';
