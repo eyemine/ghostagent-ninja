@@ -46,16 +46,20 @@ export async function GET(req: NextRequest) {
   }
 
   // ── 1. Worker KV: is this agent name already provisioned? ───────────────────
+  // getAcctTier returns { tier, ... } only if the acct-tier KV entry exists.
+  // Unregistered agents have no entry → returns { tier: null } or { error }.
   let agentTaken = false;
   try {
     const workerRes = await fetch(WORKER_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'getAgentStatus', localPart: name }),
+      body: JSON.stringify({ action: 'getAcctTier', localPart: name }),
     });
     if (workerRes.ok) {
-      const data = await workerRes.json() as { exists?: boolean; tier?: string; inboxCount?: number };
-      agentTaken = !!(data.exists || data.tier || (data.inboxCount && data.inboxCount > 0));
+      const data = await workerRes.json() as { tier?: string | null; raw?: string | null; error?: string };
+      // raw is null when no acct-tier KV entry exists → name is free
+      // raw is a non-null string only when an entry was actually written (provisioned agent)
+      agentTaken = !!(data.raw && !data.error);
     }
   } catch {
     // worker unreachable — proceed optimistically
