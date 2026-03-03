@@ -3,6 +3,14 @@
 import MailStorageAdapter, { CalendarInvite } from './storage';
 import { buildDirectMessageTopic, createWakuEnvelope } from './waku';
 import { encrypt as eciesEncrypt, generateKeyPair, EncryptedEnvelope } from './ecies';
+import {
+  PrivacyTier as PrivacyTierType,
+  routeSetPrivacy,
+  parsePrivacyRecord,
+  validateSetPrivacy,
+  shouldEncrypt,
+  getMoltPrivateCharge,
+} from './privacy-router';
 
 export interface Env {
   BACKEND: 'KV';
@@ -859,43 +867,51 @@ export default {
 
         // Privacy Toggle: set privacy tier for an address
         // tier: 'exposed' (default free), 'private' (toggle, blurred inbox), 'hard-privacy' (paid, no public content)
+        // molt.gno private = $0.20/email (flagged in record, billed downstream)
         if (email.action === 'setPrivacy') {
           const agent = email.localPart || '';
-          const tier = (email as any).tier as string | undefined;
+          const tld: string = (email as any).tld || await getAgentTld(agent, env);
+          const rawTier = (email as any).tier as string | undefined;
           const privacyEnabled = (email as any).privacyEnabled;
+          const walletAddress: string | undefined = (email as any).walletAddress;
+          const moltPrivatePaid: boolean = !!(email as any).moltPrivatePaid;
           if (!agent) {
             return corsify(Response.json({ error: 'Missing localPart' }, { status: 400 }), request);
           }
           // Support both old boolean format and new tier format
-          const resolvedTier = tier || (privacyEnabled === true ? 'private' : privacyEnabled === false ? 'exposed' : null);
-          if (!resolvedTier || !['exposed', 'private', 'hard-privacy'].includes(resolvedTier)) {
-            return corsify(Response.json({ error: 'Missing or invalid tier (exposed|private|hard-privacy)' }, { status: 400 }), request);
+          const resolvedTier = rawTier || (privacyEnabled === true ? 'private' : privacyEnabled === false ? 'exposed' : null);
+          const validationError = validateSetPrivacy(resolvedTier ?? undefined, tld);
+          if (validationError) {
+            return corsify(Response.json({ error: validationError }, { status: 400 }), request);
           }
-          await env.INBOX_KV.put(`privacy:${agent}`, JSON.stringify({
-            tier: resolvedTier,
-            enabled: resolvedTier !== 'exposed',
-            updatedAt: Date.now(),
-          }));
-          return corsify(Response.json({ status: 'ok', tier: resolvedTier }), request);
+          const { kvKey, record, result } = routeSetPrivacy(
+            agent,
+            tld,
+            resolvedTier as PrivacyTierType,
+            walletAddress,
+            moltPrivatePaid,
+          );
+          await env.INBOX_KV.put(kvKey, JSON.stringify(record));
+          return corsify(Response.json(result), request);
         }
 
         // Privacy Toggle: get privacy state for an address
         if (email.action === 'getPrivacy') {
           const agent = email.localPart || '';
+          const tld: string = (email as any).tld || await getAgentTld(agent, env);
           if (!agent) {
             return corsify(Response.json({ error: 'Missing localPart' }, { status: 400 }), request);
           }
           const raw = await env.INBOX_KV.get(`privacy:${agent}`);
-          if (!raw) {
-            return corsify(Response.json({ tier: 'exposed', privacyEnabled: false }), request);
-          }
-          try {
-            const data = JSON.parse(raw);
-            const tier = data.tier || (data.privacyEnabled ? 'private' : 'exposed');
-            return corsify(Response.json({ tier, privacyEnabled: tier !== 'exposed' }), request);
-          } catch {
-            return corsify(Response.json({ privacyEnabled: false }), request);
-          }
+          const record = parsePrivacyRecord(raw, tld);
+          const moltCharge = getMoltPrivateCharge(record);
+          return corsify(Response.json({
+            tier: record.tier,
+            privacyEnabled: record.enabled,
+            tld: record.tld,
+            moltPrivateCharge: moltCharge,
+            updatedAt: record.updatedAt,
+          }), request);
         }
 
         // Open Agency: resolve agent TLD and public status
