@@ -914,6 +914,49 @@ export default {
           }), request);
         }
 
+        // $HOST Staking: get current stake record for an agent
+        if (email.action === 'getStake') {
+          const agent = email.localPart || '';
+          if (!agent) {
+            return corsify(Response.json({ error: 'Missing localPart' }, { status: 400 }), request);
+          }
+          const raw = await env.INBOX_KV.get(`stake:${agent}`);
+          if (!raw) {
+            return corsify(Response.json({
+              stakedHost: 0, activeTier: 'none', unlockedSend: false,
+              persistenceDays: null, expiresAt: null, moltPrivateBalance: 0,
+            }), request);
+          }
+          try {
+            return corsify(Response.json(JSON.parse(raw)), request);
+          } catch {
+            return corsify(Response.json({ stakedHost: 0, activeTier: 'none', unlockedSend: false }), request);
+          }
+        }
+
+        // $HOST Staking: set/update stake record for an agent
+        if (email.action === 'setStake') {
+          const agent = email.localPart || '';
+          const stakeRecord = (email as any).stakeRecord;
+          if (!agent || !stakeRecord) {
+            return corsify(Response.json({ error: 'Missing localPart or stakeRecord' }, { status: 400 }), request);
+          }
+          await env.INBOX_KV.put(`stake:${agent}`, JSON.stringify(stakeRecord));
+          // Mirror send-unlock into acct-tier for retention logic
+          if (stakeRecord.unlockedSend) {
+            const tierRaw = await env.INBOX_KV.get(`acct-tier:${agent}`);
+            let tierData: any = {};
+            try { tierData = tierRaw ? JSON.parse(tierRaw) : {}; } catch {}
+            if (!tierData.tier || tierData.tier === 'basic') {
+              tierData.tier = 'lite';
+              tierData.stakedUnlock = true;
+              tierData.updatedAt = Date.now();
+              await env.INBOX_KV.put(`acct-tier:${agent}`, JSON.stringify(tierData));
+            }
+          }
+          return corsify(Response.json({ status: 'ok', agent, stakedHost: stakeRecord.stakedHost }), request);
+        }
+
         // Open Agency: resolve agent TLD and public status
         if (email.action === 'getAgentTLD') {
           const agent = email.localPart || '';
