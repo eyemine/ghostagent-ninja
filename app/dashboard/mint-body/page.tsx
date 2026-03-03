@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { MintAgentBundle } from '../../components/MintAgentBundle';
 
 type Namespace = 'agent' | 'openclaw' | 'molt' | 'picoclaw' | 'vault' | 'nftmail';
@@ -123,9 +123,47 @@ function feeLabel(fee: number | 'free') {
   return fee === 'free' ? 'Free' : `${fee} xDAI`;
 }
 
+type CheckStatus = 'idle' | 'checking' | 'available' | 'taken' | 'ens-clash' | 'invalid' | 'error';
+
+interface CheckResult {
+  available: boolean;
+  reason?: string;
+  message?: string;
+  ensOwner?: string | null;
+  ensName?: string | null;
+  ensClash?: boolean;
+}
+
 export default function MintBodyPage() {
   const [selected, setSelected] = useState<Namespace>('agent');
   const [agentName, setAgentName] = useState('');
+  const [checkStatus, setCheckStatus] = useState<CheckStatus>('idle');
+  const [checkResult, setCheckResult] = useState<CheckResult | null>(null);
+
+  const checkAvailability = useCallback(async () => {
+    if (!agentName || agentName.length < 2) return;
+    setCheckStatus('checking');
+    setCheckResult(null);
+    try {
+      const ns = NAMESPACES.find(n => n.key === selected)!;
+      const res = await fetch(`/api/check-name?name=${encodeURIComponent(agentName)}&tld=${encodeURIComponent(ns.domain)}`);
+      const data: CheckResult = await res.json();
+      setCheckResult(data);
+      if (!data.available && data.reason === 'invalid') setCheckStatus('invalid');
+      else if (!data.available) setCheckStatus('taken');
+      else if (data.ensClash) setCheckStatus('ens-clash');
+      else setCheckStatus('available');
+    } catch {
+      setCheckStatus('error');
+    }
+  }, [agentName, selected]);
+
+  // Reset check whenever name or namespace changes
+  function handleNameChange(val: string) {
+    setAgentName(val.toLowerCase().replace(/[^a-z0-9-]/g, ''));
+    setCheckStatus('idle');
+    setCheckResult(null);
+  }
 
   const ns = NAMESPACES.find(n => n.key === selected)!;
   const fullName = agentName ? `${agentName}.${ns.domain}` : '';
@@ -201,11 +239,27 @@ export default function MintBodyPage() {
         <div className="flex items-center rounded-xl border border-[var(--border)] bg-[var(--card)] px-4 py-3 focus-within:border-[rgba(176,128,92,0.4)]">
           <input
             value={agentName}
-            onChange={e => setAgentName(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+            onChange={e => handleNameChange(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && checkAvailability()}
             placeholder="e.g. postmaster"
             className="flex-1 bg-transparent text-sm text-[#f2eee4] outline-none placeholder:text-[var(--muted)]"
           />
           <span className="shrink-0 text-sm text-[var(--muted)]">.{ns.domain}</span>
+          {agentName.length >= 2 && (
+            <button
+              onClick={checkAvailability}
+              disabled={checkStatus === 'checking'}
+              className="ml-3 shrink-0 rounded-lg border px-3 py-1.5 text-xs font-semibold transition disabled:opacity-50"
+              style={{ color: 'rgb(176,128,92)', borderColor: 'rgba(176,128,92,0.4)', background: 'rgba(176,128,92,0.1)' }}
+            >
+              {checkStatus === 'checking' ? (
+                <span className="flex items-center gap-1.5">
+                  <svg className="h-3 w-3 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v4m0 12v4m-7.07-3.93 2.83-2.83m8.48-8.48 2.83-2.83M2 12h4m12 0h4"/></svg>
+                  Checking…
+                </span>
+              ) : 'Check availability'}
+            </button>
+          )}
         </div>
 
         {/* Responsive name preview */}
@@ -222,7 +276,40 @@ export default function MintBodyPage() {
               <span className="text-[var(--muted)]">·</span>
               <span className="text-[var(--muted)]">email:</span>
               <span className="font-medium text-[#f2eee4]">{agentName}_@nftmail.box</span>
-              <span className="ml-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500/15 text-[9px] text-emerald-300" title="Available">✓</span>
+
+              {/* Availability status indicator */}
+              {checkStatus === 'idle' && (
+                <span className="ml-0.5 text-[10px] text-[var(--muted)]">· press Check availability →</span>
+              )}
+              {checkStatus === 'checking' && (
+                <span className="ml-0.5 inline-flex items-center gap-1 text-[10px] text-[var(--muted)]">
+                  <svg className="h-2.5 w-2.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v4m0 12v4"/></svg>
+                  Checking…
+                </span>
+              )}
+              {checkStatus === 'available' && (
+                <span className="ml-0.5 inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold text-emerald-300 ring-1 ring-emerald-500/20">
+                  ✓ Available
+                </span>
+              )}
+              {checkStatus === 'ens-clash' && (
+                <span className="ml-0.5 inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-300 ring-1 ring-amber-500/20">
+                  ✓ Available · {checkResult?.ensName} on ENS
+                </span>
+              )}
+              {checkStatus === 'taken' && (
+                <span className="ml-0.5 inline-flex items-center gap-1 rounded-full bg-red-500/15 px-2 py-0.5 text-[10px] font-semibold text-red-400 ring-1 ring-red-500/20">
+                  ✗ Already registered
+                </span>
+              )}
+              {checkStatus === 'invalid' && (
+                <span className="ml-0.5 inline-flex items-center gap-1 rounded-full bg-red-500/15 px-2 py-0.5 text-[10px] font-semibold text-red-400 ring-1 ring-red-500/20">
+                  ✗ Invalid name
+                </span>
+              )}
+              {checkStatus === 'error' && (
+                <span className="ml-0.5 text-[10px] text-[var(--muted)]">· check failed, try again</span>
+              )}
             </div>
 
             {/* Divider */}
