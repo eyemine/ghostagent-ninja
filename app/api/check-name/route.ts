@@ -30,8 +30,9 @@ const ethClient = createPublicClient({
  *   { available: true, ensOwner: '0x…', ensName: 'postmaster.eth', ensClash: true }
  */
 export async function GET(req: NextRequest) {
-  const name = req.nextUrl.searchParams.get('name')?.toLowerCase().trim();
-  const tld  = req.nextUrl.searchParams.get('tld') || 'agent.gno';
+  const name   = req.nextUrl.searchParams.get('name')?.toLowerCase().trim();
+  const tld    = req.nextUrl.searchParams.get('tld') || 'agent.gno';
+  const wallet = req.nextUrl.searchParams.get('wallet')?.toLowerCase().trim() ?? null;
 
   if (!name || name.length < 2) {
     return NextResponse.json({ error: 'Name too short' }, { status: 400 });
@@ -96,6 +97,11 @@ export async function GET(req: NextRequest) {
     // ENS check non-fatal — network may be unreachable
   }
 
+  // Does the connected wallet own the ENS name?
+  const ensOwnedByWallet = ensClash && wallet !== null
+    && ensOwner !== null
+    && ensOwner.toLowerCase() === wallet.toLowerCase();
+
   return NextResponse.json({
     available: true,
     name,
@@ -105,8 +111,11 @@ export async function GET(req: NextRequest) {
     ensOwner,
     ensName,
     ensClash,
+    ensOwnedByWallet,
     message: ensClash
-      ? `Available — note: ${name}.eth exists on ENS (${ensOwner?.slice(0, 6)}…${ensOwner?.slice(-4)}).`
+      ? ensOwnedByWallet
+        ? `Available to ${ensName} on ENS.`
+        : `Available only to ${ensName} on ENS.`
       : `${name}.${tld} is available.`,
   });
 }

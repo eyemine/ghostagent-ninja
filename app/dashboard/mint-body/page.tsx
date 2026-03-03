@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { MintAgentBundle } from '../../components/MintAgentBundle';
 
 type Namespace = 'agent' | 'openclaw' | 'molt' | 'picoclaw' | 'vault' | 'nftmail';
@@ -132,9 +133,14 @@ interface CheckResult {
   ensOwner?: string | null;
   ensName?: string | null;
   ensClash?: boolean;
+  ensOwnedByWallet?: boolean;
 }
 
 export default function MintBodyPage() {
+  const { authenticated } = usePrivy();
+  const { wallets } = useWallets();
+  const connectedWallet = wallets[0]?.address ?? null;
+
   const [selected, setSelected] = useState<Namespace>('agent');
   const [agentName, setAgentName] = useState('');
   const [checkStatus, setCheckStatus] = useState<CheckStatus>('idle');
@@ -146,7 +152,8 @@ export default function MintBodyPage() {
     setCheckResult(null);
     try {
       const ns = NAMESPACES.find(n => n.key === selected)!;
-      const res = await fetch(`/api/check-name?name=${encodeURIComponent(agentName)}&tld=${encodeURIComponent(ns.domain)}`);
+      const walletParam = connectedWallet ? `&wallet=${encodeURIComponent(connectedWallet)}` : '';
+      const res = await fetch(`/api/check-name?name=${encodeURIComponent(agentName)}&tld=${encodeURIComponent(ns.domain)}${walletParam}`);
       const data: CheckResult = await res.json();
       setCheckResult(data);
       if (!data.available && data.reason === 'invalid') setCheckStatus('invalid');
@@ -156,7 +163,7 @@ export default function MintBodyPage() {
     } catch {
       setCheckStatus('error');
     }
-  }, [agentName, selected]);
+  }, [agentName, selected, connectedWallet]);
 
   // Reset check whenever name or namespace changes
   function handleNameChange(val: string) {
@@ -293,8 +300,12 @@ export default function MintBodyPage() {
                 </span>
               )}
               {checkStatus === 'ens-clash' && (
-                <span className="ml-0.5 inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-300 ring-1 ring-amber-500/20">
-                  ✓ Available · {checkResult?.ensName} on ENS
+                <span className={`ml-0.5 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ${
+                  checkResult?.ensOwnedByWallet
+                    ? 'bg-emerald-500/15 text-emerald-300 ring-emerald-500/20'
+                    : 'bg-amber-500/15 text-amber-300 ring-amber-500/20'
+                }`}>
+                  ✓ {checkResult?.ensOwnedByWallet ? `Available to ${checkResult.ensName} on ENS` : `Available only to ${checkResult?.ensName} on ENS`}
                 </span>
               )}
               {checkStatus === 'taken' && (
