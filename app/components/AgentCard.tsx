@@ -6,6 +6,8 @@ import Link from 'next/link';
 
 type AgentTier = 'free' | 'pro';
 type Namespace = 'agent' | 'openclaw' | 'molt' | 'picoclaw' | 'vault' | 'nftmail';
+export type EvolveLevel = 'larva' | 'pupa' | 'imago' | 'ghost';
+export type PrivacyStatus = 'glassbox' | 'private' | 'hard-privacy';
 
 interface AgentCardProps {
   name: string;
@@ -19,6 +21,13 @@ interface AgentCardProps {
   ipDomain?: string;
   onUpgrade?: () => void;
   isMolting?: boolean;
+  // Domain-specific attributes
+  evolveLevel?: EvolveLevel;
+  privacyStatus?: PrivacyStatus;
+  decayDays?: 8 | 30 | 365 | null;
+  ipType?: 'creation.ip' | 'moltbook.ip' | null;
+  stakedHost?: number;
+  marketplaceBadge?: string | null;
 }
 
 const NAMESPACE_META: Record<Namespace, { label: string; color: string; bgColor: string }> = {
@@ -69,6 +78,31 @@ function HeartbeatDot({ lastHeartbeat }: { lastHeartbeat?: number }) {
   );
 }
 
+const EVOLVE_META: Record<EvolveLevel, { emoji: string; label: string; color: string; bg: string }> = {
+  larva: { emoji: '🥚', label: 'Larva',  color: 'text-zinc-400',    bg: 'bg-zinc-500/10' },
+  pupa:  { emoji: '🐛', label: 'Pupa',   color: 'text-amber-300',   bg: 'bg-amber-500/10' },
+  imago: { emoji: '🦋', label: 'Imago',  color: 'text-violet-300',  bg: 'bg-violet-500/10' },
+  ghost: { emoji: '👻', label: 'Ghost',  color: 'text-fuchsia-300', bg: 'bg-fuchsia-500/10' },
+};
+
+const PRIVACY_META: Record<PrivacyStatus, { icon: string; label: string; color: string }> = {
+  glassbox:    { icon: '🔍', label: 'Glass Box', color: 'text-sky-300' },
+  private:     { icon: '🔒', label: 'Private',   color: 'text-violet-300' },
+  'hard-privacy': { icon: '🛡', label: 'Hard Privacy', color: 'text-fuchsia-300' },
+};
+
+function DecayBadge({ days }: { days: 8 | 30 | 365 | null | undefined }) {
+  if (!days) return null;
+  const color = days === 365 ? 'text-emerald-300 bg-emerald-500/10 ring-emerald-500/20'
+    : days === 30 ? 'text-cyan-300 bg-cyan-500/10 ring-cyan-500/20'
+    : 'text-amber-300 bg-amber-500/10 ring-amber-500/20';
+  return (
+    <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-semibold ring-1 ${color}`}>
+      {days === 365 ? '365d' : days === 30 ? '30d' : '8d'} decay
+    </span>
+  );
+}
+
 export function AgentCard({
   name,
   namespace,
@@ -81,6 +115,12 @@ export function AgentCard({
   ipDomain,
   onUpgrade,
   isMolting = false,
+  evolveLevel,
+  privacyStatus,
+  decayDays,
+  ipType,
+  stakedHost,
+  marketplaceBadge,
 }: AgentCardProps) {
   const [moltPhase, setMoltPhase] = useState<'idle' | 'shedding' | 'emerging' | 'complete'>('idle');
   const nsMeta = NAMESPACE_META[namespace];
@@ -157,6 +197,44 @@ export function AgentCard({
         </div>
         <TierBadge tier={tier} ipDomain={ipDomain} />
       </div>
+
+      {/* Domain attribute badges */}
+      {(evolveLevel || privacyStatus || decayDays || ipType || (stakedHost && stakedHost > 0) || marketplaceBadge) && (
+        <div className="relative mt-3 flex flex-wrap items-center gap-1.5">
+          {evolveLevel && (() => {
+            const m = EVOLVE_META[evolveLevel];
+            return (
+              <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-semibold ring-1 ${m.color} ${m.bg} ring-current/20`}>
+                {m.emoji} {m.label}
+              </span>
+            );
+          })()}
+          {privacyStatus && (() => {
+            const m = PRIVACY_META[privacyStatus];
+            return (
+              <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-semibold ring-1 ${m.color} bg-white/[0.04] ring-current/20`}>
+                {m.icon} {m.label}
+              </span>
+            );
+          })()}
+          <DecayBadge days={decayDays} />
+          {ipType && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[9px] font-semibold text-emerald-300 ring-1 ring-emerald-500/20">
+              ✦ {ipType}
+            </span>
+          )}
+          {stakedHost != null && stakedHost > 0 && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-violet-500/10 px-2 py-0.5 text-[9px] font-semibold text-violet-300 ring-1 ring-violet-500/20">
+              {stakedHost >= 1000 ? `${(stakedHost / 1000).toFixed(1)}K` : stakedHost} $HOST staked
+            </span>
+          )}
+          {marketplaceBadge && (
+            <span className="inline-flex items-center rounded-full bg-[rgba(176,128,92,0.12)] px-2 py-0.5 text-[9px] font-semibold text-[#b0805c] ring-1 ring-[rgba(176,128,92,0.25)]">
+              {marketplaceBadge}
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Stats row */}
       <div className="relative mt-4 grid grid-cols-3 gap-3">

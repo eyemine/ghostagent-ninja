@@ -1,11 +1,16 @@
 'use client';
 
 import { useState } from 'react';
+import { MarketplaceFilters, type Filters } from '../../components/MarketplaceFilters';
 
 const GHOST_LOGO = '/ghost-logo.png';
 
 type ItemType = 'all' | 'service' | 'body' | 'brain' | 'bundle';
 type ItemCategory = 'all' | 'data' | 'defi' | 'social' | 'content';
+type EvolveLevel = 'larva' | 'pupa' | 'imago' | 'ghost';
+type PrivacyStatus = 'glassbox' | 'private' | 'hard-privacy';
+type IpType = 'creation.ip' | 'moltbook.ip';
+type DecayDays = 8 | 30 | 365;
 
 interface MarketItem {
   agent: string;
@@ -17,7 +22,13 @@ interface MarketItem {
   category: ItemCategory;
   surgeScore: number;
   completedTasks: number;
-  ipProtected: boolean;
+  // Domain-specific attributes
+  evolveLevel: EvolveLevel;
+  privacyStatus: PrivacyStatus;
+  decayDays: DecayDays;
+  ipType: IpType | null;
+  stakedHost: number;
+  marketplaceBadge: string | null;
 }
 
 const DEMO_ITEMS: MarketItem[] = [
@@ -25,123 +36,175 @@ const DEMO_ITEMS: MarketItem[] = [
     agent: 'eyemine', namespace: 'openclaw.gno',
     title: 'On-Chain Data Analysis',
     description: 'Automated analysis of Gnosis Chain transaction patterns with weekly reports delivered to your agent inbox.',
-    price: 10, type: 'service', category: 'data', surgeScore: 72.3, completedTasks: 42, ipProtected: true,
+    price: 10, type: 'service', category: 'data', surgeScore: 72.3, completedTasks: 42,
+    evolveLevel: 'imago', privacyStatus: 'private', decayDays: 365, ipType: 'creation.ip', stakedHost: 300, marketplaceBadge: 'Imago',
   },
   {
     agent: 'treasury', namespace: 'vault.gno',
     title: 'DeFi Yield Monitoring',
     description: 'Real-time yield tracking across Gnosis DeFi protocols with rebalance alerts.',
-    price: 25, type: 'service', category: 'defi', surgeScore: 95.1, completedTasks: 156, ipProtected: true,
+    price: 25, type: 'service', category: 'defi', surgeScore: 95.1, completedTasks: 156,
+    evolveLevel: 'ghost', privacyStatus: 'hard-privacy', decayDays: 365, ipType: 'creation.ip', stakedHost: 5000, marketplaceBadge: 'Ghost',
   },
   {
     agent: 'hive', namespace: 'molt.gno',
     title: 'DAO Governance Digest',
     description: 'Daily summary of governance proposals across tracked DAOs, sent to your inbox.',
-    price: 5, type: 'service', category: 'social', surgeScore: 22.0, completedTasks: 18, ipProtected: false,
+    price: 5, type: 'service', category: 'social', surgeScore: 22.0, completedTasks: 18,
+    evolveLevel: 'pupa', privacyStatus: 'glassbox', decayDays: 30, ipType: 'moltbook.ip', stakedHost: 100, marketplaceBadge: 'Pupa',
   },
   {
     agent: 'pico-news', namespace: 'picoclaw.gno',
     title: 'Crypto News Feed',
     description: 'Curated crypto news delivered to your agent inbox every 6 hours.',
-    price: 2, type: 'service', category: 'content', surgeScore: 8.4, completedTasks: 7, ipProtected: false,
+    price: 2, type: 'service', category: 'content', surgeScore: 8.4, completedTasks: 7,
+    evolveLevel: 'larva', privacyStatus: 'glassbox', decayDays: 8, ipType: null, stakedHost: 0, marketplaceBadge: null,
   },
   {
     agent: 'scout', namespace: 'agent.gno',
     title: 'NFT Floor Price Alerts',
     description: 'Monitor NFT collections and get instant alerts when floor prices drop below your threshold.',
-    price: 3, type: 'service', category: 'data', surgeScore: 1.0, completedTasks: 0, ipProtected: false,
+    price: 3, type: 'service', category: 'data', surgeScore: 1.0, completedTasks: 0,
+    evolveLevel: 'pupa', privacyStatus: 'private', decayDays: 30, ipType: null, stakedHost: 100, marketplaceBadge: 'Pupa',
   },
   {
     agent: 'postmaster', namespace: 'nftmail.gno',
     title: 'A2A Email Relay',
     description: 'Route agent-to-agent messages across namespaces. Handles encryption and delivery receipts.',
-    price: 1, type: 'service', category: 'content', surgeScore: 50.0, completedTasks: 312, ipProtected: false,
+    price: 1, type: 'service', category: 'content', surgeScore: 50.0, completedTasks: 312,
+    evolveLevel: 'imago', privacyStatus: 'private', decayDays: 365, ipType: 'creation.ip', stakedHost: 1000, marketplaceBadge: 'Imago',
   },
   {
     agent: 'ghost-alpha', namespace: 'vault.gno',
     title: 'ghost-alpha.vault.gno',
     description: 'Pre-minted vault.gno body with prime namespace. TBA deployed, brain-ready. Transfer on employment.',
-    price: 48, type: 'body', category: 'all', surgeScore: 0, completedTasks: 0, ipProtected: false,
+    price: 48, type: 'body', category: 'all', surgeScore: 0, completedTasks: 0,
+    evolveLevel: 'pupa', privacyStatus: 'private', decayDays: 30, ipType: null, stakedHost: 0, marketplaceBadge: null,
   },
   {
     agent: 'dao-watcher', namespace: 'openclaw.gno',
     title: 'DAO Watcher Brain',
     description: 'Pre-configured Cloudflare Worker brain: monitors DAO proposals, votes, and treasury movements. Plug into any agent body.',
-    price: 15, type: 'brain', category: 'social', surgeScore: 34.0, completedTasks: 0, ipProtected: true,
+    price: 15, type: 'brain', category: 'social', surgeScore: 34.0, completedTasks: 0,
+    evolveLevel: 'imago', privacyStatus: 'glassbox', decayDays: 365, ipType: 'creation.ip', stakedHost: 300, marketplaceBadge: 'Imago',
   },
   {
     agent: 'yield-bot', namespace: 'vault.gno',
     title: 'Yield Bot Bundle',
     description: 'Complete agent bundle: vault.gno body + Gnosis Safe + DeFi yield brain pre-installed. Ready to awaken.',
-    price: 60, type: 'bundle', category: 'defi', surgeScore: 0, completedTasks: 0, ipProtected: true,
+    price: 60, type: 'bundle', category: 'defi', surgeScore: 0, completedTasks: 0,
+    evolveLevel: 'imago', privacyStatus: 'private', decayDays: 365, ipType: 'creation.ip', stakedHost: 1000, marketplaceBadge: 'Imago',
   },
 ];
 
-const TYPE_TABS: { value: ItemType; label: string }[] = [
-  { value: 'all', label: 'All' },
-  { value: 'service', label: 'Services' },
-  { value: 'body', label: 'Agent Bodys' },
-  { value: 'brain', label: 'Brains' },
-  { value: 'bundle', label: 'Bundles' },
-];
-
-const CAT_TABS: { value: ItemCategory; label: string }[] = [
-  { value: 'data', label: 'Data & Analytics' },
-  { value: 'defi', label: 'DeFi' },
-  { value: 'social', label: 'Social & DAO' },
-  { value: 'content', label: 'Content' },
-];
+// ─── Badge config ─────────────────────────────────────────────────────────────
 
 const TYPE_BADGE: Record<string, { label: string; className: string }> = {
-  service: { label: 'Service', className: 'text-[rgb(160,220,255)] bg-[rgba(0,163,255,0.1)]' },
+  service: { label: 'Service',    className: 'text-[rgb(160,220,255)] bg-[rgba(0,163,255,0.1)]' },
   body:    { label: 'Agent Body', className: 'text-fuchsia-300 bg-fuchsia-500/10' },
-  brain:   { label: 'Brain', className: 'text-violet-300 bg-violet-500/10' },
-  bundle:  { label: 'Bundle', className: 'text-amber-300 bg-amber-500/10' },
+  brain:   { label: 'Brain',      className: 'text-violet-300 bg-violet-500/10' },
+  bundle:  { label: 'Bundle',     className: 'text-amber-300 bg-amber-500/10' },
 };
 
-const IP_STAR = (
-  <svg className="h-2.5 w-2.5" viewBox="0 0 24 24" fill="currentColor">
-    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-  </svg>
-);
+const NS_COLOR: Record<string, string> = {
+  'agent.gno':    'text-blue-300 bg-blue-500/10',
+  'openclaw.gno': 'text-cyan-300 bg-cyan-500/10',
+  'molt.gno':     'text-fuchsia-300 bg-fuchsia-500/10',
+  'picoclaw.gno': 'text-amber-300 bg-amber-500/10',
+  'vault.gno':    'text-emerald-300 bg-emerald-500/10',
+  'nftmail.gno':  'text-rose-300 bg-rose-500/10',
+};
+
+const EVOLVE_META: Record<EvolveLevel, { emoji: string; color: string; bg: string }> = {
+  larva: { emoji: '🥚', color: 'text-zinc-400',    bg: 'bg-zinc-500/10' },
+  pupa:  { emoji: '🐛', color: 'text-amber-300',   bg: 'bg-amber-500/10' },
+  imago: { emoji: '🦋', color: 'text-violet-300',  bg: 'bg-violet-500/10' },
+  ghost: { emoji: '👻', color: 'text-fuchsia-300', bg: 'bg-fuchsia-500/10' },
+};
+
+const PRIVACY_META: Record<PrivacyStatus, { icon: string; label: string; color: string }> = {
+  glassbox:       { icon: '🔍', label: 'Glass Box',    color: 'text-sky-300' },
+  private:        { icon: '🔒', label: 'Private',      color: 'text-violet-300' },
+  'hard-privacy': { icon: '🛡', label: 'Hard Privacy', color: 'text-fuchsia-300' },
+};
+
+// ─── Item card ────────────────────────────────────────────────────────────────
 
 function ItemCard({ item }: { item: MarketItem }) {
-  const badge = TYPE_BADGE[item.type];
+  const badge    = TYPE_BADGE[item.type];
+  const nsColor  = NS_COLOR[item.namespace] ?? 'text-zinc-300 bg-zinc-500/10';
+  const evolveMeta  = EVOLVE_META[item.evolveLevel];
+  const privMeta    = PRIVACY_META[item.privacyStatus];
+  const decayColor  = item.decayDays === 365 ? 'text-emerald-300 bg-emerald-500/10 ring-emerald-500/20'
+    : item.decayDays === 30 ? 'text-cyan-300 bg-cyan-500/10 ring-cyan-500/20'
+    : 'text-amber-300 bg-amber-500/10 ring-amber-500/20';
+
   return (
     <div className="flex flex-col justify-between rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5 transition hover:border-[rgba(176,128,92,0.3)]">
       <div>
+        {/* Title row */}
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="text-sm font-semibold" style={{ color: 'rgb(242,238,229)' }}>{item.title}</h3>
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="text-sm font-semibold text-[#f2eee4]">{item.title}</h3>
               <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold ${badge.className}`}>{badge.label}</span>
             </div>
-            <div className="mt-1 flex items-center gap-2">
+            <div className="mt-1 flex flex-wrap items-center gap-1.5">
               <span className="text-xs text-[var(--muted)]">{item.agent}</span>
-              <span className="rounded bg-white/5 px-1.5 py-0.5 text-[10px] text-[var(--muted)]">{item.namespace}</span>
+              <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${nsColor}`}>{item.namespace}</span>
             </div>
           </div>
-          {item.ipProtected && (
-            <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-300 ring-1 ring-emerald-500/20">
-              {IP_STAR}IP
+          {item.marketplaceBadge && (
+            <span className="shrink-0 rounded-full bg-[rgba(176,128,92,0.12)] px-2 py-0.5 text-[9px] font-semibold text-[#b0805c] ring-1 ring-[rgba(176,128,92,0.25)]">
+              {item.marketplaceBadge}
             </span>
           )}
         </div>
+
+        {/* Domain attribute badges */}
+        <div className="mt-2.5 flex flex-wrap gap-1.5">
+          {/* Evolve level */}
+          <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-semibold ring-1 ring-current/20 ${evolveMeta.color} ${evolveMeta.bg}`}>
+            {evolveMeta.emoji} {item.evolveLevel.charAt(0).toUpperCase() + item.evolveLevel.slice(1)}
+          </span>
+          {/* Privacy */}
+          <span className={`inline-flex items-center gap-1 rounded-full bg-white/[0.04] px-2 py-0.5 text-[9px] font-semibold ring-1 ring-current/20 ${privMeta.color}`}>
+            {privMeta.icon} {privMeta.label}
+          </span>
+          {/* Decay */}
+          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-semibold ring-1 ${decayColor}`}>
+            {item.decayDays}d retention
+          </span>
+          {/* .ip type */}
+          {item.ipType && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[9px] font-semibold text-emerald-300 ring-1 ring-emerald-500/20">
+              ✦ {item.ipType}
+            </span>
+          )}
+          {/* Staked $HOST */}
+          {item.stakedHost > 0 && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-violet-500/10 px-2 py-0.5 text-[9px] font-semibold text-violet-300 ring-1 ring-violet-500/20">
+              {item.stakedHost >= 1000 ? `${(item.stakedHost / 1000).toFixed(1)}K` : item.stakedHost} $HOST
+            </span>
+          )}
+        </div>
+
         <p className="mt-3 text-xs leading-relaxed text-[var(--muted)]">{item.description}</p>
       </div>
 
+      {/* Footer */}
       <div className="mt-4 flex items-center justify-between border-t border-[var(--border)] pt-3">
         <div className="flex items-center gap-3 text-xs">
           {item.surgeScore > 0 && (
             <span className="text-[var(--muted)]">$HOST <span className="font-medium text-violet-300">{item.surgeScore.toFixed(1)}</span></span>
           )}
           {item.completedTasks > 0 && (
-            <span className="text-[var(--muted)]">Tasks <span className="font-medium" style={{ color: 'rgb(242,238,229)' }}>{item.completedTasks}</span></span>
+            <span className="text-[var(--muted)]">Tasks <span className="font-medium text-[#f2eee4]">{item.completedTasks}</span></span>
           )}
         </div>
         <div className="flex items-center gap-2">
           <div className="text-right">
-            <div className="text-sm font-semibold" style={{ color: 'rgb(242,238,229)' }}>{item.price} xDAI</div>
+            <div className="text-sm font-semibold text-[#f2eee4]">{item.price} xDAI</div>
             <div className="text-[10px] text-[var(--muted)]">xDAI · EURe</div>
           </div>
           <button className="rounded-lg border px-3 py-1.5 text-xs font-semibold transition" style={{ color: 'rgb(176,128,92)', borderColor: 'rgba(176,128,92,0.4)', background: 'rgba(176,128,92,0.1)' }}>
@@ -153,63 +216,51 @@ function ItemCard({ item }: { item: MarketItem }) {
   );
 }
 
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
+const DEFAULT_FILTERS: Filters = {
+  type: 'all', cat: 'all', domain: 'all', level: 'all', privacy: 'all',
+};
+
 export default function MarketplacePage() {
-  const [typeFilter, setTypeFilter] = useState<ItemType>('all');
-  const [catFilter, setCatFilter] = useState<ItemCategory>('all');
+  const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
+
+  function updateFilters(next: Partial<Filters>) {
+    setFilters(prev => ({ ...prev, ...next }));
+  }
 
   const filtered = DEMO_ITEMS.filter(item => {
-    const typeOk = typeFilter === 'all' || item.type === typeFilter;
-    const catOk = catFilter === 'all' || item.category === catFilter || item.category === 'all';
-    return typeOk && catOk;
+    if (filters.type !== 'all' && item.type !== filters.type) return false;
+    if (filters.domain !== 'all' && item.namespace !== filters.domain) return false;
+    if (filters.level !== 'all' && item.evolveLevel !== (filters.level as unknown as EvolveLevel)) return false;
+    if (filters.privacy !== 'all') {
+      if (filters.privacy === 'glassbox' && item.privacyStatus !== 'glassbox') return false;
+      if (filters.privacy === 'private' && item.privacyStatus === 'glassbox') return false;
+    }
+    return true;
   });
 
   return (
     <div className="max-w-5xl space-y-6">
 
       {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex items-center gap-3">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={GHOST_LOGO} alt="" className="h-28 w-28 object-contain drop-shadow-[0_0_18px_rgba(184,134,97,0.4)]" />
-          <div>
-            <h1 className="pl-1 text-3xl font-bold" style={{ color: 'rgb(242,238,229)' }}>Marketplace</h1>
-            <p className="mt-1 pl-1 text-sm text-[var(--muted)]">
-              Hire agents, buy bodies, brains &amp; bundles. Pay in xDAI or EURe via Gnosis Pay.
-            </p>
-          </div>
+      <div className="flex items-start gap-3">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={GHOST_LOGO} alt="" className="h-28 w-28 object-contain drop-shadow-[0_0_18px_rgba(184,134,97,0.4)]" />
+        <div>
+          <h1 className="pl-1 text-3xl font-bold text-[#f2eee4]">Marketplace</h1>
+          <p className="mt-1 pl-1 text-sm text-[var(--muted)]">
+            Hire agents, buy bodies, brains &amp; bundles. Filter by domain type, evolve level, or privacy.
+          </p>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-2">
-        {TYPE_TABS.map(t => (
-          <button
-            key={t.value}
-            onClick={() => setTypeFilter(t.value)}
-            className="rounded-lg px-3 py-1.5 text-xs font-medium tracking-wide transition"
-            style={{
-              color: typeFilter === t.value ? 'rgb(176,128,92)' : 'var(--muted)',
-              background: typeFilter === t.value ? 'rgba(176,128,92,0.18)' : 'transparent',
-            }}
-          >
-            {t.label}
-          </button>
-        ))}
-        <div className="mx-2 w-px self-stretch" style={{ background: 'var(--border)' }} />
-        {CAT_TABS.map(c => (
-          <button
-            key={c.value}
-            onClick={() => setCatFilter(catFilter === c.value ? 'all' : c.value)}
-            className="rounded-lg px-3 py-1.5 text-xs font-medium transition"
-            style={{
-              color: catFilter === c.value ? 'rgb(176,128,92)' : 'var(--muted)',
-              background: catFilter === c.value ? 'rgba(176,128,92,0.18)' : 'transparent',
-            }}
-          >
-            {c.label}
-          </button>
-        ))}
-      </div>
+      <MarketplaceFilters
+        filters={filters}
+        onChange={updateFilters}
+        counts={{ total: DEMO_ITEMS.length, filtered: filtered.length }}
+      />
 
       {/* Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -220,13 +271,19 @@ export default function MarketplacePage() {
 
       {filtered.length === 0 && (
         <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-8 text-center">
-          <p className="text-sm text-[var(--muted)]">No listings in this category yet.</p>
+          <p className="text-sm text-[var(--muted)]">No listings match these filters.</p>
+          <button
+            onClick={() => setFilters(DEFAULT_FILTERS)}
+            className="mt-3 text-xs text-[#b0805c] hover:underline"
+          >
+            Clear all filters
+          </button>
         </div>
       )}
 
       {/* List your agent CTA */}
       <div className="rounded-2xl border border-dashed p-6 text-center" style={{ borderColor: 'rgba(176,128,92,0.35)' }}>
-        <p className="text-sm font-semibold" style={{ color: 'rgb(242,238,229)' }}>List your agent</p>
+        <p className="text-sm font-semibold text-[#f2eee4]">List your agent</p>
         <p className="mt-1 text-xs text-[var(--muted)]">
           Sell configured agent bodies, brains, bundles, or offer recurring services. Payments in xDAI or EURe via Gnosis Pay.
         </p>
@@ -237,7 +294,7 @@ export default function MarketplacePage() {
 
       {/* Payments footer */}
       <div className="rounded-xl p-4 text-xs text-[var(--muted)]" style={{ background: 'rgb(15,7,3)' }}>
-        <span className="font-semibold" style={{ color: 'rgb(242,238,229)' }}>Payments: </span>
+        <span className="font-semibold text-[#f2eee4]">Payments: </span>
         All employment payments settle on Gnosis Chain in xDAI (native) or EURe (Gnosis Pay / Lobster.cash).
         Auto-detected within seconds — no manual tx hash entry needed.
         Proceeds flow directly to the agent seller&apos;s TBA.
