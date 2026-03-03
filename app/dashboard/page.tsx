@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { WorkReceiptCard } from '../components/WorkReceiptCard';
 
 const GHOST_LOGO = '/ghost-logo.png';
 
@@ -78,6 +79,29 @@ const DEMO_BODIES: DemoBody[] = [
   { name: 'hive',     namespace: 'molt.gno',     tokenId: 7, tba: '0xc3d4e5...b2c3d4', minted: '28/02/2026' },
 ];
 
+const DEMO_RECEIPTS = [
+  {
+    receiptNumber: 42,
+    cid: 'bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi',
+    licenseId: '0x1234567890abcdef1234567890abcdef12345678',
+    revenue: 10,
+    agentAddress: '0xb7e40c4b6a0e180577f6c34de944612eb8f3af13',
+    surgeGained: 0.1,
+    storyTxHash: '0x9876543210fedcba9876543210fedcba98765432',
+    timestamp: Date.now() - 3600000,
+  },
+  {
+    receiptNumber: 41,
+    cid: 'bafybeihdwdcefgh4c5mvc3jd4yachnuuokinmjnfcnvqbqhzanmkioebu',
+    licenseId: '0xabcdef1234567890abcdef1234567890abcdef12',
+    revenue: 25,
+    agentAddress: '0xd4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5',
+    surgeGained: 0.25,
+    storyTxHash: '0xfedcba9876543210fedcba9876543210fedcba98',
+    timestamp: Date.now() - 86400000,
+  },
+];
+
 const DEMO_BRAINS: DemoBrain[] = [
   { agent: 'eyemine',  type: 'CF Worker', endpoint: 'eyemine.ghostagent.workers.dev', installed: '20/02/2026' },
   { agent: 'treasury', type: 'Safe Brain', endpoint: 'vault.safe.brain',              installed: '27/02/2026' },
@@ -106,53 +130,65 @@ function AgentCard({ agent, onEvolve }: { agent: DemoAgent; onEvolve: () => void
   const nsColor = NS_COLOR[agent.namespace] ?? 'text-zinc-400';
   return (
     <div className="flex flex-col justify-between rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5">
-      {/* Top row */}
-      <div>
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <HeartbeatDot active={agent.active} />
-            <span className="text-base font-semibold text-[#f2eee4]">{agent.name}</span>
+      {/* NFT image + identity row */}
+      <div className="flex gap-3">
+        {/* NFT placeholder — square, half panel width */}
+        <div className="w-1/2 shrink-0 aspect-square rounded-xl border border-[var(--border)] bg-black/40 flex flex-col items-center justify-center gap-1.5 overflow-hidden">
+          <svg className="h-8 w-8 text-zinc-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="3"/>
+            <circle cx="8.5" cy="8.5" r="1.5"/>
+            <polyline points="21 15 16 10 5 21"/>
+          </svg>
+          <span className="text-[9px] font-semibold tracking-wider text-zinc-700 uppercase">NFT #{agent.name}</span>
+        </div>
+
+        {/* Identity — domain + safe address + badges */}
+        <div className="flex min-w-0 flex-1 flex-col justify-between py-0.5">
+          <div>
+            <div className="flex items-center gap-1.5 mb-0.5">
+              <HeartbeatDot active={agent.active} />
+              <span className="text-sm font-semibold text-[#f2eee4] truncate">{agent.name}</span>
+            </div>
+            <span className={`text-[11px] font-medium ${nsColor}`}>{agent.namespace}</span>
+            <code className="mt-1 block truncate text-[10px] text-[var(--muted)]">{agent.tba}</code>
           </div>
-          <div className="flex items-center gap-1.5 flex-wrap justify-end">
+
+          {/* Badges */}
+          <div className="mt-2 flex flex-wrap gap-1">
             {agent.tier === 'pro' ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-violet-500/15 px-2.5 py-0.5 text-[10px] font-bold text-violet-300 ring-1 ring-violet-500/30">
-                <svg className="h-2.5 w-2.5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+              <span className="inline-flex items-center gap-1 rounded-full bg-violet-500/15 px-2 py-0.5 text-[9px] font-bold text-violet-300 ring-1 ring-violet-500/30">
+                <svg className="h-2 w-2" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
                 PRO
               </span>
             ) : (
-              <span className="inline-flex items-center rounded-full bg-zinc-500/15 px-2.5 py-0.5 text-[10px] font-medium text-zinc-400 ring-1 ring-zinc-500/20">FREE</span>
+              <span className="inline-flex items-center rounded-full bg-zinc-500/15 px-2 py-0.5 text-[9px] font-medium text-zinc-400 ring-1 ring-zinc-500/20">FREE</span>
             )}
             {agent.ipDomain && (
-              <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-300 ring-1 ring-emerald-500/20">
+              <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-[9px] font-medium text-emerald-300 ring-1 ring-emerald-500/20 truncate max-w-full">
                 {agent.ipDomain}
               </span>
             )}
             {agent.brainType && (
-              <span className="inline-flex items-center rounded-full bg-sky-500/10 px-2 py-0.5 text-[10px] font-medium text-sky-300 ring-1 ring-sky-500/20">
+              <span className="inline-flex items-center rounded-full bg-sky-500/10 px-2 py-0.5 text-[9px] font-medium text-sky-300 ring-1 ring-sky-500/20">
                 {agent.brainType}
               </span>
             )}
           </div>
         </div>
+      </div>
 
-        <div className="mt-1 flex items-center gap-1.5">
-          <span className={`text-[11px] font-medium ${nsColor}`}>{agent.namespace}</span>
-        </div>
-        <code className="mt-0.5 block text-[11px] text-[var(--muted)]">{agent.tba}</code>
-
-        {/* Stats */}
-        <div className="mt-4 grid grid-cols-3 gap-2">
-          {[
-            { label: '$HOST', value: agent.hostScore.toFixed(1), color: 'text-violet-300' },
-            { label: 'INBOX', value: agent.inbox, color: 'text-[#f2eee4]' },
-            { label: 'EVENTS', value: agent.events, color: 'text-[#f2eee4]' },
-          ].map(({ label, value, color }) => (
-            <div key={label} className="rounded-lg border border-[var(--border)] bg-black/20 px-2.5 py-2">
-              <div className="text-[9px] font-semibold tracking-wider text-[var(--muted)]">{label}</div>
-              <div className={`mt-0.5 text-sm font-medium ${color}`}>{value}</div>
-            </div>
-          ))}
-        </div>
+      {/* Stats */}
+      <div className="mt-4 grid grid-cols-3 gap-2">
+        {[
+          { label: '$HOST', value: agent.hostScore.toFixed(1), color: 'text-violet-300' },
+          { label: 'INBOX', value: agent.inbox, color: 'text-[#f2eee4]' },
+          { label: 'EVENTS', value: agent.events, color: 'text-[#f2eee4]' },
+        ].map(({ label, value, color }) => (
+          <div key={label} className="rounded-lg border border-[var(--border)] bg-black/20 px-2.5 py-2">
+            <div className="text-[9px] font-semibold tracking-wider text-[var(--muted)]">{label}</div>
+            <div className={`mt-0.5 text-sm font-medium ${color}`}>{value}</div>
+          </div>
+        ))}
       </div>
 
       {/* Actions */}
@@ -187,6 +223,8 @@ function AgentCard({ agent, onEvolve }: { agent: DemoAgent; onEvolve: () => void
     </div>
   );
 }
+
+const DEMO_RECEIPT_DATA = DEMO_RECEIPTS;
 
 export default function DashboardHome() {
   const [evolvingAgent, setEvolvingAgent] = useState<string | null>(null);
@@ -308,6 +346,26 @@ export default function DashboardHome() {
               ))}
             </tbody>
           </table>
+        </div>
+      </section>
+
+      {/* TELEMETRY separator */}
+      <div className="flex items-center gap-4 py-2">
+        <div className="h-px flex-1 bg-[var(--border)]" />
+        <span className="text-[10px] font-semibold tracking-[0.18em] text-[var(--muted)]">AGENT TELEMETRY</span>
+        <div className="h-px flex-1 bg-[var(--border)]" />
+      </div>
+
+      {/* Telemetry — Work Receipts */}
+      <section>
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-xl font-semibold text-[#f2eee4]">Work Receipts</h2>
+          <span className="text-xs text-[var(--muted)]">Verified by Story Protocol</span>
+        </div>
+        <div className="grid gap-4">
+          {DEMO_RECEIPT_DATA.map((receipt) => (
+            <WorkReceiptCard key={receipt.receiptNumber} {...receipt} />
+          ))}
         </div>
       </section>
 
