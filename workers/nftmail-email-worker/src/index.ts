@@ -11,6 +11,16 @@ import {
   shouldEncrypt,
   getMoltPrivateCharge,
 } from './privacy-router';
+import {
+  handleAliasAction,
+  resolveAlias,
+  type AliasActionPayload,
+} from './alias-router';
+import {
+  sealCleartext,
+  buildAuditHashEntry,
+  releasePlaintext,
+} from './edge-encrypt';
 
 export interface Env {
   BACKEND: 'KV';
@@ -663,6 +673,9 @@ export default {
     const body = extractBodyFromMime(rawMime);
     const timestamp = Date.now();
 
+    // ── EDGE ENCRYPT: seal cleartext immediately — hash before any log or KV write ──
+    const sealed = await sealCleartext({ from: sender, to: originalRecipient, subject, body, timestamp });
+
     // --- Classify recipient using the quad-stream logic gate ---
     const classified = classifyRecipient(originalRecipient);
     const { stream, localPart, agentName, collectionName, tokenId, collection } = classified;
@@ -696,11 +709,12 @@ export default {
         ...(collection ? { collection: { name: collectionName, tokenId, chain: collection.chainId, owner: ownerAddress } } : {}),
         ...(classified.socialPair ? { identity: { pair: classified.socialPair } } : {}),
       });
-      const plaintextHash = await sha256Hex(plaintextPayload);
+      const plaintextHash = sealed.contentHash;
 
       const envelope = {
         type: 'human-cleartext', encrypted: false,
         payload: JSON.parse(plaintextPayload), plaintextHash,
+        edgeEncrypt: buildAuditHashEntry(sealed, agentName, timestamp),
         recipient: agentName,
         ...(ownerAddress ? { owner: ownerAddress } : {}),
         ...(collection ? { collection: collection.displayName, tokenId } : {}),
@@ -715,21 +729,26 @@ export default {
 
     // --- AGENT STREAM ---
     if (stream === 'agent') {
-      const pubKeyHex = await env.INBOX_KV.get(`ecies-pubkey:${agentName}`);
+      // --- Alias resolution: CHONK_123_ → paymastr ---
+      // If this local-part is an alias, transparently redirect to the primary agent's inbox.
+      const aliasResolved = await resolveAlias(env.INBOX_KV, localPart);
+      const resolvedAgentName = aliasResolved ?? agentName;
+
+      const pubKeyHex = await env.INBOX_KV.get(`ecies-pubkey:${resolvedAgentName}`);
       const blindId = `blind-${timestamp}-${crypto.randomUUID().slice(0, 8)}`;
-      const plaintextPayload = JSON.stringify({ from: sender, to: originalRecipient, subject, body, timestamp });
-      const plaintextHash = await sha256Hex(plaintextPayload);
+      const plaintextPayload = sealed._plaintext;
+      const plaintextHash = sealed.contentHash;
 
       if (!pubKeyHex) {
         // No ECIES key registered — store a redacted notice only, never cleartext payload
         const envelope = {
           type: 'cleartext-warning', encrypted: false,
           warning: 'No ECIES public key registered for this agent. Message body withheld.',
-          plaintextHash,
+          plaintextHash, edgeEncrypt: buildAuditHashEntry(sealed, localPart, timestamp),
           recipient: localPart, receivedAt: timestamp,
         };
-        await env.INBOX_KV.put(`blind:${agentName}:${blindId}`, JSON.stringify(envelope), { expirationTtl: 8 * 24 * 60 * 60 });
-        await updateBlindIndex(env, agentName, blindId);
+        await env.INBOX_KV.put(`blind:${resolvedAgentName}:${blindId}`, JSON.stringify(envelope), { expirationTtl: 8 * 24 * 60 * 60 });
+        await updateBlindIndex(env, resolvedAgentName, blindId);
         return;
       }
 
@@ -738,13 +757,16 @@ export default {
       if (env.MASTER_SAFE_PUBKEY) {
         try { recoveryEnvelope = await eciesEncrypt(plaintextPayload, env.MASTER_SAFE_PUBKEY); } catch {}
       }
+      // Plaintext has been encrypted — release the reference
+      const sealedSafe = releasePlaintext(sealed);
       const blindEnvelope = {
         type: 'ecies-blind', encrypted: true,
         envelope: encEnvelope, recoveryEnvelope: recoveryEnvelope || undefined,
         plaintextHash, recipient: localPart, receivedAt: timestamp,
+        edgeEncrypt: buildAuditHashEntry(sealedSafe as any, localPart, timestamp),
       };
-      await env.INBOX_KV.put(`blind:${agentName}:${blindId}`, JSON.stringify(blindEnvelope), { expirationTtl: 8 * 24 * 60 * 60 });
-      await updateBlindIndex(env, agentName, blindId);
+      await env.INBOX_KV.put(`blind:${resolvedAgentName}:${blindId}`, JSON.stringify(blindEnvelope), { expirationTtl: 8 * 24 * 60 * 60 });
+      await updateBlindIndex(env, resolvedAgentName, blindId);
 
       // Glass Box audit for molt.gno agents
       if (await isPublicAgent(localPart, env)) {
@@ -754,6 +776,7 @@ export default {
           subject: sensitivity.sensitive ? REDACTED_SUBJECT_PREFIX + 'Authentication Signal' : subject,
           content: sensitivity.sensitive ? REDACTED_BODY : '[ECIES ENCRYPTED — Blind Storage]',
           timestamp, contentHash: plaintextHash, verified: true,
+          edgeEncrypt: buildAuditHashEntry(sealedSafe as any, localPart, timestamp),
           redacted: sensitivity.sensitive, redactionReason: sensitivity.sensitive ? sensitivity.reason : undefined,
         };
         const auditRaw = await env.INBOX_KV.get(`audit:${localPart}`);
@@ -818,6 +841,15 @@ export default {
             return corsify(new Response('Missing agent name (localPart or email)', { status: 400 }), request);
           }
           result = await storage.getAgentStatus(agent);
+          // Augment with ERC-8004 agentId if registered
+          try {
+            const erc8004Raw = await env.INBOX_KV.get(`erc8004:${agent}`);
+            if (erc8004Raw) {
+              const statusJson = await result.clone().json() as Record<string, unknown>;
+              const erc8004 = JSON.parse(erc8004Raw);
+              return corsify(Response.json({ ...statusJson, erc8004AgentId: erc8004.agentId, agentURI: erc8004.agentURI }), request);
+            }
+          } catch {}
           return corsify(result, request);
         }
 
@@ -999,6 +1031,221 @@ export default {
           const transRaw = await env.INBOX_KV.get(`molt-log:${agent}`);
           const transitions: MoltTransition[] = transRaw ? JSON.parse(transRaw) : [];
           return corsify(Response.json({ agent, isPublic: await isPublicAgent(agent, env), entries, transitions }), request);
+        }
+
+        // XMTP Toggle: get current XMTP enabled state
+        if (email.action === 'getXMTPStatus') {
+          const agent = (email as any).agentName || '';
+          const tld   = (email as any).tld || '';
+          if (!agent) return corsify(Response.json({ error: 'Missing agentName' }, { status: 400 }), request);
+          const raw = await env.INBOX_KV.get(`xmtp:${agent}:${tld}`);
+          const record = raw ? JSON.parse(raw) as { enabled: boolean } : null;
+          if (!record) return corsify(Response.json({ exists: false, enabled: tld === 'agent.gno' }), request);
+          return corsify(Response.json({ enabled: record.enabled }), request);
+        }
+
+        // XMTP Toggle: set XMTP enabled state (owner-only by convention — no on-chain auth in worker)
+        if (email.action === 'setXMTPStatus') {
+          const agent  = ((email as any).agentName || '').toLowerCase();
+          const tld    = (email as any).tld || '';
+          const enable = (email as any).enabled === true;
+          const owner  = ((email as any).ownerAddress || '').toLowerCase();
+          const note   = (email as any).auditNote || '';
+          if (!agent || !tld || !owner) return corsify(Response.json({ error: 'Missing agentName, tld, or ownerAddress' }, { status: 400 }), request);
+          if (tld === 'picoclaw.gno') return corsify(Response.json({ error: 'PICOCLAW: upgrade to PUPA first' }, { status: 403 }), request);
+          await env.INBOX_KV.put(`xmtp:${agent}:${tld}`, JSON.stringify({ enabled: enable, updatedAt: Date.now(), owner, note }));
+          return corsify(Response.json({ status: 'ok', enabled: enable }), request);
+        }
+
+        // Glass Box: get tiered audit log entries
+        if (email.action === 'getGlassBoxLog') {
+          const agent = (email as any).agentName || '';
+          const tld   = (email as any).tld || '';
+          if (!agent) return corsify(Response.json({ error: 'Missing agentName' }, { status: 400 }), request);
+          const raw = await env.INBOX_KV.get(`glassbox:${agent}:${tld}`);
+          const entries = raw ? JSON.parse(raw) : [];
+          return corsify(Response.json({ entries }), request);
+        }
+
+        // Glass Box: append a new tiered entry
+        if (email.action === 'appendGlassBoxEntry') {
+          const agent = ((email as any).agentName || '').toLowerCase();
+          const tld   = (email as any).tld || '';
+          const entry = (email as any).entry;
+          if (!agent || !tld || !entry) return corsify(Response.json({ error: 'Missing agentName, tld, or entry' }, { status: 400 }), request);
+          const key = `glassbox:${agent}:${tld}`;
+          const raw = await env.INBOX_KV.get(key);
+          const entries: unknown[] = raw ? JSON.parse(raw) : [];
+          entries.push(entry);
+          // Keep last 500 entries
+          if (entries.length > 500) entries.splice(0, entries.length - 500);
+          await env.INBOX_KV.put(key, JSON.stringify(entries));
+          return corsify(Response.json({ status: 'ok', count: entries.length }), request);
+        }
+
+        // Glass Box: set enhanced logging preference
+        if (email.action === 'setEnhancedLogging') {
+          const agent    = ((email as any).agentName || '').toLowerCase();
+          const tld      = (email as any).tld || '';
+          const enhanced = (email as any).enhancedLogging === true;
+          const owner    = ((email as any).ownerAddress || '').toLowerCase();
+          if (!agent || !tld || !owner) return corsify(Response.json({ error: 'Missing agentName, tld, or ownerAddress' }, { status: 400 }), request);
+          await env.INBOX_KV.put(`glassbox-enhanced:${agent}:${tld}`, JSON.stringify({ enhanced, owner, updatedAt: Date.now() }));
+          return corsify(Response.json({ status: 'ok', enhancedLogging: enhanced }), request);
+        }
+
+        // Swarm Container: get swarm config for a vault.gno
+        if (email.action === 'getSwarmConfig') {
+          const vaultName = ((email as any).vaultName || '').toLowerCase();
+          if (!vaultName) return corsify(Response.json({ error: 'Missing vaultName' }, { status: 400 }), request);
+          const raw = await env.INBOX_KV.get(`swarm:${vaultName}`);
+          if (!raw) return corsify(Response.json({ error: 'Swarm config not found' }, { status: 404 }), request);
+          return corsify(Response.json({ config: JSON.parse(raw) }), request);
+        }
+
+        // Generic KV get (owner-accessible — used by swarm API route)
+        if (email.action === 'kvGet') {
+          const key = (email as any).key || '';
+          if (!key) return corsify(Response.json({ error: 'Missing key' }, { status: 400 }), request);
+          const value = await env.INBOX_KV.get(key);
+          return corsify(Response.json({ key, value }), request);
+        }
+
+        // Generic KV put (owner-accessible — used by swarm API route)
+        if (email.action === 'kvPut') {
+          const key   = (email as any).key || '';
+          const value = (email as any).value ?? '';
+          const owner = ((email as any).ownerAddress || '').toLowerCase();
+          if (!key || !owner) return corsify(Response.json({ error: 'Missing key or ownerAddress' }, { status: 400 }), request);
+          await env.INBOX_KV.put(key, typeof value === 'string' ? value : JSON.stringify(value));
+          return corsify(Response.json({ status: 'ok', key }), request);
+        }
+
+        // Swarm Coordinator: dispatch sub-actions (register-agent, remove-agent, assign-task, complete-task)
+        if (email.action === 'coordinatorAction') {
+          const vaultName  = ((email as any).vaultName  || '').toLowerCase();
+          const subAction  = (email as any).subAction   || '';
+          const ownerAddr  = ((email as any).ownerAddress || '').toLowerCase();
+          if (!vaultName || !ownerAddr) return corsify(Response.json({ error: 'Missing vaultName or ownerAddress' }, { status: 400 }), request);
+
+          const stateKey = `coordinator:${vaultName}`;
+          const rawState = await env.INBOX_KV.get(stateKey);
+          const state: { vaultName: string; inboxEmail: string; agents: unknown[]; tasks: unknown[] } = rawState
+            ? JSON.parse(rawState)
+            : { vaultName, inboxEmail: `swarm.${vaultName}_@nftmail.box`, agents: [], tasks: [] };
+
+          if (subAction === 'register-agent') {
+            const agentName = (email as any).agentName || '';
+            const moduleAddress = (email as any).moduleAddress || '';
+            if (!agentName || !moduleAddress) return corsify(Response.json({ error: 'Missing agentName or moduleAddress' }, { status: 400 }), request);
+            const exists = (state.agents as any[]).find((a: any) => a.agentName === agentName);
+            if (!exists) {
+              (state.agents as any[]).push({ agentName, moduleAddress, active: true, activeTasks: 0, completedTasks: 0, addedAt: Date.now() });
+            }
+            await env.INBOX_KV.put(stateKey, JSON.stringify(state));
+            return corsify(Response.json({ status: 'ok', state }), request);
+          }
+
+          if (subAction === 'remove-agent') {
+            const agentName = (email as any).agentName || '';
+            (state.agents as any[]).forEach((a: any) => { if (a.agentName === agentName) a.active = false; });
+            await env.INBOX_KV.put(stateKey, JSON.stringify(state));
+            return corsify(Response.json({ status: 'ok', state }), request);
+          }
+
+          if (subAction === 'assign-task') {
+            const topic = (email as any).topic || '';
+            const payloadHash = (email as any).payloadHash || '';
+            const activeAgents = (state.agents as any[]).filter((a: any) => a.active && (a.activeTasks ?? 0) < 5);
+            if (activeAgents.length === 0) return corsify(Response.json({ error: 'No available agents' }, { status: 503 }), request);
+            const rrKey = `coordinator-rr:${vaultName}`;
+            const rrRaw = await env.INBOX_KV.get(rrKey);
+            let rrIdx = rrRaw ? parseInt(rrRaw) : 0;
+            const assigned = activeAgents[rrIdx % activeAgents.length];
+            rrIdx = (rrIdx + 1) % activeAgents.length;
+            await env.INBOX_KV.put(rrKey, String(rrIdx));
+            const taskId = `task-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+            (state.tasks as any[]).push({ taskId, assignedAgent: assigned.agentName, topic, payloadHash, assignedAt: Date.now(), completed: false, completedAt: 0 });
+            assigned.activeTasks = (assigned.activeTasks ?? 0) + 1;
+            await env.INBOX_KV.put(stateKey, JSON.stringify(state));
+            return corsify(Response.json({ status: 'ok', taskId, assignedAgent: assigned.agentName }), request);
+          }
+
+          if (subAction === 'complete-task') {
+            const taskId = (email as any).taskId || '';
+            const task = (state.tasks as any[]).find((t: any) => t.taskId === taskId);
+            if (!task) return corsify(Response.json({ error: 'Task not found' }, { status: 404 }), request);
+            task.completed = true;
+            task.completedAt = Date.now();
+            const agent = (state.agents as any[]).find((a: any) => a.agentName === task.assignedAgent);
+            if (agent) { if (agent.activeTasks > 0) agent.activeTasks--; agent.completedTasks = (agent.completedTasks ?? 0) + 1; }
+            await env.INBOX_KV.put(stateKey, JSON.stringify(state));
+            return corsify(Response.json({ status: 'ok', task }), request);
+          }
+
+          return corsify(Response.json({ status: 'ok', state }), request);
+        }
+
+        // Swarm Coordinator: get full coordinator state
+        if (email.action === 'getCoordinatorState') {
+          const vaultName = ((email as any).vaultName || '').toLowerCase();
+          if (!vaultName) return corsify(Response.json({ error: 'Missing vaultName' }, { status: 400 }), request);
+          const raw = await env.INBOX_KV.get(`coordinator:${vaultName}`);
+          if (!raw) return corsify(Response.json({ exists: false, vaultName }, { status: 404 }), request);
+          return corsify(Response.json({ exists: true, ...JSON.parse(raw) }), request);
+        }
+
+        // Vault Evolution: get evolution record for a client name
+        if (email.action === 'getVaultEvolution') {
+          const clientName = ((email as any).clientName || '').toLowerCase();
+          if (!clientName) return corsify(Response.json({ error: 'Missing clientName' }, { status: 400 }), request);
+          const raw = await env.INBOX_KV.get(`vault-evo:${clientName}`);
+          if (!raw) return corsify(Response.json({ error: 'Evolution record not found' }, { status: 404 }), request);
+          return corsify(Response.json({ evolution: JSON.parse(raw) }), request);
+        }
+
+        // ERC-8004: store agentId after on-chain Identity Registry registration
+        if (email.action === 'setErc8004AgentId') {
+          const secret = (email as any).secret || '';
+          if (env.WEBHOOK_SECRET && secret !== env.WEBHOOK_SECRET) {
+            return corsify(Response.json({ error: 'Unauthorized' }, { status: 401 }), request);
+          }
+          const agentName      = ((email as any).agentName || '').toLowerCase().trim();
+          const erc8004AgentId = (email as any).erc8004AgentId;
+          const agentURI       = (email as any).agentURI || '';
+          if (!agentName || typeof erc8004AgentId !== 'number') {
+            return corsify(Response.json({ error: 'Missing agentName or erc8004AgentId' }, { status: 400 }), request);
+          }
+          await env.INBOX_KV.put(`erc8004:${agentName}`, JSON.stringify({ agentId: erc8004AgentId, agentURI, registeredAt: Date.now() }));
+          return corsify(Response.json({ status: 'stored', agentName, erc8004AgentId }), request);
+        }
+
+        // x402 A2A delivery: store a paid inter-agent message in recipient's blind inbox
+        if (email.action === 'storeA2AMessage') {
+          const fromAgent  = ((email as any).fromAgent  || '').toLowerCase().trim();
+          const toAgent    = ((email as any).toAgent    || '').toLowerCase().trim();
+          const subject    = (email as any).subject    || '';
+          const body       = (email as any).body       || '';
+          const agentId    = (email as any).agentId    ?? null;
+          const timestamp  = (email as any).timestamp  || Date.now();
+          if (!fromAgent || !toAgent || !subject || !body) {
+            return corsify(Response.json({ error: 'Missing fromAgent, toAgent, subject or body' }, { status: 400 }), request);
+          }
+          const blindId = `blind-${timestamp}-${crypto.randomUUID().slice(0, 8)}`;
+          const envelope = {
+            type: 'a2a-x402', encrypted: false,
+            from: `${fromAgent}@nftmail.box`, to: `${toAgent}@nftmail.box`,
+            subject, body, timestamp, via: 'x402',
+            ...(agentId !== null ? { agentId } : {}),
+          };
+          await env.INBOX_KV.put(`blind:${toAgent}:${blindId}`, JSON.stringify(envelope), { expirationTtl: 30 * 24 * 60 * 60 });
+          // update blind index
+          const idxKey = `blind-index:${toAgent}`;
+          const idxRaw = await env.INBOX_KV.get(idxKey);
+          const idx: string[] = idxRaw ? JSON.parse(idxRaw) : [];
+          idx.push(blindId);
+          await env.INBOX_KV.put(idxKey, JSON.stringify(idx.slice(-200)));
+          return corsify(Response.json({ status: 'delivered', messageId: blindId, toAgent }), request);
         }
 
         // Open Agency: Molt to Private — transition agent from molt.gno to vault.gno
@@ -1696,6 +1943,87 @@ export default {
           }), request);
         }
 
+        // --- Molt Path Actions ---
+        // getMoltPath: read stored MoltPathRecord for an agent
+        // setMoltPath: persist updated MoltPathRecord (secret-gated)
+        if (email.action === 'getMoltPath') {
+          const name = ((email as any).name || '').toLowerCase().trim();
+          if (!name) {
+            return corsify(Response.json({ error: 'Missing name' }, { status: 400 }), request);
+          }
+          const raw = await env.INBOX_KV.get(`molt-path:${name}`);
+          if (!raw) {
+            return corsify(Response.json({ exists: false, name }, { status: 404 }), request);
+          }
+          try {
+            const record = JSON.parse(raw);
+            return corsify(Response.json({ exists: true, name, record }), request);
+          } catch {
+            return corsify(Response.json({ exists: false, name }), request);
+          }
+        }
+
+        if (email.action === 'setMoltPath') {
+          const secret = (email as any).secret;
+          if (!secret || secret !== (env.WEBHOOK_SECRET || env.ZOHO_WEBHOOK_SECRET)) {
+            return corsify(Response.json({ error: 'Unauthorized' }, { status: 401 }), request);
+          }
+          const name = ((email as any).name || '').toLowerCase().trim();
+          const record = (email as any).record;
+          if (!name || !record) {
+            return corsify(Response.json({ error: 'Missing name or record' }, { status: 400 }), request);
+          }
+          await env.INBOX_KV.put(`molt-path:${name}`, JSON.stringify(record));
+          return corsify(Response.json({ status: 'ok', name }), request);
+        }
+
+        // --- Beacon Metadata Actions ---
+        // setBeacon: store IPFS CID for an agent's beacon metadata
+        // getBeacon: read stored beacon CID + metadata URL
+        if (email.action === 'setBeacon') {
+          const secret = (email as any).secret;
+          if (!secret || secret !== (env.WEBHOOK_SECRET || env.ZOHO_WEBHOOK_SECRET)) {
+            return corsify(Response.json({ error: 'Unauthorized' }, { status: 401 }), request);
+          }
+          const name = ((email as any).name || '').toLowerCase().trim();
+          const cid = (email as any).cid;
+          const metadataUrl = (email as any).metadataUrl;
+          const pinnedAt = (email as any).pinnedAt ?? Date.now();
+          if (!name || !cid) {
+            return corsify(Response.json({ error: 'Missing name or cid' }, { status: 400 }), request);
+          }
+          await env.INBOX_KV.put(`beacon:${name}`, JSON.stringify({ cid, metadataUrl, pinnedAt }));
+          return corsify(Response.json({ status: 'ok', name, cid, metadataUrl }), request);
+        }
+
+        if (email.action === 'getBeacon') {
+          const name = ((email as any).name || '').toLowerCase().trim();
+          if (!name) {
+            return corsify(Response.json({ error: 'Missing name' }, { status: 400 }), request);
+          }
+          const raw = await env.INBOX_KV.get(`beacon:${name}`);
+          if (!raw) {
+            return corsify(Response.json({ exists: false, name }, { status: 404 }), request);
+          }
+          try {
+            const data = JSON.parse(raw);
+            return corsify(Response.json({ exists: true, name, ...data }), request);
+          } catch {
+            return corsify(Response.json({ exists: false, name }), request);
+          }
+        }
+
+        // --- Alias Actions ---
+        // getAlias | createAlias | setAliasDisplay | deleteAlias
+        if (
+          email.action === 'getAlias' ||
+          email.action === 'createAlias' ||
+          email.action === 'setAliasDisplay' ||
+          email.action === 'deleteAlias'
+        ) {
+          return handleAliasAction(env.INBOX_KV, email as unknown as AliasActionPayload, request);
+        }
+
         // --- Resolve Address: check existence + privacy for inbox display ---
         // Suffix-Boundary Architecture: only name_ addresses auto-resolve.
         // Root addresses (no _) are sovereign-reserved.
@@ -1923,14 +2251,15 @@ export default {
           // Validate prefix: alphanumeric only (dots allowed for collection patterns)
           const resolvedName = agentName;
 
-          // Check existence signals in KV (+ tld for glassbox classification)
-          const [blindIndex, eciesKey, zohoSeat, privacyStatus, tldValue, acctTierRaw] = await Promise.all([
+          // Check existence signals in KV (+ tld, on-chain linkage, acct-tier)
+          const [blindIndex, eciesKey, zohoSeat, privacyStatus, tldValue, acctTierRaw, nftmailGnoRaw] = await Promise.all([
             env.INBOX_KV.get(`blind-index:${resolvedName}`),
             env.INBOX_KV.get(`ecies-pubkey:${resolvedName}`),
             env.INBOX_KV.get(`zoho-seat:${resolvedName}`),
             env.INBOX_KV.get(`privacy:${resolvedName}`),
             env.INBOX_KV.get(`tld:${resolvedName}`),
             env.INBOX_KV.get(`acct-tier:${resolvedName}`),
+            env.INBOX_KV.get(`nftmailgno:${resolvedName}`),
           ]);
 
           const hasMessages = !!blindIndex && JSON.parse(blindIndex).length > 0;
@@ -1951,6 +2280,38 @@ export default {
             } catch {
               if (privacyStatus === 'true') privacyTier = 'private';
             }
+          }
+
+          // Parse on-chain linkage from nftmailgno entry
+          let onChainOwner: string | null = null;
+          let originNft: string | null = null;
+          let mintedTokenId: number | null = null;
+          if (nftmailGnoRaw) {
+            try {
+              const gno = JSON.parse(nftmailGnoRaw);
+              onChainOwner = gno.controller || null;
+              originNft = gno.origin_nft || null;
+              mintedTokenId = gno.minted_tokenId || null;
+            } catch {
+              onChainOwner = nftmailGnoRaw; // legacy flat string = owner address
+            }
+          }
+
+          // Parse acct-tier for safe / storyIp / tier info
+          let accountTier: string = 'basic';
+          let agentSafe: string | null = null;
+          let storyIp: string | null = null;
+          let expiresAt: number | null = null;
+          let canSend = false;
+          if (acctTierRaw) {
+            try {
+              const td = JSON.parse(acctTierRaw);
+              accountTier = td.tier || 'basic';
+              agentSafe = td.safe || null;
+              storyIp = td.story_ip || null;
+              expiresAt = td.expires_at || null;
+              canSend = accountTier !== 'basic';
+            } catch {}
           }
 
           // If agent doesn't exist, show availability
@@ -1977,6 +2338,15 @@ export default {
             hasZohoSeat,
             tld: agentResolvedTld,
             isPublic: agentIsPublic,
+            // On-chain identity linkage
+            onChainOwner,
+            originNft,
+            mintedTokenId,
+            safe: agentSafe,
+            storyIp,
+            accountTier,
+            expiresAt,
+            canSend,
             ...(collection ? { collection: collection.displayName, collectionName, tokenId } : {}),
             ...(availability ? { availability } : {}),
           }), request);

@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { MarketplaceFilters, type Filters } from '../../components/MarketplaceFilters';
+import XMTPBadge from '../../components/XMTPBadge';
+import SwarmModeBadge from '../../components/SwarmModeBadge';
 
 const GHOST_LOGO = '/ghost-logo.png';
 
@@ -29,6 +31,10 @@ interface MarketItem {
   ipType: IpType | null;
   stakedHost: number;
   marketplaceBadge: string | null;
+  xmtpEnabled: boolean;
+  swarmMemberCount?: number;
+  swarmStrategy?: string;
+  swarmHackathonTag?: string;
 }
 
 const DEMO_ITEMS: MarketItem[] = [
@@ -37,63 +43,63 @@ const DEMO_ITEMS: MarketItem[] = [
     title: 'On-Chain Data Analysis',
     description: 'Automated analysis of Gnosis Chain transaction patterns with weekly reports delivered to your agent inbox.',
     price: 10, type: 'service', category: 'data', surgeScore: 72.3, completedTasks: 42,
-    evolveLevel: 'imago', privacyStatus: 'private', decayDays: 365, ipType: 'creation.ip', stakedHost: 300, marketplaceBadge: 'Imago',
+    evolveLevel: 'imago', privacyStatus: 'private', decayDays: 365, ipType: 'creation.ip', stakedHost: 300, marketplaceBadge: 'Imago', xmtpEnabled: true,
   },
   {
     agent: 'treasury', namespace: 'vault.gno',
     title: 'DeFi Yield Monitoring',
     description: 'Real-time yield tracking across Gnosis DeFi protocols with rebalance alerts.',
     price: 25, type: 'service', category: 'defi', surgeScore: 95.1, completedTasks: 156,
-    evolveLevel: 'ghost', privacyStatus: 'hard-privacy', decayDays: 365, ipType: 'creation.ip', stakedHost: 5000, marketplaceBadge: 'Ghost',
+    evolveLevel: 'ghost', privacyStatus: 'hard-privacy', decayDays: 365, ipType: 'creation.ip', stakedHost: 5000, marketplaceBadge: 'Ghost', xmtpEnabled: true, swarmMemberCount: 4, swarmStrategy: 'parallel', swarmHackathonTag: 'lablab-2026',
   },
   {
     agent: 'hive', namespace: 'molt.gno',
     title: 'DAO Governance Digest',
     description: 'Daily summary of governance proposals across tracked DAOs, sent to your inbox.',
     price: 5, type: 'service', category: 'social', surgeScore: 22.0, completedTasks: 18,
-    evolveLevel: 'pupa', privacyStatus: 'glassbox', decayDays: 30, ipType: 'moltbook.ip', stakedHost: 100, marketplaceBadge: 'Pupa',
+    evolveLevel: 'pupa', privacyStatus: 'glassbox', decayDays: 30, ipType: 'moltbook.ip', stakedHost: 100, marketplaceBadge: 'Pupa', xmtpEnabled: false,
   },
   {
     agent: 'pico-news', namespace: 'picoclaw.gno',
     title: 'Crypto News Feed',
     description: 'Curated crypto news delivered to your agent inbox every 6 hours.',
     price: 2, type: 'service', category: 'content', surgeScore: 8.4, completedTasks: 7,
-    evolveLevel: 'larva', privacyStatus: 'glassbox', decayDays: 8, ipType: null, stakedHost: 0, marketplaceBadge: null,
+    evolveLevel: 'larva', privacyStatus: 'glassbox', decayDays: 8, ipType: null, stakedHost: 0, marketplaceBadge: null, xmtpEnabled: false,
   },
   {
     agent: 'scout', namespace: 'agent.gno',
     title: 'NFT Floor Price Alerts',
     description: 'Monitor NFT collections and get instant alerts when floor prices drop below your threshold.',
     price: 3, type: 'service', category: 'data', surgeScore: 1.0, completedTasks: 0,
-    evolveLevel: 'pupa', privacyStatus: 'private', decayDays: 30, ipType: null, stakedHost: 100, marketplaceBadge: 'Pupa',
+    evolveLevel: 'pupa', privacyStatus: 'private', decayDays: 30, ipType: null, stakedHost: 100, marketplaceBadge: 'Pupa', xmtpEnabled: true,
   },
   {
     agent: 'postmaster', namespace: 'nftmail.gno',
     title: 'A2A Email Relay',
     description: 'Route agent-to-agent messages across namespaces. Handles encryption and delivery receipts.',
     price: 1, type: 'service', category: 'content', surgeScore: 50.0, completedTasks: 312,
-    evolveLevel: 'imago', privacyStatus: 'private', decayDays: 365, ipType: 'creation.ip', stakedHost: 1000, marketplaceBadge: 'Imago',
+    evolveLevel: 'imago', privacyStatus: 'private', decayDays: 365, ipType: 'creation.ip', stakedHost: 1000, marketplaceBadge: 'Imago', xmtpEnabled: true,
   },
   {
     agent: 'ghost-alpha', namespace: 'vault.gno',
     title: 'ghost-alpha.vault.gno',
     description: 'Pre-minted vault.gno body with prime namespace. TBA deployed, brain-ready. Transfer on employment.',
     price: 48, type: 'body', category: 'all', surgeScore: 0, completedTasks: 0,
-    evolveLevel: 'pupa', privacyStatus: 'private', decayDays: 30, ipType: null, stakedHost: 0, marketplaceBadge: null,
+    evolveLevel: 'pupa', privacyStatus: 'private', decayDays: 30, ipType: null, stakedHost: 0, marketplaceBadge: null, xmtpEnabled: false, swarmMemberCount: 0,
   },
   {
     agent: 'dao-watcher', namespace: 'openclaw.gno',
     title: 'DAO Watcher Brain',
     description: 'Pre-configured Cloudflare Worker brain: monitors DAO proposals, votes, and treasury movements. Plug into any agent body.',
     price: 15, type: 'brain', category: 'social', surgeScore: 34.0, completedTasks: 0,
-    evolveLevel: 'imago', privacyStatus: 'glassbox', decayDays: 365, ipType: 'creation.ip', stakedHost: 300, marketplaceBadge: 'Imago',
+    evolveLevel: 'imago', privacyStatus: 'glassbox', decayDays: 365, ipType: 'creation.ip', stakedHost: 300, marketplaceBadge: 'Imago', xmtpEnabled: false,
   },
   {
     agent: 'yield-bot', namespace: 'vault.gno',
     title: 'Yield Bot Bundle',
     description: 'Complete agent bundle: vault.gno body + Gnosis Safe + DeFi yield brain pre-installed. Ready to awaken.',
     price: 60, type: 'bundle', category: 'defi', surgeScore: 0, completedTasks: 0,
-    evolveLevel: 'imago', privacyStatus: 'private', decayDays: 365, ipType: 'creation.ip', stakedHost: 1000, marketplaceBadge: 'Imago',
+    evolveLevel: 'imago', privacyStatus: 'private', decayDays: 365, ipType: 'creation.ip', stakedHost: 1000, marketplaceBadge: 'Imago', xmtpEnabled: true, swarmMemberCount: 3, swarmStrategy: 'pipeline', swarmHackathonTag: 'lablab-2026',
   },
 ];
 
@@ -108,11 +114,11 @@ const TYPE_BADGE: Record<string, { label: string; className: string }> = {
 
 const NS_COLOR: Record<string, string> = {
   'agent.gno':    'text-blue-300 bg-blue-500/10',
-  'openclaw.gno': 'text-cyan-300 bg-cyan-500/10',
+  'openclaw.gno': 'text-rose-300 bg-rose-500/10',
   'molt.gno':     'text-fuchsia-300 bg-fuchsia-500/10',
-  'picoclaw.gno': 'text-amber-300 bg-amber-500/10',
+  'picoclaw.gno': 'text-[#f4b55a] bg-amber-500/10',
   'vault.gno':    'text-emerald-300 bg-emerald-500/10',
-  'nftmail.gno':  'text-rose-300 bg-rose-500/10',
+  'nftmail.gno':  'text-cyan-300 bg-cyan-500/10',
 };
 
 const EVOLVE_META: Record<EvolveLevel, { emoji: string; color: string; bg: string }> = {
@@ -140,7 +146,7 @@ function ItemCard({ item }: { item: MarketItem }) {
     : 'text-amber-300 bg-amber-500/10 ring-amber-500/20';
 
   return (
-    <div className="flex flex-col justify-between rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5 transition hover:border-[rgba(176,128,92,0.3)]">
+    <div className="flex flex-col justify-between rounded-2xl border border-[rgba(176,128,92,0.35)] bg-[var(--card)] p-5 transition hover:border-[rgba(176,128,92,0.55)]">
       <div>
         {/* Title row */}
         <div className="flex items-start justify-between gap-2">
@@ -187,13 +193,23 @@ function ItemCard({ item }: { item: MarketItem }) {
               {item.stakedHost >= 1000 ? `${(item.stakedHost / 1000).toFixed(1)}K` : item.stakedHost} $HOST
             </span>
           )}
+          {/* XMTP badge */}
+          <XMTPBadge
+            variant={item.namespace === 'picoclaw.gno' ? 'picoclaw' : item.xmtpEnabled ? 'enabled' : 'disabled'}
+          />
+          {/* Swarm badge — vault.gno with 2+ picoclaw members */}
+          <SwarmModeBadge
+            memberCount={item.swarmMemberCount ?? 0}
+            strategy={item.swarmStrategy}
+            hackathonTag={item.swarmHackathonTag}
+          />
         </div>
 
         <p className="mt-3 text-xs leading-relaxed text-[var(--muted)]">{item.description}</p>
       </div>
 
       {/* Footer */}
-      <div className="mt-4 flex items-center justify-between border-t border-[var(--border)] pt-3">
+      <div className="mt-4 flex items-center justify-between border-t border-[rgba(176,128,92,0.2)] pt-3">
         <div className="flex items-center gap-3 text-xs">
           {item.surgeScore > 0 && (
             <span className="text-[var(--muted)]">$HOST <span className="font-medium text-violet-300">{item.surgeScore.toFixed(1)}</span></span>
@@ -244,15 +260,26 @@ export default function MarketplacePage() {
     <div className="max-w-5xl space-y-6">
 
       {/* Header */}
-      <div className="flex items-start gap-3">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={GHOST_LOGO} alt="" className="h-28 w-28 object-contain drop-shadow-[0_0_18px_rgba(184,134,97,0.4)]" />
-        <div>
-          <h1 className="pl-1 text-3xl font-bold text-[#f2eee4]">Marketplace</h1>
-          <p className="mt-1 pl-1 text-sm text-[var(--muted)]">
-            Hire agents, buy bodies, brains &amp; bundles. Filter by domain type, evolve level, or privacy.
-          </p>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={GHOST_LOGO} alt="" className="h-28 w-28 object-contain drop-shadow-[0_0_18px_rgba(184,134,97,0.4)]" />
+          <div>
+            <h1 className="pl-1 text-2xl font-bold text-[#f2eee4]">Marketplace</h1>
+            <p className="mt-1 pl-1 text-sm text-[var(--muted)]">
+              Hire agents, buy bodies, brains &amp; bundles. Filter by domain type, evolve level, or privacy.
+            </p>
+          </div>
         </div>
+        <a
+          href="https://nftmail.box/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="shrink-0 rounded-lg border border-[rgba(176,128,92,0.3)] bg-[rgba(176,128,92,0.08)] px-4 py-1.5 text-xs font-semibold transition hover:bg-[rgba(176,128,92,0.14)]"
+          style={{ fontFamily: "Ayuthaya, 'Courier New', monospace", color: '#d9d9d8' }}
+        >
+          NFTmail.box ↗
+        </a>
       </div>
 
       {/* Filters */}
@@ -270,7 +297,7 @@ export default function MarketplacePage() {
       </div>
 
       {filtered.length === 0 && (
-        <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-8 text-center">
+        <div className="rounded-2xl border border-[rgba(176,128,92,0.35)] bg-[var(--card)] p-8 text-center">
           <p className="text-sm text-[var(--muted)]">No listings match these filters.</p>
           <button
             onClick={() => setFilters(DEFAULT_FILTERS)}

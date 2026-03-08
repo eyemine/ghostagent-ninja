@@ -12,6 +12,7 @@
 ///   5. Treasury balance guard: pauses if $IP balance drops below threshold
 
 import { NextRequest, NextResponse } from 'next/server';
+import { buildIpaMetadata } from '../../services/genome-metadata';
 import {
   createPublicClient,
   createWalletClient,
@@ -378,6 +379,39 @@ export async function POST(req: NextRequest) {
       } catch {}
     }
 
+    // ─── Pin IPA metadata to Lighthouse ───
+    // Build Story-compliant IPA metadata with aiMetadata block and pin it.
+    // Non-fatal: if Lighthouse is unavailable, mint still succeeds.
+    let ipaMetadataCid: string | null = null;
+    const lighthouseApiKey = process.env.LIGHTHOUSE_API_KEY;
+    if (lighthouseApiKey) {
+      try {
+        const ipaMeta = buildIpaMetadata({
+          agentName,
+          sld: 'nftmail',
+          ownerAddress: ownerWallet,
+        });
+        const ipaJson = JSON.stringify(ipaMeta);
+        const uploadForm = new FormData();
+        uploadForm.append(
+          'file',
+          new Blob([ipaJson], { type: 'application/json' }),
+          `${agentName}-nftmail-ipa.json`,
+        );
+        const lhRes = await fetch('https://node.lighthouse.storage/api/v0/add', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${lighthouseApiKey}` },
+          body: uploadForm,
+        });
+        if (lhRes.ok) {
+          const lhData = await lhRes.json() as { Hash?: string };
+          ipaMetadataCid = lhData.Hash ?? null;
+        }
+      } catch {
+        // Non-fatal
+      }
+    }
+
     // ─── Update rate limit counters ───
     globalMintCountToday++;
     walletLastMint.set(ownerWallet.toLowerCase(), Date.now());
@@ -421,6 +455,8 @@ export async function POST(req: NextRequest) {
       sponsor: account.address,
       chain: 'Story L1 (1514)',
       explorer: `https://www.storyscan.io/tx/${hash}`,
+      ipaMetadataCid,
+      ipaMetadataUrl: ipaMetadataCid ? `https://gateway.lighthouse.storage/ipfs/${ipaMetadataCid}` : null,
       kvRegistered,
       sybilChecks: {
         globalMintsToday: globalMintCountToday,

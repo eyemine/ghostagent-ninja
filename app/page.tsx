@@ -17,7 +17,6 @@ export default function Home() {
               src={GHOST_LOGO}
               alt="GhostAgent logo"
               className="relative z-10 mb-[-0.5rem] mr-auto ml-6 h-28 w-28 object-contain drop-shadow-[0_0_28px_rgba(184,134,97,0.55)]"
-              style={{ transform: 'translateY(8px)' }}
             />
             <style>{`@keyframes fadeTitle { 0% { opacity:0; } 60% { opacity:1; } 100% { opacity:1; } }`}</style>
             <h1

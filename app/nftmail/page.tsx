@@ -6,19 +6,27 @@ import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { NFTLogin } from '../components/NFTLogin';
 import { MintNFTMail } from '../components/MintNFTMail';
 import { WhiteLabelZoho } from '../components/WhiteLabelZoho';
+import { AgentIdentityCard } from '../components/AgentIdentityCard';
+import { StealthAlias } from '../components/StealthAlias';
+import { useSafeAuth } from '../hooks/useSafeAuth';
 
 type Tier = 'none' | 'free' | 'premium';
 
 export default function NftmailPage() {
   const { authenticated } = usePrivy();
   const { wallets } = useWallets();
+  const { isSafeAuth, safeAddress } = useSafeAuth();
 
   // Track the user's progression through the funnel
   const [mintedName, setMintedName] = useState('');
   const [mintedTba, setMintedTba] = useState('');
   const [tier, setTier] = useState<Tier>('none');
+  const [showIdentity, setShowIdentity] = useState(false);
 
   const email = mintedName ? `${mintedName}.${mintedName}@nftmail.box` : '';
+  
+  // Check if user is authenticated (either via Privy or Safe)
+  const isAuthenticated = authenticated || isSafeAuth;
 
   return (
     <div className="min-h-screen bg-[radial-gradient(1200px_circle_at_20%_-10%,rgba(0,163,255,0.16),transparent_45%),radial-gradient(900px_circle_at_90%_10%,rgba(124,77,255,0.14),transparent_40%),linear-gradient(180deg,var(--background),#03040a)]">
@@ -107,7 +115,7 @@ export default function NftmailPage() {
         </section>
 
         {/* Step 2: Mint nftmail.gno */}
-        {authenticated && (
+        {isAuthenticated && (
           <section className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5">
             <div className="mb-4">
               <div className="flex items-center gap-2">
@@ -144,6 +152,47 @@ export default function NftmailPage() {
                 />
               )}
             </div>
+          </section>
+        )}
+
+        {/* Identity lookup card — shown after mint */}
+        {(tier === 'free' || tier === 'premium') && (
+          <section className="rounded-2xl border border-[rgba(0,163,255,0.2)] bg-[var(--card)] overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setShowIdentity(v => !v)}
+              className="flex w-full items-center justify-between px-5 py-4 text-left"
+            >
+              <div className="flex items-center gap-3">
+                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[rgba(0,163,255,0.12)] text-[10px] font-bold text-[rgb(160,220,255)]">
+                  ⛓
+                </div>
+                <div>
+                  <div className="text-sm font-semibold text-white">On-Chain Identity</div>
+                  <div className="text-[10px] text-[var(--muted)] mt-0.5">
+                    NFT · ERC-6551 TBA · Safe · Story IP
+                  </div>
+                </div>
+              </div>
+              <svg
+                className={`h-4 w-4 text-[var(--muted)] transition-transform ${showIdentity ? 'rotate-180' : ''}`}
+                viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+              >
+                <path d="m6 9 6 6 6-6" />
+              </svg>
+            </button>
+            {showIdentity && (
+              <div className="border-t border-[rgba(0,163,255,0.12)] p-1">
+                <AgentIdentityCard name={mintedName} />
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* Stealth Alias — shown after mint */}
+        {(tier === 'free' || tier === 'premium') && (
+          <section className="rounded-2xl border border-[rgba(0,163,255,0.2)] bg-[var(--card)] p-5">
+            <StealthAlias primaryName={mintedName} />
           </section>
         )}
 

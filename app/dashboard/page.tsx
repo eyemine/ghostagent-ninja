@@ -129,11 +129,11 @@ function HeartbeatDot({ active }: { active: boolean }) {
 function AgentCard({ agent, onEvolve }: { agent: DemoAgent; onEvolve: () => void }) {
   const nsColor = NS_COLOR[agent.namespace] ?? 'text-zinc-400';
   return (
-    <div className="flex flex-col justify-between rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5">
+    <div className="flex flex-col justify-between rounded-2xl border border-[rgba(176,128,92,0.35)] bg-[var(--card)] p-5">
       {/* NFT image + identity row */}
       <div className="flex gap-3">
         {/* NFT placeholder — square, half panel width */}
-        <div className="w-1/2 shrink-0 aspect-square rounded-xl border border-[var(--border)] bg-black/40 flex flex-col items-center justify-center gap-1.5 overflow-hidden">
+        <div className="w-1/2 shrink-0 aspect-square rounded-xl border border-[rgba(176,128,92,0.2)] bg-black/40 flex flex-col items-center justify-center gap-1.5 overflow-hidden">
           <svg className="h-8 w-8 text-zinc-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
             <rect x="3" y="3" width="18" height="18" rx="3"/>
             <circle cx="8.5" cy="8.5" r="1.5"/>
@@ -158,10 +158,10 @@ function AgentCard({ agent, onEvolve }: { agent: DemoAgent; onEvolve: () => void
             {agent.tier === 'pro' ? (
               <span className="inline-flex items-center gap-1 rounded-full bg-violet-500/15 px-2 py-0.5 text-[9px] font-bold text-violet-300 ring-1 ring-violet-500/30">
                 <svg className="h-2 w-2" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                PRO
+                PUPA
               </span>
             ) : (
-              <span className="inline-flex items-center rounded-full bg-zinc-500/15 px-2 py-0.5 text-[9px] font-medium text-zinc-400 ring-1 ring-zinc-500/20">FREE</span>
+              <span className="inline-flex items-center rounded-full bg-zinc-500/15 px-2 py-0.5 text-[9px] font-medium text-zinc-400 ring-1 ring-zinc-500/20">LARVA</span>
             )}
             {agent.ipDomain && (
               <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-[9px] font-medium text-emerald-300 ring-1 ring-emerald-500/20 truncate max-w-full">
@@ -184,7 +184,7 @@ function AgentCard({ agent, onEvolve }: { agent: DemoAgent; onEvolve: () => void
           { label: 'INBOX', value: agent.inbox, color: 'text-[#f2eee4]' },
           { label: 'EVENTS', value: agent.events, color: 'text-[#f2eee4]' },
         ].map(({ label, value, color }) => (
-          <div key={label} className="rounded-lg border border-[var(--border)] bg-black/20 px-2.5 py-2">
+          <div key={label} className="rounded-lg border border-[rgba(176,128,92,0.2)] bg-black/20 px-2.5 py-2">
             <div className="text-[9px] font-semibold tracking-wider text-[var(--muted)]">{label}</div>
             <div className={`mt-0.5 text-sm font-medium ${color}`}>{value}</div>
           </div>
@@ -202,12 +202,13 @@ function AgentCard({ agent, onEvolve }: { agent: DemoAgent; onEvolve: () => void
               + Evolve to Pro
             </button>
           )}
-          <button className="flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-black/30 px-3 py-2 text-xs font-medium text-[var(--muted)] transition hover:text-white">
-            ↻ Molt
+          <button className="flex items-center gap-1.5 rounded-lg border border-fuchsia-500/40 bg-fuchsia-500/10 px-3 py-2 text-xs font-semibold text-fuchsia-300 transition hover:bg-fuchsia-500/20">
+            <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+            Molt
           </button>
           <Link
             href={`/dashboard/agent/${agent.name}`}
-            className="flex items-center gap-1 rounded-lg border border-[var(--border)] bg-black/30 px-3 py-2 text-xs font-medium text-[var(--muted)] transition hover:text-white"
+            className="flex items-center gap-1 rounded-lg border border-[rgba(176,128,92,0.3)] bg-black/30 px-3 py-2 text-xs font-medium text-[var(--muted)] transition hover:text-white"
           >
             View Details →
           </Link>
@@ -242,13 +243,17 @@ export default function DashboardHome() {
         <div className="flex items-center gap-4">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={GHOST_LOGO} alt="GhostAgent" className="h-28 w-28 object-contain drop-shadow-[0_0_18px_rgba(184,134,97,0.4)]" />
-          <h1 className="pl-1 text-2xl font-bold text-[#f2eee4]">My Agents</h1>
+          <div>
+            <h1 className="pl-1 text-2xl font-bold text-[#f2eee4]">My Agents</h1>
+            <p className="pl-1 mt-0.5 text-xs text-[var(--muted)]">Fully-rigged Agents – Mirror Bodies with Brains installed</p>
+          </div>
         </div>
         <a
           href="https://nftmail.box/"
           target="_blank"
           rel="noopener noreferrer"
-          className="rounded-lg border border-[rgba(176,128,92,0.3)] bg-[rgba(176,128,92,0.08)] px-4 py-1.5 text-xs font-semibold text-[#b0805c] transition hover:bg-[rgba(176,128,92,0.14)]"
+          className="rounded-lg border border-[rgba(176,128,92,0.3)] bg-[rgba(176,128,92,0.08)] px-4 py-1.5 text-xs font-semibold transition hover:bg-[rgba(176,128,92,0.14)]"
+          style={{ fontFamily: "Ayuthaya, 'Courier New', monospace", color: '#d9d9d8' }}
         >
           NFTmail.box ↗
         </a>
@@ -280,10 +285,10 @@ export default function DashboardHome() {
             Mint Agent Body →
           </Link>
         </div>
-        <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)]">
+        <div className="overflow-hidden rounded-2xl border border-[rgba(176,128,92,0.35)] bg-[var(--card)]">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-[var(--border)]">
+              <tr className="border-b border-[rgba(176,128,92,0.2)]">
                 {['NAME', 'NAMESPACE', 'TOKEN ID', 'TBA', 'MINTED'].map((h) => (
                   <th key={h} className="px-4 py-3 text-left text-[10px] font-semibold tracking-wider text-[var(--muted)]">{h}</th>
                 ))}
@@ -293,7 +298,7 @@ export default function DashboardHome() {
               {DEMO_BODIES.map((body, i) => {
                 const nsColor = NS_COLOR[body.namespace] ?? 'text-zinc-400';
                 return (
-                  <tr key={body.name} className={i < DEMO_BODIES.length - 1 ? 'border-b border-[var(--border)]' : ''}>
+                  <tr key={body.name} className={i < DEMO_BODIES.length - 1 ? 'border-b border-[rgba(176,128,92,0.15)]' : ''}>
                     <td className="px-4 py-3 font-medium text-[#f2eee4]">{body.name}</td>
                     <td className={`px-4 py-3 text-xs font-medium ${nsColor}`}>{body.namespace}</td>
                     <td className="px-4 py-3 text-[var(--muted)]">#{body.tokenId}</td>
@@ -322,10 +327,10 @@ export default function DashboardHome() {
             Install Agent Brain →
           </Link>
         </div>
-        <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)]">
+        <div className="overflow-hidden rounded-2xl border border-[rgba(176,128,92,0.35)] bg-[var(--card)]">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-[var(--border)]">
+              <tr className="border-b border-[rgba(176,128,92,0.2)]">
                 {['AGENT', 'TYPE', 'ENDPOINT', 'INSTALLED'].map((h) => (
                   <th key={h} className="px-4 py-3 text-left text-[10px] font-semibold tracking-wider text-[var(--muted)]">{h}</th>
                 ))}
@@ -333,7 +338,7 @@ export default function DashboardHome() {
             </thead>
             <tbody>
               {DEMO_BRAINS.map((brain, i) => (
-                <tr key={brain.agent} className={i < DEMO_BRAINS.length - 1 ? 'border-b border-[var(--border)]' : ''}>
+                <tr key={brain.agent} className={i < DEMO_BRAINS.length - 1 ? 'border-b border-[rgba(176,128,92,0.15)]' : ''}>
                   <td className="px-4 py-3 font-medium text-[#f2eee4]">{brain.agent}</td>
                   <td className="px-4 py-3">
                     <span className="inline-flex items-center rounded-full bg-sky-500/10 px-2 py-0.5 text-[10px] font-medium text-sky-300 ring-1 ring-sky-500/20">
@@ -359,7 +364,10 @@ export default function DashboardHome() {
       {/* Telemetry — Work Receipts */}
       <section>
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-[#f2eee4]">Work Receipts</h2>
+          <div>
+            <h2 className="text-xl font-semibold text-[#f2eee4]">Agent Telemetry</h2>
+            <p className="mt-0.5 text-xs text-[var(--muted)]">Live on-chain activity and inbox stats for your TBAs</p>
+          </div>
           <span className="text-xs text-[var(--muted)]">Verified by Story Protocol</span>
         </div>
         <div className="grid gap-4">

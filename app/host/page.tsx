@@ -5,9 +5,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
 
 // ─── Bonding curve math ───────────────────────────────────────────────────────
-const BASE_PRICE = 0.0001;
-const SLOPE = 0.000000002;
-const TOTAL_SUPPLY_CAP = 100_000_000;
+const BASE_PRICE = 0.000001;
+const SLOPE = 0.000000000002;
+const TOTAL_SUPPLY_CAP = 1_000_000_000;
+const LAUNCH_SUPPLY = 1_000;
 
 function curvePrice(supply: number) { return BASE_PRICE + SLOPE * supply; }
 function buyCost(s0: number, amt: number) {
@@ -17,6 +18,9 @@ function buyCost(s0: number, amt: number) {
 function sellProceeds(s0: number, amt: number) {
   const sb = s0 - amt;
   return BASE_PRICE * amt + SLOPE * (s0 * s0 - sb * sb) / 2;
+}
+function ethReserve(supply: number) {
+  return BASE_PRICE * supply + SLOPE * supply * supply / 2;
 }
 function fmtEth(v: number) {
   if (v >= 1) return v.toFixed(4) + ' ETH';
@@ -87,7 +91,7 @@ interface StepLog {
   error?: string;
 }
 
-const HOST_LOGO = 'https://i.imgur.com/1GbVtAE.png';
+const HOST_LOGO = 'https://gateway.lighthouse.storage/ipfs/bafkreidjzydt46azr2ib5hcx2mfp4cvmgpiclpxqygief7kspaed6qyuzy';
 
 function AgentLaunchPanel() {
   const { authenticated, login } = usePrivy();
@@ -201,15 +205,7 @@ function AgentLaunchPanel() {
         status: 'running',
         request: { ...launchPayload, 'X-API-Key': 'sk-surge-••••' },
       });
-      const surgeRes = await fetch('https://back.surge.xyz/openclaw/launch', {
-        method: 'POST',
-        headers: { 'X-API-Key': apiKey || (process.env.NEXT_PUBLIC_SURGE_API_KEY ?? ''), 'Content-Type': 'application/json' },
-        body: JSON.stringify(launchPayload),
-      });
-      const surgeText = await surgeRes.text();
-      let launch: any;
-      try { launch = JSON.parse(surgeText); } catch { throw new Error(`SURGE returned non-JSON: ${surgeText.slice(0, 200)}`); }
-      if (!surgeRes.ok) throw new Error(launch?.message || launch?.errorMessage || `launch failed (${surgeRes.status})`);
+      const launch = await callSurge('launch', launchPayload);
       updateLastLog({ status: 'ok', response: launch });
       setLaunchResult(launch);
       setLaunchStep('done');
@@ -233,7 +229,7 @@ function AgentLaunchPanel() {
   if (launchStep === 'idle') {
     return (
       <div className="space-y-5">
-        <div className="rounded-xl border border-[var(--border)] p-4 text-xs leading-relaxed" style={{ background: '#0f0703' }}>
+        <div className="rounded-xl border border-[rgba(176,128,92,0.25)] p-4 text-xs leading-relaxed" style={{ background: '#0f0703' }}>
           <p className="font-semibold mb-2" style={{ color: '#f2eee5' }}>How the agent flow works</p>
           <div className="space-y-1.5 text-[var(--muted)]">
             {[
@@ -263,7 +259,7 @@ function AgentLaunchPanel() {
                 <input
                   value={(form as any)[f.key]}
                   onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))}
-                  className="w-full rounded-lg border border-[var(--border)] bg-black/30 px-3 py-2 text-xs outline-none focus:border-[rgba(176,128,92,0.5)]"
+                  className="w-full rounded-lg border border-[rgba(176,128,92,0.2)] bg-black/30 px-3 py-2 text-xs outline-none focus:border-[rgba(176,128,92,0.5)]"
                   style={{ color: '#f2eee5' }}
                 />
               </div>
@@ -275,7 +271,7 @@ function AgentLaunchPanel() {
               value={form.description}
               onChange={e => setForm(p => ({ ...p, description: e.target.value }))}
               rows={2}
-              className="w-full rounded-lg border border-[var(--border)] bg-black/30 px-3 py-2 text-xs outline-none resize-none focus:border-[rgba(176,128,92,0.5)]"
+              className="w-full rounded-lg border border-[rgba(176,128,92,0.2)] bg-black/30 px-3 py-2 text-xs outline-none resize-none focus:border-[rgba(176,128,92,0.5)]"
               style={{ color: '#f2eee5' }}
             />
           </div>
@@ -286,7 +282,7 @@ function AgentLaunchPanel() {
                 type="number"
                 value={form.ethAmount}
                 onChange={e => setForm(p => ({ ...p, ethAmount: e.target.value }))}
-                className="w-full rounded-lg border border-[var(--border)] bg-black/30 px-3 py-2 text-xs outline-none"
+                className="w-full rounded-lg border border-[rgba(176,128,92,0.2)] bg-black/30 px-3 py-2 text-xs outline-none"
                 style={{ color: '#f2eee5' }}
               />
               <p className="text-[10px] text-[var(--muted)]">Set to <code>0</code> to launch with no initial buy (free SURGE wallet covers gas only).</p>
@@ -296,7 +292,7 @@ function AgentLaunchPanel() {
               <select
                 value={form.category}
                 onChange={e => setForm(p => ({ ...p, category: e.target.value }))}
-                className="w-full rounded-lg border border-[var(--border)] bg-black/30 px-3 py-2 text-xs outline-none"
+                className="w-full rounded-lg border border-[rgba(176,128,92,0.2)] bg-black/30 px-3 py-2 text-xs outline-none"
                 style={{ color: '#f2eee5' }}
               >
                 {['ai','infrastructure','meme','rwa','defi','privacy','robotics','depin','socialfi'].map(c => (
@@ -314,8 +310,8 @@ function AgentLaunchPanel() {
             value={apiKey}
             onChange={e => setApiKey(e.target.value)}
             placeholder="sk-surge-… (from app.surge.xyz → Profile → API Keys)"
-            className="w-full rounded-lg border border-[var(--border)] bg-black/30 px-3 py-2 text-xs outline-none focus:border-[rgba(176,128,92,0.5)]"
-            style={{ color: '#f2eee5' }}
+            className="w-full rounded-lg border border-[rgba(176,128,92,0.2)] bg-black/30 px-3 py-2 text-xs outline-none focus:border-[rgba(176,128,92,0.5)]"
+            style={{ color: '#f2eee5', borderColor: 'rgba(176,128,92,0.2)' }}
           />
           <p className="text-[10px] text-[var(--muted)]">
             No key yet?{' '}
@@ -374,7 +370,7 @@ function AgentLaunchPanel() {
           The agent replies to the original email with the SURGE trade link, posts the launch to Moltbook + Farcaster, and begins routing 5% of marketplace fees to buy + burn HOST from the curve.
         </div>
         <button onClick={() => { setLaunchStep('idle'); setLogs([]); setLaunchResult(null); setWalletData(null); setFundData(null); setChainInfo(null); }}
-          className="w-full rounded-xl border border-[var(--border)] py-2 text-xs text-[var(--muted)] hover:text-white transition">
+          className="w-full rounded-xl border border-[rgba(176,128,92,0.2)] py-2 text-xs text-[var(--muted)] hover:text-white transition">
           Launch another token
         </button>
       </div>
@@ -430,7 +426,7 @@ function AgentLaunchPanel() {
               <AnimatePresence>
                 {activeLog === i && (
                   <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }} className="overflow-hidden">
-                    <div className="px-3 py-2 space-y-2 border-t border-[var(--border)]" style={{ background: '#0f0703' }}>
+                    <div className="px-3 py-2 space-y-2 border-t border-[rgba(176,128,92,0.2)]" style={{ background: '#0f0703' }}>
                       {log.request && (
                         <div>
                           <p className="text-[10px] font-semibold text-[var(--muted)] mb-1">REQUEST</p>
@@ -456,7 +452,7 @@ function AgentLaunchPanel() {
       {launchStep === 'error' && (
         <div className="space-y-3">
           <div className="rounded-xl border border-red-500/30 bg-red-500/8 px-4 py-3 text-xs text-red-400">{error}</div>
-          <button onClick={() => { setLaunchStep('idle'); setLogs([]); }} className="w-full rounded-xl border border-[var(--border)] py-2 text-xs text-[var(--muted)] hover:text-white transition">
+          <button onClick={() => { setLaunchStep('idle'); setLogs([]); }} className="w-full rounded-xl border border-[rgba(176,128,92,0.2)] py-2 text-xs text-[var(--muted)] hover:text-white transition">
             Try again
           </button>
         </div>
@@ -470,7 +466,7 @@ export default function HostTokenPage() {
   const { authenticated, login } = usePrivy();
   const { wallets } = useWallets();
 
-  const [supply, setSupply] = useState(12_500_000);
+  const [supply, setSupply] = useState(LAUNCH_SUPPLY);
   const [buyAmt, setBuyAmt] = useState('10000');
   const [sellAmt, setSellAmt] = useState('5000');
   const [stakeAmt, setStakeAmt] = useState('10000');
@@ -518,7 +514,7 @@ export default function HostTokenPage() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 px-4 py-10">
+    <div className="max-w-5xl mx-auto space-y-6">
 
       <div className="rounded-xl border border-amber-500/30 bg-amber-500/8 px-4 py-3 flex items-start gap-3">
         <svg className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -529,24 +525,35 @@ export default function HostTokenPage() {
         </p>
       </div>
 
-      <div className="flex items-center gap-4">
-        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--card)]" style={{ boxShadow: '0 0 20px rgba(176,128,92,0.2)' }}>
-          <span className="text-xl font-black" style={{ color: '#b0805c' }}>$</span>
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-2xl border border-[rgba(176,128,92,0.35)] bg-[var(--card)]" style={{ boxShadow: '0 0 20px rgba(176,128,92,0.2)' }}>
+            <img src={HOST_LOGO} alt="$HOST token" className="h-full w-full object-cover" />
+          </div>
+          <div>
+            <h1 className="text-3xl font-bold" style={{ color: '#f2eee5' }}>$HOST Token</h1>
+            <p className="mt-0.5 text-sm text-[var(--muted)]">GhostAgent.ninja utility token — bonding curve on Base via SURGE. Agent-launched. Agent-governed.</p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-3xl font-bold" style={{ color: '#f2eee5' }}>$HOST Token</h1>
-          <p className="mt-0.5 text-sm text-[var(--muted)]">GhostAgent.ninja utility token — bonding curve on Base via SURGE. Agent-launched. Agent-governed.</p>
-        </div>
+        <a
+          href="https://nftmail.box/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="shrink-0 rounded-lg border border-[rgba(176,128,92,0.3)] bg-[rgba(176,128,92,0.08)] px-4 py-1.5 text-xs font-semibold transition hover:bg-[rgba(176,128,92,0.14)]"
+          style={{ fontFamily: "Ayuthaya, 'Courier New', monospace", color: '#d9d9d8' }}
+        >
+          NFTmail.box ↗
+        </a>
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
-          { label: 'PRICE (SIM)', value: fmtEth(curvePrice(supply)), sub: 'on bonding curve' },
+          { label: 'PRICE (SIM)', value: fmtEth(curvePrice(supply)), sub: 'marginal price on curve' },
           { label: 'CIRCULATING', value: fmtH(supply), sub: `of ${fmtH(TOTAL_SUPPLY_CAP)} cap` },
-          { label: 'MARKET CAP', value: fmtEth(supply * curvePrice(supply)), sub: 'ETH in reserve' },
+          { label: 'ETH RESERVE', value: fmtEth(ethReserve(supply)), sub: 'ETH locked in curve' },
           { label: 'YOUR BALANCE', value: fmtH(userBal), sub: `${fmtH(userStaked)} staked` },
         ].map(s => (
-          <div key={s.label} className="rounded-2xl border border-[var(--border)] bg-[var(--card)] px-4 py-3">
+          <div key={s.label} className="rounded-2xl border border-[rgba(176,128,92,0.35)] bg-[var(--card)] px-4 py-3">
             <div className="text-[10px] font-semibold tracking-wider text-[var(--muted)]">{s.label}</div>
             <div className="mt-1 text-base font-bold" style={{ color: '#f2eee5' }}>{s.value}</div>
             <div className="text-[10px] text-[var(--muted)]">{s.sub}</div>
@@ -558,7 +565,7 @@ export default function HostTokenPage() {
 
         <div className="space-y-6">
 
-          <div className="flex gap-1 rounded-xl border border-[var(--border)] p-1" style={{ background: '#0f0703' }}>
+          <div className="flex gap-1 rounded-xl border border-[rgba(176,128,92,0.25)] p-1" style={{ background: '#0f0703' }}>
             {(['launch', 'sim'] as const).map(t => (
               <button key={t} onClick={() => setPageTab(t)}
                 className="flex-1 rounded-lg py-2 text-xs font-semibold tracking-wide transition"
@@ -573,7 +580,7 @@ export default function HostTokenPage() {
           </div>
 
           {pageTab === 'launch' && (
-            <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5">
+            <div className="rounded-2xl border border-[rgba(176,128,92,0.35)] bg-[var(--card)] p-5">
               <div className="mb-4 flex items-center gap-2">
                 <h2 className="text-sm font-semibold" style={{ color: '#f2eee5' }}>Agent Token Launch</h2>
                 <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-300">LIVE API</span>
@@ -588,10 +595,25 @@ export default function HostTokenPage() {
 
           {pageTab === 'sim' && (
             <>
-              <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5">
+              <div className="rounded-xl border border-[rgba(176,128,92,0.2)] px-4 py-3 text-xs leading-relaxed space-y-2" style={{ background: '#0f0703' }}>
+                <p className="font-semibold" style={{ color: '#f2eee5' }}>How the bonding curve works</p>
+                <p className="text-[var(--muted)]">
+                  <span style={{ color: '#b0805c' }}>Price rises automatically</span> as more $HOST is bought — no market makers needed.
+                  The curve formula sets the price at every point. Early buyers get cheaper tokens; later buyers pay more.
+                </p>
+                <p className="text-[var(--muted)]">
+                  <span style={{ color: '#b0805c' }}>ETH reserve</span> = actual ETH locked in the contract backing all circulating tokens.
+                  Sell at any time and you get back ETH from the reserve at the current curve price.
+                </p>
+                <p className="text-[var(--muted)]">
+                  <span style={{ color: '#b0805c' }}>At launch</span> the token had 0.001 ETH initial buy, minting ~1,000 HOST at ~0.000001 ETH ($0.0025) each.
+                  The sim starts there. Use Buy/Sell to explore what happens as demand grows.
+                </p>
+              </div>
+              <div className="rounded-2xl border border-[rgba(176,128,92,0.35)] bg-[var(--card)] p-5">
                 <div className="mb-3 flex items-center justify-between">
                   <h2 className="text-sm font-semibold" style={{ color: '#f2eee5' }}>Bonding Curve</h2>
-                  <span className="text-[10px] text-[var(--muted)]">price = {BASE_PRICE} + {SLOPE} × supply</span>
+                  <span className="text-[10px] text-[var(--muted)]">price = {BASE_PRICE} + {SLOPE} × supply (ETH)</span>
                 </div>
                 <MiniCurve currentSupply={supply} />
                 <div className="mt-3 grid grid-cols-3 gap-3 text-xs text-[var(--muted)]">
@@ -608,7 +630,7 @@ export default function HostTokenPage() {
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5">
+              <div className="rounded-2xl border border-[rgba(176,128,92,0.35)] bg-[var(--card)] p-5">
                 <h2 className="mb-4 text-sm font-semibold" style={{ color: '#f2eee5' }}>Token Utility</h2>
                 <div className="grid gap-3 sm:grid-cols-2">
                   {UTILITY_ITEMS.map(item => (
@@ -623,7 +645,7 @@ export default function HostTokenPage() {
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5">
+              <div className="rounded-2xl border border-[rgba(176,128,92,0.35)] bg-[var(--card)] p-5">
                 <h2 className="mb-4 text-sm font-semibold" style={{ color: '#f2eee5' }}>Staking Tiers</h2>
                 <div className="space-y-2">
                   {STAKE_TIERS.map(tier => {
@@ -651,8 +673,8 @@ export default function HostTokenPage() {
         </div>
 
         <div className="space-y-4">
-          <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] overflow-hidden">
-            <div className="flex border-b border-[var(--border)]">
+          <div className="rounded-2xl border border-[rgba(176,128,92,0.35)] bg-[var(--card)] overflow-hidden">
+            <div className="flex border-b border-[rgba(176,128,92,0.2)]">
               {(['buy', 'sell', 'stake'] as const).map(t => (
                 <button key={t} onClick={() => setTab(t)}
                   className="flex-1 py-3 text-xs font-semibold uppercase tracking-wider transition"
@@ -672,7 +694,7 @@ export default function HostTokenPage() {
                   <div className="space-y-1">
                     <label className="text-[10px] font-semibold tracking-wider text-[var(--muted)]">AMOUNT (HOST)</label>
                     <input type="number" value={buyAmt} onChange={e => setBuyAmt(e.target.value)}
-                      className="w-full rounded-lg border border-[var(--border)] bg-black/30 px-3 py-2 text-xs outline-none"
+                      className="w-full rounded-lg border border-[rgba(176,128,92,0.2)] bg-black/30 px-3 py-2 text-xs outline-none"
                       style={{ color: '#f2eee5' }} />
                   </div>
                   <div className="rounded-lg p-3 text-xs" style={{ background: '#0f0703' }}>
@@ -698,7 +720,7 @@ export default function HostTokenPage() {
                   <div className="space-y-1">
                     <label className="text-[10px] font-semibold tracking-wider text-[var(--muted)]">AMOUNT (HOST)</label>
                     <input type="number" value={sellAmt} onChange={e => setSellAmt(e.target.value)}
-                      className="w-full rounded-lg border border-[var(--border)] bg-black/30 px-3 py-2 text-xs outline-none"
+                      className="w-full rounded-lg border border-[rgba(176,128,92,0.2)] bg-black/30 px-3 py-2 text-xs outline-none"
                       style={{ color: '#f2eee5' }} />
                   </div>
                   <div className="rounded-lg p-3 text-xs" style={{ background: '#0f0703' }}>
@@ -740,7 +762,7 @@ export default function HostTokenPage() {
                   <div className="space-y-1">
                     <label className="text-[10px] font-semibold tracking-wider text-[var(--muted)]">STAKE AMOUNT</label>
                     <input type="number" value={stakeAmt} onChange={e => setStakeAmt(e.target.value)}
-                      className="w-full rounded-lg border border-[var(--border)] bg-black/30 px-3 py-2 text-xs outline-none"
+                      className="w-full rounded-lg border border-[rgba(176,128,92,0.2)] bg-black/30 px-3 py-2 text-xs outline-none"
                       style={{ color: '#f2eee5' }} />
                   </div>
                   <div className="flex gap-2">
@@ -751,7 +773,7 @@ export default function HostTokenPage() {
                     </button>
                     <button onClick={simUnstake} disabled={simming || userStaked <= 0}
                       className="flex-1 rounded-xl py-2.5 text-xs font-bold transition disabled:opacity-40"
-                      style={{ background: 'rgba(255,255,255,0.04)', color: 'var(--muted)', border: '1px solid var(--border)' }}>
+                      style={{ background: 'rgba(255,255,255,0.04)', color: 'var(--muted)', border: '1px solid rgba(176,128,92,0.2)' }}>
                       Unstake
                     </button>
                   </div>
@@ -759,7 +781,7 @@ export default function HostTokenPage() {
               )}
 
               {simLog.length > 0 && (
-                <div className="space-y-1 pt-1 border-t border-[var(--border)]">
+                <div className="space-y-1 pt-1 border-t border-[rgba(176,128,92,0.2)]">
                   <p className="text-[10px] font-semibold tracking-wider text-[var(--muted)]">SIM LOG</p>
                   {simLog.map((l, i) => (
                     <div key={i} className="flex justify-between text-[10px]">
@@ -772,7 +794,7 @@ export default function HostTokenPage() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-4 text-xs space-y-2">
+          <div className="rounded-2xl border border-[rgba(176,128,92,0.35)] bg-[var(--card)] p-4 text-xs space-y-2">
             <p className="font-semibold text-[10px] tracking-wider text-[var(--muted)]">TRY IT: EMAIL THE AGENT</p>
             <div className="rounded-lg p-3 font-mono" style={{ background: '#0f0703', color: '#b0805c' }}>
               ghostagent_@nftmail.box

@@ -97,7 +97,7 @@ export function WorkReceiptCard({
           duration: 0.4,
           boxShadow: { duration: 1.5 }
         }}
-        className="relative bg-gradient-to-br from-zinc-900 to-zinc-800 rounded-xl p-6 shadow-xl border border-zinc-700 overflow-hidden"
+        className="relative bg-gradient-to-br from-zinc-900 to-zinc-800 rounded-xl p-6 shadow-xl border border-[rgba(176,128,92,0.35)] overflow-hidden"
       >
         {/* Molt Effect Overlay */}
         {showMoltEffect && (
@@ -224,7 +224,7 @@ export function WorkReceiptCard({
           </div>
         </div>
 
-        <div className="mt-6 pt-4 border-t border-zinc-700/50">
+        <div className="mt-6 pt-4 border-t border-[rgba(176,128,92,0.2)]">
           <div className="flex items-center justify-between text-sm">
             <span className="text-zinc-400">
               {mounted ? formatDate(timestamp) : null}

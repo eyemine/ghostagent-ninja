@@ -1,7 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import Image from 'next/image';
+import { GenomeEditor } from '../../components/GenomeEditor';
+import { AgentCapabilityForm } from '../../components/AgentCapabilityForm';
+import { defaultGenomeMetadata, type GenomeMetadata, type SldKey } from '../../services/genome-metadata';
 
 const GHOST_LOGO = '/ghost-logo.png';
 
@@ -10,25 +12,43 @@ type BrainType = 'cloudflare' | 'safe';
 export default function InstallBrainPage() {
   const [brainType, setBrainType] = useState<BrainType>('cloudflare');
   const [agentName, setAgentName] = useState('');
+  const [agentSld, setAgentSld] = useState<SldKey>('agent');
+  const [genomeMeta, setGenomeMeta] = useState<GenomeMetadata | null>(null);
 
   const tbaShort = agentName ? `0xf251Ca37...f01249` : '';
   const nftmailAddr = agentName ? `${agentName}_@nftmail.box` : '';
 
+  function handleNameChange(val: string) {
+    const cleaned = val.toLowerCase().replace(/[^a-z0-9-]/g, '');
+    setAgentName(cleaned);
+    setGenomeMeta(cleaned ? defaultGenomeMetadata(cleaned, agentSld) : null);
+  }
+
   return (
-    <div className="mx-auto max-w-4xl space-y-10 px-4 py-8">
+    <div className="max-w-5xl space-y-6">
 
       {/* ── Hero ── */}
-      <div className="flex items-center gap-6">
-        <div className="relative h-24 w-24 shrink-0">
-          <Image src={GHOST_LOGO} alt="GhostAgent" fill className="object-contain" unoptimized />
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={GHOST_LOGO} alt="GhostAgent" className="h-28 w-28 shrink-0 object-contain drop-shadow-[0_0_18px_rgba(184,134,97,0.4)]" />
+          <div>
+            <h1 className="text-2xl font-bold text-[#f2eee4]">Install Agent Brain</h1>
+            <p className="mt-1 max-w-xl text-sm text-[var(--muted)]">
+              Attach intelligence to your agent body. A brain lets your agent receive and send A2A email,
+              execute tasks, and post autonomously.
+            </p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-3xl font-bold text-[#f2eee4]">Install Agent Brain</h1>
-          <p className="mt-2 max-w-xl text-sm text-[var(--muted)]">
-            Attach intelligence to your agent body. A brain lets your agent receive and send A2A email,
-            execute tasks, and post autonomously.
-          </p>
-        </div>
+        <a
+          href="https://nftmail.box/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="shrink-0 rounded-lg border border-[rgba(176,128,92,0.3)] bg-[rgba(176,128,92,0.08)] px-4 py-1.5 text-xs font-semibold transition hover:bg-[rgba(176,128,92,0.14)]"
+          style={{ fontFamily: "Ayuthaya, 'Courier New', monospace", color: '#d9d9d8' }}
+        >
+          NFTmail.box ↗
+        </a>
       </div>
 
       {/* ── SELECT BRAIN TYPE ── */}
@@ -88,13 +108,32 @@ export default function InstallBrainPage() {
       {/* ── TARGET AGENT BODY NAME ── */}
       <div className="space-y-2">
         <div className="text-xs font-semibold tracking-[0.18em] text-[var(--muted)]">TARGET AGENT BODY NAME</div>
-        <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] px-4 py-3">
-          <input
-            value={agentName}
-            onChange={e => setAgentName(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
-            placeholder="postmaster"
-            className="w-full bg-transparent text-sm text-[#f2eee4] outline-none placeholder:text-[var(--muted)]"
-          />
+        <div className="flex gap-2">
+          <div className="flex-1 rounded-xl border border-[rgba(176,128,92,0.25)] bg-[var(--card)] px-4 py-3">
+            <input
+              value={agentName}
+              onChange={e => handleNameChange(e.target.value)}
+              placeholder="postmaster"
+              className="w-full bg-transparent text-sm text-[#f2eee4] outline-none placeholder:text-[var(--muted)]"
+            />
+          </div>
+          {/* SLD picker */}
+          <select
+            value={agentSld}
+            onChange={e => {
+              const sld = e.target.value as SldKey;
+              setAgentSld(sld);
+              if (agentName) setGenomeMeta(defaultGenomeMetadata(agentName, sld));
+            }}
+            className="rounded-xl border border-[rgba(176,128,92,0.25)] bg-[var(--card)] px-3 py-2 text-xs text-[var(--muted)] outline-none focus:border-[rgba(176,128,92,0.5)] cursor-pointer"
+          >
+            <option value="agent">agent.gno</option>
+            <option value="openclaw">openclaw.gno</option>
+            <option value="molt">molt.gno</option>
+            <option value="picoclaw">picoclaw.gno</option>
+            <option value="vault">vault.gno</option>
+            <option value="nftmail">nftmail.gno</option>
+          </select>
         </div>
         {agentName && (
           <p className="text-xs text-[rgb(160,220,255)]">
@@ -102,6 +141,26 @@ export default function InstallBrainPage() {
           </p>
         )}
       </div>
+
+      {/* ── Genome NFT + Capabilities ── */}
+      {agentName.length >= 2 && (
+        <div className="rounded-xl border border-[rgba(176,128,92,0.35)] bg-[var(--card)] p-5 space-y-6">
+          <GenomeEditor
+            agentName={agentName}
+            sld={agentSld}
+            value={genomeMeta}
+            onChange={setGenomeMeta}
+            showDescription={true}
+            compact={true}
+          />
+          <div className="h-px bg-[rgba(176,128,92,0.15)]" />
+          <AgentCapabilityForm
+            value={genomeMeta}
+            brainType={brainType}
+            onChange={setGenomeMeta}
+          />
+        </div>
+      )}
 
       {/* ── Steps panel ── */}
       {brainType === 'cloudflare' && (
@@ -129,7 +188,7 @@ function CopyBtn({ text }: { text: string }) {
 
 function CloudflarePanel({ agentName, tbaShort, nftmailAddr }: { agentName: string; tbaShort: string; nftmailAddr: string }) {
   return (
-    <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-5 space-y-4">
+    <div className="rounded-xl border border-[rgba(176,128,92,0.35)] bg-[var(--card)] p-5 space-y-4">
       <div>
         <div className="text-sm font-semibold text-[#f2eee4]">Attach Cloudflare Worker</div>
         <p className="mt-1 text-xs text-[var(--muted)]">
@@ -138,9 +197,9 @@ function CloudflarePanel({ agentName, tbaShort, nftmailAddr }: { agentName: stri
       </div>
 
       {/* Step 1 */}
-      <div className="rounded-xl border border-[var(--border)] bg-black/20 p-4 space-y-3">
+      <div className="rounded-xl border border-[rgba(176,128,92,0.2)] bg-black/20 p-4 space-y-3">
         <div className="flex items-start gap-3">
-          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--card)] text-xs font-bold text-[#f2eee4]">
+          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-[rgba(176,128,92,0.3)] bg-[var(--card)] text-xs font-bold text-[#f2eee4]">
             1
           </span>
           <div>
@@ -155,7 +214,7 @@ function CloudflarePanel({ agentName, tbaShort, nftmailAddr }: { agentName: stri
             href="https://github.com/Ghost-Agency/ghostagent-proxy"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-black/30 px-3 py-1.5 text-xs font-medium text-[#f2eee4] hover:bg-white/5 transition-colors"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-[rgba(176,128,92,0.3)] bg-black/30 px-3 py-1.5 text-xs font-medium text-[#f2eee4] hover:bg-white/5 transition-colors"
           >
             <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0 1 12 6.844a9.59 9.59 0 0 1 2.504.337c1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.02 10.02 0 0 0 22 12.017C22 6.484 17.522 2 12 2z"/>
@@ -166,7 +225,7 @@ function CloudflarePanel({ agentName, tbaShort, nftmailAddr }: { agentName: stri
             href="https://developers.cloudflare.com/workers/"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 rounded-lg border border-[var(--border)] bg-black/30 px-3 py-1.5 text-xs font-medium text-[var(--muted)] hover:text-[#f2eee4] hover:bg-white/5 transition-colors"
+            className="inline-flex items-center gap-1 rounded-lg border border-[rgba(176,128,92,0.3)] bg-black/30 px-3 py-1.5 text-xs font-medium text-[var(--muted)] hover:text-[#f2eee4] hover:bg-white/5 transition-colors"
           >
             CF Workers Docs
             <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M7 17 17 7M7 7h10v10"/></svg>
@@ -174,7 +233,7 @@ function CloudflarePanel({ agentName, tbaShort, nftmailAddr }: { agentName: stri
         </div>
 
         {/* Env vars block */}
-        <div className="ml-9 rounded-lg border border-[var(--border)] bg-black/40 p-3 space-y-1.5 font-mono text-xs">
+        <div className="ml-9 rounded-lg border border-[rgba(176,128,92,0.2)] bg-black/40 p-3 space-y-1.5 font-mono text-xs">
           <div className="text-[10px] font-semibold tracking-[0.14em] text-[var(--muted)] mb-2">REQUIRED ENV VARS</div>
           <div className="flex items-center gap-1">
             <span className="text-[rgb(160,220,255)]">AGENT_NAME</span>
@@ -196,9 +255,9 @@ function CloudflarePanel({ agentName, tbaShort, nftmailAddr }: { agentName: stri
       </div>
 
       {/* Step 2 */}
-      <div className="rounded-xl border border-[var(--border)] bg-black/20 p-4">
+      <div className="rounded-xl border border-[rgba(176,128,92,0.2)] bg-black/20 p-4">
         <div className="flex items-start gap-3">
-          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--card)] text-xs font-bold text-[#f2eee4]">
+          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-[rgba(176,128,92,0.3)] bg-[var(--card)] text-xs font-bold text-[#f2eee4]">
             2
           </span>
           <div>
@@ -216,14 +275,14 @@ function CloudflarePanel({ agentName, tbaShort, nftmailAddr }: { agentName: stri
 
 function SafePanel({ agentName }: { agentName: string }) {
   return (
-    <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-5 space-y-4">
+    <div className="rounded-xl border border-[rgba(176,128,92,0.35)] bg-[var(--card)] p-5 space-y-4">
       <div>
         <div className="text-sm font-semibold text-[#f2eee4]">Install Safe Brain Module</div>
         <p className="mt-1 text-xs text-[var(--muted)]">
           Requires a deployed Gnosis Safe. The BrainModule is installed as a Safe module and awakened in the GhostRegistry.
         </p>
       </div>
-      <div className="rounded-xl border border-[var(--border)] bg-black/20 p-4 space-y-2">
+      <div className="rounded-xl border border-[rgba(176,128,92,0.2)] bg-black/20 p-4 space-y-2">
         <div className="text-xs text-[var(--muted)]">
           Connect your wallet and provide your Safe address + TBA address to proceed with on-chain installation.
         </div>

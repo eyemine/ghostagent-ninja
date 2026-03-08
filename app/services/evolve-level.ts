@@ -3,7 +3,7 @@
  * Pupa ↔ Imago level scanner and transition logic.
  *
  * Level terminology:
- *   Egg   → basic   (8-day decay, receive only)
+ *   Larva → basic   (8-day decay, receive only)
  *   Pupa  → lite    (30-day, send + Safe body)
  *   Imago → premium (1yr renewable, infinite KV, Story .ip asset, marketplace badge)
  *   Ghost → ghost   (sovereign, governance, IP revenue share)
@@ -13,7 +13,7 @@
  *   Imago → Pupa  : cancel subscription (drop-back, zero fee, data preserved)
  */
 
-export type EvolveLevel = 'egg' | 'pupa' | 'imago' | 'ghost';
+export type EvolveLevel = 'larva' | 'pupa' | 'imago' | 'ghost';
 
 export interface LevelRecord {
   level: EvolveLevel;
@@ -48,8 +48,8 @@ export const LEVEL_META: Record<EvolveLevel, {
   workerTier: 'basic' | 'lite' | 'premium' | 'ghost';
   description: string;
 }> = {
-  egg: {
-    label: 'Egg',
+  larva: {
+    label: 'Larva',
     color: 'text-zinc-400',
     bgColor: 'bg-zinc-500/10',
     ringColor: 'ring-zinc-500/20',
@@ -118,7 +118,7 @@ export function workerTierToLevel(tier: string | undefined | null): EvolveLevel 
     case 'ghost':   return 'ghost';
     case 'premium': return 'imago';
     case 'lite':    return 'pupa';
-    default:        return 'egg';
+    default:        return 'larva';
   }
 }
 

@@ -3,6 +3,8 @@
 import { useState, useCallback } from 'react';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { MintAgentBundle } from '../../components/MintAgentBundle';
+import { GenomeEditor } from '../../components/GenomeEditor';
+import { defaultGenomeMetadata, type GenomeMetadata } from '../../services/genome-metadata';
 
 type Namespace = 'agent' | 'openclaw' | 'molt' | 'picoclaw' | 'vault' | 'nftmail';
 
@@ -124,6 +126,24 @@ function feeLabel(fee: number | 'free') {
   return fee === 'free' ? 'Free' : `${fee} xDAI`;
 }
 
+const NS_COLOR: Record<string, { text: string; border: string; bg: string; selectedBorder: string; selectedBg: string }> = {
+  'agent.gno':    { text: 'text-blue-300',    border: 'border-blue-500/20',    bg: 'bg-blue-500/5',    selectedBorder: 'border-blue-400/50',    selectedBg: 'bg-blue-500/10' },
+  'openclaw.gno': { text: 'text-rose-300',    border: 'border-rose-500/20',    bg: 'bg-rose-500/5',    selectedBorder: 'border-rose-400/50',    selectedBg: 'bg-rose-500/10' },
+  'molt.gno':     { text: 'text-fuchsia-300', border: 'border-fuchsia-500/20', bg: 'bg-fuchsia-500/5', selectedBorder: 'border-fuchsia-400/50', selectedBg: 'bg-fuchsia-500/10' },
+  'picoclaw.gno': { text: 'text-[#f4b55a]',  border: 'border-amber-500/20',   bg: 'bg-amber-500/5',   selectedBorder: 'border-amber-400/50',   selectedBg: 'bg-amber-500/10' },
+  'vault.gno':    { text: 'text-emerald-300', border: 'border-emerald-500/20', bg: 'bg-emerald-500/5', selectedBorder: 'border-emerald-400/50', selectedBg: 'bg-emerald-500/10' },
+  'nftmail.gno':  { text: 'text-cyan-300',    border: 'border-cyan-500/20',    bg: 'bg-cyan-500/5',    selectedBorder: 'border-cyan-400/50',    selectedBg: 'bg-cyan-500/10' },
+};
+
+const NS_MOLT_BADGE: Record<string, { label: string; color: string; bg: string; ring: string }> = {
+  'agent.gno':    { label: '🦋 Imago',   color: 'text-violet-300',  bg: 'bg-violet-500/10',  ring: 'ring-violet-500/20' },
+  'openclaw.gno': { label: '🔍 Glassbox', color: 'text-rose-300',    bg: 'bg-rose-500/10',    ring: 'ring-rose-500/20' },
+  'molt.gno':     { label: '🐛 Larva',    color: 'text-fuchsia-300', bg: 'bg-fuchsia-500/10', ring: 'ring-fuchsia-500/20' },
+  'picoclaw.gno': { label: '🥚 Free',     color: 'text-[#f4b55a]',   bg: 'bg-amber-500/10',   ring: 'ring-amber-500/20' },
+  'vault.gno':    { label: '👻 Ghost',    color: 'text-fuchsia-300', bg: 'bg-fuchsia-500/10', ring: 'ring-fuchsia-500/20' },
+  'nftmail.gno':  { label: '🔒 Private',  color: 'text-cyan-300',    bg: 'bg-cyan-500/10',    ring: 'ring-cyan-500/20' },
+};
+
 type CheckStatus = 'idle' | 'checking' | 'available' | 'taken' | 'ens-clash' | 'invalid' | 'error';
 
 interface CheckResult {
@@ -145,6 +165,7 @@ export default function MintBodyPage() {
   const [agentName, setAgentName] = useState('');
   const [checkStatus, setCheckStatus] = useState<CheckStatus>('idle');
   const [checkResult, setCheckResult] = useState<CheckResult | null>(null);
+  const [genomeMeta, setGenomeMeta] = useState<GenomeMetadata | null>(null);
 
   const checkAvailability = useCallback(async () => {
     if (!agentName || agentName.length < 2) return;
@@ -167,28 +188,42 @@ export default function MintBodyPage() {
 
   // Reset check whenever name or namespace changes
   function handleNameChange(val: string) {
-    setAgentName(val.toLowerCase().replace(/[^a-z0-9-]/g, ''));
+    const cleaned = val.toLowerCase().replace(/[^a-z0-9-]/g, '');
+    setAgentName(cleaned);
     setCheckStatus('idle');
     setCheckResult(null);
+    // Reset genome meta when name changes so placeholder regenerates
+    setGenomeMeta(cleaned ? defaultGenomeMetadata(cleaned, selected) : null);
   }
 
   const ns = NAMESPACES.find(n => n.key === selected)!;
   const fullName = agentName ? `${agentName}.${ns.domain}` : '';
 
   return (
-    <div className="mx-auto max-w-4xl space-y-10 px-4 py-8">
+    <div className="max-w-5xl space-y-6">
 
       {/* ── Hero ── */}
-      <div className="flex items-center gap-6">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={GHOST_LOGO} alt="GhostAgent" className="h-28 w-28 object-contain drop-shadow-[0_0_18px_rgba(184,134,97,0.4)]" />
-        <div>
-          <h1 className="text-3xl font-bold text-[#f2eee4]">Mint Agent Body</h1>
-          <p className="mt-2 max-w-xl text-sm text-[var(--muted)]">
-            Choose a namespace and name to mint your on-chain agent NFT. The NFT is your identity key —
-            transfer it to transfer control.
-          </p>
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={GHOST_LOGO} alt="GhostAgent" className="h-28 w-28 shrink-0 object-contain drop-shadow-[0_0_18px_rgba(184,134,97,0.4)]" />
+          <div>
+            <h1 className="text-2xl font-bold text-[#f2eee4]">Mint Agent Body</h1>
+            <p className="mt-1 max-w-xl text-sm text-[var(--muted)]">
+              Choose a namespace and name to mint your on-chain agent NFT. The NFT is your identity key —
+              transfer it to transfer control.
+            </p>
+          </div>
         </div>
+        <a
+          href="https://nftmail.box/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="shrink-0 rounded-lg border border-[rgba(176,128,92,0.3)] bg-[rgba(176,128,92,0.08)] px-4 py-1.5 text-xs font-semibold transition hover:bg-[rgba(176,128,92,0.14)]"
+          style={{ fontFamily: "Ayuthaya, 'Courier New', monospace", color: '#d9d9d8' }}
+        >
+          NFTmail.box ↗
+        </a>
       </div>
 
       {/* ── SELECT NAMESPACE ── */}
@@ -197,30 +232,37 @@ export default function MintBodyPage() {
         <div className="grid gap-3 sm:grid-cols-2">
           {NAMESPACES.map((n) => {
             const isSelected = selected === n.key;
+            const nsC = NS_COLOR[n.domain] ?? NS_COLOR['agent.gno'];
+            const moltBadge = NS_MOLT_BADGE[n.domain];
             return (
               <button
                 key={n.key}
                 onClick={() => setSelected(n.key)}
                 className={`group relative flex flex-col gap-1 rounded-xl border p-4 text-left transition-all ${
                   isSelected
-                    ? 'border-[rgba(176,128,92,0.5)] bg-[rgba(176,128,92,0.08)]'
-                    : 'border-[var(--border)] bg-[var(--card)] hover:border-[rgba(176,128,92,0.3)] hover:bg-[rgba(176,128,92,0.04)]'
+                    ? `${nsC.selectedBorder} ${nsC.selectedBg}`
+                    : `${nsC.border} ${nsC.bg} hover:${nsC.selectedBorder}`
                 }`}
               >
                 {/* Top row: domain name + mint fee */}
                 <div className="flex items-center justify-between gap-2">
-                  <span className={`text-sm font-semibold transition-colors ${
-                    isSelected ? 'text-[#b0805c]' : 'text-[#f2eee4] group-hover:text-[#b0805c]'
-                  }`}>
+                  <span className={`text-sm font-semibold transition-colors ${nsC.text}`}>
                     {n.domain}
                   </span>
-                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                    n.mintFee === 'free'
-                      ? 'bg-emerald-500/10 text-emerald-300 ring-1 ring-emerald-500/20'
-                      : 'bg-[rgba(176,128,92,0.12)] text-[#b0805c] ring-1 ring-[rgba(176,128,92,0.25)]'
-                  }`}>
-                    {feeLabel(n.mintFee)}
-                  </span>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {moltBadge && (
+                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-semibold ring-1 ${moltBadge.color} ${moltBadge.bg} ${moltBadge.ring}`}>
+                        {moltBadge.label}
+                      </span>
+                    )}
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                      n.mintFee === 'free'
+                        ? 'bg-emerald-500/10 text-emerald-300 ring-1 ring-emerald-500/20'
+                        : 'bg-[rgba(176,128,92,0.12)] text-[#b0805c] ring-1 ring-[rgba(176,128,92,0.25)]'
+                    }`}>
+                      {feeLabel(n.mintFee)}
+                    </span>
+                  </div>
                 </div>
 
                 {/* One-liner description */}
@@ -243,7 +285,7 @@ export default function MintBodyPage() {
       {/* ── AGENT NAME ── */}
       <div className="space-y-2">
         <div className="text-xs font-semibold tracking-[0.18em] text-[var(--muted)]">AGENT NAME</div>
-        <div className="flex items-center rounded-xl border border-[var(--border)] bg-[var(--card)] px-4 py-3 focus-within:border-[rgba(176,128,92,0.4)]">
+        <div className="flex items-center rounded-xl border border-[rgba(176,128,92,0.25)] bg-[var(--card)] px-4 py-3 focus-within:border-[rgba(176,128,92,0.5)]">
           <input
             value={agentName}
             onChange={e => handleNameChange(e.target.value)}
@@ -271,7 +313,7 @@ export default function MintBodyPage() {
 
         {/* Responsive name preview */}
         {agentName.length >= 1 && (
-          <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] px-4 py-3 space-y-3">
+          <div className="rounded-xl border border-[rgba(176,128,92,0.25)] bg-[var(--card)] px-4 py-3 space-y-3">
             {/* Identity line */}
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
               <span className="text-[var(--muted)]">→</span>
@@ -357,8 +399,19 @@ export default function MintBodyPage() {
         )}
       </div>
 
+      {/* ── Genome NFT Editor — shown once name is valid ── */}
+      {agentName.length >= 2 && (
+        <GenomeEditor
+          agentName={agentName}
+          sld={selected}
+          value={genomeMeta}
+          onChange={setGenomeMeta}
+          showDescription={false}
+        />
+      )}
+
       {/* ── Mint panel ── */}
-      <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] px-6 py-5">
+      <div className="rounded-xl border border-[rgba(176,128,92,0.35)] bg-[var(--card)] px-6 py-5">
         {agentName.length >= 2 ? (
           <MintAgentBundle
             agentName={agentName}

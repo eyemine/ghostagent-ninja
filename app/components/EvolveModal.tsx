@@ -10,6 +10,9 @@ import {
   type EvolveLevel,
   type LevelRecord,
 } from '../services/evolve-level';
+import { TransakButton } from './TransakWidget';
+import { MercuryoButton } from './MercuryoWidget';
+import { FEATURES } from '../constants/features';
 
 interface EvolveModalProps {
   agentName: string;
@@ -104,7 +107,7 @@ export default function EvolveModal({
     }
   }
 
-  const currentLevel = record?.level ?? 'egg';
+  const currentLevel = record?.level ?? 'larva';
   const action = EVOLVE_ACTIONS[currentLevel];
   const meta = LEVEL_META[currentLevel];
   const targetMeta = action ? LEVEL_META[action.to] : null;
@@ -146,7 +149,7 @@ export default function EvolveModal({
                   <p className="mt-1 text-[11px] text-[var(--muted)] leading-relaxed">{meta.description}</p>
                 </div>
                 <div className="shrink-0 text-3xl select-none">
-                  {currentLevel === 'egg' ? '🥚' : currentLevel === 'pupa' ? '🐛' : currentLevel === 'imago' ? '🦋' : '👻'}
+                  {currentLevel === 'larva' ? '🐛' : currentLevel === 'pupa' ? '🐛' : currentLevel === 'imago' ? '🦋' : '👻'}
                 </div>
               </div>
 
@@ -223,6 +226,40 @@ export default function EvolveModal({
                         `Evolve to Imago +${action.oneOffXdai} xDAI`
                       )}
                     </button>
+
+                    {/* Transak fiat on-ramp — suppressed until FEATURES.transakOnRamp = true */}
+                    {FEATURES.transakOnRamp && (
+                      <TransakButton
+                        walletAddress={walletAddress}
+                        defaultAmount={action.oneOffXdai ? Math.max(10, action.oneOffXdai * 2) : 10}
+                        label={`Pay with Card from $10 (Transak)`}
+                        onSuccess={(orderId) => {
+                          setStatusMsg(`Card payment received ✓ — order ${orderId.slice(0, 8)}. xDAI will arrive shortly, then click Evolve.`);
+                        }}
+                      />
+                    )}
+
+                    {/* Mercuryo fallback — suppressed until FEATURES.mercuryoOnRamp = true */}
+                    {FEATURES.mercuryoOnRamp && (
+                      <>
+                        {FEATURES.transakOnRamp && (
+                          <div className="flex items-center gap-2 my-1">
+                            <div className="flex-1 h-px bg-[var(--border)]" />
+                            <span className="text-[9px] text-[var(--muted)]">or if Transak unavailable in your region</span>
+                            <div className="flex-1 h-px bg-[var(--border)]" />
+                          </div>
+                        )}
+                        <MercuryoButton
+                          walletAddress={walletAddress}
+                          defaultAmount={action.oneOffXdai ? Math.max(10, action.oneOffXdai * 2) : 10}
+                          label={`Pay with Card from $10 (Mercuryo)`}
+                          onSuccess={(txId) => {
+                            setStatusMsg(`Card payment received ✓ — tx ${txId.slice(0, 8)}. xDAI will arrive shortly, then click Evolve.`);
+                          }}
+                        />
+                      </>
+                    )}
+
                     <p className="text-center text-[9px] text-[var(--muted)]">
                       Zero lock-in · drop back to Pupa any time · email preserved
                     </p>
@@ -294,8 +331,8 @@ export default function EvolveModal({
               </div>
             )}
 
-            {/* No upgrade path (egg tier — must mint first) */}
-            {!action && currentLevel === 'egg' && (
+            {/* No upgrade path (larva tier — must mint first) */}
+            {!action && currentLevel === 'larva' && (
               <div className="mb-4 rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-xs text-amber-300">
                 Mint your .nftmail.gno or .agent.gno name first, then return here to evolve.
               </div>
@@ -324,7 +361,7 @@ export default function EvolveModal({
 
         {/* Level ladder */}
         <div className="mt-2 flex items-center justify-center gap-1 text-[9px] text-[var(--muted)]">
-          {(['egg', 'pupa', 'imago', 'ghost'] as EvolveLevel[]).map((lvl, i, arr) => (
+          {(['larva', 'pupa', 'imago', 'ghost'] as EvolveLevel[]).map((lvl, i, arr) => (
             <span key={lvl} className="flex items-center gap-1">
               <span className={lvl === currentLevel ? LEVEL_META[lvl].color + ' font-bold' : ''}>
                 {LEVEL_META[lvl].label}

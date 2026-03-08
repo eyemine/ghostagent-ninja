@@ -5,6 +5,8 @@ import {
   parseLevelRecord,
   type EvolveLevel,
 } from '../../services/evolve-level';
+import { trackEvolve } from '../../services/molt-path-tracker';
+import { mintIPAsset } from '../../services/ip-minter';
 
 const WORKER_URL =
   process.env.NFTMAIL_WORKER_URL ||
@@ -32,14 +34,14 @@ export async function GET(req: NextRequest) {
     });
 
     if (!res.ok) {
-      return NextResponse.json({ level: 'egg', workerTier: 'basic', sendEnabled: false, retention: '8-day', expiresAt: null, safe: null, storyIp: null, marketplaceBadge: null, ipAssetDomain: null });
+      return NextResponse.json({ level: 'larva', workerTier: 'basic', sendEnabled: false, retention: '8-day', expiresAt: null, safe: null, storyIp: null, marketplaceBadge: null, ipAssetDomain: null });
     }
 
     const raw = await res.json() as { tier?: string; raw?: string; [k: string]: any };
     const record = parseLevelRecord(raw.raw ?? JSON.stringify(raw));
     return NextResponse.json(record);
   } catch {
-    return NextResponse.json({ level: 'egg', workerTier: 'basic', sendEnabled: false, retention: '8-day', expiresAt: null, safe: null, storyIp: null, marketplaceBadge: null, ipAssetDomain: null });
+    return NextResponse.json({ level: 'larva', workerTier: 'basic', sendEnabled: false, retention: '8-day', expiresAt: null, safe: null, storyIp: null, marketplaceBadge: null, ipAssetDomain: null });
   }
 }
 
@@ -87,12 +89,31 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'action must be upgrade or downgrade' }, { status: 400 });
     }
 
-    const newWorkerTier = action === 'upgrade' ? 'premium' : 'lite';
+    // Resolve current level before the transition so we know fromLevel
+    let currentWorkerTier = 'basic';
+    try {
+      const currentRes = await fetch(WORKER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'getAcctTier', localPart: name, tld }),
+      });
+      if (currentRes.ok) {
+        const currentRaw = await currentRes.json() as { tier?: string; raw?: string };
+        const currentRecord = parseLevelRecord(currentRaw.raw ?? JSON.stringify(currentRaw));
+        currentWorkerTier = currentRecord.workerTier;
+      }
+    } catch {
+      // Non-fatal — proceed with assumed 'basic'
+    }
+    const fromLevel: EvolveLevel = workerTierToLevel(currentWorkerTier);
+    const isLarvaToPupa = fromLevel === 'larva' && action === 'upgrade';
+
+    const newWorkerTier = isLarvaToPupa ? 'lite' : action === 'upgrade' ? 'premium' : 'lite';
     const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000;
     const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
-    const expiresAt = action === 'upgrade'
-      ? Date.now() + ONE_YEAR_MS
-      : Date.now() + THIRTY_DAYS_MS;
+    const expiresAt = isLarvaToPupa || action === 'downgrade'
+      ? Date.now() + THIRTY_DAYS_MS
+      : Date.now() + ONE_YEAR_MS;
 
     // Step 1: Update worker KV tier via upgradeTier action
     const tierRes = await fetch(WORKER_URL, {
@@ -104,7 +125,7 @@ export async function POST(req: NextRequest) {
         label: name,
         newTier: newWorkerTier,
         safe: safeAddress ?? null,
-        retention: action === 'upgrade' ? 'infinite' : '30-day',
+        retention: isLarvaToPupa ? '30-day' : action === 'upgrade' ? 'infinite' : '30-day',
       }),
     });
 
@@ -126,9 +147,29 @@ export async function POST(req: NextRequest) {
       error?: string;
     }
     let storyIpResult: StoryIpResult | null = null;
+    let larvaToPupaIPResult: Awaited<ReturnType<typeof mintIPAsset>> | null = null;
 
-    // Step 2: Deploy Story .ip asset on upgrade (fire via internal gasless-ip-mint)
-    if (action === 'upgrade' && tbaAddress) {
+    // Step 2a: Larva → Pupa — mint creation.ip on first paid evolution
+    if (isLarvaToPupa && tbaAddress) {
+      try {
+        larvaToPupaIPResult = await mintIPAsset({
+          agentName: name,
+          tld,
+          tbaAddress,
+          ownerWallet: walletAddress,
+          safeAddress: safeAddress ?? undefined,
+          fromLevel: 'larva',
+          toLevel: 'pupa',
+          webhookSecret: WEBHOOK_SECRET,
+        });
+      } catch {
+        // Non-fatal — tier upgrade already committed
+        larvaToPupaIPResult = { success: false, ipType: 'creation.ip', error: 'IP mint deferred' };
+      }
+    }
+
+    // Step 2b: Pupa → Imago — deploy Story .ip asset via gasless-ip-mint
+    if (action === 'upgrade' && !isLarvaToPupa && tbaAddress) {
       try {
         const ipRes = await fetch(
           `${process.env.NEXT_PUBLIC_APP_URL || 'https://ghostagent.ninja'}/api/gasless-ip-mint`,
@@ -167,7 +208,35 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const newLevel: EvolveLevel = action === 'upgrade' ? 'imago' : 'pupa';
+    const newLevel: EvolveLevel = isLarvaToPupa ? 'pupa' : action === 'upgrade' ? 'imago' : 'pupa';
+
+    // Step 3: Track molt path + re-pin beacon metadata (non-fatal)
+    const xdaiBurned = action === 'upgrade' ? 38 : 0; // 14 one-off + 24 annual
+    const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://ghostagent.ninja';
+    const LIGHTHOUSE_API_KEY = process.env.LIGHTHOUSE_API_KEY;
+
+    let moltPathResult: Awaited<ReturnType<typeof trackEvolve>> | null = null;
+    try {
+      moltPathResult = await trackEvolve(
+        {
+          agentName: name,
+          ownerAddress: walletAddress,
+          gnosisNft: `${name}.${tld}`,
+          fromLevel,
+          toLevel: newLevel,
+          xdaiBurned,
+          txHash: txHash ?? '',
+          safeAddress: safeAddress ?? null,
+          tbaAddress: tbaAddress ?? null,
+          storyIpDomain: larvaToPupaIPResult?.fullDomain ?? storyIpResult?.fullDomain ?? null,
+          repinBeacon: true,
+        },
+        WEBHOOK_SECRET,
+        LIGHTHOUSE_API_KEY,
+      );
+    } catch {
+      // Non-fatal — tier upgrade already committed
+    }
 
     return NextResponse.json({
       status: 'ok',
@@ -175,11 +244,24 @@ export async function POST(req: NextRequest) {
       level: newLevel,
       workerTier: newWorkerTier,
       expiresAt,
-      retention: action === 'upgrade' ? 'infinite' : '30-day',
-      marketplaceBadge: action === 'upgrade' ? 'Imago' : 'Pupa',
-      storyIp: storyIpResult ?? null,
+      retention: isLarvaToPupa ? '30-day' : action === 'upgrade' ? 'infinite' : '30-day',
+      marketplaceBadge: isLarvaToPupa ? 'Pupa' : action === 'upgrade' ? 'Imago' : 'Pupa',
+      storyIp: larvaToPupaIPResult ?? storyIpResult ?? null,
       paymentTxHash: txHash ?? null,
-      message: action === 'upgrade'
+      molt_path: moltPathResult
+        ? {
+            currentLevel:           moltPathResult.record.currentLevel,
+            totalXdaiBurned:        moltPathResult.record.totalXdaiBurned,
+            surgeReputationScore:   moltPathResult.record.surgeReputationScore,
+            lastEvolveTimestamp:    moltPathResult.record.lastEvolveTimestamp,
+            evolutionHistoryLength: moltPathResult.record.evolutionHistory.length,
+            beaconCid:              moltPathResult.beaconCid,
+            beaconMetadataUrl:      moltPathResult.beaconMetadataUrl,
+          }
+        : null,
+      message: isLarvaToPupa
+        ? `Evolved to Pupa ✓ — send enabled + ${larvaToPupaIPResult?.fullDomain ? `.IP Minted: ${larvaToPupaIPResult.fullDomain}` : 'Story .ip asset registered'}`
+        : action === 'upgrade'
         ? `Evolved to Imago ✓ — infinite retention + Story .ip asset registered`
         : `Returned to Pupa — 30-day cycle active. Email, Safe, and history preserved.`,
     });

@@ -2,6 +2,17 @@
 const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
+  images: {
+    remotePatterns: [
+      { protocol: 'https', hostname: 'metadata.ens.domains' },
+      { protocol: 'https', hostname: '**.ipfs.dweb.link' },
+      { protocol: 'https', hostname: '**.ipfs.nftstorage.link' },
+      { protocol: 'https', hostname: 'openseauserdata.com' },
+      { protocol: 'https', hostname: '**.amazonaws.com' },
+      { protocol: 'https', hostname: 'i.imgur.com' },
+      { protocol: 'https', hostname: 'gateway.lighthouse.storage' },
+    ],
+  },
   webpack: (config) => {
     config.resolve.fallback = {
       ...config.resolve.fallback,

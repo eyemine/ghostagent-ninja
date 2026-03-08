@@ -3,6 +3,8 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import XMTPBadge, { type XMTPBadgeVariant } from './XMTPBadge';
+import SwarmModeBadge from './SwarmModeBadge';
 
 type AgentTier = 'free' | 'pro';
 type Namespace = 'agent' | 'openclaw' | 'molt' | 'picoclaw' | 'vault' | 'nftmail';
@@ -28,6 +30,10 @@ interface AgentCardProps {
   ipType?: 'creation.ip' | 'moltbook.ip' | null;
   stakedHost?: number;
   marketplaceBadge?: string | null;
+  xmtpEnabled?: boolean;
+  swarmMemberCount?: number;
+  swarmStrategy?: string;
+  swarmHackathonTag?: string;
 }
 
 const NAMESPACE_META: Record<Namespace, { label: string; color: string; bgColor: string }> = {
@@ -121,6 +127,10 @@ export function AgentCard({
   ipType,
   stakedHost,
   marketplaceBadge,
+  xmtpEnabled,
+  swarmMemberCount = 0,
+  swarmStrategy,
+  swarmHackathonTag,
 }: AgentCardProps) {
   const [moltPhase, setMoltPhase] = useState<'idle' | 'shedding' | 'emerging' | 'complete'>('idle');
   const nsMeta = NAMESPACE_META[namespace];
@@ -135,6 +145,8 @@ export function AgentCard({
       return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
     }
   }, [isMolting]);
+
+  const xmtpVariant: XMTPBadgeVariant = namespace === 'picoclaw' ? 'picoclaw' : xmtpEnabled ? 'enabled' : 'disabled';
 
   return (
     <motion.div
@@ -233,6 +245,8 @@ export function AgentCard({
               {marketplaceBadge}
             </span>
           )}
+          <XMTPBadge variant={xmtpVariant} />
+          <SwarmModeBadge memberCount={swarmMemberCount} strategy={swarmStrategy} hackathonTag={swarmHackathonTag} />
         </div>
       )}
 

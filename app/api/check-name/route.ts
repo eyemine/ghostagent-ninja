@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createPublicClient, http, namehash } from 'viem';
 import { mainnet } from 'viem/chains';
+import { getAllCollections } from '../../services/collection-registry';
+
+// Flat set of all reserved words derived from collection registry at module load.
+// Includes ENS-reserved prefixes like 'chonk', 'atom', 'punk', 'punks', etc.
+const COLLECTION_RESERVED: Set<string> = new Set(
+  getAllCollections().flatMap(c => c.ensReserved),
+);
 
 const WORKER_URL =
   process.env.NFTMAIL_WORKER_URL ||
@@ -43,6 +50,18 @@ export async function GET(req: NextRequest) {
       available: false,
       reason: 'invalid',
       message: 'Only lowercase letters, numbers, and hyphens allowed.',
+    });
+  }
+
+  // ── 0. Collection-reserved prefix block ─────────────────────────────────────
+  // Names like 'chonk', 'atom', 'punk', 'normie' are reserved for NFT collection
+  // direct-mint accounts (CHONK.123@nftmail.box) and must not be registered as
+  // plain agent names to prevent identity spoofing and ENS clashes.
+  if (COLLECTION_RESERVED.has(name)) {
+    return NextResponse.json({
+      available: false,
+      reason: 'reserved',
+      message: `"${name}" is reserved for an approved NFT collection identity.`,
     });
   }
 

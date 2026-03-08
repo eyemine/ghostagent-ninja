@@ -8,6 +8,7 @@
 /// Returns: { txHash, tokenId, email, originNft, controller }
 
 import { NextRequest, NextResponse } from 'next/server';
+import { buildIpaMetadata } from '../../services/genome-metadata';
 import {
   createPublicClient,
   createWalletClient,
@@ -97,13 +98,21 @@ export async function POST(req: NextRequest) {
     const gnosisPublic = createPublicClient({ chain: gnosis, transport: http() });
     const gnosisWallet = createWalletClient({ chain: gnosis, transport: http(), account });
 
+    // ─── Build Story IPA metadata ───
+    const ipaMeta = buildIpaMetadata({
+      agentName: label,
+      sld: 'nftmail',
+      ownerAddress: ownerWallet,
+    });
+    const ipaMetaBytes = `0x${Buffer.from(JSON.stringify(ipaMeta)).toString('hex')}` as `0x${string}`;
+
     // ─── Mint on Gnosis via treasury wallet ───
     const tbaSalt = `0x${'0'.repeat(64)}` as `0x${string}`;
     const hash = await gnosisWallet.writeContract({
       address: NFTMAIL_GNO_REGISTRAR,
       abi: MintSubnameABI,
       functionName: 'mintSubname',
-      args: [label, ownerWallet as Address, '0x', tbaSalt],
+      args: [label, ownerWallet as Address, ipaMetaBytes, tbaSalt],
     });
 
     const receipt = await gnosisPublic.waitForTransactionReceipt({ hash });
