@@ -1,0 +1,50 @@
+name: Deploy to Netlify
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ghostAgentNinja
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - run: npm run build
+        env:
+          # — secrets (API keys only) —
+          NEXT_PUBLIC_PRIVY_APP_ID: ${{ secrets.NEXT_PUBLIC_PRIVY_APP_ID }}
+          NEXT_PUBLIC_INFURA_KEY: ${{ secrets.NEXT_PUBLIC_INFURA_KEY }}
+          NEXT_PUBLIC_ALCHEMY_KEY: ${{ secrets.NEXT_PUBLIC_ALCHEMY_KEY }}
+          # — public contract addresses & RPCs (not secrets) —
+          NEXT_PUBLIC_REGISTRAR_OPENCLAW: "0x136fFA0Ad03cd7b04716Bf777Ac6773c80E2f03A"
+          NEXT_PUBLIC_REGISTRAR_MOLT: "0xF13b8b35F5055E9B249219731b81CbDE7129B8df"
+          NEXT_PUBLIC_REGISTRAR_PICOCLAW: "0xa64dd093cc5c155914e24aa7f4D567eea10369A3"
+          NEXT_PUBLIC_REGISTRAR_VAULT: "0x33C89316Db7E268d6c83D01AD29773968F8bBFD1"
+          NEXT_PUBLIC_REGISTRAR_AGENT: "0x31Ae234f5440FbBadD902Ece11E14541f70dA52c"
+          NEXT_PUBLIC_GNOSIS_RPC: "https://rpc.gnosischain.com"
+          # — remaining public vars (contract addresses, not secrets) —
+          NEXT_PUBLIC_GHOST_REGISTRY: "0x73F2F2EF73dC512Cac0f5B0372F1d58A84eD13E6"
+          NEXT_PUBLIC_SAFE_FACTORY: "0x879fccec819e4011b96bb9acd98da4bdb1f40ac7"
+
+      - name: Deploy to Netlify
+        uses: nwtgck/actions-netlify@v3
+        with:
+          publish-dir: '.next'
+          production-branch: main
+          production-deploy: true
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          deploy-message: '${{ github.event.head_commit.message }}'
+          netlify-config-path: ./netlify.toml
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: 0c72c601-fc80-4f63-bf53-2991562dac80
