@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import { TermsCheckbox } from '../../components/TermsCheckbox';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { MintAgentBundle } from '../../components/MintAgentBundle';
 import { GenomeEditor } from '../../components/GenomeEditor';
@@ -166,6 +167,7 @@ export default function MintBodyPage() {
   const [checkStatus, setCheckStatus] = useState<CheckStatus>('idle');
   const [checkResult, setCheckResult] = useState<CheckResult | null>(null);
   const [genomeMeta, setGenomeMeta] = useState<GenomeMetadata | null>(null);
+  const [termsAgreed, setTermsAgreed] = useState(false);
 
   const checkAvailability = useCallback(async () => {
     if (!agentName || agentName.length < 2) return;
@@ -410,6 +412,15 @@ export default function MintBodyPage() {
         />
       )}
 
+      {/* ── Terms agreement ── */}
+      {agentName.length >= 2 && (
+        <TermsCheckbox
+          checked={termsAgreed}
+          onChange={setTermsAgreed}
+          context="mint"
+        />
+      )}
+
       {/* ── Mint panel ── */}
       <div className="rounded-xl border border-[rgba(176,128,92,0.35)] bg-[var(--card)] px-6 py-5">
         {agentName.length >= 2 ? (
@@ -417,6 +428,7 @@ export default function MintBodyPage() {
             agentName={agentName}
             safeAddress={'0x0000000000000000000000000000000000000000'}
             namespace={selected}
+            disabled={!termsAgreed}
           />
         ) : (
           <p className="text-sm text-[var(--muted)]">Enter an agent name above to continue.</p>

@@ -23,6 +23,7 @@ interface MintAgentBundleProps {
   agentName: string;
   safeAddress: `0x${string}`;
   namespace?: string;
+  disabled?: boolean;
 }
 
 type Step = 'idle' | 'gnosis' | 'story' | 'email' | 'done' | 'error';
@@ -39,7 +40,7 @@ interface BundleResult {
   email?: string;
 }
 
-export function MintAgentBundle({ agentName, safeAddress, namespace = 'agent' }: MintAgentBundleProps) {
+export function MintAgentBundle({ agentName, safeAddress, namespace = 'agent', disabled = false }: MintAgentBundleProps) {
   const isSelfContained = (SELF_CONTAINED_NAMESPACES as readonly string[]).includes(namespace);
   const { authenticated } = usePrivy();
   const { wallets } = useWallets();
@@ -225,7 +226,7 @@ export function MintAgentBundle({ agentName, safeAddress, namespace = 'agent' }:
       {/* Mint Button */}
       <button
         onClick={mintBundle}
-        disabled={step !== 'idle' && step !== 'error' && step !== 'done'}
+        disabled={disabled || (step !== 'idle' && step !== 'error' && step !== 'done')}
         className="flex items-center gap-2 rounded-xl border border-[rgba(0,163,255,0.35)] bg-[rgba(0,163,255,0.12)] px-5 py-3 text-sm font-semibold text-[rgb(160,220,255)] transition hover:bg-[rgba(0,163,255,0.18)] disabled:cursor-not-allowed disabled:opacity-50"
       >
         {step === 'idle' || step === 'error' ? (

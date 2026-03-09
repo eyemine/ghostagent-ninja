@@ -4,6 +4,7 @@ import "./globals.css";
 import { Providers } from "./providers";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { AppNav } from "./components/AppNav";
+import { Footer } from "./components/Footer";
 
 const geistSans = Inter({
   variable: "--font-geist-sans",
@@ -59,6 +60,7 @@ export default function RootLayout({
             {children}
           </Providers>
         </ErrorBoundary>
+        <Footer />
       </body>
     </html>
   );
