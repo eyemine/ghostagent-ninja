@@ -265,6 +265,12 @@ export function NFTLogin() {
       <p className="text-center text-[10px] text-[var(--muted)]">
         Connect wallet, Safe, or sign in with email to mint your nftmail.box address
       </p>
+      <p className="text-center text-[10px] text-[var(--muted)]">
+        By connecting you agree to our{' '}
+        <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-[#b0805c] underline hover:text-[#ffca92]">Terms of Use</a>
+        {' '}and{' '}
+        <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-[#b0805c] underline hover:text-[#ffca92]">Privacy Policy</a>
+      </p>
       {error && (
         <p className="text-center text-xs text-amber-400">{error}</p>
       )}
