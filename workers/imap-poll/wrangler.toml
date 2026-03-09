@@ -16,7 +16,7 @@ id = "a2ff4c0ed2a348529e781a2a3ed2a140"
 
 [[kv_namespaces]]
 binding = "TOKEN_KV"
-id = "REPLACE_WITH_TOKEN_KV_ID"
+id = "d240fab74b094de6bcab6839dc45f2e8"
 
 [vars]
 ZOHO_ZOID = "7006430618"
