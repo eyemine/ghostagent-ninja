@@ -119,15 +119,27 @@ export default function PrivacyPage() {
           <p>Your data may be processed in servers located outside Australia (including the United States and European Union) by our service providers. We take reasonable steps to ensure overseas recipients handle your data consistently with the APPs.</p>
         </Section>
 
-        <Section title="12. Children">
+        <Section title="12. Data Breach Response (APP 11)">
+          <p>IN THE EVENT OF AN ELIGIBLE DATA BREACH (PRIVACY ACT 1988 (CTH), S.26WE):</p>
+          <ul className="ml-4 list-disc space-y-1">
+            <li><strong>(a)</strong> WE WILL NOTIFY THE OAIC WITHIN 30 DAYS OF BECOMING AWARE OF THE BREACH</li>
+            <li><strong>(b)</strong> WE WILL NOTIFY AFFECTED USERS VIA EMAIL AND DASHBOARD BANNER WHERE PRACTICABLE</li>
+            <li><strong>(c)</strong> WE WILL PROVIDE REMEDIATION STEPS (E.G. KEY ROTATION, SESSION INVALIDATION, MIGRATION GUIDANCE)</li>
+            <li><strong>(d)</strong> WE WILL COOPERATE FULLY WITH ANY OAIC INVESTIGATION</li>
+          </ul>
+          <p>We take reasonable steps under APP 11 to protect personal information from misuse, interference, loss, and unauthorised access. Note that on-chain data cannot be deleted or altered following a breach — this is an inherent limitation of blockchain technology.</p>
+          <p>To report a suspected data breach: <a href="mailto:privacy@ghostagent.ninja" className="text-[#b0805c] underline hover:text-[#ffca92]">privacy@ghostagent.ninja</a></p>
+        </Section>
+
+        <Section title="13. Children">
           <p>The Platform is not directed at persons under 18. We do not knowingly collect personal information from minors. If you believe a minor has provided us personal information, contact us immediately.</p>
         </Section>
 
-        <Section title="13. Changes to This Policy">
+        <Section title="14. Changes to This Policy">
           <p>We may update this Privacy Policy from time to time. Material changes will be notified via the Platform. Continued use after changes constitutes acceptance.</p>
         </Section>
 
-        <Section title="14. Contact & Complaints">
+        <Section title="15. Contact & Complaints">
           <p>Privacy enquiries: <a href="mailto:privacy@ghostagent.ninja" className="text-[#b0805c] underline hover:text-[#ffca92]">privacy@ghostagent.ninja</a></p>
           <p>If you are unsatisfied with our response, you may lodge a complaint with the <strong>Office of the Australian Information Commissioner</strong> at <a href="https://www.oaic.gov.au" target="_blank" rel="noopener noreferrer" className="text-[#b0805c] underline hover:text-[#ffca92]">oaic.gov.au</a>.</p>
         </Section>

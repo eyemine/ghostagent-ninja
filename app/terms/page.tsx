@@ -83,11 +83,26 @@ export default function TermsPage() {
           <p>These Terms are governed by the laws of New South Wales, Australia. You irrevocably submit to the non-exclusive jurisdiction of the courts of New South Wales. Before commencing proceedings, parties agree to attempt good-faith resolution for 30 days.</p>
         </Section>
 
-        <Section title="15. Severability & Entire Agreement">
+        <Section title="15. Australian Consumer Law Guarantees">
+          <p>UNDER THE AUSTRALIAN CONSUMER LAW (SCHEDULE 2 TO THE COMPETITION AND CONSUMER ACT 2010 (CTH)), YOU HAVE CERTAIN GUARANTEES INCLUDING:</p>
+          <ul className="ml-4 list-disc space-y-1 text-sm">
+            <li><strong>(a) ACCEPTABLE QUALITY:</strong> SERVICES MUST BE RENDERED WITH REASONABLE CARE AND SKILL</li>
+            <li><strong>(b) FIT FOR PURPOSE:</strong> SERVICES MUST BE REASONABLY FIT FOR ANY DISCLOSED PURPOSE</li>
+            <li><strong>(c) REASONABLE TIMEFRAME:</strong> SERVICES MUST BE DELIVERED WITHIN A REASONABLE TIME (IF NO TIME SPECIFIED)</li>
+          </ul>
+          <p>THESE GUARANTEES CANNOT BE EXCLUDED, RESTRICTED, OR MODIFIED.</p>
+          <p>IF WE BREACH THESE GUARANTEES, OUR LIABILITY IS LIMITED TO:</p>
+          <ul className="ml-4 list-disc space-y-1 text-sm">
+            <li>FOR SERVICES: RE-SUPPLY OR PAYMENT OF COST FOR RE-SUPPLY</li>
+            <li>FOR GOODS: REPLACEMENT, REPAIR, REFUND, OR REPAIR COST</li>
+          </ul>
+        </Section>
+
+        <Section title="16. Severability & Entire Agreement">
           <p>If any provision of these Terms is found invalid or unenforceable, the remaining provisions continue in full force. These Terms, together with the Privacy Policy and any Marketplace IP Transfer Agreement you sign, constitute the entire agreement between you and us regarding the Platform.</p>
         </Section>
 
-        <Section title="16. Contact">
+        <Section title="17. Contact">
           <p>Questions regarding these Terms: <a href="mailto:legal@ghostagent.ninja" className="text-[#b0805c] underline hover:text-[#ffca92]">legal@ghostagent.ninja</a></p>
         </Section>
       </div>

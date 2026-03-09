@@ -89,7 +89,18 @@ disputes between Seller and Buyer. This Agreement does not warrant transfer of I
 rights the Seller does not own, including rights in third-party AI models or
 Story Protocol licence terms. Both parties are advised to seek independent legal advice.
 
-5. GOVERNING LAW
+5. MORAL RIGHTS NOTICE (COPYRIGHT ACT 1968 (CTH) PART IX)
+Under the Copyright Act 1968 (Cth) Part IX, authors have the following moral rights:
+(a) RIGHT OF ATTRIBUTION: the right to be credited as the author of the work;
+(b) RIGHT AGAINST FALSE ATTRIBUTION: the right not to have authorship falsely attributed;
+(c) RIGHT OF INTEGRITY: the right not to have the work subjected to derogatory treatment.
+
+These rights cannot be transferred but may be waived in writing. By signing this
+Agreement, the Seller irrevocably waives all moral rights in the transferred IP assets
+to the extent permissible under Australian law. Where moral rights cannot be waived,
+the Seller agrees not to enforce them against the Buyer, the Platform, or any licensees.
+
+6. GOVERNING LAW
 This Agreement is governed by the laws of New South Wales, Australia.
 
 IPFS RECORD: This agreement text is permanently pinned to IPFS.
