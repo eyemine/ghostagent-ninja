@@ -29,7 +29,8 @@
  */
 
 export interface Env {
-  MAIL_KV: KVNamespace;
+  MAIL_KV: KVNamespace;   // INBOX_KV d2177071c3fb4c48a1a22b36ee1a1baf — mail storage
+  AGENT_KV: KVNamespace;  // AGENT_KV  a2ff4c0ed2a348529e781a2a3ed2a140 — agent config
   WORKER_API_SECRET: string;
   NEXTJS_BASE_URL: string;
 }
@@ -129,7 +130,7 @@ async function encryptBody(
 // ── Agent config lookup ───────────────────────────────────────────────────────
 
 async function getAgentConfig(agentName: string, env: Env): Promise<AgentConfig> {
-  const raw = await env.MAIL_KV.get(`agent:config:${agentName.toLowerCase()}`, 'json');
+  const raw = await env.AGENT_KV.get(`agent:config:${agentName.toLowerCase()}`, 'json');
   if (raw) return raw as AgentConfig;
 
   // Default: molt.gno is always GlassBox, others default to private

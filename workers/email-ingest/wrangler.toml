@@ -8,8 +8,11 @@ name = "email-ingest"
 
 [[kv_namespaces]]
 binding = "MAIL_KV"
-id = "REPLACE_WITH_YOUR_KV_ID"
-preview_id = "REPLACE_WITH_YOUR_KV_PREVIEW_ID"
+id = "d2177071c3fb4c48a1a22b36ee1a1baf"
+
+[[kv_namespaces]]
+binding = "AGENT_KV"
+id = "a2ff4c0ed2a348529e781a2a3ed2a140"
 
 [vars]
 NEXTJS_BASE_URL = "https://ghostagent.ninja"
