@@ -10,9 +10,11 @@ export async function POST(request: Request) {
       agentName?: string;
       email?: string;
       tbaAddress?: string;
+      namespace?: string;
+      privacyMode?: 'glassbox' | 'private' | 'hard-privacy';
     };
 
-    const { agentName, email, tbaAddress } = body;
+    const { agentName, email, tbaAddress, namespace, privacyMode } = body;
 
     if (!agentName || !email) {
       return NextResponse.json({ error: 'Missing agentName or email' }, { status: 400 });
@@ -51,6 +53,21 @@ export async function POST(request: Request) {
 
     const createData = await createRes.json() as Record<string, any>;
     const accountId = createData?.data?.accountId || createData?.data?.zuid;
+
+    // Derive agent name from email (format: agentname_@nftmail.box)
+    const derivedName = agentName.toLowerCase().replace(/_$/, '');
+
+    // Register agent config in AGENT_KV via register-key route (fire-and-forget, non-fatal)
+    const baseUrl = process.env.NEXTJS_BASE_URL || 'https://ghostagent.ninja';
+    fetch(`${baseUrl}/api/mail/register-key`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        agentName: derivedName,
+        namespace: namespace ?? 'molt.gno',
+        privacyMode: privacyMode ?? 'glassbox',
+      }),
+    }).catch(() => { /* non-fatal — can be re-seeded manually */ });
 
     return NextResponse.json({
       status: 'provisioned',

@@ -7,11 +7,13 @@ interface WhiteLabelZohoProps {
   agentName: string;
   email: string;
   tbaAddress: string;
+  namespace?: string;
+  privacyMode?: 'glassbox' | 'private' | 'hard-privacy';
 }
 
 type ProvisionStep = 'idle' | 'provisioning' | 'done' | 'error';
 
-export function WhiteLabelZoho({ agentName, email, tbaAddress }: WhiteLabelZohoProps) {
+export function WhiteLabelZoho({ agentName, email, tbaAddress, namespace = 'molt.gno', privacyMode = 'glassbox' }: WhiteLabelZohoProps) {
   const [step, setStep] = useState<ProvisionStep>('idle');
   const [error, setError] = useState<string | null>(null);
   const [zohoResult, setZohoResult] = useState<{
@@ -33,6 +35,8 @@ export function WhiteLabelZoho({ agentName, email, tbaAddress }: WhiteLabelZohoP
           agentName,
           email,
           tbaAddress,
+          namespace,
+          privacyMode,
         }),
       });
 
