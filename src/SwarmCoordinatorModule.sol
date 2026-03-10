@@ -10,9 +10,9 @@ import { IGnosisSafe } from "./interfaces/IGnosisSafe.sol";
 ///         and distributes them to registered picoclaw.gno agent modules
 ///         using round-robin with load balancing (skip busy agents).
 ///
-/// Email routing:  swarm.[client]_@nftmail.box → CF worker → assignTask()
-/// Worker reads:   nextAssignee() to pick agent, then stores assignment in KV
-/// Agent completes: completeTask() → emits TaskCompleted for Glass Box audit
+// Email routing:  swarm.[client]_@nftmail.box -> CF worker -> assignTask()
+// Worker reads:   nextAssignee() to pick agent, then stores assignment in KV
+// Agent completes: completeTask() -> emits TaskCompleted for Glass Box audit
 contract SwarmCoordinatorModule is Ownable {
 
     // ── Structs ───────────────────────────────────────────────────────────────

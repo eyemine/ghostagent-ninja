@@ -48,7 +48,7 @@ contract DailyBudgetModule {
     }
 
     modifier notPaused() {
-        require(!paused, "DailyBudgetModule: agent paused — budget exhausted");
+        require(!paused, "DailyBudgetModule: agent paused - budget exhausted");
         _;
     }
 
