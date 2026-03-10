@@ -19,7 +19,7 @@ export default function TermsPage() {
     <div className="min-h-screen bg-[var(--background)] pt-14">
       <div className="mx-auto max-w-3xl px-6 py-12 text-[#c8bfb0]">
         <h1 className="mb-2 text-2xl font-bold text-[#f2eee4]">Terms of Use</h1>
-        <p className="mb-8 text-xs text-[var(--muted)]">Effective: 9 March 2026 · GhostAgent.ninja (operated by Eyemine Pty Ltd, Australia)</p>
+        <p className="mb-8 text-xs text-[var(--muted)]">Effective: 9 March 2026 · Last revised: 10 March 2026 · GhostAgent.ninja (operated by Eyemine Pty Ltd, Victoria, Australia)</p>
 
         <Section title="1. Acceptance">
           <p>By accessing or using GhostAgent.ninja, its APIs, smart contracts, or any associated services (collectively, the <strong>"Platform"</strong>), you agree to be bound by these Terms of Use. If you do not agree, do not use the Platform.</p>
@@ -80,7 +80,8 @@ export default function TermsPage() {
         </Section>
 
         <Section title="14. Governing Law & Dispute Resolution">
-          <p>These Terms are governed by the laws of New South Wales, Australia. You irrevocably submit to the non-exclusive jurisdiction of the courts of New South Wales. Before commencing proceedings, parties agree to attempt good-faith resolution for 30 days.</p>
+          <p>These Terms are governed by the laws of Victoria, Australia. You irrevocably submit to the non-exclusive jurisdiction of the courts of Victoria. Before commencing court proceedings, the parties must attempt good-faith negotiation for 30 days, followed (if unresolved) by mediation administered by the <strong>Dispute Settlement Centre of Victoria</strong> in accordance with its rules.</p>
+          <p>Notices delivered electronically are effective in accordance with the <strong><em>Electronic Transactions (Victoria) Act 2000</em></strong> (Vic).</p>
         </Section>
 
         <Section title="15. Australian Consumer Law Guarantees">
