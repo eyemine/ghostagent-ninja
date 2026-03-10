@@ -2672,8 +2672,44 @@ export default {
   },
 
   // --- Cron Safety Net: Poll Zoho for unread messages and process them ---
-  // Runs every hour as a fallback in case Deluge webhook misses any emails.
+  // */5 * * * *  → imap-poll (Zoho fetch + ECIES encrypt)
+  // 0 9 * * 1    → weekly agent report via ghostagent.ninja API
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
+    // ── Weekly report branch ─────────────────────────────────────────────────
+    if (event.cron === '0 9 * * 1') {
+      const appUrl = 'https://ghostagent.ninja';
+      const secret = env.WEBHOOK_SECRET;
+      if (!secret) {
+        console.error('[weekly-report] WEBHOOK_SECRET not set — skipping');
+        return;
+      }
+      let agentNames: string[] = [];
+      try {
+        const listed = await env.INBOX_KV.list({ prefix: 'acct-tier:' });
+        agentNames = listed.keys.map(k => k.name.replace('acct-tier:', ''));
+      } catch {
+        agentNames = ['ghostagent'];
+      }
+      for (const agentName of agentNames) {
+        try {
+          const res = await fetch(`${appUrl}/api/agent/weekly-report`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ agentName, secret }),
+          });
+          if (res.ok) {
+            console.log(`[weekly-report] sent for ${agentName}`);
+          } else {
+            console.error(`[weekly-report] failed for ${agentName}: ${res.status}`);
+          }
+        } catch (err) {
+          console.error(`[weekly-report] error for ${agentName}:`, err);
+        }
+      }
+      return;
+    }
+
+    // ── imap-poll branch (*/5 * * * *) ──────────────────────────────────────
     const accessToken = await getZohoAccessToken(env);
     if (!accessToken) return; // No Zoho credentials configured
 
@@ -2782,4 +2818,5 @@ export default {
       await env.INBOX_KV.put(processedKey, JSON.stringify({ stream, processedAt: timestamp }), { expirationTtl: 7 * 24 * 60 * 60 });
     }
   },
+
 };
