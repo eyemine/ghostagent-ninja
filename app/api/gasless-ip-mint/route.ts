@@ -174,8 +174,9 @@ export async function POST(req: NextRequest) {
       tbaAddress?: string;
       ownerWallet?: string;
       privyToken?: string;
+      socialLegalCid?: string;
     };
-    const { agentName, tbaAddress, ownerWallet, privyToken } = body;
+    const { agentName, tbaAddress, ownerWallet, privyToken, socialLegalCid } = body;
 
     if (!agentName || typeof agentName !== 'string' || agentName.length < 1) {
       return NextResponse.json(
@@ -390,6 +391,7 @@ export async function POST(req: NextRequest) {
           agentName,
           sld: 'nftmail',
           ownerAddress: ownerWallet,
+          ...(socialLegalCid ? { socialLegalCid } : {}),
         });
         const ipaJson = JSON.stringify(ipaMeta);
         const uploadForm = new FormData();
