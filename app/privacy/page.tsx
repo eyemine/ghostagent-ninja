@@ -19,7 +19,7 @@ export default function PrivacyPage() {
     <div className="min-h-screen bg-[var(--background)] pt-14">
       <div className="mx-auto max-w-3xl px-6 py-12 text-[#c8bfb0]">
         <h1 className="mb-2 text-2xl font-bold text-[#f2eee4]">Privacy Policy</h1>
-        <p className="mb-8 text-xs text-[var(--muted)]">Effective: 9 March 2026 · GhostAgent.ninja (operated by Eyemine Pty Ltd, Australia)</p>
+        <p className="mb-8 text-xs text-[var(--muted)]">Effective: 9 March 2026 · Last revised: 10 March 2026 · GhostAgent.ninja (operated by Eyemine Pty Ltd, Victoria, Australia)</p>
 
         <Section title="1. Overview">
           <p>GhostAgent.ninja respects your privacy. This Privacy Policy explains how we collect, use, store, and disclose information when you use the Platform. We operate under the <strong>Australian Privacy Act 1988 (Cth)</strong> and the Australian Privacy Principles (APPs).</p>
@@ -140,8 +140,8 @@ export default function PrivacyPage() {
         </Section>
 
         <Section title="15. Contact & Complaints">
-          <p>Privacy enquiries: <a href="mailto:privacy@ghostagent.ninja" className="text-[#b0805c] underline hover:text-[#ffca92]">privacy@ghostagent.ninja</a></p>
-          <p>If you are unsatisfied with our response, you may lodge a complaint with the <strong>Office of the Australian Information Commissioner</strong> at <a href="https://www.oaic.gov.au" target="_blank" rel="noopener noreferrer" className="text-[#b0805c] underline hover:text-[#ffca92]">oaic.gov.au</a>.</p>
+          <p>Privacy enquiries: <a href="mailto:privacy@ghostagent.ninja" className="text-[#b0805c] underline hover:text-[#ffca92]">privacy@ghostagent.ninja</a><br />Eyemine Pty Ltd, Victoria, Australia</p>
+          <p>If you are unsatisfied with our response, you may lodge a complaint with the <strong>Office of the Australian Information Commissioner (OAIC)</strong> at <a href="https://www.oaic.gov.au" target="_blank" rel="noopener noreferrer" className="text-[#b0805c] underline hover:text-[#ffca92]">oaic.gov.au</a>. As a Victorian-based company, we also recognise the <strong>Office of the Victorian Information Commissioner (OVIC)</strong> as a relevant oversight body for Victorian public sector matters, though the Platform is operated as a private entity under federal privacy law.</p>
         </Section>
       </div>
     </div>
