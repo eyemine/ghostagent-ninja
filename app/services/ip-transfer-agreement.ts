@@ -2,7 +2,7 @@
 /// Generates EIP-712 typed data for marketplace IP transfer agreements.
 /// The signed hash is pinned to IPFS and logged to GlassBox.
 
-export const AGREEMENT_VERSION = 'v1.0-2026-03-09';
+export const AGREEMENT_VERSION = 'v1.1-2026-03-10';
 export const CHAIN_ID = 100; // Gnosis Chain
 
 // ── EIP-712 domain ────────────────────────────────────────────────────────────
@@ -51,7 +51,7 @@ Date: ${date}
 PARTIES:
   Transferor (Seller): ${p.seller}
   Transferee (Buyer):  [wallet completing purchase transaction]
-  Platform:            GhostAgent.ninja, operated by Eyemine Pty Ltd, Australia
+  Platform:            GhostAgent.ninja, operated by Eyemine Pty Ltd, Victoria, Australia
 
 ASSET BEING TRANSFERRED:
   Agent Identity:    ${p.agentName}
@@ -73,8 +73,9 @@ The Seller hereby agrees to transfer to the Buyer full legal and beneficial owne
 The Seller's EIP-712 cryptographic signature of this Agreement, combined with the
 on-chain purchase transaction by the Buyer, constitutes a binding written agreement
 under the Electronic Transactions Act 1999 (Cth) and the Electronic Transactions
-Act 2000 (NSW). This Agreement is intended to constitute an effective assignment of
-intellectual property rights under section 197 of the Copyright Act 1968 (Cth).
+(Victoria) Act 2000 (Vic). This Agreement is intended to constitute an effective
+assignment of intellectual property rights under section 197 of the Copyright Act
+1968 (Cth).
 
 3. WARRANTIES BY SELLER
 The Seller warrants that:
@@ -100,8 +101,19 @@ Agreement, the Seller irrevocably waives all moral rights in the transferred IP 
 to the extent permissible under Australian law. Where moral rights cannot be waived,
 the Seller agrees not to enforce them against the Buyer, the Platform, or any licensees.
 
-6. GOVERNING LAW
-This Agreement is governed by the laws of New South Wales, Australia.
+6. GOVERNING LAW & DISPUTE RESOLUTION
+This Agreement is governed by the laws of Victoria, Australia. The parties
+irrevocably submit to the non-exclusive jurisdiction of the courts of Victoria.
+Before commencing court proceedings, the parties must attempt good-faith
+negotiation for 30 days, followed (if unresolved) by mediation administered by
+the Dispute Settlement Centre of Victoria in accordance with its rules.
+
+7. VICTORIAN STAMP DUTY
+This Agreement records the transfer of a digital asset. To the extent any
+duty is assessed, the parties note that transfers of certain intangible
+property may be exempt under section 63 of the Duties Act 2000 (Vic).
+Both parties are advised to seek independent advice regarding their stamp
+duty obligations.
 
 IPFS RECORD: This agreement text is permanently pinned to IPFS.
 GLASSBOX AUDIT: Signature hash is logged to the GlassBox audit trail.`;
