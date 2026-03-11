@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { WorkReceiptCard } from '../components/WorkReceiptCard';
+import A2ACardModal from '../../components/A2ACardModal';
 
 const GHOST_LOGO = '/ghost-logo.png';
 
@@ -126,7 +127,7 @@ function HeartbeatDot({ active }: { active: boolean }) {
   );
 }
 
-function AgentCard({ agent, onEvolve }: { agent: DemoAgent; onEvolve: () => void }) {
+function AgentCard({ agent, onEvolve, onViewA2A }: { agent: DemoAgent; onEvolve: () => void; onViewA2A: () => void }) {
   const nsColor = NS_COLOR[agent.namespace] ?? 'text-zinc-400';
   return (
     <div className="flex flex-col justify-between rounded-2xl border border-[rgba(176,128,92,0.35)] bg-[var(--card)] p-5">
@@ -206,11 +207,17 @@ function AgentCard({ agent, onEvolve }: { agent: DemoAgent; onEvolve: () => void
             <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
             Molt
           </button>
+          <button
+            onClick={onViewA2A}
+            className="flex items-center gap-1 rounded-lg border border-[rgba(176,128,92,0.3)] bg-black/30 px-3 py-2 text-xs font-medium text-[var(--muted)] transition hover:text-white"
+          >
+            A2A Card
+          </button>
           <Link
             href={`/dashboard/agent/${agent.name}`}
             className="flex items-center gap-1 rounded-lg border border-[rgba(176,128,92,0.3)] bg-black/30 px-3 py-2 text-xs font-medium text-[var(--muted)] transition hover:text-white"
           >
-            View Details →
+            Details →
           </Link>
         </div>
 
@@ -229,6 +236,7 @@ const DEMO_RECEIPT_DATA = DEMO_RECEIPTS;
 
 export default function DashboardHome() {
   const [evolvingAgent, setEvolvingAgent] = useState<string | null>(null);
+  const [a2aAgent, setA2aAgent]           = useState<string | null>(null);
 
   function handleEvolve(agentName: string) {
     setEvolvingAgent(agentName);
@@ -274,8 +282,17 @@ export default function DashboardHome() {
             key={agent.name}
             agent={agent}
             onEvolve={() => handleEvolve(agent.name)}
+            onViewA2A={() => setA2aAgent(agent.name)}
           />
         ))}
+
+      {a2aAgent && (
+        <A2ACardModal
+          agentName={a2aAgent}
+          isOwner
+          onClose={() => setA2aAgent(null)}
+        />
+      )}
       </div>
 
       {/* MY BODIES separator */}

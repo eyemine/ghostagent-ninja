@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { MarketplaceFilters, type Filters } from '../../components/MarketplaceFilters';
 import XMTPBadge from '../../components/XMTPBadge';
 import SwarmModeBadge from '../../components/SwarmModeBadge';
+import A2ACardModal from '../../../components/A2ACardModal';
 
 const GHOST_LOGO = '/ghost-logo.png';
 
@@ -136,7 +137,7 @@ const PRIVACY_META: Record<PrivacyStatus, { icon: string; label: string; color: 
 
 // ─── Item card ────────────────────────────────────────────────────────────────
 
-function ItemCard({ item }: { item: MarketItem }) {
+function ItemCard({ item, onViewA2A }: { item: MarketItem; onViewA2A: () => void }) {
   const badge    = TYPE_BADGE[item.type];
   const nsColor  = NS_COLOR[item.namespace] ?? 'text-zinc-300 bg-zinc-500/10';
   const evolveMeta  = EVOLVE_META[item.evolveLevel];
@@ -223,9 +224,17 @@ function ItemCard({ item }: { item: MarketItem }) {
             <div className="text-sm font-semibold text-[#f2eee4]">{item.price} xDAI</div>
             <div className="text-[10px] text-[var(--muted)]">xDAI · EURe</div>
           </div>
-          <button className="rounded-lg border px-3 py-1.5 text-xs font-semibold transition" style={{ color: 'rgb(176,128,92)', borderColor: 'rgba(176,128,92,0.4)', background: 'rgba(176,128,92,0.1)' }}>
-            Hire
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={onViewA2A}
+              className="rounded-lg border border-[rgba(176,128,92,0.25)] bg-black/30 px-2.5 py-1.5 text-[10px] font-medium text-[var(--muted)] transition hover:text-white"
+            >
+              A2A ↗
+            </button>
+            <button className="rounded-lg border px-3 py-1.5 text-xs font-semibold transition" style={{ color: 'rgb(176,128,92)', borderColor: 'rgba(176,128,92,0.4)', background: 'rgba(176,128,92,0.1)' }}>
+              Hire
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -239,7 +248,8 @@ const DEFAULT_FILTERS: Filters = {
 };
 
 export default function MarketplacePage() {
-  const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
+  const [filters, setFilters]   = useState<Filters>(DEFAULT_FILTERS);
+  const [a2aAgent, setA2aAgent] = useState<string | null>(null);
 
   function updateFilters(next: Partial<Filters>) {
     setFilters(prev => ({ ...prev, ...next }));
@@ -292,8 +302,20 @@ export default function MarketplacePage() {
       {/* Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {filtered.map(item => (
-          <ItemCard key={`${item.agent}-${item.title}`} item={item} />
+          <ItemCard
+            key={`${item.agent}-${item.title}`}
+            item={item}
+            onViewA2A={() => setA2aAgent(item.agent)}
+          />
         ))}
+
+        {a2aAgent && (
+          <A2ACardModal
+            agentName={a2aAgent}
+            isOwner={false}
+            onClose={() => setA2aAgent(null)}
+          />
+        )}
       </div>
 
       {filtered.length === 0 && (
