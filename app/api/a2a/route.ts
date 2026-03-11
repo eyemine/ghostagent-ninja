@@ -139,10 +139,14 @@ async function routeIntent(text: string, params: any): Promise<{ text: string; m
     const agentName = extractAgentName(text) ?? 'ghostagent';
     const localPart = agentName.endsWith('_') ? agentName : agentName + '_';
     const data = await workerPost({ action: 'getAgentStatus', localPart });
+    const agentId = data.erc8004AgentId ?? data.erc8004?.agentId ?? 'unregistered';
+    const inbox   = data.inbox?.count ?? 0;
+    const surge   = data.surgeScore ?? 0;
+    const beat    = data.heartbeat?.isActive ? 'active' : 'inactive';
     return {
       text: data.error
         ? `Agent ${agentName} not found`
-        : `Agent ${agentName}: inbox=${data.inbox?.count ?? 0}, surgeScore=${data.surgeScore ?? 0}, heartbeat=${data.heartbeat?.isActive ? 'active' : 'inactive'}, erc8004AgentId=${data.erc8004AgentId ?? 'unregistered'}`,
+        : `Agent ${agentName}: inbox=${inbox}, surgeScore=${surge}, heartbeat=${beat}, erc8004AgentId=${agentId}`,
       meta: data,
     };
   }
