@@ -395,7 +395,7 @@ export default function IpPortalPage() {
             domain,
             authorWallet: wallet.address,
             safeAddress,
-            agentTokenId,
+            agentTokenId: Number(agentTokenId),
           }}
           onComplete={handleDeclarationComplete}
           onClose={() => setShowModal(false)}
