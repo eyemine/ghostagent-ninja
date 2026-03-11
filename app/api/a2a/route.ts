@@ -70,7 +70,7 @@ function extractText(params: any): string {
 // Falls back to any standalone word that looks like an agent name (alphanumeric)
 function extractAgentName(text: string, afterKeywords = true): string | null {
   if (afterKeywords) {
-    const m = text.match(/(?:of|for|to|from|agent|status)\s+([a-z0-9][a-z0-9_-]*)/);
+    const m = text.match(/(?:of|for)\s+([a-z0-9][a-z0-9_-]*)/);
     if (m) return m[1].replace(/_+$/, '');
   }
   // fallback: last standalone alphanumeric word
