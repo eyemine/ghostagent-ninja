@@ -1249,6 +1249,15 @@ export default {
           return corsify(Response.json({ agentName, intents }), request);
         }
 
+        // Warrant Canary: return last-alive timestamp from KV (written by cron every 5 min)
+        if (email.action === 'getCanary') {
+          const ts = await env.INBOX_KV.get('canary:alive');
+          if (!ts) return corsify(Response.json({ alive: false, lastAlive: null }), request);
+          const ageMs = Date.now() - Number(ts);
+          const alive = ageMs < 48 * 60 * 60 * 1000;
+          return corsify(Response.json({ alive, lastAlive: Number(ts), ageMs }), request);
+        }
+
         // x402 A2A delivery: store a paid inter-agent message in recipient's blind inbox
         if (email.action === 'storeA2AMessage') {
           const fromAgent  = ((email as any).fromAgent  || '').toLowerCase().trim();
@@ -2760,8 +2769,12 @@ export default {
     const accessToken = await getZohoAccessToken(env);
     if (!accessToken) return; // No Zoho credentials configured
 
-    // Write global heartbeat timestamp — read by Audit Card via getAgentStatus
-    await env.INBOX_KV.put('heartbeat:cron', String(Date.now()), { expirationTtl: 60 * 60 });
+    // Write global heartbeat + canary timestamps — heartbeat read by Audit Card, canary by WarrantCanary UI
+    const now = String(Date.now());
+    await Promise.all([
+      env.INBOX_KV.put('heartbeat:cron', now, { expirationTtl: 60 * 60 }),
+      env.INBOX_KV.put('canary:alive',   now, { expirationTtl: 72 * 60 * 60 }),
+    ]);
 
     const unread = await zohoFetchUnread(env, accessToken, 20);
     if (!unread.length) return;

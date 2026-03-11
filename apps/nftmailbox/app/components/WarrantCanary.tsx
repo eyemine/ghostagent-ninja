@@ -2,48 +2,41 @@
 
 import { useState, useEffect } from 'react';
 
-const CANARY_FILE_URL = 'https://raw.githubusercontent.com/Ghost-Agency/ghostagent-ninja-mvp/main/apps/nftmailbox/CANARY.txt';
+// Canary timestamp is written to KV by the Cloudflare Worker cron (every 5 min).
+// Reading from the worker eliminates hourly git commits that triggered Netlify deploys.
+const WORKER_URL = 'https://nftmail-email-worker.richard-159.workers.dev';
 
 export function WarrantCanary() {
-  const [lastChecked, setLastChecked] = useState<string | null>(null);
-  const [alive, setAlive] = useState(true);
+  const [lastAlive, setLastAlive] = useState<number | null>(null);
+  const [alive, setAlive]         = useState(true);
+  const [loading, setLoading]     = useState(true);
 
   useEffect(() => {
     async function fetchCanary() {
       try {
-        const res = await fetch(CANARY_FILE_URL, { cache: 'no-store' });
-        if (!res.ok) {
-          setAlive(false);
-          return;
-        }
-        const text = await res.text();
-        // CANARY.txt format: "ALIVE <ISO timestamp>"
-        const match = text.match(/^ALIVE\s+(.+)$/m);
-        if (match) {
-          const ts = match[1].trim();
-          setLastChecked(ts);
-          const ageMs = Date.now() - new Date(ts).getTime();
-          const stale = ageMs > 48 * 60 * 60 * 1000;
-          setAlive(!stale);
-        } else {
-          setAlive(false);
-        }
+        const res = await fetch(WORKER_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'getCanary' }),
+        });
+        if (!res.ok) { setAlive(false); return; }
+        const data = await res.json() as { alive: boolean; lastAlive: number | null };
+        setAlive(data.alive);
+        setLastAlive(data.lastAlive);
       } catch {
-        // If fetch fails, show last known state
-        setLastChecked(new Date().toISOString());
+        // Network failure — keep alive=true, show last known
+      } finally {
+        setLoading(false);
       }
     }
     fetchCanary();
   }, []);
 
-  const ts = lastChecked
-    ? new Date(lastChecked).toLocaleString('en-US', {
-        dateStyle: 'medium',
-        timeStyle: 'short',
-      })
-    : 'checking...';
+  const ts = lastAlive
+    ? new Date(lastAlive).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })
+    : loading ? 'checking...' : 'unknown';
 
-  if (!alive) {
+  if (!loading && !alive) {
     return (
       <div className="rounded-lg border border-red-500/30 bg-red-500/5 px-4 py-2.5">
         <div className="flex items-center gap-2">
