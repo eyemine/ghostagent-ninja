@@ -25,8 +25,13 @@ export async function GET() {
     version: '1.0.0',
     documentationUrl: `${APP_URL}/docs`,
 
-    // A2A interfaces — HTTP+JSON primary (full JSON-RPC task endpoint on roadmap)
+    // A2A interfaces — JSON-RPC primary per spec §9, worker HTTP+JSON secondary
     supportedInterfaces: [
+      {
+        url: `${APP_URL}/api/a2a`,
+        protocolBinding: 'JSONRPC',
+        protocolVersion: '1.0',
+      },
       {
         url: `${WORKER_URL}`,
         protocolBinding: 'HTTP+JSON',
