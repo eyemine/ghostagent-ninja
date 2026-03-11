@@ -66,10 +66,18 @@ function extractText(params: any): string {
   }
 }
 
-// Extract agent name from text like "ghostagent_", "ghostagent", "alice"
-function extractAgentName(text: string): string | null {
-  const m = text.match(/\b([a-z0-9]+)_?\b/);
-  return m ? m[1] : null;
+// Extract agent name from text — look after keywords like "of", "for", "to", "from"
+// Falls back to any standalone word that looks like an agent name (alphanumeric)
+function extractAgentName(text: string, afterKeywords = true): string | null {
+  if (afterKeywords) {
+    const m = text.match(/(?:of|for|to|from|agent|status)\s+([a-z0-9][a-z0-9_-]*)/);
+    if (m) return m[1].replace(/_+$/, '');
+  }
+  // fallback: last standalone alphanumeric word
+  const words = text.match(/\b([a-z0-9]{3,})\b/g) ?? [];
+  const skip = new Set(['the','for','get','set','send','list','show','from','status','trade','intent','agent','register','fetch']);
+  const candidate = words.reverse().find(w => !skip.has(w));
+  return candidate ?? null;
 }
 
 async function workerPost(body: Record<string, unknown>): Promise<any> {
