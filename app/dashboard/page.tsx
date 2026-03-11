@@ -248,15 +248,23 @@ export default function DashboardHome() {
             <p className="pl-1 mt-0.5 text-xs text-[var(--muted)]">Fully-rigged Agents – Mirror Bodies with Brains installed</p>
           </div>
         </div>
-        <a
-          href="https://nftmail.box/"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="rounded-lg border border-[rgba(176,128,92,0.3)] bg-[rgba(176,128,92,0.08)] px-4 py-1.5 text-xs font-semibold transition hover:bg-[rgba(176,128,92,0.14)]"
-          style={{ fontFamily: "Ayuthaya, 'Courier New', monospace", color: '#d9d9d8' }}
-        >
-          NFTmail.box ↗
-        </a>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/ip-portal"
+            className="rounded-lg border border-[#7c4dff]/30 bg-[#7c4dff]/10 px-4 py-1.5 text-xs font-semibold text-[#a78bfa] transition hover:bg-[#7c4dff]/20"
+          >
+            🏛️ IP Portal
+          </Link>
+          <a
+            href="https://nftmail.box/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rounded-lg border border-[rgba(176,128,92,0.3)] bg-[rgba(176,128,92,0.08)] px-4 py-1.5 text-xs font-semibold transition hover:bg-[rgba(176,128,92,0.14)]"
+            style={{ fontFamily: "Ayuthaya, 'Courier New', monospace", color: '#d9d9d8' }}
+          >
+            NFTmail.box ↗
+          </a>
+        </div>
       </div>
 
       {/* Agent Cards — 3-col grid */}
