@@ -42,9 +42,10 @@ const ERC8004_IDENTITY_REGISTRY = '0x8004A818BFB912233c491871b3d84c89A494BD9e';
 const CHAIN_ID = 84532; // Base Sepolia
 
 const IDENTITY_REGISTRY_ABI = parseAbi([
-  'function register(string agentURI, tuple(string key, string value)[] metadata) returns (uint256 agentId)',
-  'function getAgent(uint256 agentId) view returns (string agentURI, address owner, bool active)',
-  'event AgentRegistered(uint256 indexed agentId, address indexed owner, string agentURI)',
+  'function register(string agentURI) returns (uint256 agentId)',
+  'function setMetadata(uint256 agentId, string key, bytes value)',
+  'function tokenURI(uint256 tokenId) view returns (string)',
+  'event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)',
 ]);
 
 async function main() {
@@ -94,14 +95,6 @@ async function main() {
     transport: http(),
   });
 
-  // Metadata entries — optional but adds discoverability
-  const metadata = [
-    { key: 'email',     value: `${agentName}_@nftmail.box` },
-    { key: 'platform',  value: 'ghostagent.ninja' },
-    { key: 'chain',     value: 'gnosis:100' },
-    { key: 'trust',     value: 'reputation' },
-  ];
-
   console.log('\n⏳ Sending register() transaction...');
   let txHash;
   try {
@@ -109,7 +102,7 @@ async function main() {
       address: ERC8004_IDENTITY_REGISTRY,
       abi: IDENTITY_REGISTRY_ABI,
       functionName: 'register',
-      args: [agentURI, metadata],
+      args: [agentURI],
     });
   } catch (err) {
     console.error('❌ Transaction failed:', err.shortMessage || err.message);
@@ -122,7 +115,7 @@ async function main() {
   const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
   console.log(`   ✓ Confirmed in block ${receipt.blockNumber}`);
 
-  // Decode AgentRegistered event to get agentId
+  // Decode Transfer event (ERC-721 mint: from=0x0) to get tokenId = agentId
   let agentId = null;
   for (const log of receipt.logs) {
     try {
@@ -131,8 +124,8 @@ async function main() {
         data: log.data,
         topics: log.topics,
       });
-      if (decoded.eventName === 'AgentRegistered') {
-        agentId = Number(decoded.args.agentId);
+      if (decoded.eventName === 'Transfer' && decoded.args.from === '0x0000000000000000000000000000000000000000') {
+        agentId = Number(decoded.args.tokenId);
         break;
       }
     } catch {}
