@@ -843,7 +843,8 @@ export default {
           result = await storage.getAgentStatus(agent);
           // Augment with ERC-8004 agentId if registered
           try {
-            const erc8004Raw = await env.INBOX_KV.get(`erc8004:${agent}`);
+            const erc8004Key = agent.replace(/_+$/, ''); // strip trailing underscore
+            const erc8004Raw = await env.INBOX_KV.get(`erc8004:${erc8004Key}`);
             if (erc8004Raw) {
               const statusJson = await result.clone().json() as Record<string, unknown>;
               const erc8004 = JSON.parse(erc8004Raw);
@@ -2280,7 +2281,7 @@ export default {
           const resolvedName = agentName;
 
           // Check existence signals in KV (+ tld, on-chain linkage, acct-tier, heartbeat)
-          const [blindIndex, eciesKey, zohoSeat, privacyStatus, tldValue, acctTierRaw, nftmailGnoRaw, cronHeartbeat] = await Promise.all([
+          const [blindIndex, eciesKey, zohoSeat, privacyStatus, tldValue, acctTierRaw, nftmailGnoRaw, cronHeartbeat, erc8004Raw] = await Promise.all([
             env.INBOX_KV.get(`blind-index:${resolvedName}`),
             env.INBOX_KV.get(`ecies-pubkey:${resolvedName}`),
             env.INBOX_KV.get(`zoho-seat:${resolvedName}`),
@@ -2289,6 +2290,7 @@ export default {
             env.INBOX_KV.get(`acct-tier:${resolvedName}`),
             env.INBOX_KV.get(`nftmailgno:${resolvedName}`),
             env.INBOX_KV.get('heartbeat:cron'),
+            env.INBOX_KV.get(`erc8004:${resolvedName}`),
           ]);
 
           const hasMessages = !!blindIndex && JSON.parse(blindIndex).length > 0;
@@ -2390,6 +2392,8 @@ export default {
             inbox: { count: inboxCount },
             heartbeat: { isActive: lastBeat !== null && (Date.now() - lastBeat) < 10 * 60 * 1000, lastBeat },
             tier: accountTier,
+            // ERC-8004 on-chain identity
+            ...(erc8004Raw ? (() => { try { const d = JSON.parse(erc8004Raw); return { erc8004AgentId: d.agentId, erc8004AgentURI: d.agentURI, erc8004RegisteredAt: d.registeredAt }; } catch { return {}; } })() : {}),
             ...(collection ? { collection: collection.displayName, collectionName, tokenId } : {}),
             ...(availability ? { availability } : {}),
           }), request);

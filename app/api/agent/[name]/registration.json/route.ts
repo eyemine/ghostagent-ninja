@@ -21,11 +21,12 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://ghostagent.ninja';
 // ERC-8004 Identity Registry deployments (testnets)
 // Source: https://github.com/erc-8004/erc-8004-contracts
 const ERC8004_REGISTRIES: Record<string, { chainId: number; address: string; name: string }> = {
+  gnosis:       { chainId: 100,     address: '0x8004A169FB4a3325136EB29fA0ceB6D2e539a432', name: 'Gnosis Mainnet' },
   sepolia:      { chainId: 11155111, address: '0x8004A818BFB912233c491871b3d84c89A494BD9e', name: 'Ethereum Sepolia' },
   baseSepolia:  { chainId: 84532,    address: '0x8004A818BFB912233c491871b3d84c89A494BD9e', name: 'Base Sepolia' },
 };
 
-const DEFAULT_REGISTRY = ERC8004_REGISTRIES.baseSepolia;
+const DEFAULT_REGISTRY = ERC8004_REGISTRIES.gnosis;
 
 export async function GET(
   _req: NextRequest,
@@ -100,8 +101,8 @@ export async function GET(
     // Trust model
     supportedTrust: ['reputation'],
 
-    // Active flag — dormant if no messages and no safe
-    active: graph.exists === true,
+    // Active flag — true if ERC-8004 registered or has presence signals
+    active: erc8004AgentId !== null || graph.exists === true,
 
     // On-chain registrations (ERC-8004 agentId if registered, else empty)
     registrations: erc8004AgentId !== null ? [
