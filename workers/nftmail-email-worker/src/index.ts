@@ -2251,8 +2251,8 @@ export default {
           // Validate prefix: alphanumeric only (dots allowed for collection patterns)
           const resolvedName = agentName;
 
-          // Check existence signals in KV (+ tld, on-chain linkage, acct-tier)
-          const [blindIndex, eciesKey, zohoSeat, privacyStatus, tldValue, acctTierRaw, nftmailGnoRaw] = await Promise.all([
+          // Check existence signals in KV (+ tld, on-chain linkage, acct-tier, heartbeat)
+          const [blindIndex, eciesKey, zohoSeat, privacyStatus, tldValue, acctTierRaw, nftmailGnoRaw, cronHeartbeat] = await Promise.all([
             env.INBOX_KV.get(`blind-index:${resolvedName}`),
             env.INBOX_KV.get(`ecies-pubkey:${resolvedName}`),
             env.INBOX_KV.get(`zoho-seat:${resolvedName}`),
@@ -2260,6 +2260,7 @@ export default {
             env.INBOX_KV.get(`tld:${resolvedName}`),
             env.INBOX_KV.get(`acct-tier:${resolvedName}`),
             env.INBOX_KV.get(`nftmailgno:${resolvedName}`),
+            env.INBOX_KV.get('heartbeat:cron'),
           ]);
 
           const hasMessages = !!blindIndex && JSON.parse(blindIndex).length > 0;
@@ -2328,6 +2329,15 @@ export default {
           const agentResolvedTld = tldValue || (resolvedName.endsWith('_molt') ? 'molt.gno' : 'nftmail.gno');
           const agentIsPublic = PUBLIC_TLDS.some(t => agentResolvedTld.endsWith(t));
 
+          // Inbox message count from blind-index
+          const inboxIds: string[] = blindIndex ? (() => { try { return JSON.parse(blindIndex); } catch { return []; } })() : [];
+          const inboxCount = inboxIds.length;
+
+          // surgeScore: simple proxy — messages × recency factor (capped at 100)
+          const lastBeat = cronHeartbeat ? Number(cronHeartbeat) : null;
+          const recencyFactor = lastBeat ? Math.max(0, 1 - (Date.now() - lastBeat) / (24 * 60 * 60 * 1000)) : 0;
+          const surgeScore = Math.min(100, inboxCount * 8.3 * (0.3 + 0.7 * recencyFactor));
+
           return corsify(Response.json({
             name: resolvedName,
             exists,
@@ -2347,6 +2357,11 @@ export default {
             accountTier,
             expiresAt,
             canSend,
+            // Telemetry for Audit Card
+            surgeScore: Math.round(surgeScore * 10) / 10,
+            inbox: { count: inboxCount },
+            heartbeat: { isActive: lastBeat !== null && (Date.now() - lastBeat) < 10 * 60 * 1000, lastBeat },
+            tier: accountTier,
             ...(collection ? { collection: collection.displayName, collectionName, tokenId } : {}),
             ...(availability ? { availability } : {}),
           }), request);
@@ -2712,6 +2727,9 @@ export default {
     // ── imap-poll branch (*/5 * * * *) ──────────────────────────────────────
     const accessToken = await getZohoAccessToken(env);
     if (!accessToken) return; // No Zoho credentials configured
+
+    // Write global heartbeat timestamp — read by Audit Card via getAgentStatus
+    await env.INBOX_KV.put('heartbeat:cron', String(Date.now()), { expirationTtl: 60 * 60 });
 
     const unread = await zohoFetchUnread(env, accessToken, 20);
     if (!unread.length) return;
