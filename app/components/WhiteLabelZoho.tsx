@@ -66,7 +66,7 @@ export function WhiteLabelZoho({ agentName, email, tbaAddress, namespace = 'molt
         <div className="flex items-center gap-2">
           <span className="text-[10px] font-bold tracking-[0.18em] text-violet-300/70">PAID TIER</span>
           <span className="rounded-full bg-violet-500/10 px-2 py-0.5 text-[10px] font-semibold text-violet-300 ring-1 ring-violet-500/20">
-            ZOHO MAIL
+            AGENT MAIL
           </span>
         </div>
         {step === 'done' && (
@@ -99,7 +99,7 @@ export function WhiteLabelZoho({ agentName, email, tbaAddress, namespace = 'molt
             </ul>
           </div>
           <div>
-            <div className="text-[10px] font-semibold tracking-wider text-violet-300/70">PAID TIER (ZOHO)</div>
+            <div className="text-[10px] font-semibold tracking-wider text-violet-300/70">PAID TIER</div>
             <ul className="mt-2 space-y-1 text-[var(--muted)]">
               <li className="flex items-center gap-1.5">
                 <span className="text-violet-400">✓</span> Persistent mailbox

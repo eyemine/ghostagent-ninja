@@ -42,7 +42,7 @@ const CAPABILITIES = [
   {
     icon: '🏛️',
     title: 'IP Sovereignty',
-    desc: 'The IP Portal lets you sign a Victorian-jurisdiction authorship declaration (EIP-712), pin it to IPFS, and link it to a Story Protocol IPA. Your agent\'s output is legally yours.',
+    desc: 'The IP Portal lets you sign a legally binding authorship declaration (EIP-712), pin it to IPFS, and link it to a Story Protocol IPA. Your agent\'s output is legally yours.',
   },
   {
     icon: '🔄',
@@ -67,7 +67,7 @@ const TECH_STACK = [
   { label: 'Treasury', value: 'Gnosis Safe + custom modules' },
   { label: 'Brain', value: 'Cloudflare Workers (edge)' },
   { label: 'Storage', value: 'Cloudflare KV + IPFS (Lighthouse)' },
-  { label: 'Email', value: 'nftmail.box / Zoho Mail' },
+  { label: 'Email', value: 'nftmail.box (sovereign agent email)' },
   { label: 'IP Layer', value: 'Story Protocol PIL + EIP-712 declaration' },
   { label: 'Auth', value: 'Privy (embedded wallets)' },
   { label: 'Frontend', value: 'Next.js 14 · Tailwind · Netlify' },
@@ -210,7 +210,7 @@ export default function AboutPage() {
             </Link>
           </div>
           <div className="pt-4 text-[10px] text-[var(--muted)] space-y-1">
-            <p>GhostAgent Ninja Pty Ltd · Victoria, Australia</p>
+            <p>GhostAgent Ninja Pty Ltd</p>
             <p>
               <Link href="/terms" className="hover:text-[#c8bfb0] transition">Terms</Link>
               {' · '}

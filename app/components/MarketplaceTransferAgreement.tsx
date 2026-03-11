@@ -129,7 +129,7 @@ export function MarketplaceTransferAgreement({
         <div className="border-b border-[var(--border)] px-6 py-4">
           <h2 className="text-base font-semibold text-[#f2eee4]">Marketplace IP Transfer Agreement</h2>
           <p className="mt-0.5 text-[11px] text-[var(--muted)]">
-            EIP-712 signed · IPFS pinned · GlassBox logged · NSW, Australia law
+            EIP-712 signed · IPFS pinned · GlassBox logged
           </p>
         </div>
 
@@ -154,7 +154,7 @@ Version: v1.0-2026-03-09
 PARTIES:
   Transferor (Seller): ${wallet?.address ?? '[connect wallet]'}
   Transferee (Buyer):  [wallet completing purchase]
-  Platform:            GhostAgent.ninja, Eyemine Pty Ltd, Australia
+  Platform:            GhostAgent.ninja, Eyemine Pty Ltd
 
 ASSET:
   Agent Identity:  ${agentName}

@@ -83,7 +83,7 @@ export default function IpPortalPage() {
             Declare human authorship · Pin to IPFS · Register on Story Protocol
           </p>
           <p className="mt-1 text-[11px] text-amber-400/70">
-            Victorian jurisdiction · Electronic Transactions Act 2000 (Vic) · Copyright Act 1968 (Cth)
+            EIP-712 signed declaration · IPFS pinned · GlassBox logged
           </p>
         </section>
 
@@ -341,7 +341,7 @@ export default function IpPortalPage() {
                   </li>
                   <li className="flex gap-3">
                     <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-[var(--border)] text-[9px] font-bold text-[#c8bfb0]">6</span>
-                    <span>Review and click <strong className="text-[#c8bfb0]">Register</strong>. The $IP fee constitutes consideration — establishing a valid transaction of value under Australian IP law.</span>
+                    <span>Review and click <strong className="text-[#c8bfb0]">Register</strong>. The $IP fee constitutes consideration for the IP registration.</span>
                   </li>
                 </ol>
               </div>
@@ -376,7 +376,7 @@ export default function IpPortalPage() {
 
         {/* Legal footer */}
         <footer className="text-center text-[10px] text-[var(--muted)] space-y-1">
-          <p>GhostAgent Ninja Pty Ltd · Victoria, Australia · ABN platform operator</p>
+          <p>GhostAgent Ninja Pty Ltd</p>
           <p>
             <Link href="/terms" className="hover:text-[#c8bfb0] transition">Terms</Link>
             {' · '}
