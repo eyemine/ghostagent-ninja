@@ -21,8 +21,8 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://ghostagent.ninja';
 // ERC-8004 Identity Registry deployments (testnets)
 // Source: https://github.com/erc-8004/erc-8004-contracts
 const ERC8004_REGISTRIES: Record<string, { chainId: number; address: string; name: string }> = {
-  sepolia:      { chainId: 11155111, address: '0x37f99bD5a96b52E12bfC9E01Abf2EB4e8Be028Ef', name: 'Ethereum Sepolia' },
-  baseSepolia:  { chainId: 84532,    address: '0x37f99bD5a96b52E12bfC9E01Abf2EB4e8Be028Ef', name: 'Base Sepolia' },
+  sepolia:      { chainId: 11155111, address: '0x8004A818BFB912233c491871b3d84c89A494BD9e', name: 'Ethereum Sepolia' },
+  baseSepolia:  { chainId: 84532,    address: '0x8004A818BFB912233c491871b3d84c89A494BD9e', name: 'Base Sepolia' },
 };
 
 const DEFAULT_REGISTRY = ERC8004_REGISTRIES.baseSepolia;

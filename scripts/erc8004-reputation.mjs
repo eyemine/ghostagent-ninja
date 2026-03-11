@@ -31,8 +31,9 @@ const PRIVATE_KEY = env.PRIVATE_KEY || process.env.PRIVATE_KEY;
 const APP_URL = env.NEXT_PUBLIC_APP_URL || 'https://ghostagent.ninja';
 const WORKER_URL = env.NFTMAIL_WORKER_URL || 'https://nftmail-email-worker.richard-159.workers.dev';
 
-// ERC-8004 Reputation Registry on Base Sepolia
-const ERC8004_REPUTATION_REGISTRY = '0x37f99bD5a96b52E12bfC9E01Abf2EB4e8Be028Ef';
+// ERC-8004 Reputation Registry on Base Sepolia (separate from IdentityRegistry)
+// Source: https://github.com/erc-8004/erc-8004-contracts
+const ERC8004_REPUTATION_REGISTRY = '0x8004B663056A597Dffe9eCcC1965A193B7388713';
 const CHAIN_ID = 84532;
 
 const REPUTATION_REGISTRY_ABI = parseAbi([

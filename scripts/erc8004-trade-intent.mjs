@@ -32,8 +32,9 @@ const APP_URL = env.NEXT_PUBLIC_APP_URL || 'https://ghostagent.ninja';
 const WORKER_URL = env.NFTMAIL_WORKER_URL || 'https://nftmail-email-worker.richard-159.workers.dev';
 
 const CHAIN_ID = 84532; // Base Sepolia
-// ERC-8004 Identity Registry (used as verifying contract for EIP-712 domain)
-const ERC8004_IDENTITY_REGISTRY = '0x37f99bD5a96b52E12bfC9E01Abf2EB4e8Be028Ef';
+// ERC-8004 Identity Registry on Base Sepolia (used as verifying contract for EIP-712 domain)
+// Source: https://github.com/erc-8004/erc-8004-contracts
+const ERC8004_IDENTITY_REGISTRY = '0x8004A818BFB912233c491871b3d84c89A494BD9e';
 
 // EIP-712 domain for TradeIntents
 const TRADE_INTENT_DOMAIN = {

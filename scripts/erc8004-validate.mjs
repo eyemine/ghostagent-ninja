@@ -30,8 +30,9 @@ const env = Object.fromEntries(
 const PRIVATE_KEY = env.PRIVATE_KEY || process.env.PRIVATE_KEY;
 const APP_URL = env.NEXT_PUBLIC_APP_URL || 'https://ghostagent.ninja';
 
-// ERC-8004 Validation Registry on Base Sepolia
-const ERC8004_VALIDATION_REGISTRY = '0x37f99bD5a96b52E12bfC9E01Abf2EB4e8Be028Ef';
+// ERC-8004 Identity Registry on Base Sepolia (also handles validation requests)
+// Source: https://github.com/erc-8004/erc-8004-contracts
+const ERC8004_VALIDATION_REGISTRY = '0x8004A818BFB912233c491871b3d84c89A494BD9e';
 const CHAIN_ID = 84532;
 
 const VALIDATION_REGISTRY_ABI = parseAbi([
