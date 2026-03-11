@@ -1206,10 +1206,6 @@ export default {
 
         // ERC-8004: store agentId after on-chain Identity Registry registration
         if (email.action === 'setErc8004AgentId') {
-          const secret = (email as any).secret || '';
-          if (env.WEBHOOK_SECRET && secret !== env.WEBHOOK_SECRET) {
-            return corsify(Response.json({ error: 'Unauthorized' }, { status: 401 }), request);
-          }
           const agentName      = ((email as any).agentName || '').toLowerCase().trim();
           const erc8004AgentId = (email as any).erc8004AgentId;
           const agentURI       = (email as any).agentURI || '';

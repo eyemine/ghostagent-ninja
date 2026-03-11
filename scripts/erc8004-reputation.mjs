@@ -11,7 +11,7 @@
 
 import { createWalletClient, createPublicClient, http, parseAbi, keccak256, toBytes } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import { baseSepolia } from 'viem/chains';
+import { gnosis } from 'viem/chains';
 import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -31,10 +31,10 @@ const PRIVATE_KEY = env.PRIVATE_KEY || process.env.PRIVATE_KEY;
 const APP_URL = env.NEXT_PUBLIC_APP_URL || 'https://ghostagent.ninja';
 const WORKER_URL = env.NFTMAIL_WORKER_URL || 'https://nftmail-email-worker.richard-159.workers.dev';
 
-// ERC-8004 Reputation Registry on Base Sepolia (separate from IdentityRegistry)
+// ERC-8004 Reputation Registry on Gnosis Mainnet (separate from IdentityRegistry)
 // Source: https://github.com/erc-8004/erc-8004-contracts
-const ERC8004_REPUTATION_REGISTRY = '0x8004B663056A597Dffe9eCcC1965A193B7388713';
-const CHAIN_ID = 84532;
+const ERC8004_REPUTATION_REGISTRY = '0x8004BAa17C55a88189AE136b182e5fdA19dE9b63';
+const CHAIN_ID = 100;
 
 const REPUTATION_REGISTRY_ABI = parseAbi([
   'function giveFeedback(uint256 agentId, int128 value, uint8 valueDecimals, string tag1, string tag2, string endpoint, string feedbackURI, bytes32 feedbackHash)',
@@ -94,13 +94,13 @@ async function main() {
 
   const walletClient = createWalletClient({
     account,
-    chain: baseSepolia,
-    transport: http(),
+    chain: gnosis,
+    transport: http('https://rpc.gnosischain.com'),
   });
 
   const publicClient = createPublicClient({
-    chain: baseSepolia,
-    transport: http(),
+    chain: gnosis,
+    transport: http('https://rpc.gnosischain.com'),
   });
 
   console.log('\n⏳ Sending giveFeedback() transaction...');
@@ -137,7 +137,7 @@ async function main() {
   Score:       ${reputationValue / 100} (tags: A2A, email)
   FeedbackURI: ${feedbackURI}
   Tx:          ${txHash}
-  Explorer:    https://sepolia.basescan.org/tx/${txHash}
+  Explorer:    https://gnosisscan.io/tx/${txHash}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 All 4 ERC-8004 mandatory steps complete:

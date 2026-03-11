@@ -11,7 +11,7 @@
 
 import { createWalletClient, createPublicClient, http, parseAbi, keccak256, toBytes } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import { baseSepolia } from 'viem/chains';
+import { gnosis } from 'viem/chains';
 import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -30,10 +30,10 @@ const env = Object.fromEntries(
 const PRIVATE_KEY = env.PRIVATE_KEY || process.env.PRIVATE_KEY;
 const APP_URL = env.NEXT_PUBLIC_APP_URL || 'https://ghostagent.ninja';
 
-// ERC-8004 Identity Registry on Base Sepolia (also handles validation requests)
+// ERC-8004 Identity Registry on Gnosis Mainnet (also handles validation requests)
 // Source: https://github.com/erc-8004/erc-8004-contracts
-const ERC8004_VALIDATION_REGISTRY = '0x8004A818BFB912233c491871b3d84c89A494BD9e';
-const CHAIN_ID = 84532;
+const ERC8004_VALIDATION_REGISTRY = '0x8004A169FB4a3325136EB29fA0ceB6D2e539a432';
+const CHAIN_ID = 100;
 
 const VALIDATION_REGISTRY_ABI = parseAbi([
   'function validationRequest(address validatorAddress, uint256 agentId, string requestURI, bytes32 requestHash) returns (bytes32 requestId)',
@@ -75,13 +75,13 @@ async function main() {
 
   const walletClient = createWalletClient({
     account,
-    chain: baseSepolia,
-    transport: http(),
+    chain: gnosis,
+    transport: http('https://rpc.gnosischain.com'),
   });
 
   const publicClient = createPublicClient({
-    chain: baseSepolia,
-    transport: http(),
+    chain: gnosis,
+    transport: http('https://rpc.gnosischain.com'),
   });
 
   console.log('\n⏳ Sending validationRequest() transaction...');
@@ -125,7 +125,7 @@ async function main() {
   RequestId:  ${requestId ?? '(check logs)'}
   RequestURI: ${requestURI}
   Tx:         ${txHash}
-  Explorer:   https://sepolia.basescan.org/tx/${txHash}
+  Explorer:   https://gnosisscan.io/tx/${txHash}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Next step: Run reputation feedback

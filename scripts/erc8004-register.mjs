@@ -14,7 +14,7 @@
 
 import { createWalletClient, createPublicClient, http, parseAbi } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import { baseSepolia } from 'viem/chains';
+import { gnosis } from 'viem/chains';
 import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -36,10 +36,10 @@ const PRIVATE_KEY = env.PRIVATE_KEY || process.env.PRIVATE_KEY;
 const WORKER_URL = env.NFTMAIL_WORKER_URL || 'https://nftmail-email-worker.richard-159.workers.dev';
 const APP_URL = env.NEXT_PUBLIC_APP_URL || 'https://ghostagent.ninja';
 
-// ERC-8004 Identity Registry on Base Sepolia
+// ERC-8004 Identity Registry on Gnosis Mainnet
 // Source: https://github.com/erc-8004/erc-8004-contracts
-const ERC8004_IDENTITY_REGISTRY = '0x8004A818BFB912233c491871b3d84c89A494BD9e';
-const CHAIN_ID = 84532; // Base Sepolia
+const ERC8004_IDENTITY_REGISTRY = '0x8004A169FB4a3325136EB29fA0ceB6D2e539a432';
+const CHAIN_ID = 100; // Gnosis
 
 const IDENTITY_REGISTRY_ABI = parseAbi([
   'function register(string agentURI) returns (uint256 agentId)',
@@ -86,13 +86,13 @@ async function main() {
 
   const walletClient = createWalletClient({
     account,
-    chain: baseSepolia,
-    transport: http(),
+    chain: gnosis,
+    transport: http('https://rpc.gnosischain.com'),
   });
 
   const publicClient = createPublicClient({
-    chain: baseSepolia,
-    transport: http(),
+    chain: gnosis,
+    transport: http('https://rpc.gnosischain.com'),
   });
 
   console.log('\n⏳ Sending register() transaction...');
@@ -153,7 +153,7 @@ async function main() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        action: 'storeErc8004AgentId',
+        action: 'setErc8004AgentId',
         agentName,
         erc8004AgentId: agentId,
         agentURI,
@@ -174,9 +174,9 @@ async function main() {
   Agent:     ${agentName}
   agentId:   ${agentId}
   agentURI:  ${agentURI}
-  Registry:  eip155:84532:0x8004A818BFB912233c491871b3d84c89A494BD9e
+  Registry:  eip155:100:0x8004A169FB4a3325136EB29fA0ceB6D2e539a432
   Tx:        ${txHash}
-  Explorer:  https://sepolia.basescan.org/tx/${txHash}
+  Explorer:  https://gnosisscan.io/tx/${txHash}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Next steps:
