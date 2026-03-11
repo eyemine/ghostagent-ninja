@@ -1220,6 +1220,38 @@ export default {
           return corsify(Response.json({ status: 'stored', agentName, erc8004AgentId }), request);
         }
 
+        // ERC-8004 TradeIntent: store EIP-712 signed trade intent for A2A discovery
+        if (email.action === 'storeTradeIntent') {
+          const agentName    = ((email as any).agentName || '').toLowerCase().trim();
+          const agentId      = (email as any).agentId;
+          const signedIntent = (email as any).signedIntent;
+          if (!agentName || !signedIntent) {
+            return corsify(Response.json({ error: 'Missing agentName or signedIntent' }, { status: 400 }), request);
+          }
+          const intentKey = `trade-intent:${agentName}:${Date.now()}`;
+          await env.INBOX_KV.put(intentKey, JSON.stringify(signedIntent), { expirationTtl: 7 * 24 * 60 * 60 });
+          // Update index
+          const idxRaw = await env.INBOX_KV.get(`trade-intent-index:${agentName}`);
+          const idx: string[] = idxRaw ? JSON.parse(idxRaw) : [];
+          idx.push(intentKey);
+          await env.INBOX_KV.put(`trade-intent-index:${agentName}`, JSON.stringify(idx.slice(-50)));
+          return corsify(Response.json({ status: 'stored', agentName, agentId, intentKey }), request);
+        }
+
+        // ERC-8004 TradeIntents: list active trade intents for an agent (A2A discovery)
+        if (email.action === 'getTradeIntents') {
+          const agentName = ((email as any).agentName || '').toLowerCase().trim();
+          if (!agentName) {
+            return corsify(Response.json({ error: 'Missing agentName' }, { status: 400 }), request);
+          }
+          const idxRaw = await env.INBOX_KV.get(`trade-intent-index:${agentName}`);
+          const idx: string[] = idxRaw ? JSON.parse(idxRaw) : [];
+          const intents = (await Promise.all(
+            idx.map(k => env.INBOX_KV.get(k).then(v => v ? JSON.parse(v) : null))
+          )).filter(Boolean);
+          return corsify(Response.json({ agentName, intents }), request);
+        }
+
         // x402 A2A delivery: store a paid inter-agent message in recipient's blind inbox
         if (email.action === 'storeA2AMessage') {
           const fromAgent  = ((email as any).fromAgent  || '').toLowerCase().trim();
