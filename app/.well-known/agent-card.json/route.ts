@@ -40,9 +40,26 @@ export async function GET() {
     ],
 
     provider: {
-      organization: 'GhostAgent Ninja',
+      organization: 'Ghost Agent Ninja Pty Ltd',
       url: APP_URL,
+      legalEntity: 'GHOST AGENT NINJA PTY LTD',
     },
+
+    // EIP-155 chain binding — prevents cross-chain replay of signed trade intents
+    chainBinding: {
+      standard: 'EIP-155',
+      chains: [
+        { chainId: 100,      name: 'Gnosis Mainnet',  role: 'primary',  safe: '0xb7e493e3d226f8fE722CC9916fF164B793af13F4' },
+        { chainId: 11155111, name: 'Ethereum Sepolia', role: 'testnet',  safe: null },
+      ],
+      eip1271: true,
+      note: 'Gnosis Safe satisfies EIP-1271 — the NFT handle belongs to the Safe which acts as agent brain/vault',
+    },
+
+    // Agent wallet — Gnosis Safe on primary chain
+    agentWallet: '0xb7e493e3d226f8fE722CC9916fF164B793af13F4',
+    agentWalletChain: 'eip155:100',
+    agentWalletType: 'GnosisSafe',
 
     capabilities: {
       streaming: false,
@@ -103,6 +120,7 @@ export async function GET() {
     ],
 
     // ERC-8004 extension — links this A2A card to on-chain identity
+    // Also declares EIP-712 domain for trade intent signing
     extensions: [
       {
         uri: 'https://eips.ethereum.org/EIPS/eip-8004',
@@ -113,6 +131,26 @@ export async function GET() {
           identityRegistry:   'eip155:100:0x8004A169FB4a3325136EB29fA0ceB6D2e539a432',
           reputationRegistry: 'eip155:100:0x8004BAa17C55a88189AE136b182e5fdA19dE9b63',
           registrationJson:   `${APP_URL}/api/agent/ghostagent/registration.json`,
+        },
+      },
+      {
+        uri: 'https://eips.ethereum.org/EIPS/eip-712',
+        description: 'EIP-712 typed data signing — chain-bound TradeIntents prevent cross-chain replay',
+        required: false,
+        params: {
+          domainName: 'GhostAgent',
+          domainVersion: '1',
+          primaryChainId: 100,
+          tradeIntentType: 'TradeIntent(address agent,address token,uint256 amount,uint256 price,uint256 deadline,string intentType)',
+        },
+      },
+      {
+        uri: 'https://eips.ethereum.org/EIPS/eip-1271',
+        description: 'EIP-1271 contract signature validation — Gnosis Safe owns the ERC-8004 NFT handle',
+        required: false,
+        params: {
+          safeAddress: '0xb7e493e3d226f8fE722CC9916fF164B793af13F4',
+          safeChain: 'eip155:100',
         },
       },
     ],

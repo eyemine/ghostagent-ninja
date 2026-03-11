@@ -177,6 +177,20 @@ export async function POST(req: NextRequest) {
       return jsonRpcError(id, -32602, 'Invalid params: message parts must contain text');
     }
 
+    // EIP-712 / EIP-155 validation — trade intent submissions MUST include chainId + signature
+    const isTradeIntent = /trade.?intent|store.?intent|submit.?trade/i.test(text);
+    if (isTradeIntent) {
+      const meta     = params?.metadata ?? {};
+      const chainId  = meta.chainId ?? params?.extensions?.chainId;
+      const sig      = meta.signature ?? meta.sig ?? params?.extensions?.signature;
+      if (!chainId) {
+        return jsonRpcError(id, -32602, 'Invalid params: chainId required for EIP-155 trade intent (provide metadata.chainId)');
+      }
+      if (!sig) {
+        return jsonRpcError(id, -32602, 'Invalid params: EIP-712 signature required for trade intent (provide metadata.signature)');
+      }
+    }
+
     try {
       const { text: resultText, meta } = await routeIntent(text, params);
       return jsonRpcOk(id, makeTask(taskId, 'completed', resultText, meta));

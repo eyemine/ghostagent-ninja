@@ -417,14 +417,39 @@ export default function A2ACardModal({ agentName, isOwner = false, onClose }: Pr
                         </Section>
                       )}
 
+                      <Section title="EIP-155 Chain Binding">
+                        <div className="rounded-xl border border-[rgba(176,128,92,0.2)] bg-black/20 p-4 space-y-2.5">
+                          {[
+                            { label: 'Standard',      value: 'EIP-155 Validated',       color: 'text-emerald-300' },
+                            { label: 'Primary Chain', value: 'Gnosis Mainnet (ID: 100)', color: 'text-[#f2eee4]' },
+                            { label: 'Testnet',       value: 'Ethereum Sepolia (ID: 11155111)', color: 'text-amber-300' },
+                            { label: 'EIP-1271',      value: 'Gnosis Safe — contract signature validation', color: 'text-sky-300' },
+                            { label: 'EIP-712',       value: 'TradeIntents chain-bound, replay-protected',  color: 'text-violet-300' },
+                          ].map(({ label, value, color }) => (
+                            <div key={label} className="flex items-start justify-between gap-3">
+                              <span className="shrink-0 text-[10px] text-[var(--muted)]">{label}</span>
+                              <span className={`text-right text-[10px] font-medium ${color}`}>{value}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </Section>
+
                       <Section title="Test A2A SendMessage">
                         <div className="rounded-xl border border-[rgba(176,128,92,0.2)] bg-black/20 p-3 space-y-1.5">
                           <p className="text-[10px] text-[var(--muted)]">
-                            POST <code className="text-[#b0805c]">/api/a2a</code> with JSON-RPC 2.0:
+                            POST <code className="text-[#b0805c]">/api/a2a</code> — JSON-RPC 2.0 with EIP-712 metadata:
                           </p>
                           <pre className="overflow-x-auto rounded bg-black/40 p-2 text-[9px] text-emerald-300 leading-relaxed whitespace-pre-wrap break-all">{JSON.stringify({
                             jsonrpc: '2.0', id: '1', method: 'SendMessage',
-                            params: { message: { role: 'user', parts: [{ text: `status of ${agentName}` }] } }
+                            params: {
+                              message: { role: 'user', parts: [{ text: `status of ${agentName}` }] },
+                              metadata: {
+                                agentName,
+                                chainId: 100,
+                                eip155: true,
+                                eip712Domain: { name: 'GhostAgent', version: '1', chainId: 100 },
+                              },
+                            },
                           }, null, 2)}</pre>
                         </div>
                       </Section>
