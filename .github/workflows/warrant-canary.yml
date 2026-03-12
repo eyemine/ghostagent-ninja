@@ -1,22 +1,12 @@
-name: Warrant Canary
+name: Warrant Canary (DISABLED — moved to Cloudflare KV worker cron)
 
+# Canary is now maintained by the Cloudflare Worker cron (every 5 min) writing to KV.
+# This workflow is intentionally disabled to prevent hourly commits triggering Netlify deploys.
 on:
-  schedule:
-    - cron: '0 * * * *'  # Every hour
-  workflow_dispatch: {}
-
-permissions:
-  contents: write
+  workflow_dispatch: {}  # manual only, no schedule
 
 jobs:
-  canary:
+  noop:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - run: |
-          echo "ALIVE $(date -u +%Y-%m-%dT%H:%M:%S.000Z)" > apps/nftmailbox/CANARY.txt
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add apps/nftmailbox/CANARY.txt
-          git diff --cached --quiet || git commit -m "chore: warrant canary $(date -u +%Y-%m-%dT%H:%M)"
-          git push
+      - run: echo "Warrant canary is handled by Cloudflare Worker — nothing to do here."
