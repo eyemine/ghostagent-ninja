@@ -56,10 +56,9 @@ coverage/
 # Local Netlify folder
 .netlify
 
-# Non-web source (Solidity, workers — not needed for Next.js deploy)
+# Non-web source (Solidity — not needed for Next.js deploy)
 src/
 contracts/
-workers/
 apps/
 docs/
 tsconfig.tsbuildinfo
