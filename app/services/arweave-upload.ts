@@ -32,7 +32,7 @@ export interface ArweaveUploadOptions {
   forceMethod?: ArweaveUploadResult['method'];
 }
 
-const TURBO_URL   = 'https://turbo.ardrive.io';
+const TURBO_URL   = 'https://upload.ardrive.io';
 const IRYS_URL    = 'https://uploader.irys.xyz';
 const ARWEAVE_URL = 'https://arweave.net';
 
@@ -121,12 +121,13 @@ async function uploadViaTurbo(
     ...tags,
   ];
 
-  // Turbo DataItem format: JSON envelope
+  // Turbo unauthenticated upload — body must be application/octet-stream
+  // Content-Type of the data is passed as a tag, not as the HTTP header
   const res = await fetch(`${TURBO_URL}/tx`, {
     method:  'POST',
     headers: {
-      'Content-Type': contentType,
-      'x-custom-tags': JSON.stringify(allTags),
+      'Content-Type':   'application/octet-stream',
+      'x-custom-tags':  JSON.stringify(allTags),
     },
     body,
   });

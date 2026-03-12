@@ -27,7 +27,8 @@ const env = Object.fromEntries(
     .map(l => { const i = l.indexOf('='); return [l.slice(0, i).trim(), l.slice(i + 1).trim()]; })
 );
 
-const PRIVATE_KEY = env.PRIVATE_KEY || process.env.PRIVATE_KEY;
+const PRIVATE_KEY           = env.PRIVATE_KEY           || process.env.PRIVATE_KEY;
+const RESPONDER_PRIVATE_KEY = env.RESPONDER_PRIVATE_KEY  || process.env.RESPONDER_PRIVATE_KEY;
 const APP_URL = env.NEXT_PUBLIC_APP_URL || 'https://ghostagent.ninja';
 const WORKER_URL = env.NFTMAIL_WORKER_URL || 'https://nftmail-email-worker.richard-159.workers.dev';
 
@@ -55,7 +56,13 @@ async function main() {
     process.exit(1);
   }
 
-  const account = privateKeyToAccount(PRIVATE_KEY);
+  if (!RESPONDER_PRIVATE_KEY) {
+    console.error('Missing RESPONDER_PRIVATE_KEY — giveFeedback cannot come from the agent owner (self-feedback not allowed).');
+    console.error('Add RESPONDER_PRIVATE_KEY=<burner_key> to .env.local and fund the address with 0.01 xDAI.');
+    process.exit(1);
+  }
+
+  const account = privateKeyToAccount(RESPONDER_PRIVATE_KEY);
 
   // Fetch live agent status to build feedback URI with real telemetry
   let inboxCount = 0;
@@ -95,12 +102,12 @@ async function main() {
   const walletClient = createWalletClient({
     account,
     chain: gnosis,
-    transport: http('https://rpc.gnosischain.com'),
+    transport: http(),
   });
 
   const publicClient = createPublicClient({
     chain: gnosis,
-    transport: http('https://rpc.gnosischain.com'),
+    transport: http(),
   });
 
   console.log('\n⏳ Sending giveFeedback() transaction...');

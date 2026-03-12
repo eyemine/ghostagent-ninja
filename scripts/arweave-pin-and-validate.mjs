@@ -34,9 +34,11 @@
  *   - validationRequest() tx hash (on-chain ERC-8004)
  */
 
+import { TurboFactory, EthereumSigner } from '@ardrive/turbo-sdk/node';
+import { Readable } from 'stream';
 import { createWalletClient, http, keccak256, toBytes } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import { gnosis, sepolia as sepoliaChain } from 'viem/chains';
+import { sepolia as sepoliaChain, baseSepolia } from 'viem/chains';
 import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -55,42 +57,70 @@ const env = Object.fromEntries(
     .map(l => { const i = l.indexOf('='); return [l.slice(0, i).trim(), l.slice(i + 1).trim()]; })
 );
 
-const PRIVATE_KEY  = env.PRIVATE_KEY  || process.env.PRIVATE_KEY;
+const PRIVATE_KEY           = env.PRIVATE_KEY           || process.env.PRIVATE_KEY;
+const RESPONDER_PRIVATE_KEY = env.RESPONDER_PRIVATE_KEY  || process.env.RESPONDER_PRIVATE_KEY || PRIVATE_KEY;
 const WORKER_URL   = env.NFTMAIL_WORKER_URL || 'https://nftmail-email-worker.richard-159.workers.dev';
 const APP_URL      = env.NEXT_PUBLIC_APP_URL || 'https://ghostagent.ninja';
 
 // ── Arweave / Turbo ───────────────────────────────────────────────────────────
 
-const TURBO_URL    = 'https://turbo.ardrive.io';
+const TURBO_URL    = 'https://upload.ardrive.io';
 const ARWEAVE_URL  = 'https://arweave.net';
-const IRYS_URL     = 'https://uploader.irys.xyz';
 
 // ── ERC-8004 Contract addresses ───────────────────────────────────────────────
 
 // Source: https://github.com/erc-8004/erc-8004-contracts
+// NOTE: Only IdentityRegistry + ReputationRegistry are deployed.
+// There is no separate ValidationRegistry contract — evidence is submitted
+// via ReputationRegistry.giveFeedback() with the Arweave URL as feedbackURI.
 const ERC8004 = {
-  gnosis: {
-    chainId:            100,
+  mainnet: {
+    chainId:             1,
     identityRegistry:   '0x8004A169FB4a3325136EB29fA0ceB6D2e539a432',
-    validationRegistry: '0x8004B5c708704BF5A3F693EB36c524bF9204B8F4',
+    reputationRegistry: '0x8004BAa17C55a88189AE136b182e5fdA19dE9b63',
   },
   sepolia: {
     chainId:            11155111,
     identityRegistry:   '0x8004A818BFB912233c491871b3d84c89A494BD9e',
-    validationRegistry: '0x8004B97Bf16FF09aD3E84eAE2EAc5B8Bf8e40B47',
+    reputationRegistry: '0x8004B663056A597Dffe9eCcC1965A193B7388713',
+  },
+  baseSepolia: {
+    chainId:            84532,
+    identityRegistry:   '0x8004A818BFB912233c491871b3d84c89A494BD9e',
+    reputationRegistry: '0x8004B663056A597Dffe9eCcC1965A193B7388713',
   },
 };
 
-const VALIDATION_REGISTRY_ABI = [
+const IDENTITY_REGISTRY_ABI = [
   {
-    name: 'validationRequest',
+    name: 'register',
     type: 'function',
     stateMutability: 'nonpayable',
     inputs: [
-      { name: 'validatorAddress', type: 'address' },
-      { name: 'agentId',          type: 'uint256' },
-      { name: 'requestURI',       type: 'string'  },
-      { name: 'requestHash',      type: 'bytes32' },
+      { name: 'agentURI', type: 'string' },
+      { name: 'metadata', type: 'tuple[]', components: [
+        { name: 'key',   type: 'bytes32' },
+        { name: 'value', type: 'bytes'   },
+      ]},
+    ],
+    outputs: [{ name: 'agentId', type: 'uint256' }],
+  },
+];
+
+const REPUTATION_REGISTRY_ABI = [
+  {
+    name: 'giveFeedback',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'agentId',       type: 'uint256' },
+      { name: 'value',         type: 'int128'  },
+      { name: 'valueDecimals', type: 'uint8'   },
+      { name: 'tag1',          type: 'string'  },
+      { name: 'tag2',          type: 'string'  },
+      { name: 'endpoint',      type: 'string'  },
+      { name: 'feedbackURI',   type: 'string'  },
+      { name: 'feedbackHash',  type: 'bytes32' },
     ],
     outputs: [],
   },
@@ -107,18 +137,19 @@ function parseArgs() {
     agentId:    Number(get('--agentId') || '3180'),
     file:       get('--file')      || null,
     sepolia:    args.includes('--sepolia'),
+    baseSepolia: args.includes('--base-sepolia'),
     dryRun:     args.includes('--dry-run'),         // pin but don't submit on-chain
     validator:  get('--validator') || null,         // validator address override
   };
 }
 
-// ── Arweave upload (ar.io Turbo free, Irys free fallback) ────────────────────
+// ── Arweave upload via @ardrive/turbo-sdk (EthereumSigner, free ≤ 100KB) ─────
 
 async function pinToArweave(data, tags = []) {
-  const body = JSON.stringify(data, null, 2);
-  const bytes = new TextEncoder().encode(body);
+  const body      = JSON.stringify(data, null, 2);
+  const sizeBytes = new TextEncoder().encode(body).length;
 
-  console.log(`\n📦 Pinning to Arweave (${bytes.length} bytes)…`);
+  console.log(`\n📦 Pinning to Arweave via Turbo SDK (${sizeBytes} bytes)…`);
 
   const allTags = [
     { name: 'Content-Type', value: 'application/json' },
@@ -127,54 +158,23 @@ async function pinToArweave(data, tags = []) {
     ...tags,
   ];
 
-  // Try ar.io Turbo first (free ≤ 100KB)
-  try {
-    const res = await fetch(`${TURBO_URL}/tx`, {
-      method:  'POST',
-      headers: {
-        'Content-Type':  'application/json',
-        'x-custom-tags': JSON.stringify(allTags),
-      },
-      body: bytes,
-    });
+  // EthereumSigner signs the ANS-104 DataItem using the agent's private key
+  // TurboFactory.authenticated() with OnDemandFunding = no pre-funding needed for free tier
+  const signer = new EthereumSigner(PRIVATE_KEY);
+  const turbo  = TurboFactory.authenticated({ signer });
 
-    if (res.ok) {
-      const result = await res.json();
-      if (result.id) {
-        console.log(`   ✓ ar.io Turbo (free) — TX: ${result.id}`);
-        return { txId: result.id, method: 'turbo-free', sizeBytes: bytes.length };
-      }
-    }
-    const errText = await res.text().catch(() => res.status.toString());
-    console.warn(`   ⚠️  Turbo failed (${res.status}): ${errText} — trying Irys…`);
-  } catch (e) {
-    console.warn(`   ⚠️  Turbo error: ${e.message} — trying Irys…`);
-  }
+  const buf = Buffer.from(body, 'utf8');
 
-  // Fallback: Irys public node (free ≤ 1KB)
-  if (bytes.length <= 1024) {
-    try {
-      const res = await fetch(`${IRYS_URL}/upload`, {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    bytes,
-      });
-      if (res.ok) {
-        const result = await res.json();
-        if (result.id) {
-          console.log(`   ✓ Irys public node (free) — TX: ${result.id}`);
-          return { txId: result.id, method: 'irys-free', sizeBytes: bytes.length };
-        }
-      }
-    } catch (e) {
-      console.warn(`   ⚠️  Irys error: ${e.message}`);
-    }
-  }
+  const result = await turbo.uploadFile({
+    fileStreamFactory: () => Readable.from(buf),
+    fileSizeFactory:   () => sizeBytes,
+    dataItemOpts:      { tags: allTags },
+  });
 
-  throw new Error(
-    `All free Arweave upload methods failed for ${bytes.length} bytes. ` +
-    `Set IRYS_PRIVATE_KEY (ETH on Arbitrum) for funded uploads.`,
-  );
+  if (!result?.id) throw new Error('Turbo upload returned no id');
+
+  console.log(`   ✓ Turbo (free, EthereumSigner) — TX: ${result.id}`);
+  return { txId: result.id, method: 'turbo-free', sizeBytes };
 }
 
 // ── Fetch latest handshake cert from worker KV ───────────────────────────────
@@ -230,31 +230,68 @@ function buildGlassBoxDeclaration(agentName, agentId, appUrl) {
   };
 }
 
-// ── ERC-8004 validationRequest() on-chain ────────────────────────────────────
+// ── ERC-8004 giveFeedback() on-chain ─────────────────────────────────────────
+// Submits the Arweave URL as feedbackURI — this is the real ERC-8004 evidence
+// mechanism. ValidationRegistry does not exist as a separate contract.
 
-async function submitValidationRequest(walletClient, account, network, agentId, requestURI, requestHash) {
-  console.log(`\n⛓  Submitting validationRequest() on ${network.chainId === 100 ? 'Gnosis' : 'Sepolia'}…`);
-  console.log(`   agentId:      ${agentId}`);
-  console.log(`   requestURI:   ${requestURI}`);
-  console.log(`   requestHash:  ${requestHash}`);
+// giveFeedback MUST come from a wallet that is NOT the agent owner.
+// Use RESPONDER_PRIVATE_KEY (counter-agent wallet) to avoid the self-feedback revert.
+async function submitGiveFeedback(chain, network, agentId, arweaveUrl, feedbackHash, mode) {
+  const responderAccount = privateKeyToAccount(RESPONDER_PRIVATE_KEY);
+  const responderClient  = createWalletClient({ account: responderAccount, chain, transport: http() });
 
-  // Use self as validator for hackathon (real deployment uses hackathon's validator address)
-  const validatorAddress = account.address;
+  const chainName = { 84532: 'Base Sepolia', 11155111: 'Ethereum Sepolia', 1: 'Mainnet' }[network.chainId] ?? String(network.chainId);
+  console.log(`\n⛓  Submitting giveFeedback() on ${chainName} as ${responderAccount.address}…`);
+  console.log(`   agentId:     ${agentId}`);
+  console.log(`   feedbackURI: ${arweaveUrl}`);
+
+  // value=9500, valueDecimals=2 → 95.00 (score 95/100)
+  try {
+    const hash = await responderClient.writeContract({
+      address:      network.reputationRegistry,
+      abi:          REPUTATION_REGISTRY_ABI,
+      functionName: 'giveFeedback',
+      args: [
+        BigInt(agentId),
+        9500n,                     // value: 9500
+        2,                         // valueDecimals: 2 → 95.00
+        'glassbox-evidence',
+        mode,
+        'https://ghostagent.ninja/api/a2a',
+        arweaveUrl,
+        feedbackHash,
+      ],
+      account: responderAccount,
+    });
+    console.log(`   ✓ giveFeedback tx: ${hash}`);
+    return hash;
+  } catch (err) {
+    console.warn(`   ⚠️  On-chain submission failed: ${err.shortMessage || err.message}`);
+    console.log(`   (Arweave pin is still valid — submit giveFeedback manually via Basescan)`);
+    return null;
+  }
+}
+
+// Register agent on Identity Registry → returns on-chain agentId for this chain
+async function registerAgent(walletClient, account, network, agentName, appUrl) {
+  const agentURI = `${appUrl}/.well-known/agent-card.json`;
+  const chainName = { 84532: 'Base Sepolia', 11155111: 'Ethereum Sepolia', 1: 'Mainnet' }[network.chainId] ?? String(network.chainId);
+  console.log(`\n⛓  Registering agent on Identity Registry (${chainName})…`);
+  console.log(`   agentURI: ${agentURI}`);
 
   try {
     const hash = await walletClient.writeContract({
-      address:      network.validationRegistry,
-      abi:          VALIDATION_REGISTRY_ABI,
-      functionName: 'validationRequest',
-      args:         [validatorAddress, BigInt(agentId), requestURI, requestHash],
+      address:      network.identityRegistry,
+      abi:          IDENTITY_REGISTRY_ABI,
+      functionName: 'register',
+      args:         [agentURI, []],
       account,
     });
-    console.log(`   ✓ validationRequest tx: ${hash}`);
+    console.log(`   ✓ register() tx: ${hash}`);
+    console.log(`   Check tx on explorer for the returned agentId, then re-run with --agentId <newId>`);
     return hash;
   } catch (err) {
-    // Contract may not be deployed on Gnosis — log and continue
-    console.warn(`   ⚠️  On-chain submission failed: ${err.shortMessage || err.message}`);
-    console.log(`   (Arweave pin is still valid — submit manually or use Sepolia with --sepolia)`);
+    console.warn(`   ⚠️  Registration failed: ${err.shortMessage || err.message}`);
     return null;
   }
 }
@@ -290,17 +327,24 @@ async function main() {
     process.exit(1);
   }
 
-  const network = opts.sepolia ? ERC8004.sepolia : ERC8004.gnosis;
-  const chain   = opts.sepolia ? sepoliaChain : gnosis;
+  const network = opts.baseSepolia ? ERC8004.baseSepolia : opts.sepolia ? ERC8004.sepolia : ERC8004.mainnet;
+  const { mainnet } = await import('viem/chains');
+  const chain   = opts.baseSepolia ? baseSepolia : opts.sepolia ? sepoliaChain : mainnet;
   const account = privateKeyToAccount(PRIVATE_KEY);
   const walletClient = createWalletClient({ account, chain, transport: http() });
 
+  const chainLabel = opts.baseSepolia ? 'Base Sepolia (84532)' : opts.sepolia ? 'Ethereum Sepolia (11155111)' : 'Ethereum Mainnet (1)';
   console.log(`\n🌐 GhostAgent Arweave Pin + ERC-8004 Validation`);
   console.log(`   Mode:    ${opts.mode}`);
   console.log(`   Agent:   ${opts.agentName} (agentId: ${opts.agentId})`);
-  console.log(`   Chain:   ${opts.sepolia ? 'Ethereum Sepolia (11155111)' : 'Gnosis Mainnet (100)'}`);
-  console.log(`   Signer:  ${account.address}`);
+  console.log(`   Chain:   ${chainLabel}`);
   if (opts.dryRun) console.log(`   DRY RUN — will not submit on-chain`);
+
+  // ── register mode: register agent on-chain, get agentId, then exit ──────────
+  if (opts.mode === 'register') {
+    await registerAgent(walletClient, account, network, opts.agentName, APP_URL);
+    return;
+  }
 
   // ── 1. Build or load the artifact to pin ──────────────────────────────────
   let artifact;
@@ -354,11 +398,11 @@ async function main() {
   const requestURI  = `${ARWEAVE_URL}/${pinResult.txId}`;
   const requestHash = keccak256(toBytes(JSON.stringify(artifact, null, 2)));
 
-  // ── 3. Submit ERC-8004 validationRequest() ────────────────────────────────
+  // ── 3. Submit ERC-8004 giveFeedback() with Arweave URL as evidence ─────────
   let onChainTxHash = null;
   if (!opts.dryRun) {
-    onChainTxHash = await submitValidationRequest(
-      walletClient, account, network, opts.agentId, requestURI, requestHash,
+    onChainTxHash = await submitGiveFeedback(
+      chain, network, opts.agentId, requestURI, requestHash, opts.mode,
     );
   }
 
@@ -368,7 +412,7 @@ async function main() {
   // ── Summary ───────────────────────────────────────────────────────────────
   console.log(`
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  Arweave Pin + ERC-8004 Validation Complete ✓
+  Arweave Pin + ERC-8004 Evidence Complete ✓
   Mode:         ${opts.mode}
   Agent:        ${opts.agentName} (agentId: ${opts.agentId})
   Upload:       ${pinResult.method} (${pinResult.sizeBytes} bytes)
@@ -376,20 +420,24 @@ async function main() {
   Arweave TX:   ${pinResult.txId}
   Permanent URL: ${requestURI}
   ar:// URL:    ar://${pinResult.txId}
-  requestHash:  ${requestHash}
+  feedbackHash: ${requestHash}
 
   On-chain TX:  ${onChainTxHash ?? '(not submitted — dry-run or failed)'}
 
-  ── For ERC-8004 Validation Registry submission ──
-  validationRequest(
-    validatorAddress: "${account.address}",
-    agentId:          ${opts.agentId},
-    requestURI:       "${requestURI}",
-    requestHash:      "${requestHash}"
+  ── For ERC-8004 Reputation Registry (giveFeedback) ──
+  giveFeedback(
+    agentId:       ${opts.agentId},
+    value:         95,
+    valueDecimals: 2,           // → 0.95 score
+    tag1:          "glassbox-evidence",
+    tag2:          "${opts.mode}",
+    endpoint:      "https://ghostagent.ninja/api/a2a",
+    feedbackURI:   "${requestURI}",
+    feedbackHash:  "${requestHash}"
   )
 
   ── For hackathon submission ──
-  Paste requestURI and requestHash into your submission form.
+  Paste feedbackURI into your submission form.
   Judges can verify: ${requestURI}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 `);
