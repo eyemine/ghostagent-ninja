@@ -238,6 +238,12 @@ async function main() {
         action: 'clearErc8004PendingTransfer',
         agentName,
       }, 'clear pending transfer checkpoint');
+
+      // ── Activation tx — setMetadata('activated') seeds agent telemetry ──
+      await sendActivationTx({
+        walletClient, publicClient, net, agentId,
+        agentName, agentURI, safeAddr, chainLabel,
+      });
     }
   }
 
@@ -267,6 +273,39 @@ async function main() {
 Next step — give reputation feedback:
   node scripts/erc8004-reputation.mjs ${agentName} ${agentId} ${useBaseSep ? '--base-sepolia' : '--gnosis'}
 `);
+}
+
+// ── Activation tx — setMetadata('activated') seeds on-chain telemetry ─────────
+// Called after transferFrom() succeeds. Emits a MetadataSet event in the registry
+// so block explorers + telemetry dashboards show confirmed agent activity.
+async function sendActivationTx({ walletClient, publicClient, net, agentId, agentName, agentURI, safeAddr, chainLabel }) {
+  console.log(`\n⏳ Sending activation tx — setMetadata('activated')...`);
+  const payload = JSON.stringify({
+    activatedAt: new Date().toISOString(),
+    agentName,
+    agentURI,
+    safeOwner: safeAddr,
+    chain: chainLabel,
+    hello: 'GhostAgent activated',
+  });
+  // ABI-encode as bytes (simple UTF-8 encoding prefixed with length — compatible with ERC-8004 setMetadata)
+  const encoded = new TextEncoder().encode(payload);
+  const valueBytes = `0x${Buffer.from(encoded).toString('hex')}`;
+
+  try {
+    const txHash = await walletClient.writeContract({
+      address: net.identityRegistry,
+      abi: parseAbi(['function setMetadata(uint256 agentId, string key, bytes value)']),
+      functionName: 'setMetadata',
+      args: [BigInt(agentId), 'activated', valueBytes],
+    });
+    const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
+    console.log(`   ✓ Activation confirmed block ${receipt.blockNumber}`);
+    console.log(`   Tx: ${net.explorer}/tx/${txHash}`);
+  } catch (e) {
+    // Non-fatal — telemetry is nice-to-have, don't block on it
+    console.warn(`   ⚠️  Activation tx failed (non-fatal): ${e.shortMessage || e.message}`);
+  }
 }
 
 // ── KV helper — logs clearly on failure but never throws ─────────────────────

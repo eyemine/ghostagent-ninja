@@ -15,7 +15,7 @@
  * All reputation history (giveFeedback) stays intact — it's indexed by agentId, not owner.
  */
 
-import { createWalletClient, createPublicClient, http, parseAbi } from 'viem';
+import { createWalletClient, createPublicClient, http, parseAbi, toBytes } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { gnosis, baseSepolia } from 'viem/chains';
 import { readFileSync } from 'fs';
@@ -138,14 +138,17 @@ async function main() {
     args: [BigInt(agentId)],
   });
 
-  console.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  ✅ Transfer complete
+  // ── Activation tx ────────────────────────────────────────────────
+  await sendActivationTx({ walletClient, publicClient, net, agentId, safeAddr, label });
+
+  console.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  ✅ Transfer + activation complete
   agentId:   ${agentId}
   New owner: ${newOwner}
   Safe:      ${safeAddr}
   Chain:     ${label}
-  Tx:        ${net.explorer}/tx/${txHash}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Transfer:  ${net.explorer}/tx/${txHash}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   All reputation history is preserved — giveFeedback() is
   indexed by agentId, not by token owner address.
@@ -154,6 +157,34 @@ async function main() {
   (a separate EOA). The Safe owns the identity token but reputation
   submissions come from any address — ownership is irrelevant for feedback.
 `);
+}
+
+// ── Activation tx — setMetadata('activated') seeds on-chain telemetry ────────────
+// Emits MetadataSet event in the IdentityRegistry — shows as confirmed agent activity
+// on block explorers and telemetry dashboards. Non-fatal if it fails.
+async function sendActivationTx({ walletClient, publicClient, net, agentId, safeAddr, label }) {
+  console.log(`\n⏳ Sending activation tx — setMetadata('activated')...`);
+  const payload = JSON.stringify({
+    activatedAt: new Date().toISOString(),
+    safeOwner:   safeAddr,
+    chain:       label,
+    hello:       'GhostAgent activated',
+  });
+  const valueBytes = `0x${Buffer.from(new TextEncoder().encode(payload)).toString('hex')}`;
+
+  try {
+    const actTx = await walletClient.writeContract({
+      address: net.address,
+      abi: parseAbi(['function setMetadata(uint256 agentId, string key, bytes value)']),
+      functionName: 'setMetadata',
+      args: [BigInt(agentId), 'activated', valueBytes],
+    });
+    const actReceipt = await publicClient.waitForTransactionReceipt({ hash: actTx });
+    console.log(`   ✓ Activation confirmed block ${actReceipt.blockNumber}`);
+    console.log(`   Tx: ${net.explorer}/tx/${actTx}`);
+  } catch (e) {
+    console.warn(`   ⚠️  Activation tx failed (non-fatal): ${e.shortMessage || e.message}`);
+  }
 }
 
 main().catch(err => {
