@@ -14,7 +14,7 @@
 
 import { createWalletClient, createPublicClient, http, parseAbi } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import { gnosis } from 'viem/chains';
+import { gnosis, baseSepolia } from 'viem/chains';
 import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -36,10 +36,12 @@ const PRIVATE_KEY = env.PRIVATE_KEY || process.env.PRIVATE_KEY;
 const WORKER_URL = env.NFTMAIL_WORKER_URL || 'https://nftmail-email-worker.richard-159.workers.dev';
 const APP_URL = env.NEXT_PUBLIC_APP_URL || 'https://ghostagent.ninja';
 
-// ERC-8004 Identity Registry on Gnosis Mainnet
+// ERC-8004 Identity Registry addresses
 // Source: https://github.com/erc-8004/erc-8004-contracts
-const ERC8004_IDENTITY_REGISTRY = '0x8004A169FB4a3325136EB29fA0ceB6D2e539a432';
-const CHAIN_ID = 100; // Gnosis
+const REGISTRIES = {
+  gnosis:      { chainId: 100,   identityRegistry: '0x8004A169FB4a3325136EB29fA0ceB6D2e539a432', rpc: 'https://rpc.gnosischain.com', explorer: 'https://gnosisscan.io' },
+  baseSepolia: { chainId: 84532, identityRegistry: '0x8004A818BFB912233c491871b3d84c89A494BD9e', rpc: 'https://sepolia.base.org',      explorer: 'https://sepolia.basescan.org' },
+};
 
 const IDENTITY_REGISTRY_ABI = parseAbi([
   'function register(string agentURI) returns (uint256 agentId)',
@@ -49,11 +51,17 @@ const IDENTITY_REGISTRY_ABI = parseAbi([
 ]);
 
 async function main() {
-  const agentName = process.argv[2];
+  const args       = process.argv.slice(2);
+  const agentName  = args.find(a => !a.startsWith('--'));
+  const useBaseSep = args.includes('--base-sepolia');
+
   if (!agentName) {
-    console.error('Usage: node scripts/erc8004-register.mjs <agentName>');
+    console.error('Usage: node scripts/erc8004-register.mjs <agentName> [--base-sepolia]');
     process.exit(1);
   }
+
+  const net = useBaseSep ? REGISTRIES.baseSepolia : REGISTRIES.gnosis;
+  const chain = useBaseSep ? baseSepolia : gnosis;
 
   if (!PRIVATE_KEY) {
     console.error('Missing PRIVATE_KEY in .env or .env.local');
@@ -61,10 +69,11 @@ async function main() {
   }
 
   const account = privateKeyToAccount(PRIVATE_KEY);
+  const chainLabel = useBaseSep ? `Base Sepolia (${net.chainId})` : `Gnosis Mainnet (${net.chainId})`;
   console.log(`\n🔑 Registering agent: ${agentName}`);
   console.log(`   Owner:    ${account.address}`);
-  console.log(`   Chain:    Base Sepolia (${CHAIN_ID})`);
-  console.log(`   Registry: ${ERC8004_IDENTITY_REGISTRY}`);
+  console.log(`   Chain:    ${chainLabel}`);
+  console.log(`   Registry: ${net.identityRegistry}`);
 
   const agentURI = `${APP_URL}/api/agent/${agentName}/registration.json`;
   console.log(`   agentURI: ${agentURI}`);
@@ -86,20 +95,20 @@ async function main() {
 
   const walletClient = createWalletClient({
     account,
-    chain: gnosis,
-    transport: http('https://rpc.gnosischain.com'),
+    chain,
+    transport: http(net.rpc),
   });
 
   const publicClient = createPublicClient({
-    chain: gnosis,
-    transport: http('https://rpc.gnosischain.com'),
+    chain,
+    transport: http(net.rpc),
   });
 
   console.log('\n⏳ Sending register() transaction...');
   let txHash;
   try {
     txHash = await walletClient.writeContract({
-      address: ERC8004_IDENTITY_REGISTRY,
+      address: net.identityRegistry,
       abi: IDENTITY_REGISTRY_ABI,
       functionName: 'register',
       args: [agentURI],
@@ -170,13 +179,13 @@ async function main() {
   }
 
   console.log(`
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   Agent:     ${agentName}
   agentId:   ${agentId}
   agentURI:  ${agentURI}
-  Registry:  eip155:100:0x8004A169FB4a3325136EB29fA0ceB6D2e539a432
+  Registry:  eip155:${net.chainId}:${net.identityRegistry}
   Tx:        ${txHash}
-  Explorer:  https://gnosisscan.io/tx/${txHash}
+  Explorer:  ${net.explorer}/tx/${txHash}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Next steps:

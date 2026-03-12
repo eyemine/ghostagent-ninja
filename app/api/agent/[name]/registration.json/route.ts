@@ -26,7 +26,9 @@ const ERC8004_REGISTRIES: Record<string, { chainId: number; address: string; nam
   baseSepolia:  { chainId: 84532,    address: '0x8004A818BFB912233c491871b3d84c89A494BD9e', name: 'Base Sepolia' },
 };
 
-const DEFAULT_REGISTRY = ERC8004_REGISTRIES.gnosis;
+// Hackathon runs on Base Sepolia — primary registry for competition
+const DEFAULT_REGISTRY = ERC8004_REGISTRIES.baseSepolia;
+const GNOSIS_REGISTRY   = ERC8004_REGISTRIES.gnosis;
 
 export async function GET(
   _req: NextRequest,
@@ -104,12 +106,17 @@ export async function GET(
     // Active flag — true if ERC-8004 registered or has presence signals
     active: erc8004AgentId !== null || graph.exists === true,
 
-    // On-chain registrations (ERC-8004 agentId if registered, else empty)
+    // On-chain registrations — Base Sepolia (hackathon) + Gnosis Mainnet
     registrations: erc8004AgentId !== null ? [
       {
-        agentId: erc8004AgentId,
+        agentId:       erc8004AgentId,
         agentRegistry: `eip155:${DEFAULT_REGISTRY.chainId}:${DEFAULT_REGISTRY.address}`,
-        registeredAt: graph.erc8004RegisteredAt ?? null,
+        registeredAt:  graph.erc8004RegisteredAt ?? null,
+      },
+      {
+        agentId:       3184,
+        agentRegistry: `eip155:${GNOSIS_REGISTRY.chainId}:${GNOSIS_REGISTRY.address}`,
+        registeredAt:  null,
       },
     ] : [],
 
