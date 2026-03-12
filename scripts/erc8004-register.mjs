@@ -16,6 +16,15 @@
  *
  * Reputation (giveFeedback) is indexed by agentId — NOT owner. Transfer loses nothing.
  *
+ * Failsafe flow:
+ *   - After register(): writes erc8004PendingTransfer to KV immediately
+ *   - After transferFrom(): clears pending record, writes final state
+ *   - If script dies between steps, KV has the pending record for recovery
+ *   - Use --recover to detect and retry any stuck pending transfers
+ *
+ * Recovery:
+ *   node scripts/erc8004-register.mjs ghostagent --recover [--base-sepolia|--gnosis]
+ *
  * Contract: https://github.com/erc-8004/erc-8004-contracts
  */
 
@@ -66,11 +75,13 @@ async function main() {
   const useGnosis  = args.includes('--gnosis');
 
   // --safe <address>
-  const safeIdx  = args.indexOf('--safe');
-  const safeAddr = safeIdx !== -1 ? args[safeIdx + 1] : null;
+  const safeIdx   = args.indexOf('--safe');
+  const safeAddr  = safeIdx !== -1 ? args[safeIdx + 1] : null;
+  const isRecover = args.includes('--recover');
 
-  if (!agentName) {
+  if (!agentName && !isRecover) {
     console.error('Usage: node scripts/erc8004-register.mjs <agentName> [--base-sepolia|--gnosis] [--safe <safeAddress>]');
+    console.error('       node scripts/erc8004-register.mjs --recover [--base-sepolia|--gnosis]  # retry stuck transfers');
     process.exit(1);
   }
 
@@ -82,8 +93,17 @@ async function main() {
     process.exit(1);
   }
 
-  const account = privateKeyToAccount(PRIVATE_KEY);
-  const chainLabel = useBaseSep ? `Base Sepolia (${net.chainId})` : `Gnosis Mainnet (${net.chainId})`;
+  const account      = privateKeyToAccount(PRIVATE_KEY);
+  const chainLabel   = useBaseSep ? `Base Sepolia (${net.chainId})` : `Gnosis Mainnet (${net.chainId})`;
+  const publicClient = createPublicClient({ chain, transport: http(net.rpc) });
+  const walletClient = createWalletClient({ account, chain, transport: http(net.rpc) });
+
+  // ── Recovery mode: retry any stuck pending transfers, then exit ───────────
+  if (isRecover) {
+    await recover(WORKER_URL, net, chain, account, walletClient, publicClient, chainLabel);
+    process.exit(0);
+  }
+
   console.log(`\n🔑 Registering agent: ${agentName}`);
   console.log(`   EOA:      ${account.address}`);
   console.log(`   Chain:    ${chainLabel}`);
@@ -111,17 +131,6 @@ async function main() {
   } catch (e) {
     console.warn(`   ⚠️  Could not reach agentURI: ${e.message}`);
   }
-
-  const walletClient = createWalletClient({
-    account,
-    chain,
-    transport: http(net.rpc),
-  });
-
-  const publicClient = createPublicClient({
-    chain,
-    transport: http(net.rpc),
-  });
 
   console.log('\n⏳ Sending register() transaction...');
   let txHash;
@@ -175,6 +184,26 @@ async function main() {
   console.log(`\n✅ ERC-8004 agentId: ${agentId}`);
   console.log(`   Minted to: ${account.address} (EOA)`);
 
+  // ── Checkpoint: write pending transfer to KV immediately after mint ───────
+  // If the script dies before transferFrom(), this record allows recovery.
+  if (safeAddr) {
+    await kvStore(WORKER_URL, agentName, {
+      action: 'setErc8004PendingTransfer',
+      agentName,
+      erc8004AgentId: agentId,
+      pendingTransfer: {
+        agentId,
+        safeAddr,
+        eoaAddr:   account.address,
+        chain:     chainLabel,
+        chainId:   net.chainId,
+        registry:  net.identityRegistry,
+        mintTx:    txHash,
+        createdAt: new Date().toISOString(),
+      },
+    }, 'pending transfer checkpoint');
+  }
+
   // ── Step 2: transferFrom(EOA → Safe) ──────────────────────────────────────
   if (safeAddr) {
     console.log(`\n⏳ Transferring agentId ${agentId} → Safe ${safeAddr}...`);
@@ -203,32 +232,24 @@ async function main() {
         args: [BigInt(agentId)],
       });
       console.log(`   ✓ New owner: ${newOwner}`);
+
+      // ── Clear pending transfer checkpoint — transfer succeeded ─────────
+      await kvStore(WORKER_URL, agentName, {
+        action: 'clearErc8004PendingTransfer',
+        agentName,
+      }, 'clear pending transfer checkpoint');
     }
   }
 
-  // ── Step 3: store agentId in worker KV ────────────────────────────────────
-  // Store agentId back in worker KV
+  // ── Step 3: store final agentId in worker KV ──────────────────────────────
   console.log('\n⏳ Storing agentId in worker KV...');
-  try {
-    const storeRes = await fetch(WORKER_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: 'setErc8004AgentId',
-        agentName,
-        erc8004AgentId: agentId,
-        agentURI,
-      }),
-    });
-    if (storeRes.ok) {
-      console.log('   ✓ Stored in KV — Audit Card will now show ERC-8004 agentId');
-    } else {
-      const err = await storeRes.text();
-      console.warn(`   ⚠️  KV store failed: ${err}`);
-    }
-  } catch (e) {
-    console.warn(`   ⚠️  Could not store agentId in worker KV: ${e.message}`);
-  }
+  await kvStore(WORKER_URL, agentName, {
+    action: 'setErc8004AgentId',
+    agentName,
+    erc8004AgentId: agentId,
+    agentURI,
+    safeOwner: safeAddr ?? null,
+  }, 'agentId + Safe owner');
 
   const finalOwner = safeAddr || account.address;
   console.log(`
@@ -246,6 +267,100 @@ async function main() {
 Next step — give reputation feedback:
   node scripts/erc8004-reputation.mjs ${agentName} ${agentId} ${useBaseSep ? '--base-sepolia' : '--gnosis'}
 `);
+}
+
+// ── KV helper — logs clearly on failure but never throws ─────────────────────
+async function kvStore(workerUrl, agentName, payload, label) {
+  try {
+    const res = await fetch(workerUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (res.ok) {
+      console.log(`   ✓ KV: ${label}`);
+    } else {
+      const txt = await res.text();
+      console.warn(`   ⚠️  KV write failed (${label}): ${txt}`);
+      console.warn(`   ⚠️  Manual recovery: node scripts/erc8004-transfer-to-safe.mjs <agentId> <safeAddr> --gnosis|--base-sepolia`);
+    }
+  } catch (e) {
+    console.warn(`   ⚠️  KV unreachable (${label}): ${e.message}`);
+    console.warn(`   ⚠️  Manual recovery: node scripts/erc8004-transfer-to-safe.mjs <agentId> <safeAddr> --gnosis|--base-sepolia`);
+  }
+}
+
+// ── Recovery mode — checks KV for pending transfers and retries ───────────────
+async function recover(workerUrl, net, chain, account, walletClient, publicClient, chainLabel) {
+  console.log(`\n🔍 Recovery mode — checking KV for pending transfers on ${chainLabel}...`);
+  let pending;
+  try {
+    const res = await fetch(workerUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'getErc8004PendingTransfers' }),
+    });
+    if (!res.ok) { console.error('❌ Could not fetch pending transfers from KV'); return; }
+    pending = await res.json();
+  } catch (e) {
+    console.error('❌ KV unreachable:', e.message);
+    return;
+  }
+
+  const items = Array.isArray(pending) ? pending : (pending?.pendingTransfers ?? []);
+  const forThisChain = items.filter(p => p.chainId === net.chainId);
+
+  if (forThisChain.length === 0) {
+    console.log('   ✓ No pending transfers found for this chain.');
+    return;
+  }
+
+  console.log(`   Found ${forThisChain.length} pending transfer(s):`);
+
+  for (const p of forThisChain) {
+    console.log(`\n   agentId ${p.agentId} → Safe ${p.safeAddr}  (agent: ${p.agentName})`);
+
+    // Check on-chain current owner
+    let currentOwner;
+    try {
+      currentOwner = await publicClient.readContract({
+        address: net.identityRegistry,
+        abi: IDENTITY_REGISTRY_ABI,
+        functionName: 'ownerOf',
+        args: [BigInt(p.agentId)],
+      });
+    } catch (e) {
+      console.warn(`   ⚠️  Could not read ownerOf(${p.agentId}): ${e.message} — skipping`);
+      continue;
+    }
+
+    if (currentOwner.toLowerCase() === p.safeAddr.toLowerCase()) {
+      console.log(`   ✓ agentId ${p.agentId} already owned by Safe — clearing stale checkpoint`);
+      await kvStore(workerUrl, p.agentName, { action: 'clearErc8004PendingTransfer', agentName: p.agentName }, 'clear stale checkpoint');
+      continue;
+    }
+
+    if (currentOwner.toLowerCase() !== account.address.toLowerCase()) {
+      console.warn(`   ⚠️  agentId ${p.agentId} owned by ${currentOwner} — not our EOA, skipping`);
+      continue;
+    }
+
+    console.log(`   ⏳ Retrying transferFrom(${account.address} → ${p.safeAddr})...`);
+    try {
+      const txHash = await walletClient.writeContract({
+        address: net.identityRegistry,
+        abi: IDENTITY_REGISTRY_ABI,
+        functionName: 'transferFrom',
+        args: [account.address, p.safeAddr, BigInt(p.agentId)],
+      });
+      const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
+      console.log(`   ✓ Transfer confirmed block ${receipt.blockNumber}: ${net.explorer}/tx/${txHash}`);
+      await kvStore(workerUrl, p.agentName, { action: 'clearErc8004PendingTransfer', agentName: p.agentName }, 'clear pending after recovery');
+    } catch (err) {
+      console.error(`   ❌ Recovery transfer failed: ${err.shortMessage || err.message}`);
+      console.error(`   Manual fix: node scripts/erc8004-transfer-to-safe.mjs ${p.agentId} ${p.safeAddr} --${net.chainId === 100 ? 'gnosis' : 'base-sepolia'}`);
+    }
+  }
 }
 
 main().catch(err => {
