@@ -57,15 +57,15 @@ const NAMESPACES: NsConfig[] = [
   {
     key: 'molt',
     domain: 'molt.gno',
-    shortDesc: 'Transition namespace during evolution',
-    mintFee: 'free',
-    moltFee: 'free',
+    shortDesc: 'Full agent namespace — metamorphic identity',
+    mintFee: 10,
+    moltFee: 2,
     privacyDefault: 'glassbox',
-    decayDays: 30,
-    ipDomain: '—',
-    evolveDesc: 'Larva-only (no further evolution from molt)',
-    fullDesc: 'Temporary namespace occupied during a molt cycle. Free to hold, decays in 30 days.\nNo IP registration. No email. Larva-only — cannot evolve further from molt itself.\nUsed as a bridge while transitioning between tiers.',
-    badges: ['30-day decay', 'No IP', 'Larva-only'],
+    decayDays: null,
+    ipDomain: '*.molt.ip',
+    evolveDesc: 'Pupa → Imago (+8 xDAI), then +24 xDAI/yr',
+    fullDesc: 'Full-featured agent namespace with metamorphic identity semantics. Gnosis Safe, encrypted inbox, Story IP asset on *.molt.ip.\nGlassbox by default — all work is publicly verifiable. Can molt to any target namespace.\n10 xDAI mint or molt from Larva · 2 xDAI molt from Pupa.',
+    badges: ['Gnosis Safe', '*.molt.ip', 'Glassbox', 'Full features'],
   },
   {
     key: 'picoclaw',
@@ -130,7 +130,7 @@ function feeLabel(fee: number | 'free') {
 const NS_COLOR: Record<string, { text: string; border: string; bg: string; selectedBorder: string; selectedBg: string }> = {
   'agent.gno':    { text: 'text-blue-300',    border: 'border-blue-500/20',    bg: 'bg-blue-500/5',    selectedBorder: 'border-blue-400/50',    selectedBg: 'bg-blue-500/10' },
   'openclaw.gno': { text: 'text-rose-300',    border: 'border-rose-500/20',    bg: 'bg-rose-500/5',    selectedBorder: 'border-rose-400/50',    selectedBg: 'bg-rose-500/10' },
-  'molt.gno':     { text: 'text-fuchsia-300', border: 'border-fuchsia-500/20', bg: 'bg-fuchsia-500/5', selectedBorder: 'border-fuchsia-400/50', selectedBg: 'bg-fuchsia-500/10' },
+  'molt.gno':     { text: 'text-violet-300',  border: 'border-violet-500/20',  bg: 'bg-violet-500/5',  selectedBorder: 'border-violet-400/50',  selectedBg: 'bg-violet-500/10'  },
   'picoclaw.gno': { text: 'text-[#f4b55a]',  border: 'border-amber-500/20',   bg: 'bg-amber-500/5',   selectedBorder: 'border-amber-400/50',   selectedBg: 'bg-amber-500/10' },
   'vault.gno':    { text: 'text-emerald-300', border: 'border-emerald-500/20', bg: 'bg-emerald-500/5', selectedBorder: 'border-emerald-400/50', selectedBg: 'bg-emerald-500/10' },
   'nftmail.gno':  { text: 'text-cyan-300',    border: 'border-cyan-500/20',    bg: 'bg-cyan-500/5',    selectedBorder: 'border-cyan-400/50',    selectedBg: 'bg-cyan-500/10' },
@@ -139,7 +139,7 @@ const NS_COLOR: Record<string, { text: string; border: string; bg: string; selec
 const NS_MOLT_BADGE: Record<string, { label: string; color: string; bg: string; ring: string }> = {
   'agent.gno':    { label: '🦋 Imago',   color: 'text-violet-300',  bg: 'bg-violet-500/10',  ring: 'ring-violet-500/20' },
   'openclaw.gno': { label: '🔍 Glassbox', color: 'text-rose-300',    bg: 'bg-rose-500/10',    ring: 'ring-rose-500/20' },
-  'molt.gno':     { label: '🐛 Larva',    color: 'text-fuchsia-300', bg: 'bg-fuchsia-500/10', ring: 'ring-fuchsia-500/20' },
+  'molt.gno':     { label: '🦋 Metamorphic', color: 'text-violet-300',  bg: 'bg-violet-500/10',  ring: 'ring-violet-500/20'  },
   'picoclaw.gno': { label: '🥚 Free',     color: 'text-[#f4b55a]',   bg: 'bg-amber-500/10',   ring: 'ring-amber-500/20' },
   'vault.gno':    { label: '👻 Ghost',    color: 'text-fuchsia-300', bg: 'bg-fuchsia-500/10', ring: 'ring-fuchsia-500/20' },
   'nftmail.gno':  { label: '🔒 Private',  color: 'text-cyan-300',    bg: 'bg-cyan-500/10',    ring: 'ring-cyan-500/20' },
@@ -426,7 +426,7 @@ export default function MintBodyPage() {
         {agentName.length >= 2 ? (
           <MintAgentBundle
             agentName={agentName}
-            safeAddress={'0x0000000000000000000000000000000000000000'}
+            safeAddress={(connectedWallet ?? '0x0000000000000000000000000000000000000000') as `0x${string}`}
             namespace={selected}
             disabled={!termsAgreed}
           />

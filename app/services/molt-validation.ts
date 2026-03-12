@@ -5,16 +5,18 @@
  * Checks:
  *   1. Source agent exists and has on-chain owner
  *   2. Caller wallet matches on-chain owner
- *   3. Agent is at least PUPA tier (lite) — Larva cannot molt
+ *   3. Agent is at least PUPA tier (lite) — free picoclaw Larva cannot molt
  *   4. Source agent is not vault.gno (terminal — cannot molt out)
- *   5. Target identity is not vault.gno (blocked destination)
- *   6. Target name is available (not already registered in KV)
+ *   5. Target name is available (not already registered in KV)
  *
  * Tier gate:
- *   Larva (basic) → BLOCKED — must evolve to Pupa first (pay to evolve)
- *   Pupa (lite)  → permitted
+ *   Larva (basic/picoclaw free tier) → BLOCKED — must evolve to Pupa first
+ *   Pupa (lite)     → permitted — can molt to any namespace including vault.gno
  *   Imago (premium) → permitted
- *   Ghost → permitted
+ *   Ghost           → permitted
+ *
+ * Note: vault.gno is NOT blocked as a molt target — it is the natural
+ * evolution destination for paid namespaces (molt.gno, openclaw.gno, agent.gno).
  */
 
 import { workerTierToLevel } from './evolve-level';
@@ -125,15 +127,7 @@ export async function validateMolt(
     return { canMolt: false, errors, warnings };
   }
 
-  // 2. Block vault.gno as target
-  if (targetTld === 'vault.gno') {
-    errors.push('vault.gno is a terminal identity — cannot be used as a molt target');
-  }
-
-  // 3. Block molting out of vault.gno
-  // (checked after resolving source agent tld)
-
-  // 4. Resolve source agent
+  // 2. Resolve source agent
   const [resolved, moltPath] = await Promise.all([
     resolveAgent(agentName),
     getMoltPath(agentName),
@@ -144,21 +138,21 @@ export async function validateMolt(
     return { canMolt: false, errors, warnings };
   }
 
-  // 5. Block molt-out from vault.gno
+  // 3. Block molt-out from vault.gno (terminal — the Safe is the final form)
   if (resolved.tld === 'vault.gno') {
-    errors.push('vault.gno is a terminal identity — cannot molt out');
+    errors.push('vault.gno is a terminal identity — cannot molt out. Your agent has reached its final form.');
   }
 
-  // 5b. Tier gate — Larva cannot molt
+  // 4. Tier gate — free Larva (picoclaw) cannot molt
   const agentLevel = workerTierToLevel(resolved.accountTier);
   if (!MOLT_PERMITTED_TIERS.has(agentLevel)) {
     errors.push(
-      'Molting requires Pupa tier or above — evolve your agent first (2 xDAI). ' +
-      'Larva tier is receive-only. Free picoclaw accounts cannot molt.',
+      'Molting requires Pupa tier or above. ' +
+      'Free picoclaw (Larva) accounts cannot molt — evolve to Pupa first (2 xDAI).',
     );
   }
 
-  // 6. Verify ownership
+  // 5. Verify ownership
   if (!resolved.onChainOwner) {
     errors.push('Agent has no on-chain owner registered — cannot verify ownership');
   } else if (resolved.onChainOwner.toLowerCase() !== callerWallet.toLowerCase()) {
@@ -167,18 +161,18 @@ export async function validateMolt(
     );
   }
 
-  // 7. Check target availability (run in parallel with above — result used after)
+  // 6. Check target availability
   const targetAvailable = await checkTargetAvailable(targetName, targetTld);
   if (!targetAvailable) {
     errors.push(`Target identity "${targetName}.${targetTld}" is already taken`);
   }
 
-  // 8. Warn if molting to same name
+  // 7. Warn if molting to same name
   if (targetName === agentName) {
     warnings.push('Target identity is the same as the source agent name');
   }
 
-  // 9. Info: Imago gets Story IP badge on molt
+  // 8. Info: Imago gets Story IP badge on molt
   if (agentLevel === 'imago') {
     warnings.push('Imago tier — Story IP asset will be updated to reflect new identity after molt.');
   }
