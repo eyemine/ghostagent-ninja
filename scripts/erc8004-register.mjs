@@ -204,7 +204,15 @@ async function main() {
     }, 'pending transfer checkpoint');
   }
 
-  // ── Step 2: transferFrom(EOA → Safe) ──────────────────────────────────────
+  // ── Step 2: activation tx FIRST — EOA still owns token, setMetadata authorized
+  if (safeAddr) {
+    await sendActivationTx({
+      walletClient, publicClient, net, agentId,
+      agentName, agentURI, safeAddr, chainLabel,
+    });
+  }
+
+  // ── Step 3: transferFrom(EOA → Safe) ──────────────────────────────────────
   if (safeAddr) {
     console.log(`\n⏳ Transferring agentId ${agentId} → Safe ${safeAddr}...`);
     let transferHash;
@@ -238,12 +246,6 @@ async function main() {
         action: 'clearErc8004PendingTransfer',
         agentName,
       }, 'clear pending transfer checkpoint');
-
-      // ── Activation tx — setMetadata('activated') seeds agent telemetry ──
-      await sendActivationTx({
-        walletClient, publicClient, net, agentId,
-        agentName, agentURI, safeAddr, chainLabel,
-      });
     }
   }
 

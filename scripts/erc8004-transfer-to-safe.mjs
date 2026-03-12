@@ -110,6 +110,9 @@ async function main() {
     process.exit(0);
   }
 
+  // ── Activation tx FIRST — EOA still owns token, setMetadata authorized ───
+  await sendActivationTx({ walletClient, publicClient, net, agentId, safeAddr, label });
+
   console.log(`\n⏳ Sending transferFrom() transaction...`);
   let txHash;
   try {
@@ -137,9 +140,6 @@ async function main() {
     functionName: 'ownerOf',
     args: [BigInt(agentId)],
   });
-
-  // ── Activation tx ────────────────────────────────────────────────
-  await sendActivationTx({ walletClient, publicClient, net, agentId, safeAddr, label });
 
   console.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   ✅ Transfer + activation complete
