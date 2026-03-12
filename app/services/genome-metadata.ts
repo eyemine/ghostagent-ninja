@@ -510,7 +510,7 @@ export interface IpaMetadata {
   aiMetadata: {
     characterFileUrl: string;
     characterFileHash: string;
-    socialLegalCid?: string;
+    legalAnchorCid?: string;
   };
   ipType: 'AI Agent';
   tags: string[];
@@ -536,14 +536,14 @@ export function buildIpaMetadata(params: {
   imageHash?: string | null;
   characterFileCid?: string | null;
   characterFileHash?: string | null;
-  socialLegalCid?: string | null;
+  legalAnchorCid?: string | null;
   tld?: string;
 }): IpaMetadata {
   const {
     agentName, sld, ownerAddress,
     imageCid, imageHash,
     characterFileCid, characterFileHash,
-    socialLegalCid,
+    legalAnchorCid,
     tld = 'gno',
   } = params;
 
@@ -569,7 +569,7 @@ export function buildIpaMetadata(params: {
     aiMetadata: {
       characterFileUrl:  `${IPFS_PREFIX}/${resolvedCharCid}`,
       characterFileHash: characterFileHash ?? '0x0000000000000000000000000000000000000000000000000000000000000000',
-      ...(socialLegalCid ? { socialLegalCid } : {}),
+      ...(legalAnchorCid ? { legalAnchorCid } : {}),
     },
     ipType: 'AI Agent',
     tags: ['AI Agent', `${sld}.gno`, agentName, 'ghostagent', 'nftmail.box'],

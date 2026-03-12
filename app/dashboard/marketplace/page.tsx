@@ -137,7 +137,7 @@ const PRIVACY_META: Record<PrivacyStatus, { icon: string; label: string; color: 
 
 // ─── Item card ────────────────────────────────────────────────────────────────
 
-function ItemCard({ item, onViewA2A }: { item: MarketItem; onViewA2A: () => void }) {
+function ItemCard({ item, onViewA2A, onBuy, isBuying }: { item: MarketItem; onViewA2A: () => void; onBuy: () => void; isBuying: boolean }) {
   const badge    = TYPE_BADGE[item.type];
   const nsColor  = NS_COLOR[item.namespace] ?? 'text-zinc-300 bg-zinc-500/10';
   const evolveMeta  = EVOLVE_META[item.evolveLevel];
@@ -166,6 +166,16 @@ function ItemCard({ item, onViewA2A }: { item: MarketItem; onViewA2A: () => void
               {item.marketplaceBadge}
             </span>
           )}
+        </div>
+
+        {/* NFT Key image placeholder — left-justified below name */}
+        <div className="mt-2.5 flex items-center gap-2">
+          <div className="h-10 w-10 shrink-0 rounded-lg border border-[rgba(176,128,92,0.2)] bg-black/40 flex items-center justify-center overflow-hidden">
+            <svg className="h-5 w-5 text-zinc-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/>
+            </svg>
+          </div>
+          <div className="text-[10px] text-zinc-600 font-mono">{item.agent}.{item.namespace.split('.')[0]}.key</div>
         </div>
 
         {/* Domain attribute badges */}
@@ -231,8 +241,12 @@ function ItemCard({ item, onViewA2A }: { item: MarketItem; onViewA2A: () => void
             >
               A2A ↗
             </button>
-            <button className="rounded-lg border px-3 py-1.5 text-xs font-semibold transition" style={{ color: 'rgb(176,128,92)', borderColor: 'rgba(176,128,92,0.4)', background: 'rgba(176,128,92,0.1)' }}>
-              Hire
+            <button
+              onClick={onBuy}
+              disabled={isBuying}
+              className="rounded-lg border px-3 py-1.5 text-xs font-semibold transition disabled:opacity-50" style={{ color: 'rgb(176,128,92)', borderColor: 'rgba(176,128,92,0.4)', background: 'rgba(176,128,92,0.1)' }}
+            >
+              {isBuying ? '...' : 'Buy'}
             </button>
           </div>
         </div>
@@ -250,6 +264,7 @@ const DEFAULT_FILTERS: Filters = {
 export default function MarketplacePage() {
   const [filters, setFilters]   = useState<Filters>(DEFAULT_FILTERS);
   const [a2aAgent, setA2aAgent] = useState<string | null>(null);
+  const [buying, setBuying]     = useState<string | null>(null);
 
   function updateFilters(next: Partial<Filters>) {
     setFilters(prev => ({ ...prev, ...next }));
@@ -266,6 +281,32 @@ export default function MarketplacePage() {
     return true;
   });
 
+  async function handleBuy(item: MarketItem) {
+    setBuying(item.agent);
+    try {
+      if (typeof window !== 'undefined' && (window as any).ethereum) {
+        const eth = (window as any).ethereum;
+        await eth.request({ method: 'eth_requestAccounts' });
+        const priceHex = '0x' + Math.floor(item.price * 1e18).toString(16);
+        await eth.request({
+          method: 'eth_sendTransaction',
+          params: [{
+            from: (await eth.request({ method: 'eth_accounts' }))[0],
+            to:   '0x0000000000000000000000000000000000000000', // placeholder — replace with seller TBA
+            value: priceHex,
+            chainId: '0x64', // Gnosis Chain
+          }],
+        });
+      } else {
+        alert('MetaMask not detected. Please install MetaMask or a Web3 wallet.');
+      }
+    } catch (e: any) {
+      if (e?.code !== 4001) console.error('Buy tx error:', e);
+    } finally {
+      setBuying(null);
+    }
+  }
+
   return (
     <div className="max-w-5xl space-y-6">
 
@@ -277,7 +318,7 @@ export default function MarketplacePage() {
           <div>
             <h1 className="pl-1 text-2xl font-bold text-[#f2eee4]">Marketplace</h1>
             <p className="mt-1 pl-1 text-sm text-[var(--muted)]">
-              Hire agents, buy bodies, brains &amp; bundles. Filter by domain type, evolve level, or privacy.
+              Buy agents, bodies, brains &amp; bundles. Filter by domain type, evolve level, or privacy.
             </p>
           </div>
         </div>
@@ -288,7 +329,7 @@ export default function MarketplacePage() {
           className="shrink-0 rounded-lg border border-[rgba(176,128,92,0.3)] bg-[rgba(176,128,92,0.08)] px-4 py-1.5 text-xs font-semibold transition hover:bg-[rgba(176,128,92,0.14)]"
           style={{ fontFamily: "Ayuthaya, 'Courier New', monospace", color: '#d9d9d8' }}
         >
-          NFTmail.box ↗
+          nftmail.box ↗
         </a>
       </div>
 
@@ -306,6 +347,8 @@ export default function MarketplacePage() {
             key={`${item.agent}-${item.title}`}
             item={item}
             onViewA2A={() => setA2aAgent(item.agent)}
+            onBuy={() => handleBuy(item)}
+            isBuying={buying === item.agent}
           />
         ))}
 

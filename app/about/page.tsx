@@ -76,14 +76,14 @@ const TECH_STACK = [
 export default function AboutPage() {
   return (
     <div className="min-h-screen bg-[radial-gradient(1200px_circle_at_20%_-10%,rgba(176,128,92,0.12),transparent_45%),radial-gradient(900px_circle_at_90%_10%,rgba(124,77,255,0.1),transparent_40%),linear-gradient(180deg,var(--background),#03040a)]">
-      <div className="mx-auto max-w-3xl px-4 py-12 md:px-6">
+      <div className="mx-auto max-w-5xl px-4 py-12 md:px-6">
 
         {/* Hero */}
         <section className="flex flex-col items-center gap-4 text-center mb-14">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={GHOST_LOGO} alt="GhostAgent" className="h-20 w-20 object-contain drop-shadow-[0_0_20px_rgba(184,134,97,0.5)]" />
+          <img src={GHOST_LOGO} alt="GhostAgent" className="h-40 w-40 object-contain drop-shadow-[0_0_20px_rgba(184,134,97,0.5)]" />
           <h1 className="text-3xl font-bold tracking-tight text-[#f2eee4]">What is GhostAgent?</h1>
-          <p className="max-w-xl text-sm text-[var(--muted)] leading-relaxed">
+          <p className="max-w-xl text-[0.97rem] text-[var(--muted)] leading-relaxed">
             GhostAgent is a non-custodial AI agent platform. You mint an NFT, get a sovereign on-chain identity,
             deploy an AI brain, and own everything — including the IP your agent generates.
             No platform holds your keys. No platform owns your output.
@@ -113,7 +113,7 @@ export default function AboutPage() {
                   <span className="text-[10px] font-bold tracking-[0.18em] text-amber-400">{step.label.toUpperCase()}</span>
                 </div>
                 <h3 className="text-sm font-semibold text-[#f2eee4]">{step.title}</h3>
-                <p className="text-[11px] text-[var(--muted)] leading-relaxed flex-1">{step.desc}</p>
+                <p className="text-[12.65px] text-[var(--muted)] leading-relaxed flex-1">{step.desc}</p>
                 <Link
                   href={step.cta.href}
                   className="mt-auto rounded-lg border border-[rgba(176,128,92,0.3)] bg-black/20 px-3 py-2 text-center text-[11px] font-medium text-[var(--muted)] transition hover:text-white hover:border-white/20"
@@ -141,7 +141,7 @@ export default function AboutPage() {
                 <span className="text-xl shrink-0">{cap.icon}</span>
                 <div>
                   <h3 className="text-[12px] font-semibold text-[#f2eee4] mb-1">{cap.title}</h3>
-                  <p className="text-[11px] text-[var(--muted)] leading-relaxed">{cap.desc}</p>
+                  <p className="text-[12.65px] text-[var(--muted)] leading-relaxed">{cap.desc}</p>
                 </div>
               </div>
             ))}
@@ -151,7 +151,7 @@ export default function AboutPage() {
         {/* How it works — TBA explainer */}
         <section className="mb-14 rounded-2xl border border-[rgba(176,128,92,0.25)] bg-[var(--card)] p-6">
           <h2 className="text-base font-semibold text-[#f2eee4] mb-3">How the NFT controls everything</h2>
-          <p className="text-[12px] text-[var(--muted)] leading-relaxed mb-4">
+          <p className="text-[13.8px] text-[var(--muted)] leading-relaxed mb-4">
             GhostAgent uses <strong className="text-[#c8bfb0]">ERC-6551 Token-Bound Accounts</strong>. Every agent NFT
             automatically controls a Gnosis Safe — a multi-sig smart contract wallet. The Safe holds the agent's funds,
             modules, and on-chain identity. Transfer the NFT and you transfer full control of the Safe instantly.
@@ -161,13 +161,13 @@ export default function AboutPage() {
             <div className="rounded-lg border border-[var(--border)] bg-black/20 px-3 py-3">
               <div className="text-lg mb-1">🪙</div>
               <div className="text-[#c8bfb0] font-medium">NFT</div>
-              <div className="text-[var(--muted)]">Your key. Transfer = full handover.</div>
+              <div className="text-[12.65px] text-[var(--muted)]">Your key. Transfer = full handover.</div>
             </div>
             <div className="flex items-center justify-center text-[var(--muted)]">→</div>
             <div className="rounded-lg border border-[var(--border)] bg-black/20 px-3 py-3">
               <div className="text-lg mb-1">🏦</div>
               <div className="text-[#c8bfb0] font-medium">Safe (TBA)</div>
-              <div className="text-[var(--muted)]">Holds funds, IP, modules, identity.</div>
+              <div className="text-[12.65px] text-[var(--muted)]">Holds funds, IP, modules, identity.</div>
             </div>
           </div>
         </section>
@@ -185,8 +185,8 @@ export default function AboutPage() {
                 key={item.label}
                 className={`flex items-center gap-4 px-4 py-2.5 text-[12px] ${i < TECH_STACK.length - 1 ? 'border-b border-[var(--border)]' : ''}`}
               >
-                <span className="w-24 shrink-0 text-[var(--muted)]">{item.label}</span>
-                <span className="text-[#c8bfb0]">{item.value}</span>
+                <span className="w-24 shrink-0 text-[13.8px] text-[var(--muted)]">{item.label}</span>
+                <span className="text-[13.8px] text-[#c8bfb0]">{item.value}</span>
               </div>
             ))}
           </div>
@@ -195,7 +195,7 @@ export default function AboutPage() {
         {/* Footer CTA */}
         <section className="text-center space-y-4">
           <h2 className="text-lg font-semibold text-[#f2eee4]">Ready to mint your agent?</h2>
-          <p className="text-[12px] text-[var(--muted)]">
+          <p className="text-[13.8px] text-[var(--muted)]">
             Your agent. Your Safe. Your IP. No platform custody.
           </p>
           <div className="flex justify-center gap-3 flex-wrap">

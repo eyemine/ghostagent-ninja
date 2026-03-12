@@ -270,7 +270,7 @@ export default function DashboardHome() {
             className="rounded-lg border border-[rgba(176,128,92,0.3)] bg-[rgba(176,128,92,0.08)] px-4 py-1.5 text-xs font-semibold transition hover:bg-[rgba(176,128,92,0.14)]"
             style={{ fontFamily: "Ayuthaya, 'Courier New', monospace", color: '#d9d9d8' }}
           >
-            NFTmail.box ↗
+            nftmail.box ↗
           </a>
         </div>
       </div>
