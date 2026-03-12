@@ -1217,6 +1217,38 @@ export default {
           return corsify(Response.json({ status: 'stored', agentName, erc8004AgentId }), request);
         }
 
+        // ERC-8004 failsafe: pending-transfer checkpoint
+        // Written immediately after register() mint; cleared after successful transferFrom().
+        // Enables --recover mode to retry any stuck pending transfers without re-minting.
+        if (email.action === 'setErc8004PendingTransfer') {
+          const agentName = ((email as any).agentName || '').toLowerCase().trim();
+          const pending   = (email as any).pendingTransfer;
+          if (!agentName || !pending) {
+            return corsify(Response.json({ error: 'Missing agentName or pendingTransfer' }, { status: 400 }), request);
+          }
+          await env.INBOX_KV.put('erc8004:pending:' + agentName, JSON.stringify({ ...pending, savedAt: Date.now() }));
+          return corsify(Response.json({ status: 'checkpoint_saved', agentName }), request);
+        }
+
+        if (email.action === 'clearErc8004PendingTransfer') {
+          const agentName = ((email as any).agentName || '').toLowerCase().trim();
+          if (!agentName) {
+            return corsify(Response.json({ error: 'Missing agentName' }, { status: 400 }), request);
+          }
+          await env.INBOX_KV.delete('erc8004:pending:' + agentName);
+          return corsify(Response.json({ status: 'checkpoint_cleared', agentName }), request);
+        }
+
+        if (email.action === 'getErc8004PendingTransfers') {
+          const listed = await env.INBOX_KV.list({ prefix: 'erc8004:pending:' });
+          const pendingTransfers: any[] = [];
+          for (const key of listed.keys) {
+            const raw = await env.INBOX_KV.get(key.name);
+            if (raw) { try { pendingTransfers.push(JSON.parse(raw)); } catch {} }
+          }
+          return corsify(Response.json({ pendingTransfers }), request);
+        }
+
         // ERC-8004 TradeIntent: store EIP-712 signed trade intent for A2A discovery
         if (email.action === 'storeTradeIntent') {
           const agentName    = ((email as any).agentName || '').toLowerCase().trim();
