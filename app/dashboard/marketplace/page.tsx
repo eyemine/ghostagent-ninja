@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { MarketplaceFilters, type Filters } from '../../components/MarketplaceFilters';
 import XMTPBadge from '../../components/XMTPBadge';
 import SwarmModeBadge from '../../components/SwarmModeBadge';
@@ -235,6 +236,12 @@ function ItemCard({ item, onViewA2A, onBuy, isBuying }: { item: MarketItem; onVi
             <div className="text-[10px] text-[var(--muted)]">xDAI · EURe</div>
           </div>
           <div className="flex items-center gap-1.5">
+            <Link
+              href={`/agent/${item.agent}`}
+              className="rounded-lg border border-[rgba(176,128,92,0.25)] bg-black/30 px-2.5 py-1.5 text-[10px] font-medium text-[var(--muted)] transition hover:text-white"
+            >
+              View →
+            </Link>
             <button
               onClick={onViewA2A}
               className="rounded-lg border border-[rgba(176,128,92,0.25)] bg-black/30 px-2.5 py-1.5 text-[10px] font-medium text-[var(--muted)] transition hover:text-white"
