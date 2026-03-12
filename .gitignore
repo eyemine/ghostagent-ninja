@@ -46,6 +46,7 @@ next-env.d.ts
 cache/
 out/
 broadcast/
+lib/
 
 # Hardhat
 artifacts/
@@ -54,3 +55,12 @@ coverage/
 
 # Local Netlify folder
 .netlify
+
+# Non-web source (Solidity, workers — not needed for Next.js deploy)
+src/
+contracts/
+workers/
+apps/
+docs/
+tsconfig.tsbuildinfo
+package-lock.json

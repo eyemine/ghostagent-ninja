@@ -1,15 +1,22 @@
 /**
- * ERC-8004 Identity Registry — register(agentURI) on Base Sepolia
+ * ERC-8004 Identity Registry — register(agentURI) + optional auto-transfer to Safe
  *
  * Usage:
- *   node scripts/erc8004-register.mjs <agentName>
- *   e.g. node scripts/erc8004-register.mjs ghostagent
+ *   node scripts/erc8004-register.mjs <agentName> [--base-sepolia|--gnosis] [--safe <safeAddress>]
  *
- * Reads PRIVATE_KEY from .env
- * Writes agentId back to worker KV via storeErc8004AgentId action
+ * Examples:
+ *   node scripts/erc8004-register.mjs ghostagent --gnosis --safe 0xb7e493e3d226f8fE722CC9916fF164B793af13F4
+ *   node scripts/erc8004-register.mjs ghostagent --base-sepolia --safe 0xYourBaseSepSafe
+ *   node scripts/erc8004-register.mjs ghostagent --base-sepolia   # stays on EOA
+ *
+ * Flow:
+ *   1. register(agentURI) — mints ERC-721 agentId to PRIVATE_KEY EOA (contract limitation)
+ *   2. transferFrom(EOA → Safe) — if --safe provided, immediately moves token to agent Safe
+ *   3. Stores agentId in worker KV
+ *
+ * Reputation (giveFeedback) is indexed by agentId — NOT owner. Transfer loses nothing.
  *
  * Contract: https://github.com/erc-8004/erc-8004-contracts
- * Base Sepolia deployment: 0x37f99bD5a96b52E12bfC9E01Abf2EB4e8Be028Ef
  */
 
 import { createWalletClient, createPublicClient, http, parseAbi } from 'viem';
@@ -45,6 +52,8 @@ const REGISTRIES = {
 
 const IDENTITY_REGISTRY_ABI = parseAbi([
   'function register(string agentURI) returns (uint256 agentId)',
+  'function transferFrom(address from, address to, uint256 tokenId)',
+  'function ownerOf(uint256 tokenId) view returns (address)',
   'function setMetadata(uint256 agentId, string key, bytes value)',
   'function tokenURI(uint256 tokenId) view returns (string)',
   'event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)',
@@ -52,16 +61,21 @@ const IDENTITY_REGISTRY_ABI = parseAbi([
 
 async function main() {
   const args       = process.argv.slice(2);
-  const agentName  = args.find(a => !a.startsWith('--'));
+  const agentName  = args.find(a => !a.startsWith('--') && !a.startsWith('0x'));
   const useBaseSep = args.includes('--base-sepolia');
+  const useGnosis  = args.includes('--gnosis');
+
+  // --safe <address>
+  const safeIdx  = args.indexOf('--safe');
+  const safeAddr = safeIdx !== -1 ? args[safeIdx + 1] : null;
 
   if (!agentName) {
-    console.error('Usage: node scripts/erc8004-register.mjs <agentName> [--base-sepolia]');
+    console.error('Usage: node scripts/erc8004-register.mjs <agentName> [--base-sepolia|--gnosis] [--safe <safeAddress>]');
     process.exit(1);
   }
 
-  const net = useBaseSep ? REGISTRIES.baseSepolia : REGISTRIES.gnosis;
-  const chain = useBaseSep ? baseSepolia : gnosis;
+  const net   = useBaseSep ? REGISTRIES.baseSepolia : (useGnosis ? REGISTRIES.gnosis : REGISTRIES.gnosis);
+  const chain = useBaseSep ? baseSepolia : (useGnosis ? gnosis : gnosis);
 
   if (!PRIVATE_KEY) {
     console.error('Missing PRIVATE_KEY in .env or .env.local');
@@ -71,9 +85,14 @@ async function main() {
   const account = privateKeyToAccount(PRIVATE_KEY);
   const chainLabel = useBaseSep ? `Base Sepolia (${net.chainId})` : `Gnosis Mainnet (${net.chainId})`;
   console.log(`\n🔑 Registering agent: ${agentName}`);
-  console.log(`   Owner:    ${account.address}`);
+  console.log(`   EOA:      ${account.address}`);
   console.log(`   Chain:    ${chainLabel}`);
   console.log(`   Registry: ${net.identityRegistry}`);
+  if (safeAddr) {
+    console.log(`   Safe:     ${safeAddr} (token will be transferred here after mint)`);
+  } else {
+    console.log(`   Safe:     none — token stays on EOA (use --safe <addr> to transfer)`);
+  }
 
   const agentURI = `${APP_URL}/api/agent/${agentName}/registration.json`;
   console.log(`   agentURI: ${agentURI}`);
@@ -154,7 +173,40 @@ async function main() {
   }
 
   console.log(`\n✅ ERC-8004 agentId: ${agentId}`);
+  console.log(`   Minted to: ${account.address} (EOA)`);
 
+  // ── Step 2: transferFrom(EOA → Safe) ──────────────────────────────────────
+  if (safeAddr) {
+    console.log(`\n⏳ Transferring agentId ${agentId} → Safe ${safeAddr}...`);
+    let transferHash;
+    try {
+      transferHash = await walletClient.writeContract({
+        address: net.identityRegistry,
+        abi: IDENTITY_REGISTRY_ABI,
+        functionName: 'transferFrom',
+        args: [account.address, safeAddr, BigInt(agentId)],
+      });
+    } catch (err) {
+      console.error('❌ transferFrom() failed:', err.shortMessage || err.message);
+      console.error(`   agentId ${agentId} remains on EOA. Transfer manually:`);
+      console.error(`   node scripts/erc8004-transfer-to-safe.mjs ${agentId} ${safeAddr} ${useBaseSep ? '--base-sepolia' : '--gnosis'}`);
+      // Don't exit — still store agentId in KV
+    }
+    if (transferHash) {
+      const xferReceipt = await publicClient.waitForTransactionReceipt({ hash: transferHash });
+      console.log(`   ✓ Transfer confirmed in block ${xferReceipt.blockNumber}`);
+      console.log(`   Tx: ${net.explorer}/tx/${transferHash}`);
+      const newOwner = await publicClient.readContract({
+        address: net.identityRegistry,
+        abi: IDENTITY_REGISTRY_ABI,
+        functionName: 'ownerOf',
+        args: [BigInt(agentId)],
+      });
+      console.log(`   ✓ New owner: ${newOwner}`);
+    }
+  }
+
+  // ── Step 3: store agentId in worker KV ────────────────────────────────────
   // Store agentId back in worker KV
   console.log('\n⏳ Storing agentId in worker KV...');
   try {
@@ -178,24 +230,21 @@ async function main() {
     console.warn(`   ⚠️  Could not store agentId in worker KV: ${e.message}`);
   }
 
+  const finalOwner = safeAddr || account.address;
   console.log(`
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  ✅ Registration complete
   Agent:     ${agentName}
   agentId:   ${agentId}
-  agentURI:  ${agentURI}
+  Owner:     ${finalOwner}${safeAddr ? ' (Safe ✓)' : ' (EOA — add --safe <addr> next time)'}
+  Chain:     ${chainLabel}
   Registry:  eip155:${net.chainId}:${net.identityRegistry}
-  Tx:        ${txHash}
-  Explorer:  ${net.explorer}/tx/${txHash}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  agentURI:  ${agentURI}
+  Mint tx:   ${net.explorer}/tx/${txHash}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Next steps:
-  1. Run Validation Registry call:
-     node scripts/erc8004-validate.mjs ${agentName} ${agentId}
-
-  2. Run Reputation Registry call:
-     node scripts/erc8004-reputation.mjs ${agentName} ${agentId}
-
-  3. Check Audit Card — agentId should appear once Netlify redeploys.
+Next step — give reputation feedback:
+  node scripts/erc8004-reputation.mjs ${agentName} ${agentId} ${useBaseSep ? '--base-sepolia' : '--gnosis'}
 `);
 }
 
