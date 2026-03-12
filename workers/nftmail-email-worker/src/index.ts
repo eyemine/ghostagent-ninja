@@ -1258,6 +1258,47 @@ export default {
           return corsify(Response.json({ alive, lastAlive: Number(ts), ageMs }), request);
         }
 
+        // EIP-712 HandshakeCertificate: store bilateral P2P mutual-auth proof
+        if (email.action === 'storeHandshakeCertificate') {
+          const agentName     = ((email as any).agentName     || '').toLowerCase().trim();
+          const responderName = ((email as any).responderName || '').toLowerCase().trim();
+          const signedCert    = (email as any).signedCert;
+          if (!agentName || !signedCert?.certificateHash) {
+            return corsify(Response.json({ error: 'Missing agentName or signedCert.certificateHash' }, { status: 400 }), request);
+          }
+          const key = `handshake:${agentName}:${signedCert.certificateHash.slice(0, 16)}`;
+          await env.INBOX_KV.put(key, JSON.stringify(signedCert), { expirationTtl: 30 * 24 * 60 * 60 });
+          // Update index for initiator
+          const idxKey = `handshake-index:${agentName}`;
+          const idxRaw = await env.INBOX_KV.get(idxKey);
+          const idx: string[] = idxRaw ? JSON.parse(idxRaw) : [];
+          if (!idx.includes(key)) { idx.unshift(key); if (idx.length > 50) idx.splice(50); }
+          await env.INBOX_KV.put(idxKey, JSON.stringify(idx));
+          // Also index for responder if provided
+          if (responderName) {
+            const rIdxKey = `handshake-index:${responderName}`;
+            const rIdxRaw = await env.INBOX_KV.get(rIdxKey);
+            const rIdx: string[] = rIdxRaw ? JSON.parse(rIdxRaw) : [];
+            if (!rIdx.includes(key)) { rIdx.unshift(key); if (rIdx.length > 50) rIdx.splice(50); }
+            await env.INBOX_KV.put(rIdxKey, JSON.stringify(rIdx));
+          }
+          return corsify(Response.json({ ok: true, key, certificateHash: signedCert.certificateHash }), request);
+        }
+
+        // EIP-712 HandshakeCertificates: list certificates for an agent
+        if (email.action === 'getHandshakeCertificates') {
+          const agentName = ((email as any).agentName || '').toLowerCase().trim();
+          if (!agentName) {
+            return corsify(Response.json({ error: 'Missing agentName' }, { status: 400 }), request);
+          }
+          const idxRaw = await env.INBOX_KV.get(`handshake-index:${agentName}`);
+          const idx: string[] = idxRaw ? JSON.parse(idxRaw) : [];
+          const certs = (await Promise.all(
+            idx.map(k => env.INBOX_KV.get(k).then(v => v ? JSON.parse(v) : null))
+          )).filter(Boolean);
+          return corsify(Response.json({ agentName, certs }), request);
+        }
+
         // x402 A2A delivery: store a paid inter-agent message in recipient's blind inbox
         if (email.action === 'storeA2AMessage') {
           const fromAgent  = ((email as any).fromAgent  || '').toLowerCase().trim();
