@@ -1738,11 +1738,20 @@ export default {
             retention: '8-day',
             story_ip: null,
           });
-          await Promise.all([
+          // Derive SLD from originNft e.g. 'ghostagent.vault.gno' → 'vault'
+          const originParts = originNft.split('.');
+          const sldFromOrigin = originParts.length >= 3 ? originParts[originParts.length - 2] : 'nftmail';
+
+          const kvWrites: Promise<void>[] = [
             env.INBOX_KV.put(`nftmailgno:${kvKey}`, kvEntry),
             env.INBOX_KV.put(`privacy:${kvKey}`, JSON.stringify({ tier: privacyTier })),
             env.INBOX_KV.put(`acct-tier:${kvKey}`, tierEntry),
-          ]);
+          ];
+          // Reverse index: tokenId → label for tokenURI metadata endpoint
+          if (mintedTokenId !== null) {
+            kvWrites.push(env.INBOX_KV.put(`nft-token:${sldFromOrigin}:${mintedTokenId}`, JSON.stringify({ label, sld: sldFromOrigin, mintedAt: Date.now() })));
+          }
+          await Promise.all(kvWrites);
           return corsify(Response.json({
             status: 'registered',
             label,
