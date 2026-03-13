@@ -8,6 +8,7 @@ import { GenomeEditor } from '../../components/GenomeEditor';
 import { defaultGenomeMetadata, type GenomeMetadata } from '../../services/genome-metadata';
 
 type Namespace = 'agent' | 'openclaw' | 'molt' | 'picoclaw' | 'vault' | 'nftmail';
+type VaultPath = 'imago' | 'ghost';
 
 const GHOST_LOGO = '/ghost-logo.png';
 
@@ -184,6 +185,7 @@ export default function MintBodyPage() {
   const connectedWallet = wallets[0]?.address ?? null;
 
   const [selected, setSelected] = useState<Namespace>('agent');
+  const [vaultPath, setVaultPath] = useState<VaultPath>('imago');
   const [agentName, setAgentName] = useState('');
   const [checkStatus, setCheckStatus] = useState<CheckStatus>('idle');
   const [checkResult, setCheckResult] = useState<CheckResult | null>(null);
@@ -425,6 +427,80 @@ export default function MintBodyPage() {
           </div>
         )}
       </div>
+
+      {/* ── Pupa Fork: shown when vault.gno is selected ── */}
+      {selected === 'vault' && (
+        <div className="space-y-3">
+          <div className="text-xs font-semibold tracking-[0.18em] text-[var(--muted)]">FORK IN THE ROAD</div>
+          <div className="grid gap-3 sm:grid-cols-2">
+
+            {/* Option A — Molt Path */}
+            <button
+              onClick={() => setVaultPath('imago')}
+              className={`group relative flex flex-col gap-2 rounded-xl border p-4 text-left transition-all ${
+                vaultPath === 'imago'
+                  ? 'border-violet-400/50 bg-violet-500/10'
+                  : 'border-violet-500/20 bg-violet-500/5 hover:border-violet-400/30'
+              }`}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm font-semibold text-violet-300">🦋 Option A — Molt Path</span>
+                <span className="rounded-full bg-violet-500/10 px-2 py-0.5 text-[10px] font-semibold text-violet-300 ring-1 ring-violet-500/20">24 xDAI/yr</span>
+              </div>
+              <p className="text-xs text-[var(--muted)] leading-relaxed">
+                Evolve to <span className="text-[#f2eee4] font-medium">Imago</span>. GhostAgent hosts the brain. Fully transferable NFT — list on marketplace, rehome to a new owner. Self-governing vault.gno with 24 xDAI annual subscription.
+              </p>
+              <div className="mt-1 flex flex-wrap gap-1">
+                {['Transferable NFT', 'Cloud-hosted', 'Marketplace eligible', '24 xDAI/yr'].map(b => (
+                  <span key={b} className="rounded-full bg-white/[0.05] px-2 py-0.5 text-[9px] font-medium text-[var(--muted)] ring-1 ring-white/[0.08]">{b}</span>
+                ))}
+              </div>
+              {vaultPath === 'imago' && (
+                <span className="absolute right-3 top-3 text-[10px] font-bold text-violet-400">✓ Selected</span>
+              )}
+            </button>
+
+            {/* Option B — Ghost Path */}
+            <button
+              onClick={() => setVaultPath('ghost')}
+              className={`group relative flex flex-col gap-2 rounded-xl border p-4 text-left transition-all ${
+                vaultPath === 'ghost'
+                  ? 'border-fuchsia-400/50 bg-fuchsia-500/10'
+                  : 'border-fuchsia-500/20 bg-fuchsia-500/5 hover:border-fuchsia-400/30'
+              }`}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm font-semibold text-fuchsia-300">👻 Option B — Ghost Path</span>
+                <span className="rounded-full bg-fuchsia-500/10 px-2 py-0.5 text-[10px] font-semibold text-fuchsia-300 ring-1 ring-fuchsia-500/20">200 xDAI lifetime</span>
+              </div>
+              <p className="text-xs text-[var(--muted)] leading-relaxed">
+                Drop the <span className="text-[#f2eee4] font-medium">Eternal Anchor</span>. You host the brain locally via Ollama or LM Studio. Soulbound token — permanently bound to your wallet. Cannot be listed or sold. Eternal Arweave archive.
+              </p>
+              <div className="mt-1 flex flex-wrap gap-1">
+                {['Soulbound (ERC-5192)', 'Local brain (Ollama/MCP)', 'Arweave archive', 'Not transferable'].map(b => (
+                  <span key={b} className="rounded-full bg-white/[0.05] px-2 py-0.5 text-[9px] font-medium text-[var(--muted)] ring-1 ring-white/[0.08]">{b}</span>
+                ))}
+              </div>
+              {vaultPath === 'ghost' && (
+                <span className="absolute right-3 top-3 text-[10px] font-bold text-fuchsia-400">✓ Selected</span>
+              )}
+            </button>
+          </div>
+
+          {/* Ghost Path warning */}
+          {vaultPath === 'ghost' && (
+            <div className="rounded-xl border border-fuchsia-500/20 bg-fuchsia-500/5 px-4 py-3">
+              <p className="text-xs text-fuchsia-300 leading-relaxed">
+                <span className="font-semibold">⚠ Ghost Path requires local compute.</span>{' '}
+                Your agent will be a gateway to hardware you own and maintain. If your local LLM goes offline, your agent goes offline. The Gnosis Safe and on-chain identity remain active regardless — only the &ldquo;Brain&rdquo; requires your hardware.
+              </p>
+              <p className="mt-1.5 text-xs text-[var(--muted)]">
+                OG NFTs cannot be used as keys for Ghost tier — the SBT is permanently bound to your Gnosis Safe. Selling the Safe transfers the on-chain identity but <span className="text-fuchsia-300/80">not the local brain</span>.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── Genome NFT Editor — shown once name is valid ── */}
       {agentName.length >= 2 && (

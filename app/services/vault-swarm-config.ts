@@ -1,11 +1,37 @@
 /// @module vault-swarm-config
-/// Swarm container configuration for vault.gno Safes.
+/// Swarm container configuration and The Great Decoupling.
+///
+/// ══════════════════════════════════════════════════════════════════
+/// THE GREAT DECOUPLING — Two Distinct Species
+/// ══════════════════════════════════════════════════════════════════
+///
+/// THE MOLT PATH (Biological) — Managed Cloud Agents
+///   Larva → Pupa → Imago
+///   - Hosted on GhostAgent Cloud
+///   - Identity: transferable ERC-721 NFT
+///   - Can list on marketplace (transferable asset)
+///   - "A Service Animal you can rehome"
+///
+/// THE GHOST PATH (Spectral) — Sovereign Local Proxies
+///   Imago → Ghost (one-time 200 xDAI upgrade, NOT a molt)
+///   - Compute: user-owned hardware (local LLM via Ollama/LM Studio)
+///   - Identity: ERC-5192 Soulbound Token (non-transferable)
+///   - CANNOT list on marketplace — would create a "Hollow Shell" asset
+///   - "A Digital Ghost of the owner"
+///
+/// Single Agent vs Swarm:
+///   Ghost tier supports Solo Ghost (single sovereign agent, no swarm required).
+///   SwarmCoordinatorModule is OPTIONAL — if no swarmId, A2A router
+///   bypasses coordination and routes directly to the agent's tunnel endpoint.
 ///
 /// vault.gno acts as the swarm container — it holds a Gnosis Safe that
 /// other picoclaw.gno agents can be registered as modules on.
 /// A vault with 2+ registered picoclaw members activates Swarm Mode.
 
 export type SwarmStrategy = 'consensus' | 'parallel' | 'pipeline' | 'competitive';
+
+/** Distinguishes cloud-hosted swarm agents from locally-sovereign ghost agents */
+export type AgentArchitecture = 'Single' | 'Swarm';
 
 export interface SwarmMember {
   agentName: string;   // e.g. "pico-scout"
@@ -16,96 +42,116 @@ export interface SwarmMember {
 }
 
 export interface SwarmConfig {
-  vaultName: string;        // e.g. "ghost-alpha"
+  vaultName: string;         // e.g. "ghost-alpha"
   safeAddress: string;
   strategy: SwarmStrategy;
+  architecture: AgentArchitecture; // Single = solo ghost, no coordinator required
   members: SwarmMember[];
   maxMembers: number;
-  hackathonTag?: string;    // e.g. "lablab-2026"
+  hackathonTag?: string;     // e.g. "lablab-2026"
   createdAt: number;
   updatedAt: number;
 }
 
 // ─── Molt tier capability gating ─────────────────────────────────────────────
-// Tier progression: larva → pupa → imago → ghost
+// THE MOLT PATH:  larva → pupa → imago  (cloud-hosted, transferable NFTs)
+// THE GHOST PATH: imago → ghost         (local-sovereign, soulbound, NOT a molt)
 //
-// ghost is NOT a molt — it is an upgrade from imago via a one-time 200 xDAI
-// lifetime payment. Imago is the ceiling of the molt path; ghost is a separate
-// opt-in tier that adds:
-//   - Soulbound (non-transferable) NFT identity
-//   - Permanent Arweave/IPFS archive of all agent outputs
-//   - Local/self-hosted dependency support (user-maintained brain modules)
-//   - Full A2A feature access (Story ATCP/IP, ERC-8004 rep oracle, x402 escrow)
-//   - No annual subscription — lifetime membership
+// Ghost is a FORK at the Pupa stage, not a continuation of the molt path.
+// The UI must present this as a "Fork in the Road" choice at Pupa:
+//   Option A: Molt to Imago — cloud-hosted, 24 xDAI/yr, transferable, marketplace-eligible
+//   Option B: Drop the Eternal Anchor — local brain, 200 xDAI lifetime, soulbound, NOT marketplace-eligible
 
 export type MoltTier = 'larva' | 'pupa' | 'imago' | 'ghost';
 
 export interface MoltTierConfig {
-  tier:          MoltTier;
-  namespace:     string;          // canonical namespace
-  label:         string;          // display label
-  mintFee:       number | 'free'; // xDAI
-  subscriptionFee: number | null; // xDAI/yr, null = lifetime
-  canMolt:       boolean;         // false for ghost — ghost is a terminal upgrade not a molt
-  isSoulbound:   boolean;         // non-transferable NFT
-  hasPermanentArchive: boolean;   // Arweave/IPFS output archive
-  hasLocalDeps:  boolean;         // user-maintained local brain modules
-  fullA2A:       boolean;         // all A2A features unlocked
-  description:   string;
+  tier:               MoltTier;
+  namespace:          string;           // canonical namespace
+  label:              string;           // display label
+  mintFee:            number | 'free';  // xDAI
+  subscriptionFee:    number | null;    // xDAI/yr; null = no sub (ghost = lifetime, larva/pupa = no sub)
+  canMolt:            boolean;          // true for larva + pupa only
+  canMoltTo:          MoltTier | 'ghost-path' | null; // explicit next step
+  isOnMoltPath:       boolean;          // true for larva/pupa/imago; false for ghost
+  isSoulbound:        boolean;          // ERC-5192 non-transferable (ghost only)
+  canListOnMarketplace: boolean;        // false for ghost — soulbound = not a transferable asset
+  hasPermanentArchive: boolean;         // Arweave/IPFS output archive (ghost only)
+  hasLocalDeps:       boolean;          // user-maintained local brain modules (ghost only)
+  fullA2A:            boolean;          // all A2A features unlocked
+  pathLabel:          string;           // 'Molt Path' | 'Ghost Path'
+  description:        string;
 }
 
 export const MOLT_TIER_CONFIG: Record<MoltTier, MoltTierConfig> = {
   larva: {
-    tier:               'larva',
-    namespace:          'picoclaw.gno',
-    label:              '🥚 Larva',
-    mintFee:            'free',
-    subscriptionFee:    null,
-    canMolt:            true,
-    isSoulbound:        false,
-    hasPermanentArchive: false,
-    hasLocalDeps:       false,
-    fullA2A:            false,
-    description:        'Free entry-level agent. 8-day history window. Can molt to pupa.',
+    tier:                 'larva',
+    namespace:            'picoclaw.gno',
+    label:                '🥚 Larva',
+    mintFee:              'free',
+    subscriptionFee:      null,
+    canMolt:              true,
+    canMoltTo:            'pupa',
+    isOnMoltPath:         true,
+    isSoulbound:          false,
+    canListOnMarketplace: true,
+    hasPermanentArchive:  false,
+    hasLocalDeps:         false,
+    fullA2A:              false,
+    pathLabel:            'Molt Path',
+    description:          'Free entry-level cloud agent. 8-day history window. Molt to Pupa when ready.',
   },
   pupa: {
-    tier:               'pupa',
-    namespace:          'openclaw.gno',
-    label:              '🐛 Pupa',
-    mintFee:            5,
-    subscriptionFee:    null,
-    canMolt:            true,
-    isSoulbound:        false,
-    hasPermanentArchive: false,
-    hasLocalDeps:       false,
-    fullA2A:            false,
-    description:        'Intermediate tier. IP registration enabled. Can molt to imago.',
+    tier:                 'pupa',
+    namespace:            'openclaw.gno',
+    label:                '🐛 Pupa',
+    mintFee:              5,
+    subscriptionFee:      null,
+    canMolt:              true,
+    canMoltTo:            'imago',      // Option A at fork
+    // canMoltTo 'ghost-path' is Option B — presented separately in the Fork UI
+    isOnMoltPath:         true,
+    isSoulbound:          false,
+    canListOnMarketplace: true,
+    hasPermanentArchive:  false,
+    hasLocalDeps:         false,
+    fullA2A:              false,
+    pathLabel:            'Molt Path',
+    description:          'Cloud agent with IP registration. Fork point: Molt to Imago (cloud) or Drop the Eternal Anchor (Ghost).',
   },
   imago: {
-    tier:               'imago',
-    namespace:          'vault.gno',
-    label:              '🦋 Imago',
-    mintFee:            10,
-    subscriptionFee:    24,   // 24 xDAI/yr
-    canMolt:            false, // terminal molt tier — cannot molt further
-    isSoulbound:        false,
-    hasPermanentArchive: false,
-    hasLocalDeps:       false,
-    fullA2A:            true,
-    description:        'Top molt tier. vault.gno namespace. 24 xDAI/yr subscription. Self-governing.',
+    tier:                 'imago',
+    namespace:            'vault.gno',
+    label:                '🦋 Imago',
+    mintFee:              10,
+    subscriptionFee:      24,           // 24 xDAI/yr
+    canMolt:              false,         // terminal molt tier — no further molt
+    canMoltTo:            null,
+    isOnMoltPath:         true,
+    isSoulbound:          false,
+    canListOnMarketplace: true,          // transferable asset — marketplace-eligible
+    hasPermanentArchive:  false,
+    hasLocalDeps:         false,
+    fullA2A:              true,
+    pathLabel:            'Molt Path',
+    description:          'Top cloud tier. vault.gno namespace. 24 xDAI/yr. Self-governing. Transferable. Marketplace-eligible.',
   },
   ghost: {
-    tier:               'ghost',
-    namespace:          'vault.gno',  // stays on vault.gno — ghost is a vault upgrade
-    label:              '👻 Ghost',
-    mintFee:            200,          // 200 xDAI lifetime — replaces annual subscription
-    subscriptionFee:    null,         // no annual fee — lifetime membership
-    canMolt:            false,        // ghost is not a molt — it is a one-time upgrade from imago
-    isSoulbound:        true,         // non-transferable: identity bound to owner wallet
-    hasPermanentArchive: true,        // all outputs archived to Arweave/IPFS permanently
-    hasLocalDeps:       true,         // user can attach local/self-hosted brain modules
-    fullA2A:            true,
-    description:        'Lifetime vault.gno upgrade from imago. 200 xDAI one-time. Soulbound identity, permanent Arweave/IPFS archive, local brain module support. All A2A features.',
+    tier:                 'ghost',
+    namespace:            'vault.gno',   // stays vault.gno — ghost is a sovereign upgrade, not a namespace change
+    label:                '👻 Ghost',
+    mintFee:              200,           // 200 xDAI one-time lifetime fee
+    subscriptionFee:      null,          // no annual fee — lifetime membership
+    canMolt:              false,          // NOT a molt — a one-time sovereign upgrade from pupa
+    canMoltTo:            null,
+    isOnMoltPath:         false,          // Ghost is OFF the molt path — it is a separate species
+    isSoulbound:          true,           // ERC-5192: non-transferable, bound to owner wallet
+    canListOnMarketplace: false,          // BLOCKED — soulbound = not a transferable asset
+    // "Hollow Shell" prevention: listing a ghost NFT would sell an empty tunnel endpoint
+    hasPermanentArchive:  true,           // Arweave/IPFS eternal archive of all outputs
+    hasLocalDeps:         true,           // user-maintained local brain (Ollama/LM Studio/MCP)
+    fullA2A:              true,
+    pathLabel:            'Ghost Path',
+    description:          'Sovereign local proxy. 200 xDAI lifetime. Soulbound (non-transferable). Local brain via Ollama/MCP. Eternal Arweave archive. NOT marketplace-eligible.',
   },
 };
 
@@ -193,23 +239,43 @@ export function isSwarmActive(config: SwarmConfig): boolean {
   return config.members.length >= SWARM_MIN_MEMBERS;
 }
 
+/**
+ * Returns true if a ghost agent can be listed on the marketplace.
+ * Ghost agents are soulbound — listing one would create a "Hollow Shell" asset
+ * (buyer gets the Safe + SBT but not the local brain running on the seller's hardware).
+ */
+export function canListOnMarketplace(tier: MoltTier): boolean {
+  return MOLT_TIER_CONFIG[tier].canListOnMarketplace;
+}
+
+/**
+ * Returns the valid next molt target for a given tier.
+ * Ghost path is signalled by 'ghost-path' — the UI handles this as a fork, not a molt.
+ * Returns null if no further progression is available.
+ */
+export function getNextMoltTarget(tier: MoltTier): MoltTier | 'ghost-path' | null {
+  return MOLT_TIER_CONFIG[tier].canMoltTo ?? null;
+}
+
 /** Build a new SwarmConfig for a vault.gno Safe */
 export function buildSwarmConfig(params: {
   vaultName: string;
   safeAddress: string;
   strategy?: SwarmStrategy;
+  architecture?: AgentArchitecture;
   maxMembers?: number;
   hackathonTag?: string;
 }): SwarmConfig {
   return {
-    vaultName:    params.vaultName,
-    safeAddress:  params.safeAddress,
-    strategy:     params.strategy     ?? 'parallel',
-    members:      [],
-    maxMembers:   params.maxMembers   ?? SWARM_MAX_MEMBERS_DEFAULT,
-    hackathonTag: params.hackathonTag,
-    createdAt:    Date.now(),
-    updatedAt:    Date.now(),
+    vaultName:     params.vaultName,
+    safeAddress:   params.safeAddress,
+    strategy:      params.strategy      ?? 'parallel',
+    architecture:  params.architecture  ?? 'Swarm',
+    members:       [],
+    maxMembers:    params.maxMembers    ?? SWARM_MAX_MEMBERS_DEFAULT,
+    hackathonTag:  params.hackathonTag,
+    createdAt:     Date.now(),
+    updatedAt:     Date.now(),
   };
 }
 
