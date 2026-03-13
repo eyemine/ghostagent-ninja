@@ -558,6 +558,7 @@ interface AuditEntry {
   timestamp: number;
   contentHash: string;
   verified: boolean;
+  edgeEncrypt?: unknown;
   redacted?: boolean;
   redactionReason?: string;
 }
