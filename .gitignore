@@ -57,8 +57,8 @@ coverage/
 .netlify
 
 # Non-web source (Solidity — not needed for Next.js deploy)
-src/
-contracts/
+/src/
+/contracts/
 apps/
 docs/
 tsconfig.tsbuildinfo
