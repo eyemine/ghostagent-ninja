@@ -1123,6 +1123,61 @@ export default {
           return corsify(Response.json({ status: 'ok', key }), request);
         }
 
+        // Paperclip TEE attestation submission
+        // Stores the proof record in KV and emits a Glass Box audit log entry.
+        // On-chain submitAttestation() must be called separately via the Safe.
+        if (email.action === 'paperclipSubmit') {
+          const proofHash  = ((email as any).proofHash  || '').toLowerCase();
+          const taskId     = ((email as any).taskId     || '');
+          const agentName  = ((email as any).agentName  || '');
+          const notaRef    = ((email as any).notaRef    || '');
+          const owner      = ((email as any).ownerAddress || '').toLowerCase();
+
+          if (!proofHash || !agentName || !owner) {
+            return corsify(Response.json({ error: 'Missing proofHash, agentName, or ownerAddress' }, { status: 400 }), request);
+          }
+
+          const record = {
+            proofHash,
+            taskId,
+            agentName,
+            notaRef,
+            submitter: owner,
+            submittedAt: Date.now(),
+            verified: false,
+          };
+
+          // Store attestation record
+          await env.INBOX_KV.put(
+            `paperclip:attestation:${proofHash}`,
+            JSON.stringify(record),
+          );
+
+          // Append to per-agent attestation index
+          const agentIdxKey = `paperclip:agent:${agentName.toLowerCase()}`;
+          const agentIdxRaw = await env.INBOX_KV.get(agentIdxKey);
+          const agentIdx: string[] = agentIdxRaw ? JSON.parse(agentIdxRaw) : [];
+          if (!agentIdx.includes(proofHash)) agentIdx.push(proofHash);
+          await env.INBOX_KV.put(agentIdxKey, JSON.stringify(agentIdx));
+
+          // Glass Box audit log
+          const auditKey = `audit:paperclip:${agentName.toLowerCase()}`;
+          const auditRaw = await env.INBOX_KV.get(auditKey);
+          const auditLog: unknown[] = auditRaw ? JSON.parse(auditRaw) : [];
+          auditLog.push({
+            type: 'paperclip-attestation',
+            proofHash,
+            taskId,
+            agentName,
+            notaRef,
+            timestamp: Date.now(),
+            notaUrl: `https://notapaperclip.red/verify/${proofHash}`,
+          });
+          await env.INBOX_KV.put(auditKey, JSON.stringify(auditLog));
+
+          return corsify(Response.json({ ok: true, proofHash, agentName }), request);
+        }
+
         // Swarm Coordinator: dispatch sub-actions (register-agent, remove-agent, assign-task, complete-task)
         if (email.action === 'coordinatorAction') {
           const vaultName  = ((email as any).vaultName  || '').toLowerCase();

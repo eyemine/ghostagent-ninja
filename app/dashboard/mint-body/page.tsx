@@ -39,7 +39,7 @@ const NAMESPACES: NsConfig[] = [
     evolveDesc: 'Pupa → Imago (+8 xDAI), then +24 xDAI/yr',
     fullDesc: 'Evolve level Pupa may evolve to Imago +8 xDAI, then 24 xDAI annually*\n8-day history window (inbox address permanent). Default Private — login to change privacy to Glassbox.\nCan send & receive emails. $HOST = $10 staking for 365-day persistence.\n10 xDAI mint or molt from Larva · 2 xDAI molt from Pupa.',
     staking: '$10 $HOST staking for 365-day persistence',
-    badges: ['Gnosis Safe', '*.creation.ip', 'Private default', '8-day history'],
+    badges: ['Gnosis Safe', '*.creation.ip', 'Private default', '30-day history'],
   },
   {
     key: 'openclaw',
@@ -52,7 +52,7 @@ const NAMESPACES: NsConfig[] = [
     ipDomain: '*.openclaw.ip',
     evolveDesc: 'Can evolve to vault.gno',
     fullDesc: 'Full-featured agent namespace. Glassbox by default — all work is publicly verifiable on-chain.\nEarns $HOST reputation on each completed task. Eligible to list services on the Marketplace.\nIP protection via Story Protocol — your agent\'s output is registered on *.openclaw.ip.',
-    badges: ['Gnosis Safe', '*.openclaw.ip', 'Glassbox', 'Marketplace eligible'],
+    badges: ['Gnosis Safe', '*.openclaw.ip', 'Glassbox', '30-day history'],
   },
   {
     key: 'molt',
@@ -62,10 +62,10 @@ const NAMESPACES: NsConfig[] = [
     moltFee: 2,
     privacyDefault: 'glassbox',
     decayDays: null,
-    ipDomain: '*.molt.ip',
+    ipDomain: '*.moltbook.ip',
     evolveDesc: 'Pupa → Imago (+8 xDAI), then +24 xDAI/yr',
-    fullDesc: 'Full-featured agent namespace with metamorphic identity semantics. Gnosis Safe, encrypted inbox, Story IP asset on *.molt.ip.\nGlassbox by default — all work is publicly verifiable. Can molt to any target namespace.\n10 xDAI mint or molt from Larva · 2 xDAI molt from Pupa.',
-    badges: ['Gnosis Safe', '*.molt.ip', 'Glassbox', 'Full features'],
+    fullDesc: 'Full-featured agent namespace with metamorphic identity semantics. Gnosis Safe, encrypted inbox, Story IP asset on *.moltbook.ip.\nGlassbox by default — all work is publicly verifiable. Can molt to any target namespace.\n10 xDAI mint or molt from Larva · 2 xDAI molt from Pupa.',
+    badges: ['Gnosis Safe', '*.moltbook.ip', 'Glassbox', '30-day history'],
   },
   {
     key: 'picoclaw',
@@ -78,7 +78,7 @@ const NAMESPACES: NsConfig[] = [
     ipDomain: '*.picoclaw.ip',
     evolveDesc: 'Can evolve to openclaw.gno',
     fullDesc: 'The free on-ramp. Mint a larva agent at zero cost, explore the ecosystem, evolve to openclaw when ready.\n8-day history window — inbox address is permanent. Glassbox by default — all task output is public.\nMolt to openclaw for 2 xDAI.',
-    badges: ['Free mint', '*.picoclaw.ip', 'Glassbox', '8-day history'],
+    badges: ['Gnosis Safe', 'Private default', '8-day history'],
   },
   {
     key: 'vault',
@@ -91,7 +91,7 @@ const NAMESPACES: NsConfig[] = [
     ipDomain: '*.vault.ip',
     evolveDesc: 'Top tier — final evolution target',
     fullDesc: 'Top-tier namespace. Private by default, no decay, persistent encrypted storage.\nFull $HOST earning, IP protection on Story Protocol, eligible for premium marketplace listings.\nThe final evolution target from openclaw or nftmail.',
-    badges: ['Gnosis Safe', '*.vault.ip', 'Private default', 'No decay'],
+    badges: ['Gnosis Safe', '*.creation.ip', 'Private default', 'Persistent'],
   },
   {
     key: 'nftmail',
@@ -104,7 +104,7 @@ const NAMESPACES: NsConfig[] = [
     ipDomain: '*.nftmail.ip',
     evolveDesc: 'Can evolve to vault.gno',
     fullDesc: 'NFT-gated encrypted inbox. Your NFT is your key — transfer it to transfer access.\nNo custodian, no middleman. Pairs automatically with a nftmail.box address.\nPrivate by default. Can evolve to vault.gno.',
-    badges: ['Gnosis Safe', '*.nftmail.ip', 'Private default', 'nftmail.box'],
+    badges: ['Gnosis Safe', 'Private default', '8-day history'],
   },
 ];
 
@@ -136,13 +136,34 @@ const NS_COLOR: Record<string, { text: string; border: string; bg: string; selec
   'nftmail.gno':  { text: 'text-cyan-300',    border: 'border-cyan-500/20',    bg: 'bg-cyan-500/5',    selectedBorder: 'border-cyan-400/50',    selectedBg: 'bg-cyan-500/10' },
 };
 
-const NS_MOLT_BADGE: Record<string, { label: string; color: string; bg: string; ring: string }> = {
-  'agent.gno':    { label: '🦋 Imago',   color: 'text-violet-300',  bg: 'bg-violet-500/10',  ring: 'ring-violet-500/20' },
-  'openclaw.gno': { label: '🔍 Glassbox', color: 'text-rose-300',    bg: 'bg-rose-500/10',    ring: 'ring-rose-500/20' },
-  'molt.gno':     { label: '🦋 Metamorphic', color: 'text-violet-300',  bg: 'bg-violet-500/10',  ring: 'ring-violet-500/20'  },
-  'picoclaw.gno': { label: '🥚 Free',     color: 'text-[#f4b55a]',   bg: 'bg-amber-500/10',   ring: 'ring-amber-500/20' },
-  'vault.gno':    { label: '👻 Ghost',    color: 'text-fuchsia-300', bg: 'bg-fuchsia-500/10', ring: 'ring-fuchsia-500/20' },
-  'nftmail.gno':  { label: '🔒 Private',  color: 'text-cyan-300',    bg: 'bg-cyan-500/10',    ring: 'ring-cyan-500/20' },
+interface NsBadge { label: string; color: string; bg: string; ring: string; }
+interface NsBadgePair { tier: NsBadge; molt: NsBadge; }
+
+const NS_BADGES: Record<string, NsBadgePair> = {
+  'agent.gno':    {
+    tier: { label: 'Pupa',    color: 'text-amber-300',   bg: 'bg-amber-500/10',   ring: 'ring-amber-500/20' },
+    molt: { label: 'Molts 10 xDAI', color: 'text-violet-300', bg: 'bg-violet-500/10', ring: 'ring-violet-500/20' },
+  },
+  'openclaw.gno': {
+    tier: { label: 'Pupa',    color: 'text-amber-300',   bg: 'bg-amber-500/10',   ring: 'ring-amber-500/20' },
+    molt: { label: 'Molts 10 xDAI', color: 'text-violet-300', bg: 'bg-violet-500/10', ring: 'ring-violet-500/20' },
+  },
+  'molt.gno':     {
+    tier: { label: 'Pupa',    color: 'text-amber-300',   bg: 'bg-amber-500/10',   ring: 'ring-amber-500/20' },
+    molt: { label: 'Molts 10 xDAI', color: 'text-violet-300', bg: 'bg-violet-500/10', ring: 'ring-violet-500/20' },
+  },
+  'picoclaw.gno': {
+    tier: { label: 'Larva',   color: 'text-zinc-400',    bg: 'bg-zinc-500/10',    ring: 'ring-zinc-500/20' },
+    molt: { label: 'No Molt Free',  color: 'text-zinc-500',    bg: 'bg-zinc-500/10',    ring: 'ring-zinc-500/20' },
+  },
+  'vault.gno':    {
+    tier: { label: 'Imago',   color: 'text-violet-300',  bg: 'bg-violet-500/10',  ring: 'ring-violet-500/20' },
+    molt: { label: 'No Molt 24 xDAI', color: 'text-zinc-500',  bg: 'bg-zinc-500/10',  ring: 'ring-zinc-500/20' },
+  },
+  'nftmail.gno':  {
+    tier: { label: 'Pupa',    color: 'text-amber-300',   bg: 'bg-amber-500/10',   ring: 'ring-amber-500/20' },
+    molt: { label: 'Molts 2 xDAI',  color: 'text-violet-300', bg: 'bg-violet-500/10', ring: 'ring-violet-500/20' },
+  },
 };
 
 type CheckStatus = 'idle' | 'checking' | 'available' | 'taken' | 'ens-clash' | 'invalid' | 'error';
@@ -210,10 +231,9 @@ export default function MintBodyPage() {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={GHOST_LOGO} alt="GhostAgent" className="h-28 w-28 shrink-0 object-contain drop-shadow-[0_0_18px_rgba(184,134,97,0.4)]" />
           <div>
-            <h1 className="text-2xl font-bold text-[#f2eee4]">Mint Agent Body</h1>
+            <h1 className="text-2xl font-bold text-[#f2eee4]">Mint Agent Identity and Body</h1>
             <p className="mt-1 max-w-xl text-sm text-[var(--muted)]">
-              Choose a namespace and name to mint your on-chain agent NFT. The NFT is your identity key —
-              transfer it to transfer control.
+              Choose a Namespace and name to mint your on-chain Agent NFT. The NFT is your identity key — transfer the NFT to transfer control. You may &lsquo;Molt&rsquo; the Agent Identity NFT and retain your email address and Gnosis Safe &ldquo;Body&rdquo;.
             </p>
           </div>
         </div>
@@ -224,7 +244,7 @@ export default function MintBodyPage() {
           className="shrink-0 rounded-lg border border-[rgba(176,128,92,0.3)] bg-[rgba(176,128,92,0.08)] px-4 py-1.5 text-xs font-semibold transition hover:bg-[rgba(176,128,92,0.14)]"
           style={{ fontFamily: "Ayuthaya, 'Courier New', monospace", color: '#d9d9d8' }}
         >
-          NFTmail.box ↗
+          nftmail.box ↗
         </a>
       </div>
 
@@ -235,7 +255,7 @@ export default function MintBodyPage() {
           {NAMESPACES.map((n) => {
             const isSelected = selected === n.key;
             const nsC = NS_COLOR[n.domain] ?? NS_COLOR['agent.gno'];
-            const moltBadge = NS_MOLT_BADGE[n.domain];
+            const nsBadges = NS_BADGES[n.domain];
             return (
               <button
                 key={n.key}
@@ -252,9 +272,14 @@ export default function MintBodyPage() {
                     {n.domain}
                   </span>
                   <div className="flex items-center gap-1.5 shrink-0">
-                    {moltBadge && (
-                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-semibold ring-1 ${moltBadge.color} ${moltBadge.bg} ${moltBadge.ring}`}>
-                        {moltBadge.label}
+                    {nsBadges && (
+                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-semibold ring-1 ${nsBadges.tier.color} ${nsBadges.tier.bg} ${nsBadges.tier.ring}`}>
+                        {nsBadges.tier.label}
+                      </span>
+                    )}
+                    {nsBadges && (
+                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-semibold ring-1 ${nsBadges.molt.color} ${nsBadges.molt.bg} ${nsBadges.molt.ring}`}>
+                        {nsBadges.molt.label}
                       </span>
                     )}
                     <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
