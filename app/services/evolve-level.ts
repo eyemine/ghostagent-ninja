@@ -3,7 +3,7 @@
  * Pupa ↔ Imago level scanner and transition logic.
  *
  * Level terminology:
- *   Larva → basic   (messages clear after 8 days, receive only, identity permanent)
+ *   Larva → basic   (8-day history window, receive only, identity permanent)
  *   Pupa  → lite    (30-day message retention, send + Safe body)
  *   Imago → premium (1yr renewable, infinite message retention, Story .ip asset, marketplace badge)
  *   Ghost → ghost   (sovereign, governance, IP revenue share)
@@ -54,7 +54,7 @@ export const LEVEL_META: Record<EvolveLevel, {
     bgColor: 'bg-zinc-500/10',
     ringColor: 'ring-zinc-500/20',
     workerTier: 'basic',
-    description: 'Free tier. Messages clear after 8 days. Inbox address is permanent. Receive only. No Safe, no send.'
+    description: 'Free tier. 8-day history window. Inbox address is permanent. Receive only. No Safe, no send.'
   },
   pupa: {
     label: 'Pupa',

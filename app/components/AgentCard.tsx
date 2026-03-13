@@ -296,7 +296,7 @@ export function AgentCard({
             <line x1="12" y1="17" x2="12.01" y2="17" />
           </svg>
           <span className="text-[10px] text-amber-300/80">
-            Free tier — inbox decays after 8 days. Evolve for persistent storage + IP protection.
+            Free tier — 8-day history window. Evolve for persistent storage + IP protection.
           </span>
         </div>
       )}

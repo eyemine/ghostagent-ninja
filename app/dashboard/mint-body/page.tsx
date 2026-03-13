@@ -37,9 +37,9 @@ const NAMESPACES: NsConfig[] = [
     decayDays: 8,
     ipDomain: '*.creation.ip',
     evolveDesc: 'Pupa → Imago (+8 xDAI), then +24 xDAI/yr',
-    fullDesc: 'Evolve level Pupa may evolve to Imago +8 xDAI, then 24 xDAI annually*\nFree tier messages clear after 8 days (inbox address permanent). Default Private — login to change privacy to Glassbox.\nCan send & receive emails. $HOST = $10 staking for 365-day persistence.\n10 xDAI mint or molt from Larva · 2 xDAI molt from Pupa.',
+    fullDesc: 'Evolve level Pupa may evolve to Imago +8 xDAI, then 24 xDAI annually*\n8-day history window (inbox address permanent). Default Private — login to change privacy to Glassbox.\nCan send & receive emails. $HOST = $10 staking for 365-day persistence.\n10 xDAI mint or molt from Larva · 2 xDAI molt from Pupa.',
     staking: '$10 $HOST staking for 365-day persistence',
-    badges: ['Gnosis Safe', '*.creation.ip', 'Private default', '8-day messages'],
+    badges: ['Gnosis Safe', '*.creation.ip', 'Private default', '8-day history'],
   },
   {
     key: 'openclaw',
@@ -77,8 +77,8 @@ const NAMESPACES: NsConfig[] = [
     decayDays: 8,
     ipDomain: '*.picoclaw.ip',
     evolveDesc: 'Can evolve to openclaw.gno',
-    fullDesc: 'The free on-ramp. Mint a larva agent at zero cost, explore the ecosystem, evolve to openclaw when ready.\nFree tier messages clear after 8 days — inbox address is permanent. Glassbox by default — all task output is public.\nMolt to openclaw for 2 xDAI.',
-    badges: ['Free mint', '*.picoclaw.ip', 'Glassbox', '8-day messages'],
+    fullDesc: 'The free on-ramp. Mint a larva agent at zero cost, explore the ecosystem, evolve to openclaw when ready.\n8-day history window — inbox address is permanent. Glassbox by default — all task output is public.\nMolt to openclaw for 2 xDAI.',
+    badges: ['Free mint', '*.picoclaw.ip', 'Glassbox', '8-day history'],
   },
   {
     key: 'vault',

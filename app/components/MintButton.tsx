@@ -240,7 +240,7 @@ export function MintButton({ namespace, agentName }: MintButtonProps) {
                       Copy
                     </button>
                   </div>
-                  <span className="text-[10px] text-[var(--muted)]">Routed via Cloudflare Worker KV — free tier messages clear after 8 days, inbox address permanent</span>
+                  <span className="text-[10px] text-[var(--muted)]">Routed via Cloudflare Worker KV — free tier 8-day history window, inbox address permanent</span>
                 </div>
 
                 {/* Tx link */}

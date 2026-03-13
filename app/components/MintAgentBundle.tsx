@@ -363,7 +363,7 @@ export function MintAgentBundle({ agentName, safeAddress, namespace = 'agent', d
                     <span className="rounded bg-emerald-500/10 px-1.5 py-0.5 text-xs text-emerald-300">Routed</span>
                     <code className="text-sm text-emerald-300">{emailName}</code>
                   </div>
-                  <span className="text-[10px] text-[var(--muted)]">Free tier: inbox address permanent — messages clear after 8 days</span>
+                  <span className="text-[10px] text-[var(--muted)]">Free tier: 8-day history window — inbox address permanent</span>
                 </div>
 
                 {/* Flow diagram */}

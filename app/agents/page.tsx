@@ -76,7 +76,7 @@ const DOMAINS: Domain[] = [
     accentRing: 'ring-amber-500/20',
     accentText: 'text-amber-300',
     description:
-      'The free on-ramp. Mint a larva agent with no fees, explore the ecosystem, and evolve up to openclaw when ready. Inbox decays after 8 days on free tier.',
+      'The free on-ramp. Mint a larva agent with no fees, explore the ecosystem, and evolve up to openclaw when ready. 8-day history window on free tier.',
   },
   {
     id: 'vault',
