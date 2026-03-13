@@ -16,6 +16,7 @@ abstract contract BaseRegistrar is ERC721, Ownable {
     uint256 public immutable chainId;
 
     uint256 public nextTokenId;
+    string private _baseTokenURI;
 
     mapping(address => bool) public authorisedMinters;
 
@@ -53,6 +54,14 @@ abstract contract BaseRegistrar is ERC721, Ownable {
         erc6551AccountImplementation = _erc6551AccountImplementation;
         chainId = _chainId;
         nextTokenId = 1;
+    }
+
+    function setBaseURI(string calldata baseURI_) external onlyOwner {
+        _baseTokenURI = baseURI_;
+    }
+
+    function _baseURI() internal view override returns (string memory) {
+        return _baseTokenURI;
     }
 
     function authoriseMinter(address minter, bool authorised) external onlyOwner {
