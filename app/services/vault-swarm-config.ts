@@ -26,6 +26,66 @@ export interface SwarmConfig {
   updatedAt: number;
 }
 
+// ─── Molt tier capability gating ─────────────────────────────────────────────
+// Each agent NFT has a molt tier that determines what it can do in a swarm.
+// Larva agents cannot register IP or act as governors — they defer to vault.gno.
+
+export type MoltTier = 'larva' | 'pupa' | 'imago' | 'ghost';
+
+export interface SwarmCapabilities {
+  canRegisterIP:    boolean;  // true for pupa+
+  canGovern:        boolean;  // true for imago+
+  canEscrowPayment: boolean;  // true for pupa+
+  canAttest:        boolean;  // all tiers can submit Paperclip attestations
+  governor:         string;   // namespace that governs this agent ('vault.gno' for larva)
+}
+
+/**
+ * Derive swarm capabilities from an agent's molt tier.
+ *
+ * if (agent.molt === 'Larva') {
+ *   config.canRegisterIP = false;
+ *   config.governor = 'vault.gno';
+ * }
+ */
+export function resolveSwarmCapabilities(molt: MoltTier): SwarmCapabilities {
+  if (molt === 'larva') {
+    return {
+      canRegisterIP:    false,
+      canGovern:        false,
+      canEscrowPayment: false,
+      canAttest:        true,
+      governor:         'vault.gno',
+    };
+  }
+  if (molt === 'pupa') {
+    return {
+      canRegisterIP:    true,
+      canGovern:        false,
+      canEscrowPayment: true,
+      canAttest:        true,
+      governor:         'vault.gno',
+    };
+  }
+  if (molt === 'imago') {
+    return {
+      canRegisterIP:    true,
+      canGovern:        true,
+      canEscrowPayment: true,
+      canAttest:        true,
+      governor:         'self',
+    };
+  }
+  // ghost
+  return {
+    canRegisterIP:    true,
+    canGovern:        true,
+    canEscrowPayment: true,
+    canAttest:        true,
+    governor:         'self',
+  };
+}
+
 export const SWARM_MIN_MEMBERS = 2;
 export const SWARM_MAX_MEMBERS_DEFAULT = 8;
 
