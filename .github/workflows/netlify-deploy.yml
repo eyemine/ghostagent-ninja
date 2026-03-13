@@ -9,8 +9,13 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     environment: ghostAgentNinja
-    # Skip deploys triggered by the automated warrant canary commits
-    if: "!contains(github.event.head_commit.message, 'chore: warrant canary')"
+    # Only deploy on real code changes — skip automated/maintenance commits
+    if: |
+      contains(github.event.head_commit.message, 'feat') ||
+      contains(github.event.head_commit.message, 'fix') ||
+      contains(github.event.head_commit.message, 'style') ||
+      contains(github.event.head_commit.message, 'refactor') ||
+      contains(github.event.head_commit.message, '[deploy]')
     steps:
       - name: Trigger Netlify build
         run: |
