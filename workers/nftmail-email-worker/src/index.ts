@@ -1715,7 +1715,7 @@ export default {
           // KV key: use legacyIdentity (dot format: mac.slave) if provided, else label (hyphen: mac-slave)
           // resolveAddress looks up by the email local-part (dot format)
           const kvKey = legacyIdentity || label;
-          // Tier system: basic = 8-day decay inbox only, lite/pupa = 30-day cycle + send enabled + Safe body
+          // Tier system: basic = 8-day message retention (identity permanent), lite/pupa = 30-day retention + send enabled + Safe body
           const accountTier: string = (email as any).accountTier || 'basic';
           const EIGHT_DAYS_MS = 8 * 24 * 60 * 60 * 1000;
           const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
@@ -2264,17 +2264,18 @@ export default {
             }
 
             // If account exists → return it (same as agent path but stream = sovereign)
-            // If basic tier is expired: account is dormant — treat as not-exists for inbox display
-            // decayDays: how many days the tier window is (for frontend decay bar)
+            // If basic tier message window has elapsed: identity is permanent, only messages are cleared.
+            // Return exists:true with messagesCleared:true so UI shows the inbox address as active.
+            // decayDays: how many days the message retention window is (for frontend decay bar)
             const sDecayDays = sAccountTier === 'basic' ? 8 : sAccountTier === 'lite' ? 30 : null;
 
             if (sExists && sIsExpired && sAccountTier === 'basic') {
               return corsify(Response.json({
                 name: inputName,
-                exists: false,
-                expired: true,
+                exists: true,
+                messagesCleared: true,
                 stream: 'sovereign',
-                privacyTier: 'exposed',
+                privacyTier: sPrivacyTier,
                 hasMessages: false,
                 hasEciesKey: sHasEciesKey,
                 hasZohoSeat: false,

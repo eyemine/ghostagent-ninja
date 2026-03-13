@@ -3,9 +3,9 @@
  * Pupa ↔ Imago level scanner and transition logic.
  *
  * Level terminology:
- *   Larva → basic   (8-day decay, receive only)
- *   Pupa  → lite    (30-day, send + Safe body)
- *   Imago → premium (1yr renewable, infinite KV, Story .ip asset, marketplace badge)
+ *   Larva → basic   (messages clear after 8 days, receive only, identity permanent)
+ *   Pupa  → lite    (30-day message retention, send + Safe body)
+ *   Imago → premium (1yr renewable, infinite message retention, Story .ip asset, marketplace badge)
  *   Ghost → ghost   (sovereign, governance, IP revenue share)
  *
  * Upgrade pricing:
@@ -54,7 +54,7 @@ export const LEVEL_META: Record<EvolveLevel, {
     bgColor: 'bg-zinc-500/10',
     ringColor: 'ring-zinc-500/20',
     workerTier: 'basic',
-    description: '8-day inbox decay. Receive only. No Safe, no send.',
+    description: 'Free tier. Messages clear after 8 days. Inbox address is permanent. Receive only. No Safe, no send.'
   },
   pupa: {
     label: 'Pupa',
@@ -62,7 +62,7 @@ export const LEVEL_META: Record<EvolveLevel, {
     bgColor: 'bg-amber-500/10',
     ringColor: 'ring-amber-500/25',
     workerTier: 'lite',
-    description: '30-day inbox cycle. Send + receive. Gnosis Safe body. No IP asset.',
+    description: '30-day message retention. Send + receive. Gnosis Safe body. No IP asset. Inbox address is permanent.'
   },
   imago: {
     label: 'Imago',
@@ -92,7 +92,7 @@ export const EVOLVE_ACTIONS: Partial<Record<EvolveLevel, EvolveAction>> = {
     oneOffXdai: 14,
     annualXdai: 24,
     unlocks: [
-      'Infinite inbox retention (no decay)',
+      'Messages kept forever (no message clearing)',
       'Story Protocol .ip NFT asset',
       'Marketplace "Imago" badge',
       '1-yr renewable subscription',
@@ -107,7 +107,7 @@ export const EVOLVE_ACTIONS: Partial<Record<EvolveLevel, EvolveAction>> = {
     annualXdai: 0,
     unlocks: [],
     canDowngrade: true,
-    downgradeLabel: 'Cancel subscription — return to 30-day Pupa tier. Email, Safe, and history preserved.',
+    downgradeLabel: 'Cancel subscription — return to 30-day message retention. Email address, Safe, and identity are always preserved.'
   },
 };
 
@@ -173,7 +173,7 @@ export function describeTransition(from: EvolveLevel, to: EvolveLevel): {
     return {
       preserves,
       gains: [],
-      loses: ['Infinite retention (resets to 30-day cycle)', 'Story .ip badge (NFT stays on-chain)'],
+      loses: ['Infinite message retention (resets to 30-day clearing)', 'Story .ip badge (NFT stays on-chain)'],
     };
   }
 

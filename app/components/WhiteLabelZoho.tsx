@@ -91,7 +91,7 @@ export function WhiteLabelZoho({ agentName, email, tbaAddress, namespace = 'molt
                 <span className="text-emerald-400">✓</span> A2A email routing
               </li>
               <li className="flex items-center gap-1.5">
-                <span className="text-zinc-600">✗</span> 8-day TTL decay
+                <span className="text-zinc-600">✗</span> messages clear after 8 days (free tier)
               </li>
               <li className="flex items-center gap-1.5">
                 <span className="text-zinc-600">✗</span> No calendar/tasks

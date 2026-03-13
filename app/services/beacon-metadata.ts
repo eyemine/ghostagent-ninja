@@ -153,7 +153,7 @@ export function buildBeaconMetadata(params: BuildBeaconParams): BeaconMetadata {
   const primaryEmail = `${agentName}_@nftmail.box`;
 
   const levelDescriptions: Record<string, string> = {
-    larva: '8-day inbox decay. Receive only.',
+    larva: 'Free tier. Messages clear after 8 days. Inbox address permanent. Receive only.',
     pupa:  '30-day inbox cycle. Send + receive. Gnosis Safe.',
     imago: 'Infinite retention. Story .ip NFT. Marketplace badge.',
     ghost: 'Sovereign agent. Governance rights. IP revenue share.',
