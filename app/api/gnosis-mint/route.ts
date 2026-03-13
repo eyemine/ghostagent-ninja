@@ -28,7 +28,7 @@ const gnosis = defineChain({
   blockExplorers: { default: { name: 'Gnosisscan', url: 'https://gnosisscan.io' } },
 });
 
-const NFTMAIL_GNO_REGISTRAR = '0x831ddd71e7c33e16b674099129e6e379da407faf' as Address;
+const NFTMAIL_GNO_REGISTRAR = '0x46c37365572C9994812AAA41fD04eB56D05469D0' as Address;
 const NFTMAIL_WORKER_URL = process.env.NFTMAIL_WORKER_URL || 'https://nftmail-email-worker.richard-159.workers.dev';
 
 const MintSubnameABI = [

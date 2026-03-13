@@ -28,7 +28,7 @@ export const CHONK_MOLT_FEE_XDAI = 2;
 // Treasury receives fee on Gnosis (same treasury wallet used for minting)
 export const GNOSIS_TREASURY = '0xeD0B0694953158dd54D0c36D320b391f44cd67f3' as const;
 
-const NFTMAIL_GNO_REGISTRAR = '0x831ddd71e7c33e16b674099129e6e379da407faf' as const;
+const NFTMAIL_GNO_REGISTRAR = '0x46c37365572C9994812AAA41fD04eB56D05469D0' as const;
 const NFTMAIL_WORKER_URL =
   process.env.NFTMAIL_WORKER_URL ||
   'https://nftmail-email-worker.richard-159.workers.dev';
