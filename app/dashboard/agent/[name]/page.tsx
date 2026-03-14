@@ -1,7 +1,9 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
+import { TradeIntentPanel } from '../../../components/TradeIntentPanel';
 
 const GHOST_LOGO = '/ghost-logo.png';
 
@@ -94,8 +96,16 @@ const STUB_SECTIONS = [
   },
 ];
 
+const TABS = [
+  { id: 'overview',  label: '🪪 Overview' },
+  { id: 'trade',     label: '📈 TradeIntent' },
+  { id: 'handshake', label: '🤝 Handshakes' },
+] as const;
+type TabId = typeof TABS[number]['id'];
+
 export default function AgentDetailPage() {
   const { name } = useParams<{ name: string }>();
+  const [activeTab, setActiveTab] = useState<TabId>('overview');
 
   return (
     <div className="space-y-8">
@@ -137,7 +147,25 @@ export default function AgentDetailPage() {
         <p className="text-[11px] text-amber-300/80">{SECTION_COMING}</p>
       </div>
 
-      {/* Section grid */}
+      {/* Tab bar */}
+      <div className="flex gap-1 rounded-xl border border-[rgba(176,128,92,0.15)] bg-[var(--card)] p-1">
+        {TABS.map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`flex-1 rounded-lg px-3 py-2 text-[11px] font-semibold transition-all ${
+              activeTab === tab.id
+                ? 'bg-[rgba(176,128,92,0.15)] text-[#f2eee4]'
+                : 'text-[var(--muted)] hover:text-[#f2eee4]'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Overview tab ── */}
+      {activeTab === 'overview' && (
       <div className="grid gap-4 md:grid-cols-2">
         {STUB_SECTIONS.map((section) => (
           <div
@@ -160,7 +188,24 @@ export default function AgentDetailPage() {
         ))}
       </div>
 
-      {/* EIP-712 HandshakeCertificate log stub */}
+      )}
+
+      {/* ── TradeIntent tab ── */}
+      {activeTab === 'trade' && (
+        <div className="rounded-2xl border border-[rgba(176,128,92,0.25)] bg-[var(--card)] p-5">
+          <TradeIntentPanel
+            agentName={String(name)}
+            agentId={0}
+            safeAddress="0x0000000000000000000000000000000000000000"
+          />
+          <p className="mt-4 text-[10px] text-[var(--muted)]">
+            agentId and safeAddress are populated once your ERC-8004 registration is confirmed.
+          </p>
+        </div>
+      )}
+
+      {/* ── Handshakes tab ── */}
+      {activeTab === 'handshake' && (
       <div className="rounded-2xl border border-[rgba(176,128,92,0.25)] bg-[var(--card)] p-5">
         <div className="flex items-center gap-2 mb-4">
           <span className="text-lg">🤝</span>
@@ -172,6 +217,7 @@ export default function AgentDetailPage() {
           <p className="mt-1 text-[10px] text-zinc-700">Run <code className="font-mono">node scripts/erc8004-handshake-certificate.mjs</code> to generate one.</p>
         </div>
       </div>
+      )}
 
       {/* Quick actions */}
       <div className="flex flex-wrap gap-2">

@@ -258,6 +258,12 @@ export default function DashboardHome() {
         </div>
         <div className="flex items-center gap-2">
           <Link
+            href="/dashboard/trade"
+            className="rounded-lg border border-violet-500/30 bg-violet-500/10 px-4 py-1.5 text-xs font-semibold text-violet-300 transition hover:bg-violet-500/20"
+          >
+            📈 TradeIntent
+          </Link>
+          <Link
             href="/ip-portal"
             className="rounded-lg border border-[#7c4dff]/30 bg-[#7c4dff]/10 px-4 py-1.5 text-xs font-semibold text-[#a78bfa] transition hover:bg-[#7c4dff]/20"
           >
