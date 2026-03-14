@@ -16,6 +16,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { WORKER_URL } from '../../../utils/config';
 
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin':  'https://notapaperclip.red',
+  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+};
+
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: CORS_HEADERS });
+}
+
 
 async function kvGet(key: string) {
   const res = await fetch(WORKER_URL, {
@@ -28,8 +38,18 @@ async function kvGet(key: string) {
 }
 
 export async function GET(req: NextRequest) {
+  // ── Single proof hash lookup (for /verify/:hash deep-links) ──────────────
+  const proofHash = req.nextUrl.searchParams.get('proofHash')?.toLowerCase();
+  if (proofHash) {
+    const record = await kvGet(`paperclip:attestation:${proofHash}`);
+    if (!record) {
+      return NextResponse.json({ error: 'Proof not found' }, { status: 404, headers: CORS_HEADERS });
+    }
+    return NextResponse.json(record, { headers: CORS_HEADERS });
+  }
+
   const swarmId = req.nextUrl.searchParams.get('swarmId')?.toLowerCase();
-  if (!swarmId) return NextResponse.json({ error: 'Missing swarmId' }, { status: 400 });
+  if (!swarmId) return NextResponse.json({ error: 'Missing swarmId or proofHash' }, { status: 400, headers: CORS_HEADERS });
 
   // Load data in parallel
   const [config, members, attestations, coordinatorState] = await Promise.all([
@@ -82,5 +102,5 @@ export async function GET(req: NextRequest) {
     reputation:     reputationMap,
     config:         config ?? null,
     checkedAt:      Date.now(),
-  });
+  }, { headers: CORS_HEADERS });
 }
