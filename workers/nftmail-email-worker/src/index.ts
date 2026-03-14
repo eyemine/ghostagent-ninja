@@ -1351,6 +1351,197 @@ export default {
           return corsify(Response.json({ error: `Unknown ghostHandshake subAction: ${subAction}` }, { status: 400 }), request);
         }
 
+        // ── Swarm Coordinator ─────────────────────────────────────────────────
+        // getCoordinatorState — returns agents, tasks (+ consensus rounds if section=consensus)
+        // coordinatorAction   — register-agent, remove-agent, assign-task, complete-task
+        if (email.action === 'getCoordinatorState') {
+          const vaultName = ((email as any).vaultName || '').toLowerCase().trim();
+          const section   = ((email as any).section   || 'state');
+          if (!vaultName) return corsify(Response.json({ error: 'Missing vaultName' }, { status: 400 }), request);
+
+          if (section === 'consensus') {
+            const roundsRaw = await env.INBOX_KV.get(`swarm:rounds:${vaultName}`);
+            const rounds    = roundsRaw ? JSON.parse(roundsRaw) : [];
+            return corsify(Response.json({ rounds }), request);
+          }
+
+          const stateRaw = await env.INBOX_KV.get(`swarm:coordinator:${vaultName}`);
+          if (!stateRaw) return corsify(Response.json({ exists: false, vaultName, agents: [], tasks: [], rounds: [] }, { status: 404 }), request);
+          return corsify(Response.json(JSON.parse(stateRaw)), request);
+        }
+
+        if (email.action === 'coordinatorAction') {
+          const subAction   = ((email as any).subAction   || '').toLowerCase();
+          const vaultName   = ((email as any).vaultName   || '').toLowerCase().trim();
+          const agentName   = ((email as any).agentName   || '').toLowerCase().trim();
+          const moduleAddr  = ((email as any).moduleAddress || '');
+          const topic       = ((email as any).topic        || '');
+          const payloadHash = ((email as any).payloadHash  || '');
+          const taskId      = ((email as any).taskId       || '');
+
+          if (!vaultName) return corsify(Response.json({ error: 'Missing vaultName' }, { status: 400 }), request);
+
+          const stateKey = `swarm:coordinator:${vaultName}`;
+          const stateRaw = await env.INBOX_KV.get(stateKey);
+          const state    = stateRaw ? JSON.parse(stateRaw) : {
+            vaultName,
+            inboxEmail: `swarm.${vaultName}_@nftmail.box`,
+            agents: [],
+            tasks:  [],
+          };
+
+          if (subAction === 'register-agent') {
+            if (!agentName) return corsify(Response.json({ error: 'Missing agentName' }, { status: 400 }), request);
+            const existing = state.agents.find((a: any) => a.agentName === agentName);
+            if (existing) {
+              existing.active = true;
+              existing.moduleAddress = moduleAddr || existing.moduleAddress;
+            } else {
+              state.agents.push({ agentName, moduleAddress: moduleAddr, active: true, activeTasks: 0, completedTasks: 0, addedAt: Date.now() });
+            }
+            await env.INBOX_KV.put(stateKey, JSON.stringify(state));
+            return corsify(Response.json({ ok: true, vaultName, agentName }), request);
+          }
+
+          if (subAction === 'remove-agent') {
+            state.agents = state.agents.map((a: any) => a.agentName === agentName ? { ...a, active: false } : a);
+            await env.INBOX_KV.put(stateKey, JSON.stringify(state));
+            return corsify(Response.json({ ok: true, vaultName, agentName }), request);
+          }
+
+          if (subAction === 'assign-task') {
+            const activeAgents = state.agents.filter((a: any) => a.active);
+            if (activeAgents.length === 0) return corsify(Response.json({ error: 'No active agents' }, { status: 400 }), request);
+            const agent    = activeAgents.reduce((min: any, a: any) => a.activeTasks < min.activeTasks ? a : min, activeAgents[0]);
+            const newTaskId = `task-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+            const task      = { taskId: newTaskId, assignedAgent: agent.agentName, topic, payloadHash, assignedAt: Date.now(), completed: false, completedAt: 0 };
+            state.tasks.push(task);
+            const idx = state.agents.findIndex((a: any) => a.agentName === agent.agentName);
+            if (idx >= 0) state.agents[idx].activeTasks++;
+            await env.INBOX_KV.put(stateKey, JSON.stringify(state));
+            return corsify(Response.json({ ok: true, task }), request);
+          }
+
+          if (subAction === 'complete-task') {
+            const taskIdx = state.tasks.findIndex((t: any) => t.taskId === taskId);
+            if (taskIdx < 0) return corsify(Response.json({ error: 'Task not found' }, { status: 404 }), request);
+            state.tasks[taskIdx].completed   = true;
+            state.tasks[taskIdx].completedAt = Date.now();
+            const agentIdx = state.agents.findIndex((a: any) => a.agentName === state.tasks[taskIdx].assignedAgent);
+            if (agentIdx >= 0) {
+              state.agents[agentIdx].activeTasks    = Math.max(0, state.agents[agentIdx].activeTasks - 1);
+              state.agents[agentIdx].completedTasks = (state.agents[agentIdx].completedTasks || 0) + 1;
+            }
+            await env.INBOX_KV.put(stateKey, JSON.stringify(state));
+            return corsify(Response.json({ ok: true, taskId }), request);
+          }
+
+          return corsify(Response.json({ error: `Unknown coordinatorAction subAction: ${subAction}` }, { status: 400 }), request);
+        }
+
+        // ── Swarm Consensus ───────────────────────────────────────────────────
+        // createRound — start a new consensus round
+        // castVote    — cast a vote; resolve if quorum reached
+        // listRounds  — return all rounds for a vault
+        if (email.action === 'swarmConsensus') {
+          const subAction = ((email as any).subAction || '').toLowerCase();
+          const vaultName = ((email as any).vaultName || '').toLowerCase().trim();
+          if (!vaultName) return corsify(Response.json({ error: 'Missing vaultName' }, { status: 400 }), request);
+
+          const roundsKey = `swarm:rounds:${vaultName}`;
+          const roundsRaw = await env.INBOX_KV.get(roundsKey);
+          const rounds: any[] = roundsRaw ? JSON.parse(roundsRaw) : [];
+
+          if (subAction === 'createround') {
+            const topic       = ((email as any).topic    || '').trim();
+            const payload     = ((email as any).payload  || topic).trim();
+            const strategy    = ((email as any).strategy || 'consensus');
+            const xmtpEnabled = !!((email as any).xmtpEnabled);
+            if (!topic) return corsify(Response.json({ error: 'Missing topic' }, { status: 400 }), request);
+
+            // Load member count from coordinator state
+            const stateRaw    = await env.INBOX_KV.get(`swarm:coordinator:${vaultName}`);
+            const memberCount = stateRaw ? (JSON.parse(stateRaw).agents || []).filter((a: any) => a.active).length : 0;
+            const quorum      = Math.max(1, Math.ceil(memberCount * 0.51));
+
+            // Build a deterministic consensus hash
+            const hashInput   = `${vaultName}|${topic}|${payload}|${Date.now()}`;
+            const msgBuffer   = new TextEncoder().encode(hashInput);
+            const hashBuffer  = await crypto.subtle.digest('SHA-256', msgBuffer);
+            const hashArray   = Array.from(new Uint8Array(hashBuffer));
+            const consensusHash = '0x' + hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+            const round = {
+              id:            `round-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+              vaultName,
+              topic,
+              payload,
+              strategy,
+              method:        xmtpEnabled ? 'xmtp' : 'email',
+              xmtpEnabled,
+              votes:         [],
+              memberCount,
+              quorum,
+              result:        'pending',
+              consensusHash,
+              createdAt:     Date.now(),
+              resolvedAt:    undefined,
+            };
+
+            rounds.unshift(round);
+            await env.INBOX_KV.put(roundsKey, JSON.stringify(rounds));
+            return corsify(Response.json({ ok: true, round }), request);
+          }
+
+          if (subAction === 'castvote') {
+            const roundId   = (email as any).roundId   || '';
+            const agentName = ((email as any).agentName || '').toLowerCase().trim();
+            const vote      = (email as any).vote       || '';
+
+            if (!roundId || !agentName || !['yes', 'no', 'abstain'].includes(vote)) {
+              return corsify(Response.json({ error: 'Missing roundId, agentName, or invalid vote' }, { status: 400 }), request);
+            }
+
+            const idx = rounds.findIndex((r: any) => r.id === roundId);
+            if (idx < 0) return corsify(Response.json({ error: 'Round not found' }, { status: 404 }), request);
+
+            const round = rounds[idx];
+            if (round.result !== 'pending') return corsify(Response.json({ error: 'Round already resolved' }, { status: 409 }), request);
+            if (round.votes.find((v: any) => v.agentName === agentName)) {
+              return corsify(Response.json({ error: 'Agent already voted' }, { status: 409 }), request);
+            }
+
+            round.votes.push({ agentName, vote, reason: null, timestamp: Date.now(), method: round.method });
+
+            const yesCount = round.votes.filter((v: any) => v.vote === 'yes').length;
+            const noCount  = round.votes.filter((v: any) => v.vote === 'no').length;
+
+            if (yesCount >= round.quorum) {
+              round.result     = 'approved';
+              round.resolvedAt = Date.now();
+              // Glass Box audit
+              const auditKey = `audit:consensus:${vaultName}`;
+              const auditRaw = await env.INBOX_KV.get(auditKey);
+              const auditLog: unknown[] = auditRaw ? JSON.parse(auditRaw) : [];
+              auditLog.push({ roundId, vaultName, topic: round.topic, result: 'approved', consensusHash: round.consensusHash, votedCount: round.votes.length, memberCount: round.memberCount, timestamp: Date.now() });
+              await env.INBOX_KV.put(auditKey, JSON.stringify(auditLog));
+            } else if (noCount > round.memberCount - round.quorum) {
+              round.result     = 'rejected';
+              round.resolvedAt = Date.now();
+            }
+
+            rounds[idx] = round;
+            await env.INBOX_KV.put(roundsKey, JSON.stringify(rounds));
+            return corsify(Response.json({ ok: true, round }), request);
+          }
+
+          if (subAction === 'listrounds') {
+            return corsify(Response.json({ ok: true, rounds }), request);
+          }
+
+          return corsify(Response.json({ error: `Unknown swarmConsensus subAction: ${subAction}` }, { status: 400 }), request);
+        }
+
         // Paperclip TEE attestation submission
         // Stores the proof record in KV and emits a Glass Box audit log entry.
         // On-chain submitAttestation() must be called separately via the Safe.

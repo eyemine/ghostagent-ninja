@@ -4,6 +4,8 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { TradeIntentPanel } from '../../../components/TradeIntentPanel';
+import SwarmConsensus from '../../../components/SwarmConsensus';
+import { GhostHandshakePanel } from '../../../components/GhostHandshakePanel';
 
 const GHOST_LOGO = '/ghost-logo.png';
 
@@ -97,9 +99,11 @@ const STUB_SECTIONS = [
 ];
 
 const TABS = [
-  { id: 'overview',  label: '🪪 Overview' },
+  { id: 'overview',  label: '🪪 Overview'    },
   { id: 'trade',     label: '📈 TradeIntent' },
-  { id: 'handshake', label: '🤝 Handshakes' },
+  { id: 'swarm',     label: '🤝 Swarm'       },
+  { id: 'tunnel',    label: '🌐 Tunnel'      },
+  { id: 'handshake', label: '🔏 Certs'       },
 ] as const;
 type TabId = typeof TABS[number]['id'];
 
@@ -201,6 +205,28 @@ export default function AgentDetailPage() {
           <p className="mt-4 text-[10px] text-[var(--muted)]">
             agentId and safeAddress are populated once your ERC-8004 registration is confirmed.
           </p>
+        </div>
+      )}
+
+      {/* ── Swarm tab ── */}
+      {activeTab === 'swarm' && (
+        <div className="rounded-2xl border border-[rgba(176,128,92,0.25)] bg-[var(--card)] p-5">
+          <SwarmConsensus
+            vaultName={String(name).replace(/\.(vault|agent)\.gno$/, '')}
+            walletAddress="0x0000000000000000000000000000000000000000"
+            xmtpEnabled={false}
+            memberCount={3}
+          />
+        </div>
+      )}
+
+      {/* ── Ghost-Tunnel tab ── */}
+      {activeTab === 'tunnel' && (
+        <div className="rounded-2xl border border-[rgba(176,128,92,0.25)] bg-[var(--card)] p-5">
+          <GhostHandshakePanel
+            agentName={String(name).includes('.vault.gno') ? String(name) : `${String(name)}.vault.gno`}
+            safeAddress="0x0000000000000000000000000000000000000000"
+          />
         </div>
       )}
 
