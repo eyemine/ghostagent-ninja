@@ -24,8 +24,8 @@ import {
   type ExecuteTradeParams,
 } from '../../../services/cow-dex';
 import type { Address, Hex } from 'viem';
+import { WORKER_URL } from '../../../utils/config';
 
-const WORKER_URL = process.env.NFTMAIL_WORKER_URL || 'https://nftmail-email-worker.richard-159.workers.dev';
 
 function err(msg: string, status = 400) {
   return NextResponse.json({ error: msg }, { status });

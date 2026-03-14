@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { WORKER_URL } from '../../../utils/config';
 
 /**
  * /api/agent/budget
@@ -15,7 +16,6 @@ import { NextRequest, NextResponse } from 'next/server';
  * KV keys: budget:<agent>:cap | spent | day | paused | alert | module
  */
 
-const WORKER_URL = process.env.NFTMAIL_WORKER_URL ?? 'https://nftmail-email-worker.richard-159.workers.dev';
 const BUDGET_ADMIN_SECRET = process.env.BUDGET_ADMIN_SECRET;
 const ALERT_THRESHOLD_DEFAULT = 8000; // 80% in bps
 

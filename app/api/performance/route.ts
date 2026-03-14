@@ -14,9 +14,7 @@ import {
   formatMetricsSummary,
   type TradeRecord,
 } from '../../services/performance-tracker';
-
-const WORKER_URL =
-  process.env.NFTMAIL_WORKER_URL ?? 'https://nftmail-email-worker.richard-159.workers.dev';
+import { WORKER_URL } from '../../utils/config';
 
 // LabLab leaderboard endpoint (placeholder — update when API is published)
 const LABLAB_LEADERBOARD_URL =

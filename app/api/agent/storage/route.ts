@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { StoredFile, StorageState } from '../../../services/storage-quota-manager';
 import { defaultState, MB } from '../../../services/storage-quota-manager';
+import { WORKER_URL } from '../../../utils/config';
 
-const WORKER_URL = process.env.NFTMAIL_WORKER_URL ?? 'https://nftmail-email-worker.richard-159.workers.dev';
 const BASE_URL = process.env.NEXTJS_BASE_URL ?? 'https://ghostagent.ninja';
 
 async function kvGet(key: string): Promise<string | null> {

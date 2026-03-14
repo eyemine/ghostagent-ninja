@@ -13,10 +13,8 @@ import {
   type EmailAliasMeta,
   type MoltEvent,
 } from '../../services/beacon-metadata';
+import { WORKER_URL } from '../../utils/config';
 
-const WORKER_URL =
-  process.env.NFTMAIL_WORKER_URL ||
-  'https://nftmail-email-worker.richard-159.workers.dev';
 
 const WEBHOOK_SECRET = process.env.NFTMAIL_WEBHOOK_SECRET || '';
 const LIGHTHOUSE_API_KEY = process.env.LIGHTHOUSE_API_KEY;

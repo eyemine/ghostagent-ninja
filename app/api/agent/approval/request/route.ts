@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { WORKER_URL } from '../../../../utils/config';
 
 /**
  * /api/agent/approval/request
@@ -11,7 +12,6 @@ import { NextRequest, NextResponse } from 'next/server';
  *   action = 'emergency-unpause' — unpause (adminSecret required)
  */
 
-const WORKER_URL = process.env.NFTMAIL_WORKER_URL ?? 'https://nftmail-email-worker.richard-159.workers.dev';
 const BASE_URL = process.env.NEXTJS_BASE_URL ?? 'https://ghostagent.ninja';
 const ADMIN_SECRET = process.env.BUDGET_ADMIN_SECRET;
 

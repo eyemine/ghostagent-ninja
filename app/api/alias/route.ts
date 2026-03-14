@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { WORKER_URL } from '../../utils/config';
 
-const WORKER_URL =
-  process.env.NFTMAIL_WORKER_URL ||
-  'https://nftmail-email-worker.richard-159.workers.dev';
 
 export interface AliasRecord {
   primary: string;          // e.g. "paymastr_"  (agent local-part)

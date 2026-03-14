@@ -12,10 +12,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createX402Gate } from '../../../services/x402-server';
+import { WORKER_URL } from '../../../utils/config';
 
-const WORKER_URL =
-  process.env.NFTMAIL_WORKER_URL ||
-  'https://nftmail-email-worker.richard-159.workers.dev';
 
 const gate = createX402Gate({
   price:       '$0.001',

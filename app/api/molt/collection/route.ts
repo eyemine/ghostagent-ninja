@@ -10,9 +10,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { runCollectionMolt } from '../../../services/collection-molt';
 import { workerTierToLevel } from '../../../services/evolve-level';
+import { WORKER_URL } from '../../../utils/config';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://ghostagent.ninja';
-const WORKER_URL = process.env.NFTMAIL_WORKER_URL || 'https://nftmail-email-worker.richard-159.workers.dev';
 const MOLT_PERMITTED_TIERS = new Set(['pupa', 'imago', 'ghost']);
 
 export async function POST(req: NextRequest) {

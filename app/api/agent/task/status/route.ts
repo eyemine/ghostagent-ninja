@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { WORKER_URL } from '../../../../utils/config';
 
 /**
  * /api/agent/task/status
@@ -9,7 +10,6 @@ import { NextRequest, NextResponse } from 'next/server';
  *   action = 'increment-failures'— bump counter, return new value
  */
 
-const WORKER_URL = process.env.NFTMAIL_WORKER_URL ?? 'https://nftmail-email-worker.richard-159.workers.dev';
 const GLASSBOX_URL = process.env.NEXTJS_BASE_URL ?? 'https://ghostagent.ninja';
 
 interface TaskLog {

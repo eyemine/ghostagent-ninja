@@ -23,8 +23,8 @@ import {
   GNO_TOKEN,
   deadlineInMinutes,
 } from '../../services/trade-intent';
+import { WORKER_URL } from '../../utils/config';
 
-const WORKER_URL = process.env.NFTMAIL_WORKER_URL || 'https://nftmail-email-worker.richard-159.workers.dev';
 
 // ERC-8004 Validation Registry on Gnosis mainnet
 const ERC8004_VALIDATION_REGISTRY = '0x8004A169FB4a3325136EB29fA0ceB6D2e539a432';

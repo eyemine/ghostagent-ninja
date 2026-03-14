@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { WORKER_URL } from '../../../utils/config';
 
 /**
  * POST /api/mail/register-key
@@ -14,9 +15,6 @@ import { NextRequest, NextResponse } from 'next/server';
  * }
  */
 
-const WORKER_URL =
-  process.env.NFTMAIL_WORKER_URL ||
-  'https://nftmail-email-worker.richard-159.workers.dev';
 
 export async function POST(req: NextRequest) {
   try {

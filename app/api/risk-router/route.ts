@@ -12,9 +12,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { WORKER_URL } from '../../utils/config';
 
-const WORKER_URL =
-  process.env.NFTMAIL_WORKER_URL ?? 'https://nftmail-email-worker.richard-159.workers.dev';
 
 // Default risk limits
 const DEFAULT_RISK_CONFIG = {

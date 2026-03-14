@@ -8,10 +8,8 @@ import {
   VAULT_EVOLUTION_COST_XDAI,
   type VaultEvolutionRecord,
 } from '../../../services/vault-evolution';
+import { WORKER_URL } from '../../../utils/config';
 
-const WORKER_URL =
-  process.env.NFTMAIL_WORKER_URL ||
-  'https://nftmail-email-worker.richard-159.workers.dev';
 
 const WEBHOOK_SECRET = process.env.NFTMAIL_WEBHOOK_SECRET || '';
 

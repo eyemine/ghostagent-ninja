@@ -7,10 +7,8 @@ import {
   type SwarmStrategy,
   type SwarmMember,
 } from '../../../services/vault-swarm-config';
+import { WORKER_URL } from '../../../utils/config';
 
-const WORKER_URL =
-  process.env.NFTMAIL_WORKER_URL ||
-  'https://nftmail-email-worker.richard-159.workers.dev';
 
 /** KV key for a vault's swarm config */
 function swarmKey(vaultName: string) {

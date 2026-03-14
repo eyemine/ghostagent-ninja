@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createPublicClient, http, namehash } from 'viem';
 import { mainnet } from 'viem/chains';
 import { getAllCollections } from '../../services/collection-registry';
+import { WORKER_URL } from '../../utils/config';
 
 // Flat set of all reserved words derived from collection registry at module load.
 // Includes ENS-reserved prefixes like 'chonk', 'atom', 'punk', 'punks', etc.
@@ -9,9 +10,6 @@ const COLLECTION_RESERVED: Set<string> = new Set(
   getAllCollections().flatMap(c => c.ensReserved),
 );
 
-const WORKER_URL =
-  process.env.NFTMAIL_WORKER_URL ||
-  'https://nftmail-email-worker.richard-159.workers.dev';
 
 // ENS Registry on Ethereum mainnet
 const ENS_REGISTRY = '0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e' as const;

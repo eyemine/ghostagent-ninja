@@ -9,11 +9,9 @@
 /// and are referenced from the ERC-8004 registration.json services array.
 
 import { NextResponse } from 'next/server';
+import { WORKER_URL } from '../../../utils/config';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://ghostagent.ninja';
-const WORKER_URL =
-  process.env.NFTMAIL_WORKER_URL ??
-  'https://nftmail-email-worker.richard-159.workers.dev';
 
 export const dynamic = 'force-dynamic';
 

@@ -13,9 +13,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { buildReputationUpdate } from '../../../services/paperclip-attestation';
 import { GNOSIS_ADDRESSES } from '../../../services/erc8004-registration';
+import { WORKER_URL } from '../../../utils/config';
 
-const WORKER_URL =
-  process.env.NFTMAIL_WORKER_URL ?? 'https://nftmail-email-worker.richard-159.workers.dev';
 
 async function workerPost(body: Record<string, unknown>) {
   const res = await fetch(WORKER_URL, {

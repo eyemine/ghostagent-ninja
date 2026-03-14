@@ -13,6 +13,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { runChonkMolt, type ChonkMoltParams } from '../../services/chonk-molt';
+import { WORKER_URL } from '../../utils/config';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://ghostagent.ninja';
 
@@ -93,9 +94,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Missing primaryName' }, { status: 400 });
   }
 
-  const WORKER_URL =
-    process.env.NFTMAIL_WORKER_URL ||
-    'https://nftmail-email-worker.richard-159.workers.dev';
 
   try {
     // Check alias record

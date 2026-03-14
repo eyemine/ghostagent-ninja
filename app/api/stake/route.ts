@@ -5,10 +5,8 @@ import {
   resolveStakeTier,
   type StakeRecord,
 } from '../../services/host-staking';
+import { WORKER_URL } from '../../utils/config';
 
-const WORKER_URL =
-  process.env.NFTMAIL_WORKER_URL ||
-  'https://nftmail-email-worker.richard-159.workers.dev';
 
 /**
  * GET /api/stake?name=victor&tld=agent.gno

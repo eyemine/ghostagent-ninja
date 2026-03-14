@@ -28,10 +28,10 @@ import {
   GNOSIS_ADDRESSES,
 } from '../../../services/erc8004-registration';
 import { type SldKey } from '../../../services/genome-metadata';
+import { WORKER_URL } from '../../../utils/config';
 
 const LIGHTHOUSE_UPLOAD = 'https://node.lighthouse.storage/api/v0/add';
 const IPFS_GATEWAY      = 'https://gateway.lighthouse.storage/ipfs';
-const WORKER_URL        = process.env.NFTMAIL_WORKER_URL || 'https://nftmail-email-worker.richard-159.workers.dev';
 
 const IdentityRegistryABI = [
   {

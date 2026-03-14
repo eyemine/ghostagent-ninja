@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { buildGlassBoxEntry, type LogOptions } from '../../../services/glassbox-xmtp-logger';
+import { WORKER_URL } from '../../../utils/config';
 
-const WORKER_URL =
-  process.env.NFTMAIL_WORKER_URL ||
-  'https://nftmail-email-worker.richard-159.workers.dev';
 
 /**
  * GET /api/glassbox/log?name=alice&tld=openclaw.gno

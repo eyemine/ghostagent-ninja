@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { buildGlassBoxEntry } from '../../../services/glassbox-xmtp-logger';
+import { WORKER_URL } from '../../../utils/config';
 
 /**
  * POST /api/mail/ingest
@@ -9,9 +10,6 @@ import { buildGlassBoxEntry } from '../../../services/glassbox-xmtp-logger';
  * Authenticated via x-worker-secret header.
  */
 
-const WORKER_URL =
-  process.env.NFTMAIL_WORKER_URL ||
-  'https://nftmail-email-worker.richard-159.workers.dev';
 
 const WORKER_API_SECRET = process.env.WORKER_API_SECRET ?? '';
 

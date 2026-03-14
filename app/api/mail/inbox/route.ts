@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { WORKER_URL } from '../../../utils/config';
 
 /**
  * GET /api/mail/inbox?agent=alice&cursor=<cursor>&limit=20
@@ -6,9 +7,6 @@ import { NextRequest, NextResponse } from 'next/server';
  * Ciphertext is returned as-is — decryption happens client-side.
  */
 
-const WORKER_URL =
-  process.env.NFTMAIL_WORKER_URL ||
-  'https://nftmail-email-worker.richard-159.workers.dev';
 
 export async function GET(req: NextRequest) {
   const agent = req.nextUrl.searchParams.get('agent');

@@ -14,11 +14,9 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createHmac } from 'crypto';
+import { WORKER_URL } from '../../utils/config';
 
 const TRANSAK_SECRET = process.env.TRANSAK_SECRET_KEY ?? '';
-const WORKER_URL =
-  process.env.NFTMAIL_WORKER_URL ||
-  'https://nftmail-email-worker.richard-159.workers.dev';
 const WEBHOOK_SECRET = process.env.NFTMAIL_WEBHOOK_SECRET || '';
 
 interface TransakOrder {

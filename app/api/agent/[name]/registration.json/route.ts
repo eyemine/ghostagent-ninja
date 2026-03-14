@@ -11,10 +11,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { WORKER_URL } from '../../../../utils/config';
 
-const WORKER_URL =
-  process.env.NFTMAIL_WORKER_URL ||
-  'https://nftmail-email-worker.richard-159.workers.dev';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://ghostagent.ninja';
 

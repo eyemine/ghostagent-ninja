@@ -15,12 +15,10 @@ import { trackMolt } from '../../services/molt-path-tracker';
 import { workerTierToLevel } from '../../services/evolve-level';
 import { mintOptionalIP } from '../../services/optional-ip-minter';
 import { FEATURES } from '../../constants/features';
+import { WORKER_URL } from '../../utils/config';
 
 const MOLT_PERMITTED_TIERS = new Set(['pupa', 'imago', 'ghost']);
 
-const WORKER_URL =
-  process.env.NFTMAIL_WORKER_URL ||
-  'https://nftmail-email-worker.richard-159.workers.dev';
 
 const WEBHOOK_SECRET = process.env.NFTMAIL_WEBHOOK_SECRET || '';
 const GNOSIS_RPC = process.env.NEXT_PUBLIC_GNOSIS_RPC || 'https://rpc.gnosischain.com';
