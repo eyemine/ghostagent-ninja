@@ -11,6 +11,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { TradeIntentPanel } from '../../components/TradeIntentPanel';
+import { TradingDashboard } from '../../components/TradingDashboard';
 import { TRADE_INTENT_DOMAIN, TRADE_INTENT_TYPES } from '../../services/trade-intent';
 
 const GHOST_LOGO = '/ghost-logo.png';
@@ -31,6 +32,7 @@ export default function TradePage() {
   const connectedWallet = wallets[0]?.address ?? null;
 
   const [selectedIdx, setSelectedIdx] = useState(0);
+  const [panelTab,    setPanelTab]    = useState<'intent' | 'execute'>('intent');
   const selected = DEMO_AGENTS[selectedIdx];
 
   return (
@@ -101,11 +103,11 @@ export default function TradePage() {
 
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
 
-        {/* ── Left: TradeIntentPanel ── */}
-        <div className="rounded-2xl border border-[rgba(176,128,92,0.25)] bg-[var(--card)] p-6">
+        {/* ── Left: tab-switched panel ── */}
+        <div className="rounded-2xl border border-[rgba(176,128,92,0.25)] bg-[var(--card)] p-6 space-y-5">
 
           {/* Agent selector */}
-          <div className="mb-6 space-y-2">
+          <div className="space-y-2">
             <div className="text-[10px] font-semibold tracking-widest text-[var(--muted)]">SIGNING AGENT</div>
             <div className="flex gap-2">
               {DEMO_AGENTS.map((agent, i) => (
@@ -128,21 +130,44 @@ export default function TradePage() {
             </div>
           </div>
 
-          {authenticated ? (
+          {/* Panel tab bar */}
+          <div className="flex gap-1 rounded-xl border border-[rgba(176,128,92,0.15)] bg-black/20 p-1">
+            {(['intent', 'execute'] as const).map(t => (
+              <button
+                key={t}
+                onClick={() => setPanelTab(t)}
+                className={`flex-1 rounded-lg py-1.5 text-[11px] font-semibold transition-all ${
+                  panelTab === t
+                    ? 'bg-[rgba(176,128,92,0.15)] text-[#f2eee4]'
+                    : 'text-[var(--muted)] hover:text-[#f2eee4]'
+                }`}
+              >
+                {t === 'intent' ? '🔏 Sign Intent' : '📈 Execute Trade'}
+              </button>
+            ))}
+          </div>
+
+          {!authenticated ? (
+            <div className="rounded-xl border border-[rgba(176,128,92,0.2)] bg-[rgba(176,128,92,0.05)] px-6 py-10 text-center">
+              <p className="text-sm text-[var(--muted)]">Connect your wallet to continue.</p>
+              <p className="mt-1 text-xs text-zinc-600">Privy wallet or injected provider used for EIP-712 signing.</p>
+            </div>
+          ) : panelTab === 'intent' ? (
             <TradeIntentPanel
               agentName={selected.name}
               agentId={selected.agentId}
               safeAddress={selected.safeAddress}
             />
           ) : (
-            <div className="rounded-xl border border-[rgba(176,128,92,0.2)] bg-[rgba(176,128,92,0.05)] px-6 py-10 text-center">
-              <p className="text-sm text-[var(--muted)]">Connect your wallet to sign TradeIntents.</p>
-              <p className="mt-1 text-xs text-zinc-600">Your Privy wallet or injected provider will be used for EIP-712 signing.</p>
-            </div>
+            <TradingDashboard
+              agentName={selected.name}
+              agentId={selected.agentId}
+              safeAddress={selected.safeAddress}
+            />
           )}
 
           {connectedWallet && (
-            <p className="mt-3 text-[10px] text-[var(--muted)]">
+            <p className="text-[10px] text-[var(--muted)]">
               Connected: <span className="font-mono text-[#b0805c]">{shortAddr(connectedWallet)}</span>
             </p>
           )}
