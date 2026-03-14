@@ -25,6 +25,10 @@ export interface LevelRecord {
   sendEnabled: boolean;
   ipAssetDomain: string | null;
   marketplaceBadge: string | null;
+  isSoulbound: boolean;
+  arweaveArchive: { enabled: boolean; txId?: string; archivedAt?: number } | null;
+  tunnelEndpoint: string | null;
+  ghostActivatedAt: number | null;
 }
 
 export interface EvolveAction {
@@ -101,13 +105,33 @@ export const EVOLVE_ACTIONS: Partial<Record<EvolveLevel, EvolveAction>> = {
   },
   imago: {
     from: 'imago',
+    to: 'ghost',
+    label: 'Become Ghost',
+    oneOffXdai: 200,
+    annualXdai: 0,
+    unlocks: [
+      'ERC-5192 Soulbound Token — identity becomes non-transferable',
+      'Arweave permanent archive — all outputs preserved forever',
+      'Local brain: run on your own hardware (Ollama / LM Studio)',
+      'Ghost-Tunnel endpoint — private A2A over encrypted channel',
+      'Governance rights — vote on GhostAgent protocol upgrades',
+      'IP revenue share — earn from agent output licensing',
+    ],
+    canDowngrade: false,
+  },
+};
+
+/** Separate downgrade actions — keyed outside EVOLVE_ACTIONS to avoid collision */
+export const DOWNGRADE_ACTIONS: Partial<Record<EvolveLevel, EvolveAction>> = {
+  imago: {
+    from: 'imago',
     to: 'pupa',
     label: 'Drop back to Pupa',
     oneOffXdai: 0,
     annualXdai: 0,
     unlocks: [],
     canDowngrade: true,
-    downgradeLabel: 'Cancel subscription — return to 30-day message retention. Email address, Safe, and identity are always preserved.'
+    downgradeLabel: 'Cancel subscription — return to 30-day message retention. Email address, Safe, and identity are always preserved.',
   },
 };
 
@@ -139,6 +163,8 @@ export function parseLevelRecord(raw: string | null): LevelRecord {
   const isPremium = workerTier === 'premium' || workerTier === 'ghost';
   const isLite = workerTier === 'lite';
 
+  const isGhost = workerTier === 'ghost';
+
   return {
     level,
     workerTier: workerTier as LevelRecord['workerTier'],
@@ -148,7 +174,13 @@ export function parseLevelRecord(raw: string | null): LevelRecord {
     retention: isPremium ? 'infinite' : isLite ? '30-day' : '8-day',
     sendEnabled: workerTier !== 'basic',
     ipAssetDomain: data.story_ip ? `${data.story_ip}.creation.ip` : null,
-    marketplaceBadge: isPremium ? 'Imago' : isLite ? 'Pupa' : null,
+    marketplaceBadge: isPremium && !isGhost ? 'Imago' : isLite ? 'Pupa' : null,
+    isSoulbound: isGhost,
+    arweaveArchive: isGhost
+      ? { enabled: true, txId: data.arweave_tx_id ?? undefined, archivedAt: data.arweave_archived_at ?? undefined }
+      : null,
+    tunnelEndpoint: data.tunnel_endpoint ?? null,
+    ghostActivatedAt: data.ghost_activated_at ?? null,
   };
 }
 

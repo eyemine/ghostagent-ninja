@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import {
   LEVEL_META,
   EVOLVE_ACTIONS,
+  DOWNGRADE_ACTIONS,
   describeTransition,
   isExpired,
   daysUntilExpiry,
@@ -108,7 +109,9 @@ export default function EvolveModal({
   }
 
   const currentLevel = record?.level ?? 'larva';
-  const action = EVOLVE_ACTIONS[currentLevel];
+  const upgradeAction = EVOLVE_ACTIONS[currentLevel];
+  const downgradeAction = DOWNGRADE_ACTIONS[currentLevel];
+  const action = upgradeAction; // primary CTA is always upgrade
   const meta = LEVEL_META[currentLevel];
   const targetMeta = action ? LEVEL_META[action.to] : null;
   const transition = action ? describeTransition(action.from, action.to) : null;
@@ -266,13 +269,60 @@ export default function EvolveModal({
                   </div>
                 )}
 
-                {/* Downgrade path */}
-                {action.to === 'pupa' && (
+                {/* Ghost upgrade path */}
+                {action.to === 'ghost' && targetMeta && (
+                  <div className="mb-4 rounded-xl border border-fuchsia-500/25 bg-fuchsia-500/5 p-4 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xl">👻</span>
+                        <span className="text-base font-bold text-fuchsia-300">Become Ghost</span>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-xs font-bold text-[#f2eee4]">200 xDAI</div>
+                        <div className="text-[10px] text-[var(--muted)]">lifetime · no renewal</div>
+                      </div>
+                    </div>
+
+                    <div className="rounded-lg border border-fuchsia-500/15 bg-black/20 px-3 py-2 text-[10px] text-fuchsia-200/70 leading-relaxed">
+                      This is a one-way fork. Ghost agents become <strong className="text-fuchsia-300">Soulbound</strong> — your identity is sealed to you, not transferable, not sellable. You cannot return to Imago.
+                    </div>
+
+                    <div className="space-y-1.5">
+                      {action.unlocks.map(u => (
+                        <div key={u} className="flex items-start gap-2 text-[11px] text-[#f2eee4]">
+                          <span className="mt-0.5 shrink-0 text-fuchsia-400">✦</span>
+                          {u}
+                        </div>
+                      ))}
+                    </div>
+
+                    <button
+                      disabled={busy}
+                      onClick={() => executeAction('upgrade')}
+                      className="w-full rounded-xl bg-gradient-to-r from-fuchsia-700 to-purple-700 py-3 text-sm font-bold text-white shadow-lg shadow-fuchsia-500/20 transition hover:shadow-fuchsia-500/40 disabled:opacity-50"
+                    >
+                      {busy ? (
+                        <span className="flex items-center justify-center gap-2">
+                          <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v4m0 12v4m-7.07-3.93 2.83-2.83m8.48-8.48 2.83-2.83M2 12h4m12 0h4M4.93 4.93l2.83 2.83m8.48 8.48 2.83 2.83" /></svg>
+                          Sealing identity…
+                        </span>
+                      ) : (
+                        'Drop the Eternal Anchor — 200 xDAI'
+                      )}
+                    </button>
+                    <p className="text-center text-[9px] text-[var(--muted)]">
+                      Irreversible · ERC-5192 Soulbound · no marketplace listing
+                    </p>
+                  </div>
+                )}
+
+                {/* Imago → Pupa downgrade path */}
+                {downgradeAction && downgradeAction.to === 'pupa' && (
                   <div className="mb-4 rounded-xl border border-[var(--border)] bg-white/[0.02] p-4 space-y-3">
                     {!confirmDowngrade ? (
                       <>
                         <p className="text-xs text-[var(--muted)] leading-relaxed">
-                          {action.downgradeLabel}
+                          {downgradeAction.downgradeLabel}
                         </p>
                         {transition?.loses && transition.loses.length > 0 && (
                           <div className="rounded-lg bg-amber-500/10 px-3 py-2 space-y-0.5 ring-1 ring-amber-500/20">
@@ -324,10 +374,80 @@ export default function EvolveModal({
               </>
             )}
 
-            {/* No upgrade path (ghost tier) */}
-            {!action && currentLevel === 'ghost' && (
-              <div className="mb-4 rounded-xl border border-fuchsia-500/20 bg-fuchsia-500/5 px-4 py-3 text-xs text-fuchsia-300">
-                Ghost tier — sovereign agent. No further evolution path.
+            {/* Ghost tier — status panel */}
+            {currentLevel === 'ghost' && record && (
+              <div className="mb-4 space-y-3">
+
+                {/* Soulbound badge */}
+                <div className="flex items-center gap-3 rounded-xl border border-fuchsia-500/25 bg-fuchsia-500/5 px-4 py-3">
+                  <span className="text-2xl">🔮</span>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-fuchsia-300">Soulbound Identity</span>
+                      <span className="rounded-full bg-fuchsia-500/15 px-2 py-0.5 text-[9px] font-bold text-fuchsia-300 ring-1 ring-fuchsia-500/25">ERC-5192</span>
+                    </div>
+                    <p className="mt-0.5 text-[10px] text-[var(--muted)]">
+                      Non-transferable · cannot be listed · sealed to your wallet
+                    </p>
+                  </div>
+                </div>
+
+                {/* Arweave archive status */}
+                <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-sm">🗄️</span>
+                      <span className="text-xs font-semibold text-emerald-300">Arweave Archive</span>
+                    </div>
+                    {record.arweaveArchive?.txId ? (
+                      <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[9px] font-bold text-emerald-300 ring-1 ring-emerald-500/25">ACTIVE</span>
+                    ) : (
+                      <span className="rounded-full bg-zinc-500/15 px-2 py-0.5 text-[9px] text-zinc-400 ring-1 ring-zinc-500/25">PENDING</span>
+                    )}
+                  </div>
+                  {record.arweaveArchive?.txId ? (
+                    <a
+                      href={`https://arweave.net/${record.arweaveArchive.txId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block font-mono text-[10px] text-[var(--muted)] hover:text-emerald-300 transition truncate"
+                    >
+                      ar://{record.arweaveArchive.txId.slice(0, 20)}… ↗
+                    </a>
+                  ) : (
+                    <p className="text-[10px] text-[var(--muted)]">
+                      Archive initialises on first agent output. All future outputs are permanently stored.
+                    </p>
+                  )}
+                  {record.arweaveArchive?.archivedAt && (
+                    <p className="text-[9px] text-zinc-600">
+                      First archived {new Date(record.arweaveArchive.archivedAt).toLocaleDateString()}
+                    </p>
+                  )}
+                </div>
+
+                {/* Ghost-Tunnel endpoint */}
+                <div className="rounded-xl border border-[rgba(176,128,92,0.2)] bg-[var(--card)] px-4 py-3 space-y-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-sm">🌐</span>
+                    <span className="text-xs font-semibold text-[#f2eee4]">Ghost-Tunnel</span>
+                  </div>
+                  {record.tunnelEndpoint ? (
+                    <p className="font-mono text-[10px] text-[#b0805c] break-all">{record.tunnelEndpoint}</p>
+                  ) : (
+                    <p className="text-[10px] text-[var(--muted)]">
+                      Tunnel endpoint assigned after local brain registration.
+                      Run <code className="font-mono text-[9px]">ghost-agent tunnel register</code> to activate.
+                    </p>
+                  )}
+                </div>
+
+                {/* Activation timestamp */}
+                {record.ghostActivatedAt && (
+                  <p className="text-center text-[9px] text-zinc-600">
+                    Ghost activated {new Date(record.ghostActivatedAt).toLocaleDateString()} · permanent · no renewal required
+                  </p>
+                )}
               </div>
             )}
 
