@@ -1123,6 +1123,234 @@ export default {
           return corsify(Response.json({ status: 'ok', key }), request);
         }
 
+        // EIP-712 TradeIntent — store, list, retrieve signed trade intent artifacts
+        // Artifacts are referenced as requestURI in ERC-8004 Validation Registry submissions.
+        // Glass Box audit entry emitted on every store.
+        if (email.action === 'storeTradeIntent') {
+          const agentName = ((email as any).agentName || '').toLowerCase().trim();
+          const artifact  = (email as any).artifact;
+          if (!agentName || !artifact?.intentHash) {
+            return corsify(Response.json({ error: 'Missing agentName or artifact.intentHash' }, { status: 400 }), request);
+          }
+
+          // Store artifact by intentHash (primary lookup key)
+          const artifactKey = `tradintent:artifact:${artifact.intentHash}`;
+          await env.INBOX_KV.put(artifactKey, JSON.stringify(artifact));
+
+          // Maintain per-agent index (newest first, capped at 100)
+          const idxKey = `tradeintent:index:${agentName}`;
+          const idxRaw = await env.INBOX_KV.get(idxKey);
+          const idx: string[] = idxRaw ? JSON.parse(idxRaw) : [];
+          idx.unshift(artifact.intentHash);
+          if (idx.length > 100) idx.splice(100);
+          await env.INBOX_KV.put(idxKey, JSON.stringify(idx));
+
+          // Glass Box audit entry
+          const auditKey = `audit:tradeintent:${agentName}`;
+          const auditRaw = await env.INBOX_KV.get(auditKey);
+          const auditLog: unknown[] = auditRaw ? JSON.parse(auditRaw) : [];
+          auditLog.unshift({
+            type:        'trade-intent-stored',
+            agentName,
+            intentHash:  artifact.intentHash,
+            agentId:     artifact.agentId,
+            strategyTag: artifact.intent?.strategyTag,
+            tokenIn:     artifact.intent?.tokenIn,
+            tokenOut:    artifact.intent?.tokenOut,
+            amountIn:    artifact.intent?.amountIn,
+            createdAt:   artifact.createdAt,
+          });
+          if (auditLog.length > 200) auditLog.splice(200);
+          await env.INBOX_KV.put(auditKey, JSON.stringify(auditLog));
+
+          return corsify(Response.json({ ok: true, intentHash: artifact.intentHash }), request);
+        }
+
+        if (email.action === 'listTradeIntents') {
+          const agentName = ((email as any).agentName || '').toLowerCase().trim();
+          if (!agentName) return corsify(Response.json({ error: 'Missing agentName' }, { status: 400 }), request);
+
+          const idxRaw = await env.INBOX_KV.get(`tradeintent:index:${agentName}`);
+          const idx: string[] = idxRaw ? JSON.parse(idxRaw) : [];
+
+          const intents = (await Promise.all(
+            idx.slice(0, 20).map(async hash => {
+              const raw = await env.INBOX_KV.get(`tradintent:artifact:${hash}`);
+              return raw ? JSON.parse(raw) : null;
+            })
+          )).filter(Boolean);
+
+          return corsify(Response.json({ ok: true, intents }), request);
+        }
+
+        if (email.action === 'getTradeIntent') {
+          const intentHash = ((email as any).intentHash || '');
+          if (!intentHash) return corsify(Response.json({ error: 'Missing intentHash' }, { status: 400 }), request);
+
+          const raw = await env.INBOX_KV.get(`tradintent:artifact:${intentHash}`);
+          if (!raw) return corsify(Response.json({ ok: false, artifact: null }, { status: 404 }), request);
+          return corsify(Response.json({ ok: true, artifact: JSON.parse(raw) }), request);
+        }
+
+        // Ghost Handshake — Local-to-Swarm identity registration + tunnel routing
+        // register: store signed handshake + tunnel endpoint in SBT registry
+        // heartbeat: refresh last-seen timestamp (must be < 5 min old to route)
+        // resolve: return active tunnel endpoint for A2A traffic routing
+        // list: return all registered ghost agents (for swarm router discovery)
+        if (email.action === 'ghostHandshake') {
+          const subAction = ((email as any).subAction || '').toLowerCase();
+          const agentName = ((email as any).agentName || '').toLowerCase().trim();
+
+          // ── register ────────────────────────────────────────────────────────
+          if (subAction === 'register') {
+            const handshake     = (email as any).handshake;
+            const handshakeHash = ((email as any).handshakeHash || '');
+            if (!handshake?.agentName || !handshakeHash) {
+              return corsify(Response.json({ error: 'Missing handshake or handshakeHash' }, { status: 400 }), request);
+            }
+
+            const name = handshake.agentName.toLowerCase();
+
+            // Validate ghost tier — must be vault.gno
+            if (!name.endsWith('.vault.gno')) {
+              return corsify(Response.json({ error: 'Ghost tier requires vault.gno namespace' }, { status: 403 }), request);
+            }
+
+            // Validate heartbeat freshness (5 min window)
+            const nowSeconds = Math.floor(Date.now() / 1000);
+            const hbTs = Number(handshake.heartbeat?.timestamp ?? 0);
+            if (nowSeconds - hbTs > 300) {
+              return corsify(Response.json({ error: 'Heartbeat timestamp is stale (> 5 min)' }, { status: 400 }), request);
+            }
+
+            const registeredAt = Date.now();
+            const registration = {
+              handshake,
+              handshakeHash,
+              registeredAt,
+              lastHeartbeat: registeredAt,
+              active: true,
+            };
+
+            // Store registration
+            const regKey = `ghost:registration:${name}`;
+            await env.INBOX_KV.put(regKey, JSON.stringify(registration));
+
+            // Store tunnel endpoint separately for fast router lookups
+            const tunnelKey = `ghost:tunnel:${name}`;
+            await env.INBOX_KV.put(tunnelKey, JSON.stringify({
+              endpoint:  handshake.connection?.endpoint,
+              protocol:  handshake.connection?.protocol ?? 'A2A-RPC',
+              active:    true,
+              updatedAt: registeredAt,
+            }));
+
+            // Add to ghost agent index
+            const idxKey = 'ghost:agent-index';
+            const idxRaw = await env.INBOX_KV.get(idxKey);
+            const idx: string[] = idxRaw ? JSON.parse(idxRaw) : [];
+            if (!idx.includes(name)) idx.push(name);
+            await env.INBOX_KV.put(idxKey, JSON.stringify(idx));
+
+            // Glass Box audit
+            const auditKey = `audit:ghost:${name}`;
+            const auditRaw = await env.INBOX_KV.get(auditKey);
+            const auditLog: unknown[] = auditRaw ? JSON.parse(auditRaw) : [];
+            auditLog.push({
+              type:      'ghost-handshake-registered',
+              agentName: name,
+              handshakeHash,
+              endpoint:  handshake.connection?.endpoint,
+              llm:       handshake.localStack?.llm,
+              timestamp: registeredAt,
+            });
+            await env.INBOX_KV.put(auditKey, JSON.stringify(auditLog));
+
+            return corsify(Response.json({ ok: true, agentName: name, handshakeHash, registeredAt }), request);
+          }
+
+          // ── heartbeat ───────────────────────────────────────────────────────
+          if (subAction === 'heartbeat') {
+            const handshakeHash = ((email as any).handshakeHash || '');
+            const timestamp     = Number((email as any).timestamp ?? 0);
+            if (!agentName || !handshakeHash) {
+              return corsify(Response.json({ error: 'Missing agentName or handshakeHash' }, { status: 400 }), request);
+            }
+
+            const nowSeconds = Math.floor(Date.now() / 1000);
+            if (nowSeconds - timestamp > 300) {
+              return corsify(Response.json({ error: 'Heartbeat timestamp stale' }, { status: 400 }), request);
+            }
+
+            const regKey = `ghost:registration:${agentName}`;
+            const regRaw = await env.INBOX_KV.get(regKey);
+            if (!regRaw) return corsify(Response.json({ error: 'Agent not registered' }, { status: 404 }), request);
+
+            const reg = JSON.parse(regRaw);
+            reg.lastHeartbeat = Date.now();
+            reg.active = true;
+            await env.INBOX_KV.put(regKey, JSON.stringify(reg));
+
+            // Refresh tunnel active status
+            const tunnelKey = `ghost:tunnel:${agentName}`;
+            const tunnelRaw = await env.INBOX_KV.get(tunnelKey);
+            if (tunnelRaw) {
+              const tunnel = JSON.parse(tunnelRaw);
+              tunnel.active = true;
+              tunnel.updatedAt = Date.now();
+              await env.INBOX_KV.put(tunnelKey, JSON.stringify(tunnel));
+            }
+
+            return corsify(Response.json({ ok: true, agentName, lastHeartbeat: reg.lastHeartbeat }), request);
+          }
+
+          // ── resolve ─────────────────────────────────────────────────────────
+          if (subAction === 'resolve') {
+            if (!agentName) return corsify(Response.json({ error: 'Missing agentName' }, { status: 400 }), request);
+
+            const tunnelRaw = await env.INBOX_KV.get(`ghost:tunnel:${agentName}`);
+            if (!tunnelRaw) return corsify(Response.json({ ok: false, error: 'No tunnel registered' }, { status: 404 }), request);
+
+            const tunnel = JSON.parse(tunnelRaw) as {
+              endpoint: string; protocol: string; active: boolean; updatedAt: number;
+            };
+
+            // Check if tunnel is stale (no heartbeat in 10 min)
+            const staleMs = 10 * 60 * 1000;
+            const isStale = Date.now() - tunnel.updatedAt > staleMs;
+            if (isStale) {
+              tunnel.active = false;
+              await env.INBOX_KV.put(`ghost:tunnel:${agentName}`, JSON.stringify(tunnel));
+            }
+
+            return corsify(Response.json({
+              ok:       !isStale,
+              agentName,
+              endpoint: tunnel.endpoint,
+              protocol: tunnel.protocol,
+              active:   tunnel.active && !isStale,
+            }), request);
+          }
+
+          // ── list ─────────────────────────────────────────────────────────────
+          if (subAction === 'list') {
+            const idxRaw = await env.INBOX_KV.get('ghost:agent-index');
+            const idx: string[] = idxRaw ? JSON.parse(idxRaw) : [];
+
+            const agents = (await Promise.all(idx.map(async name => {
+              const tunnelRaw = await env.INBOX_KV.get(`ghost:tunnel:${name}`);
+              if (!tunnelRaw) return null;
+              const tunnel = JSON.parse(tunnelRaw);
+              const stale  = Date.now() - tunnel.updatedAt > 10 * 60 * 1000;
+              return { agentName: name, endpoint: tunnel.endpoint, protocol: tunnel.protocol, active: !stale };
+            }))).filter(Boolean);
+
+            return corsify(Response.json({ ok: true, agents }), request);
+          }
+
+          return corsify(Response.json({ error: `Unknown ghostHandshake subAction: ${subAction}` }, { status: 400 }), request);
+        }
+
         // Paperclip TEE attestation submission
         // Stores the proof record in KV and emits a Glass Box audit log entry.
         // On-chain submitAttestation() must be called separately via the Safe.
