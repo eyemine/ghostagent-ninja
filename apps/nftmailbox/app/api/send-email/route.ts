@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
     const resolved = await resolveRes.json() as any;
 
     if (!resolved?.exists) {
-      return NextResponse.json({ error: 'This address does not exist or has expired' }, { status: 404 });
+      return NextResponse.json({ error: 'This address does not exist' }, { status: 404 });
     }
 
     // Verify wallet matches the registered controller

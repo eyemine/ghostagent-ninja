@@ -21,14 +21,21 @@ import {
   type Address,
 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import { gnosis } from 'viem/chains';
+import { gnosis, baseSepolia, base } from 'viem/chains';
 import {
   buildErc8004RegistrationFile,
   patchRegistrationWithAgentId,
-  GNOSIS_ADDRESSES,
+  ERC8004_CHAIN_CONFIG,
+  type Erc8004ChainKey,
 } from '../../../services/erc8004-registration';
 import { type SldKey } from '../../../services/genome-metadata';
 import { WORKER_URL } from '../../../utils/config';
+
+const VIEM_CHAINS: Record<string, typeof gnosis> = {
+  gnosis,
+  base,
+  baseSepolia,
+};
 
 const LIGHTHOUSE_UPLOAD = 'https://node.lighthouse.storage/api/v0/add';
 const IPFS_GATEWAY      = 'https://gateway.lighthouse.storage/ipfs';
@@ -108,9 +115,14 @@ export async function POST(req: NextRequest) {
       sld?: string;
       ownerWallet?: string;
       imageCid?: string;
+      network?: string;
     };
 
-    const { agentName, sld: sldParam, ownerWallet, imageCid } = body;
+    const { agentName, sld: sldParam, ownerWallet, imageCid, network } = body;
+    const chainKey: Erc8004ChainKey = (network === 'base' || network === 'baseSepolia') ? network : 'gnosis';
+    const chainCfg  = ERC8004_CHAIN_CONFIG[chainKey];
+    const viemChain = VIEM_CHAINS[chainKey] ?? gnosis;
+    const chainConfig = { chain: viemChain, addresses: chainCfg.addresses, chainId: chainCfg.chainId, label: chainCfg.label };
 
     if (!agentName || typeof agentName !== 'string') {
       return NextResponse.json({ error: 'agentName is required' }, { status: 400 });
@@ -146,18 +158,20 @@ export async function POST(req: NextRequest) {
     }
 
     // ─── Step 3: Call Identity Registry register(agentURI) ───
-    const account       = privateKeyToAccount(treasuryKey as `0x${string}`);
-    const gnosisPublic  = createPublicClient({ chain: gnosis, transport: http() });
-    const gnosisWallet  = createWalletClient({ chain: gnosis, transport: http(), account });
+    const trimmedKey    = treasuryKey.trim().replace(/^0x/, '').slice(0, 64);
+    const normalizedKey = `0x${trimmedKey}` as `0x${string}`;
+    const account       = privateKeyToAccount(normalizedKey);
+    const chainPublic   = createPublicClient({ chain: chainConfig.chain, transport: http() });
+    const chainWallet   = createWalletClient({ chain: chainConfig.chain, transport: http(), account });
 
-    const txHash = await gnosisWallet.writeContract({
-      address: GNOSIS_ADDRESSES.identityRegistry as Address,
+    const txHash = await chainWallet.writeContract({
+      address: chainConfig.addresses.identityRegistry as Address,
       abi:     IdentityRegistryABI,
       functionName: 'register',
       args:    [agentURI],
     });
 
-    const receipt = await gnosisPublic.waitForTransactionReceipt({ hash: txHash });
+    const receipt = await chainPublic.waitForTransactionReceipt({ hash: txHash });
 
     // ─── Step 4: Parse AgentRegistered event → agentId ───
     let agentId: number | null = null;
@@ -189,8 +203,8 @@ export async function POST(req: NextRequest) {
         const updatedURI = `${IPFS_GATEWAY}/${repinnedCid}`;
         if (agentId !== null) {
           try {
-            await gnosisWallet.writeContract({
-              address: GNOSIS_ADDRESSES.identityRegistry as Address,
+            await chainWallet.writeContract({
+              address: chainConfig.addresses.identityRegistry as Address,
               abi:     IdentityRegistryABI,
               functionName: 'setAgentURI',
               args:    [BigInt(agentId), updatedURI],
@@ -204,17 +218,18 @@ export async function POST(req: NextRequest) {
 
     // ─── Step 6: Store erc8004AgentId in KV via worker ───
     let kvStored = false;
-    if (agentId !== null && webhookSecret) {
+    if (agentId !== null) {
       try {
         const kvRes = await fetch(WORKER_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            action:       'setErc8004AgentId',
-            secret:       webhookSecret,
+            action:         'setErc8004AgentId',
             agentName,
             erc8004AgentId: agentId,
-            agentURI:     finalCid ? `${IPFS_GATEWAY}/${finalCid}` : agentURI,
+            agentURI:       finalCid ? `${IPFS_GATEWAY}/${finalCid}` : agentURI,
+            chainId:        chainConfig.chainId,
+            safeOwner:      ownerWallet,
           }),
         });
         kvStored = kvRes.ok;
@@ -223,6 +238,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    const explorerBase = isBaseSepolia ? 'https://sepolia.basescan.org' : 'https://gnosisscan.io';
     return NextResponse.json({
       success:    true,
       agentName,
@@ -231,9 +247,9 @@ export async function POST(req: NextRequest) {
       txHash,
       agentURI:   finalCid ? `${IPFS_GATEWAY}/${finalCid}` : agentURI,
       agentURICid: finalCid,
-      network:    'Gnosis (chainId 100)',
-      agentRegistry: `eip155:100:${GNOSIS_ADDRESSES.identityRegistry}`,
-      explorer:   `https://gnosisscan.io/tx/${txHash}`,
+      network:    `${chainConfig.label} (chainId ${chainConfig.chainId})`,
+      agentRegistry: `eip155:${chainConfig.chainId}:${chainConfig.addresses.identityRegistry}`,
+      explorer:   `${explorerBase}/tx/${txHash}`,
       kvStored,
     });
   } catch (err: any) {
@@ -257,7 +273,7 @@ export async function GET(req: NextRequest) {
     const kvRes = await fetch(WORKER_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'getAgentStatus', agentName }),
+      body: JSON.stringify({ action: 'getAgentStatus', localPart: agentName }),
     });
     if (!kvRes.ok) {
       return NextResponse.json({ registered: false, agentName });

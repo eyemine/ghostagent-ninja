@@ -49,12 +49,12 @@ export const STORY_DEFAULT_LICENSE_TERMS_ID = 1; // Non-Commercial Social Remixi
 export const GNS_REGISTRY         = '0xA505e447474bd1774977510e7a7C9459DA79c4b9' as `0x${string}`;
 export const GNO_REGISTRAR_FACTORY = '0x4D4b486c5d3eFc719E8c3d7d232785290856f866' as `0x${string}`;
 export const GNO_REGISTRARS = {
-  agent:    '0x199A06c664F90b332bd8A3566e63c24AFe3Dd571' as `0x${string}`,
-  openclaw: '0x8b019B455fE369Dd8Bab938e63ed93A17BaCfA94' as `0x${string}`,
-  molt:     '0xD2C8D961e0BBb9C5324709C145f3dc8dd7615dcf' as `0x${string}`,
-  picoclaw: '0x5a6d432234A0E39916B94283F74cA92508373450' as `0x${string}`,
-  vault:    '0x53984F8B3a1D9993e163bb64ecbE03B9E7CE2BeB' as `0x${string}`,
-  nftmail:  '0x831ddd71e7c33e16b674099129E6E379DA407fAF' as `0x${string}`,
+  agent:    '0x608071875bcc0ef0b934f8a2367672d8c472cacf' as `0x${string}`,
+  openclaw: '0xbd8285a8455ccec4be671d9ee3924ab1264fcbbe' as `0x${string}`,
+  molt:     '0x4b54213c1e5826497ff39ba8c87a7b75d2bc3c50' as `0x${string}`,
+  picoclaw: '0xe5fd65562698f46ea9762bd38141535b1fd875b5' as `0x${string}`,
+  vault:    '0xc6b184a38da64d1d535674dafb9ce2440058ec4e' as `0x${string}`,
+  nftmail:  '0x46c37365572c9994812aaa41fd04eb56d05469d0' as `0x${string}`,
 } as const;
 
 // ─── Deployed Story Registrars (Story L1 chainId 1514) ───

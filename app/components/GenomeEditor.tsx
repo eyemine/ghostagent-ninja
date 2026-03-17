@@ -13,7 +13,6 @@ import { useState, useRef, useCallback } from 'react';
 import {
   type SldKey,
   type GenomeMetadata,
-  generatePlaceholderSvg,
   defaultGenomeMetadata,
   SLD_VISUAL,
 } from '../services/genome-metadata';
@@ -49,7 +48,7 @@ export function GenomeEditor({
     meta.imageCid ? meta.imageUri : null,
   );
 
-  const placeholderSvg = generatePlaceholderSvg(agentName || 'agent', sld);
+  const placeholderUrl = `/api/genome-image?sld=${sld}&name=${encodeURIComponent(agentName || 'agent')}`;
 
   // ── field helpers ──────────────────────────────────────────────────────────
 
@@ -105,13 +104,13 @@ export function GenomeEditor({
 
   function clearImage() {
     setPreviewUrl(null);
-    update({ imageUri: placeholderSvg, imageCid: null });
+    update({ imageUri: placeholderUrl, imageCid: null });
     if (fileRef.current) fileRef.current.value = '';
   }
 
   // ─────────────────────────────────────────────────────────────────────────
 
-  const displayedImage = previewUrl ?? placeholderSvg;
+  const displayedImage = previewUrl ?? placeholderUrl;
   const hasCustomImage = !!previewUrl || !!meta.imageCid;
 
   return (

@@ -169,14 +169,14 @@ function ItemCard({ item, onViewA2A, onBuy, isBuying }: { item: MarketItem; onVi
           )}
         </div>
 
-        {/* NFT Key image placeholder — left-justified below name */}
-        <div className="mt-2.5 flex items-center gap-2">
-          <div className="h-10 w-10 shrink-0 rounded-lg border border-[rgba(176,128,92,0.2)] bg-black/40 flex items-center justify-center overflow-hidden">
-            <svg className="h-5 w-5 text-zinc-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/>
-            </svg>
-          </div>
-          <div className="text-[10px] text-zinc-600 font-mono">{item.agent}.{item.namespace.split('.')[0]}.key</div>
+        {/* NFT image — SLD base image composited with agent name */}
+        <div className="mt-2.5">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={`/api/genome-image?sld=${item.namespace.split('.')[0]}&name=${encodeURIComponent(item.agent)}`}
+            alt={`${item.agent}.${item.namespace}`}
+            className="h-16 w-16 rounded-xl border border-[rgba(176,128,92,0.2)] object-cover"
+          />
         </div>
 
         {/* Domain attribute badges */}

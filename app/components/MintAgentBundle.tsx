@@ -144,7 +144,12 @@ export function MintAgentBundle({ agentName, safeAddress, namespace = 'agent', d
         const provisionRes = await fetch('/api/provision-agent', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ agentName, tbaAddress }),
+          body: JSON.stringify({
+            agentName,
+            tbaAddress,
+            sld: namespace,
+            ownerWallet: wallet.address,
+          }),
         });
 
         const provisionData = (await provisionRes.json()) as {

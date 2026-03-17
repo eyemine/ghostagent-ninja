@@ -33,7 +33,7 @@ const env = Object.fromEntries(
     .map(l => { const i = l.indexOf('='); return [l.slice(0, i).trim(), l.slice(i + 1).trim()]; })
 );
 
-const PRIVATE_KEY = env.PRIVATE_KEY || process.env.PRIVATE_KEY;
+const PRIVATE_KEY = env.PRIVATE_KEY || env.TREASURY_PRIVATE_KEY || process.env.PRIVATE_KEY || process.env.TREASURY_PRIVATE_KEY;
 
 const REGISTRIES = {
   gnosis:      { chainId: 100,   address: '0x8004A169FB4a3325136EB29fA0ceB6D2e539a432', rpc: 'https://rpc.gnosischain.com',  explorer: 'https://gnosisscan.io' },

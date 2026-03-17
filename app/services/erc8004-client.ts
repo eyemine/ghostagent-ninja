@@ -327,6 +327,40 @@ export async function requestValidation(
   });
 }
 
+/**
+ * Post a validation response on behalf of a validator (notapaperclip.red / treasury wallet).
+ * response is 0–100 (use alignment score directly).
+ * responseURI → URL of the off-chain evidence (KV permalink or notapaperclip.red URL).
+ */
+export async function postValidationResponse(
+  walletClient: WalletClient,
+  params: {
+    requestHash:      Hex;
+    response:         number;   // 0–100
+    responseURI?:     string;
+    responseHash?:    Hex;
+    tag?:             string;
+    registryAddress?: Address;  // override for non-Gnosis chains
+    chain?:           Parameters<typeof walletClient.writeContract>[0]['chain'];
+  },
+): Promise<Hex> {
+  const [account] = await walletClient.getAddresses();
+  return walletClient.writeContract({
+    address:      params.registryAddress ?? GNOSIS_ADDRESSES.validationRegistry,
+    abi:          ValidationRegistryABI,
+    functionName: 'validationResponse',
+    args: [
+      params.requestHash,
+      params.response,
+      params.responseURI  ?? '',
+      params.responseHash ?? ZERO_HASH,
+      params.tag          ?? 'alignment',
+    ],
+    account,
+    chain: params.chain ?? gnosis,
+  });
+}
+
 export async function getValidationStatus(requestHash: Hex): Promise<{
   validatorAddress: Address;
   agentId: bigint;

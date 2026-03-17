@@ -11,6 +11,9 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { createWalletClient, http } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { gnosis, baseSepolia } from 'viem/chains';
 import {
   TRADE_INTENT_DOMAIN,
   TRADE_INTENT_TYPES,
@@ -23,11 +26,17 @@ import {
   GNO_TOKEN,
   deadlineInMinutes,
 } from '../../services/trade-intent';
+import { postValidationResponse, hashPayload } from '../../services/erc8004-client';
 import { WORKER_URL } from '../../utils/config';
 
 
-// ERC-8004 Validation Registry on Gnosis mainnet
-const ERC8004_VALIDATION_REGISTRY = '0x8004A169FB4a3325136EB29fA0ceB6D2e539a432';
+// ERC-8004 Validation Registry addresses
+const VALIDATION_REGISTRIES = {
+  gnosis:      { registry: '0x8004A169FB4a3325136EB29fA0ceB6D2e539a432', chain: gnosis,      chainId: 100,   explorer: 'https://gnosisscan.io' },
+  baseSepolia: { registry: '0x8004A818BFB912233c491871b3d84c89A494BD9e', chain: baseSepolia, chainId: 84532, explorer: 'https://sepolia.basescan.org' },
+};
+// Hackathon trading competition uses Base Sepolia
+const HACKATHON_NETWORK = 'baseSepolia' as keyof typeof VALIDATION_REGISTRIES;
 
 function err(msg: string, status = 400) {
   return NextResponse.json({ error: msg }, { status });
@@ -117,24 +126,61 @@ export async function POST(req: NextRequest) {
 
     const workerData = workerRes ? await workerRes.json().catch(() => ({})) : {};
 
-    // Build ERC-8004 Validation Registry request payload
-    // requestURI = worker KV permalink for this artifact
+    // Permalink to the stored artifact in KV
     const requestUri = `${WORKER_URL}?action=getTradeIntent&intentHash=${artifact.intentHash}&agentName=${encodeURIComponent(agentName.toLowerCase())}`;
 
-    const validationPayload = {
-      agentId:     artifact.agentId,
-      requestHash: artifact.intentHash,
-      requestUri,
-      registry:    ERC8004_VALIDATION_REGISTRY,
-      chainId:     100,
-    };
+    // ── On-chain validationResponse() via treasury wallet ─────────────────
+    // notapaperclip.red acts as validator: response=100 for a valid signed intent,
+    // lower scores would reflect risk-router blocks or alignment failures.
+    let validationTx: string | null = null;
+    let validationError: string | null = null;
+
+    const rawKey = process.env.TREASURY_PRIVATE_KEY;
+    const treasuryKey = rawKey ? `0x${rawKey.trim().replace(/^0x/, '').slice(0, 64)}` as `0x${string}` : null;
+    if (treasuryKey) {
+      try {
+        const net = VALIDATION_REGISTRIES[HACKATHON_NETWORK];
+        const account = privateKeyToAccount(treasuryKey);
+        const walletClient = createWalletClient({
+          account,
+          chain: net.chain,
+          transport: http(),
+        });
+
+        const requestHash  = artifact.intentHash as `0x${string}`;
+        const responseHash = hashPayload(JSON.stringify(artifact));
+
+        validationTx = await postValidationResponse(walletClient, {
+          requestHash,
+          response:         100,   // valid signed TradeIntent = full pass
+          responseURI:      `https://notapaperclip.red/api/alignment/score?swarmId=${agentName.toLowerCase()}`,
+          responseHash,
+          tag:              'trade-intent',
+          registryAddress:  net.registry as `0x${string}`,
+          chain:            net.chain,
+        });
+      } catch (e: unknown) {
+        validationError = e instanceof Error ? e.message : String(e);
+      }
+    }
 
     return NextResponse.json({
-      ok:         true,
-      intentHash: artifact.intentHash,
+      ok:           true,
+      intentHash:   artifact.intentHash,
       artifact,
-      validation: validationPayload,
       workerStored: !!(workerData as { ok?: boolean }).ok,
+      validation: {
+        agentId:     artifact.agentId,
+        requestHash: artifact.intentHash,
+        requestUri,
+        registry:    VALIDATION_REGISTRIES[HACKATHON_NETWORK].registry,
+        chainId:     VALIDATION_REGISTRIES[HACKATHON_NETWORK].chainId,
+        onChainTx:   validationTx,
+        onChainError: validationError,
+        onChainNote: validationTx
+          ? `validationResponse() submitted: ${VALIDATION_REGISTRIES[HACKATHON_NETWORK].explorer}/tx/${validationTx}`
+          : validationError ?? 'TREASURY_PRIVATE_KEY not set — skipped on-chain submission',
+      },
     });
   }
 

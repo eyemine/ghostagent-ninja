@@ -455,8 +455,8 @@ export default function InboxPage() {
     );
   }
 
-  // ─── EXPIRED BASIC TIER: account dormant, show renewal prompt ───
-  if (resolved && !resolved.exists && resolved.expired) {
+  // ─── MESSAGES CLEARED (basic tier): identity permanent, inbox address active ───
+  if (resolved && resolved.exists && resolved.messagesCleared) {
     return (
       <div className="min-h-screen bg-[radial-gradient(1200px_circle_at_20%_-10%,rgba(0,163,255,0.12),transparent_45%),radial-gradient(900px_circle_at_90%_10%,rgba(124,77,255,0.10),transparent_40%),linear-gradient(180deg,var(--background),#03040a)]">
         <div className="mx-auto flex min-h-screen max-w-2xl flex-col gap-6 px-4 py-8 md:px-6">
@@ -478,17 +478,17 @@ export default function InboxPage() {
           <div className="flex flex-col items-center justify-center flex-1 gap-6 py-12">
             <div className="flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/5 px-5 py-3">
               <span className="text-lg font-medium text-white">{name}@nftmail.box</span>
-              <span className="rounded-full px-2 py-0.5 text-[9px] font-semibold ring-1 bg-amber-500/10 text-amber-300 ring-amber-500/20">EXPIRED</span>
+              <span className="rounded-full px-2 py-0.5 text-[9px] font-semibold ring-1 bg-zinc-500/10 text-zinc-400 ring-zinc-500/20">MESSAGES CLEARED</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="h-3 w-3 rounded-full bg-amber-400" />
-              <span className="text-sm font-medium text-amber-300">Basic tier expired — 8-day inbox window closed</span>
+              <div className="h-3 w-3 rounded-full bg-zinc-400" />
+              <span className="text-sm font-medium text-amber-300">8-day history window — inbox address is permanent</span>
             </div>
             <p className="text-center text-sm text-[var(--muted)] max-w-md">
-              Your <strong className="text-white">Basic</strong> inbox has decayed. Upgrade to
-              {' '}<strong className="text-amber-300">Lite ($10)</strong> to restore sending,
-              get a <strong className="text-white">Gnosis Safe body</strong>, and extend your account.
-            </p>
+              <p className="text-center text-sm text-[var(--muted)] max-w-md">
+                Your <strong className="text-white">{name}@nftmail.box</strong> is permanent — free tier messages clear after 8 days.
+                Upgrade to {''}<strong className="text-amber-300">Lite ($10)</strong> for 30-day retention,
+                sending, and a <strong className="text-white">Gnosis Safe body</strong>.
             <div className="flex flex-col gap-3 w-full max-w-xs">
               <Link
                 href={`/nftmail?upgrade=lite&label=${name}`}

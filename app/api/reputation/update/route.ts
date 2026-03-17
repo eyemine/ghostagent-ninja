@@ -11,8 +11,12 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { createWalletClient, http } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { gnosis } from 'viem/chains';
 import { buildReputationUpdate } from '../../../services/paperclip-attestation';
 import { GNOSIS_ADDRESSES } from '../../../services/erc8004-registration';
+import { giveFeedback, hashPayload, ZERO_HASH } from '../../../services/erc8004-client';
 import { WORKER_URL } from '../../../utils/config';
 
 
@@ -75,7 +79,42 @@ export async function POST(req: NextRequest) {
   auditLog.push({ type: 'erc8004-reputation-update', ...record });
   await workerPost({ action: 'kvPut', key: auditKey, value: JSON.stringify(auditLog), ownerAddress });
 
-  const displayScore = Math.round(paperclipScore * 0.847); // normalise to ~847/1000 scale for display
+  const displayScore = Math.round(paperclipScore * 0.847);
+
+  // ── On-chain giveFeedback() via treasury wallet ──────────────────────────
+  let onChainTx: string | null = null;
+  let onChainError: string | null = null;
+
+  const treasuryKey = process.env.TREASURY_PRIVATE_KEY;
+  if (treasuryKey) {
+    try {
+      const account = privateKeyToAccount(treasuryKey as `0x${string}`);
+      const walletClient = createWalletClient({
+        account,
+        chain: gnosis,
+        transport: http(process.env.NEXT_PUBLIC_GNOSIS_RPC ?? 'https://rpc.gnosischain.com'),
+      });
+
+      // ERC-8004 spec: value is a signed fixed-point int128
+      // Map paperclipScore (0-1000) → value 0-100 (valueDecimals=0)
+      const onChainValue = BigInt(Math.round(paperclipScore / 10));
+      const feedbackURI  = `${WORKER_URL}?action=kvGet&key=reputation:agent:${agentId}`;
+      const feedbackHash = hashPayload(JSON.stringify({ agentId, proofHash, paperclipScore }));
+
+      onChainTx = await giveFeedback(walletClient, {
+        agentId:      BigInt(agentId),
+        value:        onChainValue,
+        valueDecimals: 0,
+        tag1:         'alignment',
+        tag2:         `score:${Math.round(paperclipScore / 10)}`,
+        endpoint:     `https://notapaperclip.red/api/alignment/score?swarmId=${agentId}`,
+        feedbackURI,
+        feedbackHash,
+      });
+    } catch (e: unknown) {
+      onChainError = e instanceof Error ? e.message : String(e);
+    }
+  }
 
   return NextResponse.json({
     ok: true,
@@ -86,7 +125,11 @@ export async function POST(req: NextRequest) {
     comment: reputationPayload.comment,
     reputationRegistry: GNOSIS_ADDRESSES.reputationRegistry,
     message: `Reputation Updated: ${displayScore}/1000`,
-    note: 'Cache updated. Submit giveFeedback() tx via Safe to finalise on-chain.',
+    onChainTx,
+    onChainError,
+    onChainNote: onChainTx
+      ? `giveFeedback() submitted on Gnosis: https://gnosisscan.io/tx/${onChainTx}`
+      : onChainError ?? 'TREASURY_PRIVATE_KEY not set — skipped on-chain submission',
   });
 }
 

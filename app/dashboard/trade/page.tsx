@@ -18,8 +18,8 @@ const GHOST_LOGO = '/ghost-logo.png';
 
 // Known agent — populated from ERC-8004 registry; stub for now
 const DEMO_AGENTS = [
-  { name: 'ghostagent.vault.gno', agentId: 3184,  safeAddress: '0xb7e493e3d226f8fE722CC9916fF164B793af13F4', chain: 'Gnosis' },
-  { name: 'ghostagent.vault.gno', agentId: 1766,  safeAddress: '0xb7e493e3d226f8fE722CC9916fF164B793af13F4', chain: 'Base Sepolia' },
+  { name: 'ghostagent.molt.gno', agentId: 3199, safeAddress: '0xb7e493e3d226f8fE722CC9916fF164B793af13F4', chain: 'Gnosis',                  chainId: 100   },
+  { name: 'ghostagent.molt.gno', agentId: 1766, safeAddress: '0xb7e493e3d226f8fE722CC9916fF164B793af13F4', chain: 'Base Sepolia (Hackathon)', chainId: 84532 },
 ];
 
 function shortAddr(addr: string) {
@@ -157,6 +157,7 @@ export default function TradePage() {
               agentName={selected.name}
               agentId={selected.agentId}
               safeAddress={selected.safeAddress}
+              chainId={selected.chainId}
             />
           ) : (
             <TradingDashboard

@@ -61,14 +61,17 @@ function toUnits(amount: string, decimals: number): string {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 interface Props {
-  agentName:  string;
-  agentId:    number;
+  agentName:   string;
+  agentId:     number;
   safeAddress: string;
+  chainId?:    number;  // 100 = Gnosis, 84532 = Base Sepolia
 }
 
 type Step = 'idle' | 'building' | 'signing' | 'submitting' | 'done' | 'error';
 
-export function TradeIntentPanel({ agentName, agentId, safeAddress }: Props) {
+export function TradeIntentPanel({ agentName, agentId, safeAddress, chainId = 100 }: Props) {
+  const isBaseSepolia = chainId === 84532;
+  const chainLabel   = isBaseSepolia ? 'Base Sepolia 84532' : 'Gnosis chain 100';
   const { wallets } = useWallets();
 
   const [tokenIn,     setTokenIn]     = useState(WXDAI);
@@ -145,15 +148,22 @@ export function TradeIntentPanel({ agentName, agentId, safeAddress }: Props) {
       setStep('signing');
       const provider  = await wallets[0].getEthereumProvider();
       const walletClient = createWalletClient({
-        chain:     gnosis,
+        chain:     isBaseSepolia ? { id: 84532, name: 'Base Sepolia', nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 }, rpcUrls: { default: { http: ['https://sepolia.base.org'] } } } : gnosis,
         transport: custom(provider),
       });
       const [account] = await walletClient.getAddresses();
 
+      const signingDomain = {
+        name:              'GhostAgent TradeIntent',
+        version:           '1',
+        chainId:           chainId,
+        verifyingContract: '0x0000000000000000000000000000000000000000' as `0x${string}`,
+      };
+
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const sig: Hex = await (walletClient.signTypedData as any)({
         account,
-        domain:      buildData.domain,
+        domain:      signingDomain,
         types:       TRADE_INTENT_TYPES,
         primaryType: 'TradeIntent',
         message:     buildData.message,
@@ -209,8 +219,12 @@ export function TradeIntentPanel({ agentName, agentId, safeAddress }: Props) {
             Agent <span className="text-[#b0805c]">{agentName}</span> · agentId {agentId} · ERC-8004 validation artifact
           </div>
         </div>
-        <span className="rounded-full bg-violet-500/10 px-2 py-0.5 text-[10px] font-semibold text-violet-300 ring-1 ring-violet-500/20">
-          Gnosis chain 100
+        <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ${
+          isBaseSepolia
+            ? 'bg-blue-500/10 text-blue-300 ring-blue-500/20'
+            : 'bg-violet-500/10 text-violet-300 ring-violet-500/20'
+        }`}>
+          {chainLabel}
         </span>
       </div>
 

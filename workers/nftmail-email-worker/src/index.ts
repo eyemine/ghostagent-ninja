@@ -842,14 +842,27 @@ export default {
             return corsify(new Response('Missing agent name (localPart or email)', { status: 400 }), request);
           }
           result = await storage.getAgentStatus(agent);
-          // Augment with ERC-8004 agentId if registered
+          // Augment with ERC-8004 agentId (multi-chain)
           try {
             const erc8004Key = agent.replace(/_+$/, ''); // strip trailing underscore
-            const erc8004Raw = await env.INBOX_KV.get(`erc8004:${erc8004Key}`);
-            if (erc8004Raw) {
+            const [gnosisChainRaw, gnosisLegacyRaw, baseMainnetRaw, baseSepoliaRaw] = await Promise.all([
+              env.INBOX_KV.get(`erc8004:gnosis:${erc8004Key}`),
+              env.INBOX_KV.get(`erc8004:${erc8004Key}`),
+              env.INBOX_KV.get(`erc8004:base:${erc8004Key}`),
+              env.INBOX_KV.get(`erc8004:baseSepolia:${erc8004Key}`),
+            ]);
+            const gnosisRaw = gnosisChainRaw ?? gnosisLegacyRaw;
+            if (gnosisRaw || baseMainnetRaw || baseSepoliaRaw) {
               const statusJson = await result.clone().json() as Record<string, unknown>;
-              const erc8004 = JSON.parse(erc8004Raw);
-              return corsify(Response.json({ ...statusJson, erc8004AgentId: erc8004.agentId, agentURI: erc8004.agentURI }), request);
+              const gnosisData      = gnosisRaw      ? JSON.parse(gnosisRaw)      : null;
+              const baseData        = baseMainnetRaw ? JSON.parse(baseMainnetRaw) : null;
+              const baseSepoliaData = baseSepoliaRaw ? JSON.parse(baseSepoliaRaw) : null;
+              return corsify(Response.json({
+                ...statusJson,
+                ...(gnosisData      ? { erc8004AgentId: gnosisData.agentId, agentURI: gnosisData.agentURI, erc8004ChainId: 100 } : {}),
+                ...(baseData        ? { erc8004Base:        { agentId: baseData.agentId,        agentURI: baseData.agentURI,        chainId: 8453  } } : {}),
+                ...(baseSepoliaData ? { erc8004BaseSepolia: { agentId: baseSepoliaData.agentId, agentURI: baseSepoliaData.agentURI, chainId: 84532 } } : {}),
+              }), request);
             }
           } catch {}
           return corsify(result, request);
@@ -1681,15 +1694,25 @@ export default {
         }
 
         // ERC-8004: store agentId after on-chain Identity Registry registration
+        // Supports multi-chain: chainId 100 (Gnosis) and 84532 (Base Sepolia)
         if (email.action === 'setErc8004AgentId') {
           const agentName      = ((email as any).agentName || '').toLowerCase().trim();
           const erc8004AgentId = (email as any).erc8004AgentId;
           const agentURI       = (email as any).agentURI || '';
+          const chainId        = (email as any).chainId as number | undefined;
+          const safeOwner      = (email as any).safeOwner || null;
           if (!agentName || typeof erc8004AgentId !== 'number') {
             return corsify(Response.json({ error: 'Missing agentName or erc8004AgentId' }, { status: 400 }), request);
           }
-          await env.INBOX_KV.put(`erc8004:${agentName}`, JSON.stringify({ agentId: erc8004AgentId, agentURI, registeredAt: Date.now() }));
-          return corsify(Response.json({ status: 'stored', agentName, erc8004AgentId }), request);
+          const record = JSON.stringify({ agentId: erc8004AgentId, agentURI, chainId: chainId ?? 100, safeOwner, registeredAt: Date.now() });
+          // Always write chain-specific key
+          const chainLabel = chainId === 84532 ? 'baseSepolia' : chainId === 8453 ? 'base' : 'gnosis';
+          await env.INBOX_KV.put(`erc8004:${chainLabel}:${agentName}`, record);
+          // Also keep legacy key (erc8004:{name}) pointing to Gnosis primary
+          if (!chainId || chainId === 100) {
+            await env.INBOX_KV.put(`erc8004:${agentName}`, record);
+          }
+          return corsify(Response.json({ status: 'stored', agentName, erc8004AgentId, chainLabel }), request);
         }
 
         // ERC-8004 failsafe: pending-transfer checkpoint
@@ -1724,37 +1747,59 @@ export default {
           return corsify(Response.json({ pendingTransfers }), request);
         }
 
-        // ERC-8004 TradeIntent: store EIP-712 signed trade intent for A2A discovery
+        // EIP-712 TradeIntent storage — ERC-8004 hackathon requirement
+        // Artifacts stored at trade-intent:{agentName}:{intentHash}
+        // Index list stored at trade-intent:index:{agentName}
         if (email.action === 'storeTradeIntent') {
-          const agentName    = ((email as any).agentName || '').toLowerCase().trim();
-          const agentId      = (email as any).agentId;
-          const signedIntent = (email as any).signedIntent;
-          if (!agentName || !signedIntent) {
-            return corsify(Response.json({ error: 'Missing agentName or signedIntent' }, { status: 400 }), request);
+          const agentName = ((email as any).agentName || '').toLowerCase().trim();
+          const artifact  = (email as any).artifact;
+          if (!agentName || !artifact?.intentHash) {
+            return corsify(Response.json({ error: 'Missing agentName or artifact.intentHash' }, { status: 400 }), request);
           }
-          const intentKey = `trade-intent:${agentName}:${Date.now()}`;
-          await env.INBOX_KV.put(intentKey, JSON.stringify(signedIntent), { expirationTtl: 7 * 24 * 60 * 60 });
+          const key = `trade-intent:${agentName}:${artifact.intentHash}`;
+          await env.INBOX_KV.put(key, JSON.stringify({ ...artifact, storedAt: Date.now() }));
           // Update index
-          const idxRaw = await env.INBOX_KV.get(`trade-intent-index:${agentName}`);
+          const idxKey  = `trade-intent:index:${agentName}`;
+          const idxRaw  = await env.INBOX_KV.get(idxKey);
           const idx: string[] = idxRaw ? JSON.parse(idxRaw) : [];
-          idx.push(intentKey);
-          await env.INBOX_KV.put(`trade-intent-index:${agentName}`, JSON.stringify(idx.slice(-50)));
-          return corsify(Response.json({ status: 'stored', agentName, agentId, intentKey }), request);
+          if (!idx.includes(artifact.intentHash)) {
+            idx.unshift(artifact.intentHash);
+            if (idx.length > 100) idx.length = 100; // cap at 100
+            await env.INBOX_KV.put(idxKey, JSON.stringify(idx));
+          }
+          return corsify(Response.json({ ok: true, intentHash: artifact.intentHash, agentName }), request);
         }
 
-        // ERC-8004 TradeIntents: list active trade intents for an agent (A2A discovery)
-        if (email.action === 'getTradeIntents') {
+        if (email.action === 'listTradeIntents') {
           const agentName = ((email as any).agentName || '').toLowerCase().trim();
           if (!agentName) {
             return corsify(Response.json({ error: 'Missing agentName' }, { status: 400 }), request);
           }
-          const idxRaw = await env.INBOX_KV.get(`trade-intent-index:${agentName}`);
+          const idxRaw = await env.INBOX_KV.get(`trade-intent:index:${agentName}`);
           const idx: string[] = idxRaw ? JSON.parse(idxRaw) : [];
-          const intents = (await Promise.all(
-            idx.map(k => env.INBOX_KV.get(k).then(v => v ? JSON.parse(v) : null))
-          )).filter(Boolean);
-          return corsify(Response.json({ agentName, intents }), request);
+          const intents: any[] = [];
+          for (const hash of idx.slice(0, 20)) {
+            const raw = await env.INBOX_KV.get(`trade-intent:${agentName}:${hash}`);
+            if (raw) { try { intents.push(JSON.parse(raw)); } catch {} }
+          }
+          return corsify(Response.json({ ok: true, intents }), request);
         }
+
+        if (email.action === 'getTradeIntent') {
+          const agentName  = ((email as any).agentName || '').toLowerCase().trim();
+          const intentHash = ((email as any).intentHash || '').trim();
+          if (!agentName || !intentHash) {
+            return corsify(Response.json({ error: 'Missing agentName or intentHash' }, { status: 400 }), request);
+          }
+          const raw = await env.INBOX_KV.get(`trade-intent:${agentName}:${intentHash}`);
+          if (!raw) return corsify(Response.json({ ok: false, error: 'Not found' }, { status: 404 }), request);
+          try {
+            return corsify(Response.json({ ok: true, artifact: JSON.parse(raw) }), request);
+          } catch {
+            return corsify(Response.json({ ok: false, error: 'Corrupt record' }, { status: 500 }), request);
+          }
+        }
+
 
         // Warrant Canary: return last-alive timestamp from KV (written by cron every 5 min)
         if (email.action === 'getCanary') {
@@ -2848,7 +2893,7 @@ export default {
           const resolvedName = agentName;
 
           // Check existence signals in KV (+ tld, on-chain linkage, acct-tier, heartbeat)
-          const [blindIndex, eciesKey, zohoSeat, privacyStatus, tldValue, acctTierRaw, nftmailGnoRaw, cronHeartbeat, erc8004Raw] = await Promise.all([
+          const [blindIndex, eciesKey, zohoSeat, privacyStatus, tldValue, acctTierRaw, nftmailGnoRaw, cronHeartbeat, erc8004GnosisChain, erc8004GnosisLegacy, erc8004BaseMainnet, erc8004BaseSepoliaRaw] = await Promise.all([
             env.INBOX_KV.get(`blind-index:${resolvedName}`),
             env.INBOX_KV.get(`ecies-pubkey:${resolvedName}`),
             env.INBOX_KV.get(`zoho-seat:${resolvedName}`),
@@ -2857,8 +2902,14 @@ export default {
             env.INBOX_KV.get(`acct-tier:${resolvedName}`),
             env.INBOX_KV.get(`nftmailgno:${resolvedName}`),
             env.INBOX_KV.get('heartbeat:cron'),
+            env.INBOX_KV.get(`erc8004:gnosis:${resolvedName}`),
             env.INBOX_KV.get(`erc8004:${resolvedName}`),
+            env.INBOX_KV.get(`erc8004:base:${resolvedName}`),
+            env.INBOX_KV.get(`erc8004:baseSepolia:${resolvedName}`),
           ]);
+          const erc8004Raw     = erc8004GnosisChain ?? erc8004GnosisLegacy;
+          const erc8004BaseRaw = erc8004BaseMainnet;
+          const erc8004BaseSepoliaRawFinal = erc8004BaseSepoliaRaw;
 
           const hasMessages = !!blindIndex && JSON.parse(blindIndex).length > 0;
           const hasEciesKey = !!eciesKey;
@@ -2959,8 +3010,10 @@ export default {
             inbox: { count: inboxCount },
             heartbeat: { isActive: lastBeat !== null && (Date.now() - lastBeat) < 10 * 60 * 1000, lastBeat },
             tier: accountTier,
-            // ERC-8004 on-chain identity
-            ...(erc8004Raw ? (() => { try { const d = JSON.parse(erc8004Raw); return { erc8004AgentId: d.agentId, erc8004AgentURI: d.agentURI, erc8004RegisteredAt: d.registeredAt }; } catch { return {}; } })() : {}),
+            // ERC-8004 on-chain identity (multi-chain)
+            ...(erc8004Raw ? (() => { try { const d = JSON.parse(erc8004Raw); return { erc8004AgentId: d.agentId, erc8004AgentURI: d.agentURI, erc8004RegisteredAt: d.registeredAt, erc8004ChainId: d.chainId ?? 100 }; } catch { return {}; } })() : {}),
+            ...(erc8004BaseRaw ? (() => { try { const d = JSON.parse(erc8004BaseRaw); return { erc8004Base: { agentId: d.agentId, agentURI: d.agentURI, registeredAt: d.registeredAt, chainId: 8453 } }; } catch { return {}; } })() : {}),
+            ...(erc8004BaseSepoliaRawFinal ? (() => { try { const d = JSON.parse(erc8004BaseSepoliaRawFinal); return { erc8004BaseSepolia: { agentId: d.agentId, agentURI: d.agentURI, registeredAt: d.registeredAt, chainId: 84532 } }; } catch { return {}; } })() : {}),
             ...(collection ? { collection: collection.displayName, collectionName, tokenId } : {}),
             ...(availability ? { availability } : {}),
           }), request);

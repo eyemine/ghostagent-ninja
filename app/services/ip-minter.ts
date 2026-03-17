@@ -1,7 +1,7 @@
 import { getIPType } from '../constants/ip-types';
+import { WORKER_URL } from '../utils/config';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://ghostagent.ninja';
-const WORKER_URL = process.env.NFTMAIL_WORKER_URL || 'https://nftmail-email-worker.richard-159.workers.dev';
 
 export interface IPMintResult {
   ipAsset: {

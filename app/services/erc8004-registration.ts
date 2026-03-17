@@ -25,9 +25,35 @@ export const ERC8004_ADDRESSES = {
   },
 } as const;
 
-// Gnosis mainnet (chainId 100) — where GhostAgents live
-export const GNOSIS_ADDRESSES = ERC8004_ADDRESSES.mainnet;
+// Per-chain address lookup
+export const GNOSIS_ADDRESSES      = ERC8004_ADDRESSES.mainnet;  // chainId 100
+export const BASE_ADDRESSES        = ERC8004_ADDRESSES.mainnet;  // chainId 8453 (same mainnet addrs)
+export const BASE_SEPOLIA_ADDRESSES = ERC8004_ADDRESSES.testnet; // chainId 84532
 export const GNOSIS_CHAIN_ID = 100;
+export const BASE_CHAIN_ID   = 8453;
+
+// Chain config map for the register route
+export const ERC8004_CHAIN_CONFIG = {
+  gnosis: {
+    chainId:   100,
+    label:     'Gnosis',
+    addresses: ERC8004_ADDRESSES.mainnet,
+    explorer:  'https://gnosisscan.io',
+  },
+  base: {
+    chainId:   8453,
+    label:     'Base',
+    addresses: ERC8004_ADDRESSES.mainnet,
+    explorer:  'https://basescan.org',
+  },
+  baseSepolia: {
+    chainId:   84532,
+    label:     'Base Sepolia',
+    addresses: ERC8004_ADDRESSES.testnet,
+    explorer:  'https://sepolia.basescan.org',
+  },
+} as const;
+export type Erc8004ChainKey = keyof typeof ERC8004_CHAIN_CONFIG;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -118,7 +144,7 @@ export function buildErc8004RegistrationFile(params: {
     services,
     x402Support: false,
     active: true,
-    supportedTrust: ['reputation'],
+    supportedTrust: ['reputation', 'validation', 'crypto-economic'],
     registrations,
   };
 }

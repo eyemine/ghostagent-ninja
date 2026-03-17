@@ -355,7 +355,7 @@ export function MintNFTMail({ initialName }: { initialName?: string } = {}) {
                   <span className="text-[10px] text-red-400 font-semibold">✗ already taken</span>
                 )}
               </div>
-              <p className="text-[10px] text-[var(--muted)]">Free — 8-day inbox, receive only. Upgrade to Lite to send &amp; molt.</p>
+              <p className="text-[10px] text-[var(--muted)]">Free — 8-day history window, inbox address permanent. Upgrade to Lite to send &amp; molt.</p>
             </div>
           )}
         </div>

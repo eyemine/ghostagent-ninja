@@ -17,6 +17,7 @@
  */
 
 import { buildAndPin, type MoltEvent, type MoltPath, type EmailAliasMeta } from './beacon-metadata';
+import { WORKER_URL } from '../utils/config';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -74,9 +75,6 @@ export interface TrackResult {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const WORKER_URL =
-  process.env.NFTMAIL_WORKER_URL ||
-  'https://nftmail-email-worker.richard-159.workers.dev';
 
 // xDAI costs per action for score calculation
 const XDAI_COSTS: Record<string, number> = {
