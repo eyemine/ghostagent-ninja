@@ -16,17 +16,13 @@ import { WORKER_URL } from '../../../../utils/config';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://ghostagent.ninja';
 
-// ERC-8004 Identity Registry deployments (testnets)
+// ERC-8004 Identity Registry deployments
 // Source: https://github.com/erc-8004/erc-8004-contracts
-const ERC8004_REGISTRIES: Record<string, { chainId: number; address: string; name: string }> = {
-  gnosis:       { chainId: 100,     address: '0x8004A169FB4a3325136EB29fA0ceB6D2e539a432', name: 'Gnosis Mainnet' },
-  sepolia:      { chainId: 11155111, address: '0x8004A818BFB912233c491871b3d84c89A494BD9e', name: 'Ethereum Sepolia' },
-  baseSepolia:  { chainId: 84532,    address: '0x8004A818BFB912233c491871b3d84c89A494BD9e', name: 'Base Sepolia' },
+const ERC8004_REGISTRIES = {
+  gnosis:      { chainId: 100,   address: '0x8004A169FB4a3325136EB29fA0ceB6D2e539a432' },
+  base:        { chainId: 8453,  address: '0x8004A169FB4a3325136EB29fA0ceB6D2e539a432' },
+  baseSepolia: { chainId: 84532, address: '0x8004A818BFB912233c491871b3d84c89A494BD9e' },
 };
-
-// Hackathon runs on Base Sepolia — primary registry for competition
-const DEFAULT_REGISTRY = ERC8004_REGISTRIES.baseSepolia;
-const GNOSIS_REGISTRY   = ERC8004_REGISTRIES.gnosis;
 
 export async function GET(
   _req: NextRequest,
@@ -104,19 +100,24 @@ export async function GET(
     // Active flag — true if ERC-8004 registered or has presence signals
     active: erc8004AgentId !== null || graph.exists === true,
 
-    // On-chain registrations — Base Sepolia (hackathon) + Gnosis Mainnet
-    registrations: erc8004AgentId !== null ? [
-      {
+    // On-chain registrations — dynamically built from KV (Gnosis + Base + Base Sepolia)
+    registrations: [
+      ...(erc8004AgentId !== null ? [{
         agentId:       erc8004AgentId,
-        agentRegistry: `eip155:${DEFAULT_REGISTRY.chainId}:${DEFAULT_REGISTRY.address}`,
+        agentRegistry: `eip155:${ERC8004_REGISTRIES.gnosis.chainId}:${ERC8004_REGISTRIES.gnosis.address}`,
         registeredAt:  graph.erc8004RegisteredAt ?? null,
-      },
-      {
-        agentId:       3184,
-        agentRegistry: `eip155:${GNOSIS_REGISTRY.chainId}:${GNOSIS_REGISTRY.address}`,
-        registeredAt:  null,
-      },
-    ] : [],
+      }] : []),
+      ...(graph.erc8004Base?.agentId != null ? [{
+        agentId:       graph.erc8004Base.agentId,
+        agentRegistry: `eip155:${ERC8004_REGISTRIES.base.chainId}:${ERC8004_REGISTRIES.base.address}`,
+        registeredAt:  graph.erc8004Base.registeredAt ?? null,
+      }] : []),
+      ...(graph.erc8004BaseSepolia?.agentId != null ? [{
+        agentId:       graph.erc8004BaseSepolia.agentId,
+        agentRegistry: `eip155:${ERC8004_REGISTRIES.baseSepolia.chainId}:${ERC8004_REGISTRIES.baseSepolia.address}`,
+        registeredAt:  graph.erc8004BaseSepolia.registeredAt ?? null,
+      }] : []),
+    ],
 
     // GhostAgent extensions (non-standard, prefixed)
     'ghostagent:gnosis': {
