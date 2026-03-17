@@ -20,6 +20,7 @@ export async function GET() {
     name: 'GhostAgent',
     description:
       'Sovereign AI agent platform on Gnosis Chain. Each GhostAgent has a non-custodial NFT-bound identity (nftmail.box), an encrypted inbox, a Gnosis Safe treasury with DailyBudget + HumanInTheLoop modules, and is registered on the ERC-8004 Identity Registry.',
+    url: APP_URL,
     iconUrl: `${APP_URL}/ghost-logo.png`,
     version: '1.0.0',
     documentationUrl: `${APP_URL}/docs`,
@@ -107,7 +108,7 @@ export async function GET() {
         description: 'ERC-8004 Trustless Agents — on-chain identity registry',
         required: false,
         params: {
-          agentId: 3180,
+          agentId: 3199,
           identityRegistry: 'eip155:100:0x8004A169FB4a3325136EB29fA0ceB6D2e539a432',
           reputationRegistry: 'eip155:100:0x8004BAa17C55a88189AE136b182e5fdA19dE9b63',
           registrationJson: `${APP_URL}/api/agent/ghostagent/registration.json`,

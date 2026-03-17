@@ -21,6 +21,7 @@ export async function GET() {
       'Sovereign AI agent platform on Gnosis Chain. Each GhostAgent has a non-custodial ' +
       'NFT-bound identity (nftmail.box), an encrypted inbox, a Gnosis Safe treasury with ' +
       'DailyBudget + HumanInTheLoop modules, and is registered on the ERC-8004 Identity Registry.',
+    url: APP_URL,
     iconUrl: `${APP_URL}/ghost-logo.png`,
     version: '1.0.0',
     documentationUrl: `${APP_URL}/docs`,
