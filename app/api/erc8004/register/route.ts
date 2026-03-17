@@ -239,7 +239,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const explorerBase = isBaseSepolia ? 'https://sepolia.basescan.org' : 'https://gnosisscan.io';
+    const explorerBase = chainConfig.chainId === 84532 ? 'https://sepolia.basescan.org' : chainConfig.chainId === 8453 ? 'https://basescan.org' : 'https://gnosisscan.io';
     return NextResponse.json({
       success:    true,
       agentName,
@@ -286,7 +286,7 @@ export async function GET(req: NextRequest) {
       agentName,
       erc8004AgentId,
       agentURI: kvData?.agentURI ?? null,
-      agentRegistry: `eip155:100:${GNOSIS_ADDRESSES.identityRegistry}`,
+      agentRegistry: `eip155:100:0x8004A169FB4a3325136EB29fA0ceB6D2e539a432`,
     });
   } catch {
     return NextResponse.json({ error: 'Worker unavailable' }, { status: 502 });
