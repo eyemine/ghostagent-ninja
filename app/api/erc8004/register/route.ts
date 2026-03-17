@@ -19,6 +19,7 @@ import {
   http,
   decodeEventLog,
   type Address,
+  type Chain,
 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { gnosis, baseSepolia, base } from 'viem/chains';
@@ -31,7 +32,7 @@ import {
 import { type SldKey } from '../../../services/genome-metadata';
 import { WORKER_URL } from '../../../utils/config';
 
-const VIEM_CHAINS: Record<string, typeof gnosis> = {
+const VIEM_CHAINS: Record<string, Chain> = {
   gnosis,
   base,
   baseSepolia,
