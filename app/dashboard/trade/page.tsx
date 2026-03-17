@@ -18,8 +18,9 @@ const GHOST_LOGO = '/ghost-logo.png';
 
 // Known agent — populated from ERC-8004 registry; stub for now
 const DEMO_AGENTS = [
-  { name: 'ghostagent.molt.gno', agentId: 3199, safeAddress: '0xb7e493e3d226f8fE722CC9916fF164B793af13F4', chain: 'Gnosis',                  chainId: 100   },
-  { name: 'ghostagent.molt.gno', agentId: 1766, safeAddress: '0xb7e493e3d226f8fE722CC9916fF164B793af13F4', chain: 'Base Sepolia (Hackathon)', chainId: 84532 },
+  { name: 'ghostagent.molt.gno', agentId: 3199,  safeAddress: '0xb7e493e3d226f8fE722CC9916fF164B793af13F4', chain: 'Gnosis',                  chainId: 100   },
+  { name: 'ghostagent.molt.gno', agentId: 32756, safeAddress: '0xb7e493e3d226f8fE722CC9916fF164B793af13F4', chain: 'Base (Synthesis)',         chainId: 8453  },
+  { name: 'ghostagent.molt.gno', agentId: 1766,  safeAddress: '0xb7e493e3d226f8fE722CC9916fF164B793af13F4', chain: 'Base Sepolia (Hackathon)', chainId: 84532 },
 ];
 
 function shortAddr(addr: string) {

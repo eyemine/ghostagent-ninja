@@ -30,7 +30,7 @@
 
 import { createWalletClient, createPublicClient, http, parseAbi } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import { gnosis, baseSepolia } from 'viem/chains';
+import { gnosis, baseSepolia, base } from 'viem/chains';
 import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -55,8 +55,9 @@ const APP_URL = env.NEXT_PUBLIC_APP_URL || 'https://ghostagent.ninja';
 // ERC-8004 Identity Registry addresses
 // Source: https://github.com/erc-8004/erc-8004-contracts
 const REGISTRIES = {
-  gnosis:      { chainId: 100,   identityRegistry: '0x8004A169FB4a3325136EB29fA0ceB6D2e539a432', rpc: 'https://rpc.gnosischain.com', explorer: 'https://gnosisscan.io' },
-  baseSepolia: { chainId: 84532, identityRegistry: '0x8004A818BFB912233c491871b3d84c89A494BD9e', rpc: 'https://sepolia.base.org',      explorer: 'https://sepolia.basescan.org' },
+  gnosis:      { chainId: 100,   identityRegistry: '0x8004A169FB4a3325136EB29fA0ceB6D2e539a432', rpc: 'https://rpc.gnosischain.com', explorer: 'https://gnosisscan.io',         viemChain: gnosis      },
+  base:        { chainId: 8453,  identityRegistry: '0x8004A169FB4a3325136EB29fA0ceB6D2e539a432', rpc: 'https://mainnet.base.org',   explorer: 'https://basescan.org',           viemChain: base        },
+  baseSepolia: { chainId: 84532, identityRegistry: '0x8004A818BFB912233c491871b3d84c89A494BD9e', rpc: 'https://sepolia.base.org',   explorer: 'https://sepolia.basescan.org',   viemChain: baseSepolia },
 };
 
 const IDENTITY_REGISTRY_ABI = parseAbi([
@@ -71,8 +72,9 @@ const IDENTITY_REGISTRY_ABI = parseAbi([
 async function main() {
   const args       = process.argv.slice(2);
   const agentName  = args.find(a => !a.startsWith('--') && !a.startsWith('0x'));
-  const useBaseSep = args.includes('--base-sepolia');
-  const useGnosis  = args.includes('--gnosis');
+  const useBaseSep  = args.includes('--base-sepolia');
+  const useBase     = args.includes('--base');
+  const useGnosis   = args.includes('--gnosis');
 
   // --safe <address>
   const safeIdx   = args.indexOf('--safe');
@@ -85,8 +87,8 @@ async function main() {
     process.exit(1);
   }
 
-  const net   = useBaseSep ? REGISTRIES.baseSepolia : (useGnosis ? REGISTRIES.gnosis : REGISTRIES.gnosis);
-  const chain = useBaseSep ? baseSepolia : (useGnosis ? gnosis : gnosis);
+  const net   = useBaseSep ? REGISTRIES.baseSepolia : useBase ? REGISTRIES.base : REGISTRIES.gnosis;
+  const chain = net.viemChain;
 
   if (!PRIVATE_KEY) {
     console.error('Missing PRIVATE_KEY in .env or .env.local');
@@ -94,7 +96,7 @@ async function main() {
   }
 
   const account      = privateKeyToAccount(PRIVATE_KEY);
-  const chainLabel   = useBaseSep ? `Base Sepolia (${net.chainId})` : `Gnosis Mainnet (${net.chainId})`;
+  const chainLabel   = useBaseSep ? `Base Sepolia (${net.chainId})` : useBase ? `Base Mainnet (${net.chainId})` : `Gnosis Mainnet (${net.chainId})`;
   const publicClient = createPublicClient({ chain, transport: http(net.rpc) });
   const walletClient = createWalletClient({ account, chain, transport: http(net.rpc) });
 

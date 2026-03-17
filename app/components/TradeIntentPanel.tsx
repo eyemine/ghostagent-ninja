@@ -71,7 +71,8 @@ type Step = 'idle' | 'building' | 'signing' | 'submitting' | 'done' | 'error';
 
 export function TradeIntentPanel({ agentName, agentId, safeAddress, chainId = 100 }: Props) {
   const isBaseSepolia = chainId === 84532;
-  const chainLabel   = isBaseSepolia ? 'Base Sepolia 84532' : 'Gnosis chain 100';
+  const isBaseMainnet = chainId === 8453;
+  const chainLabel   = isBaseSepolia ? 'Base Sepolia 84532' : isBaseMainnet ? 'Base 8453' : 'Gnosis chain 100';
   const { wallets } = useWallets();
 
   const [tokenIn,     setTokenIn]     = useState(WXDAI);
@@ -147,8 +148,13 @@ export function TradeIntentPanel({ agentName, agentId, safeAddress, chainId = 10
       // ── Step 2: sign via wallet ──────────────────────────────────────────────
       setStep('signing');
       const provider  = await wallets[0].getEthereumProvider();
+      const chainDef = isBaseSepolia
+        ? { id: 84532, name: 'Base Sepolia', nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 }, rpcUrls: { default: { http: ['https://sepolia.base.org'] } } }
+        : isBaseMainnet
+        ? { id: 8453,  name: 'Base',         nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 }, rpcUrls: { default: { http: ['https://mainnet.base.org']  } } }
+        : gnosis;
       const walletClient = createWalletClient({
-        chain:     isBaseSepolia ? { id: 84532, name: 'Base Sepolia', nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 }, rpcUrls: { default: { http: ['https://sepolia.base.org'] } } } : gnosis,
+        chain:     chainDef,
         transport: custom(provider),
       });
       const [account] = await walletClient.getAddresses();
@@ -222,6 +228,8 @@ export function TradeIntentPanel({ agentName, agentId, safeAddress, chainId = 10
         <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ${
           isBaseSepolia
             ? 'bg-blue-500/10 text-blue-300 ring-blue-500/20'
+            : isBaseMainnet
+            ? 'bg-green-500/10 text-green-300 ring-green-500/20'
             : 'bg-violet-500/10 text-violet-300 ring-violet-500/20'
         }`}>
           {chainLabel}

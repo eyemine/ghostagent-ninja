@@ -13,7 +13,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createWalletClient, http } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import { gnosis, baseSepolia } from 'viem/chains';
+import { gnosis, baseSepolia, base } from 'viem/chains';
 import {
   TRADE_INTENT_DOMAIN,
   TRADE_INTENT_TYPES,
@@ -33,6 +33,7 @@ import { WORKER_URL } from '../../utils/config';
 // ERC-8004 Validation Registry addresses
 const VALIDATION_REGISTRIES = {
   gnosis:      { registry: '0x8004A169FB4a3325136EB29fA0ceB6D2e539a432', chain: gnosis,      chainId: 100,   explorer: 'https://gnosisscan.io' },
+  base:        { registry: '0x8004A169FB4a3325136EB29fA0ceB6D2e539a432', chain: base,        chainId: 8453,  explorer: 'https://basescan.org' },
   baseSepolia: { registry: '0x8004A818BFB912233c491871b3d84c89A494BD9e', chain: baseSepolia, chainId: 84532, explorer: 'https://sepolia.basescan.org' },
 };
 // Hackathon trading competition uses Base Sepolia
