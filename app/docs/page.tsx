@@ -44,6 +44,7 @@ export default function DocsPage() {
           <div className="space-y-2">
             {[
               { label: 'A2A Agent Card',        url: `${APP_URL}/.well-known/agent.json` },
+              { label: 'Agent Registry',        url: `${APP_URL}/api/agents` },
               { label: 'ERC-8004 Identity Doc', url: `${APP_URL}/api/agent-card?agent=ghostagent` },
               { label: 'Agent Profile Page',    url: `${APP_URL}/agent/ghostagent` },
               { label: 'A2A JSON-RPC endpoint', url: `${APP_URL}/api/a2a` },
@@ -304,6 +305,8 @@ Content-Type: application/json
         <div className="flex flex-wrap gap-4 text-[11px] text-[var(--muted)] pb-8">
           <a href="/.well-known/agent.json" target="_blank" rel="noopener noreferrer"
             className="hover:text-white transition">A2A Agent Card ↗</a>
+          <a href="/api/agents" target="_blank" rel="noopener noreferrer"
+            className="hover:text-white transition">Agent Registry ↗</a>
           <a href="/api/agent-card?agent=ghostagent" target="_blank" rel="noopener noreferrer"
             className="hover:text-white transition">ERC-8004 Registration JSON ↗</a>
           <a href="/agent/ghostagent" className="hover:text-white transition">Agent Profile ↗</a>
