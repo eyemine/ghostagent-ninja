@@ -143,20 +143,11 @@ export async function POST(req: NextRequest) {
       imageCid: imageCid ?? null,
     });
 
-    // ─── Step 2: Pin initial registration JSON to IPFS ───
-    let agentURI = `https://nftmail.box/api/agent-card?agent=${agentName}&sld=${sld}`;
-    let initialCid: string | null = null;
-
-    if (lighthouseKey) {
-      initialCid = await pinJsonToLighthouse(
-        regFile,
-        `${agentName}-${sld}-erc8004.json`,
-        lighthouseKey,
-      );
-      if (initialCid) {
-        agentURI = `${IPFS_GATEWAY}/${initialCid}`;
-      }
-    }
+    // ─── Step 2: Use stable canonical agentURI (self-updating, no IPFS pin needed) ───
+    // /api/agent-card reads the agent's current SLD from KV on every request,
+    // so this URI never needs updating post-molt.
+    const agentURI = `https://ghostagent.ninja/api/agent-card?agent=${agentName}`;
+    const initialCid: string | null = null;
 
     // ─── Step 3: Call Identity Registry register(agentURI) ───
     const trimmedKey    = treasuryKey.trim().replace(/^0x/, '').slice(0, 64);
@@ -189,33 +180,8 @@ export async function POST(req: NextRequest) {
       } catch {}
     }
 
-    // ─── Step 5: Re-pin registration file with agentId patched in ───
-    let finalCid: string | null = initialCid;
-    if (agentId !== null && lighthouseKey) {
-      const patchedFile = patchRegistrationWithAgentId(regFile, agentId);
-      const repinnedCid = await pinJsonToLighthouse(
-        patchedFile,
-        `${agentName}-${sld}-erc8004-v2.json`,
-        lighthouseKey,
-      );
-      if (repinnedCid) {
-        finalCid = repinnedCid;
-        // Update agentURI on-chain with patched CID
-        const updatedURI = `${IPFS_GATEWAY}/${repinnedCid}`;
-        if (agentId !== null) {
-          try {
-            await chainWallet.writeContract({
-              address: chainConfig.addresses.identityRegistry as Address,
-              abi:     IdentityRegistryABI,
-              functionName: 'setAgentURI',
-              args:    [BigInt(agentId), updatedURI],
-            });
-          } catch {
-            // Non-fatal — initial URI still valid
-          }
-        }
-      }
-    }
+    // ─── Step 5: (skipped) agentURI is canonical and self-updating; no re-pin needed ───
+    const finalCid: string | null = initialCid;
 
     // ─── Step 6: Store erc8004AgentId in KV via worker ───
     let kvStored = false;
@@ -228,7 +194,7 @@ export async function POST(req: NextRequest) {
             action:         'setErc8004AgentId',
             agentName,
             erc8004AgentId: agentId,
-            agentURI:       finalCid ? `${IPFS_GATEWAY}/${finalCid}` : agentURI,
+            agentURI:       agentURI,
             chainId:        chainConfig.chainId,
             safeOwner:      ownerWallet,
           }),
@@ -246,8 +212,7 @@ export async function POST(req: NextRequest) {
       sld,
       agentId,
       txHash,
-      agentURI:   finalCid ? `${IPFS_GATEWAY}/${finalCid}` : agentURI,
-      agentURICid: finalCid,
+      agentURI:   agentURI,
       network:    `${chainConfig.label} (chainId ${chainConfig.chainId})`,
       agentRegistry: `eip155:${chainConfig.chainId}:${chainConfig.addresses.identityRegistry}`,
       explorer:   `${explorerBase}/tx/${txHash}`,

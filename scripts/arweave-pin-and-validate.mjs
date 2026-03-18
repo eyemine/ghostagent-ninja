@@ -274,7 +274,7 @@ async function submitGiveFeedback(chain, network, agentId, arweaveUrl, feedbackH
 
 // Register agent on Identity Registry → returns on-chain agentId for this chain
 async function registerAgent(walletClient, account, network, agentName, appUrl) {
-  const agentURI = `${appUrl}/.well-known/agent-card.json`;
+  const agentURI = `${appUrl}/api/agent-card?agent=${agentName}`;
   const chainName = { 84532: 'Base Sepolia', 11155111: 'Ethereum Sepolia', 1: 'Mainnet' }[network.chainId] ?? String(network.chainId);
   console.log(`\n⛓  Registering agent on Identity Registry (${chainName})…`);
   console.log(`   agentURI: ${agentURI}`);

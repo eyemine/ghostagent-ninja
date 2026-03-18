@@ -32,15 +32,11 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const sld = VALID_SLDS.includes(sldParam as SldKey) ? (sldParam as SldKey) : 'nftmail';
+  const sldFallback: SldKey = VALID_SLDS.includes(sldParam as SldKey) ? (sldParam as SldKey) : 'nftmail';
 
-  // Build base registration file (no agentId yet)
-  let regFile: Erc8004RegistrationFile = buildErc8004RegistrationFile({
-    agentName,
-    sld,
-  });
-
-  // Try to look up stored agentId from KV via worker
+  // Resolve current SLD and agentId from KV — single worker call
+  let sld: SldKey = sldFallback;
+  let agentId: number | null = null;
   try {
     const kvRes = await fetch(WORKER_URL, {
       method: 'POST',
@@ -49,14 +45,22 @@ export async function GET(req: NextRequest) {
     });
     if (kvRes.ok) {
       const kvData = await kvRes.json() as Record<string, unknown>;
-      const agentId = kvData?.erc8004AgentId;
-      if (typeof agentId === 'number' && agentId > 0) {
-        regFile = patchRegistrationWithAgentId(regFile, agentId);
+      // Prefer live TLD from KV (e.g. "molt.gno" → "molt")
+      const kvTld = kvData?.tld as string | undefined;
+      if (kvTld) {
+        const kvSld = kvTld.split('.')[0] as SldKey;
+        if (VALID_SLDS.includes(kvSld)) sld = kvSld;
       }
+      const kvAgentId = kvData?.erc8004AgentId;
+      if (typeof kvAgentId === 'number' && kvAgentId > 0) agentId = kvAgentId;
     }
   } catch {
-    // Non-fatal — serve file without agentId
+    // Non-fatal — serve file with fallback sld, no agentId
   }
+
+  // Build base registration file
+  let regFile: Erc8004RegistrationFile = buildErc8004RegistrationFile({ agentName, sld });
+  if (agentId != null) regFile = patchRegistrationWithAgentId(regFile, agentId);
 
   // Content negotiation: browsers get a human-readable agent profile page;
   // API clients / A2A agents get the raw JSON.

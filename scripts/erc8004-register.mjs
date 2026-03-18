@@ -116,7 +116,7 @@ async function main() {
     console.log(`   Safe:     none — token stays on EOA (use --safe <addr> to transfer)`);
   }
 
-  const agentURI = `${APP_URL}/api/agent/${agentName}/registration.json`;
+  const agentURI = `${APP_URL}/api/agent-card?agent=${agentName}`;
   console.log(`   agentURI: ${agentURI}`);
 
   // Verify the agentURI is reachable before registering
