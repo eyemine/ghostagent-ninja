@@ -6,7 +6,7 @@
 
 import { SLD_VISUAL, type SldKey } from './genome-metadata';
 
-export const APP_DOMAIN = process.env.NEXT_PUBLIC_APP_URL ?? 'https://nftmail.box';
+export const APP_DOMAIN = process.env.NEXT_PUBLIC_APP_URL ?? 'https://ghostagent.ninja';
 export const IPFS_GATEWAY = 'https://gateway.lighthouse.storage/ipfs';
 
 // ─── ERC-8004 Contract Addresses ─────────────────────────────────────────────
@@ -111,8 +111,8 @@ export function buildErc8004RegistrationFile(params: {
 
   const visual    = SLD_VISUAL[sld];
   const fullName  = `${agentName}.${sld}.${tld}`;
-  const agentEmail = `${agentName}@nftmail.box`;
-  const agentWeb   = `${APP_DOMAIN}/agent/${agentName}`;
+  const agentEmail = `${agentName}_@nftmail.box`;
+  const agentWeb   = `https://ghostagent.ninja/agents`;
   const resolvedImageCid = imageCid ?? visual.imageCid;
   const registryAddr = GNOSIS_ADDRESSES.identityRegistry;
 
@@ -123,7 +123,7 @@ export function buildErc8004RegistrationFile(params: {
     },
     {
       name:     'A2A',
-      endpoint: `${APP_DOMAIN}/.well-known/agent-card.json?agent=${agentName}&sld=${sld}`,
+      endpoint: `https://ghostagent.ninja/.well-known/agent.json`,
       version:  '0.3.0',
     },
     {
