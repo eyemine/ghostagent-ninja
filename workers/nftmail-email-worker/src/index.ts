@@ -868,6 +868,17 @@ export default {
           return corsify(result, request);
         }
 
+        // Agent Registry: set TLD for an agent (seeds tld: KV key for listAgents)
+        if (email.action === 'setTld') {
+          const agentName = ((email as any).agentName || '').toLowerCase().trim();
+          const tld       = (email as any).tld || '';
+          if (!agentName || !tld) {
+            return corsify(Response.json({ error: 'Missing agentName or tld' }, { status: 400 }), request);
+          }
+          await env.INBOX_KV.put(`tld:${agentName}`, tld);
+          return corsify(Response.json({ status: 'stored', agentName, tld }), request);
+        }
+
         // Agent Registry: list all registered agents with ERC-8004 IDs and TLDs
         if (email.action === 'listAgents') {
           try {
