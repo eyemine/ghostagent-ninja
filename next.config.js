@@ -8,6 +8,10 @@ const nextConfig = {
         source: '/.well-known/agent-card.json',
         destination: '/api/well-known/agent-card.json',
       },
+      {
+        source: '/.well-known/agent.json',
+        destination: '/api/well-known/agent-card.json',
+      },
     ];
   },
   images: {
