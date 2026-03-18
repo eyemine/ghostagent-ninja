@@ -868,6 +868,77 @@ export default {
           return corsify(result, request);
         }
 
+        // Agent Identity: full identity stack for a GhostAgent (all layers)
+        if (email.action === 'getAgentIdentity') {
+          const agentName = ((email as any).agentName || '').toLowerCase().replace(/_+$/, '').trim();
+          if (!agentName) {
+            return corsify(Response.json({ error: 'Missing agentName' }, { status: 400 }), request);
+          }
+          const [tldRaw, gnosisRaw, baseRaw, baseSepoliaRaw, gnoOwnerRaw, acctTierRaw] = await Promise.all([
+            env.INBOX_KV.get(`tld:${agentName}`),
+            env.INBOX_KV.get(`erc8004:gnosis:${agentName}`),
+            env.INBOX_KV.get(`erc8004:base:${agentName}`),
+            env.INBOX_KV.get(`erc8004:baseSepolia:${agentName}`),
+            env.INBOX_KV.get(`nftmailgno:${agentName}`),
+            env.INBOX_KV.get(`acct-tier:${agentName}`),
+          ]);
+
+          // Parse identity NFT record (nftmailgno: key)
+          let originNft: string | null = null;
+          let tokenId: number | null = null;
+          let onChainOwner: string | null = null;
+          if (gnoOwnerRaw) {
+            try {
+              const g = JSON.parse(gnoOwnerRaw);
+              onChainOwner = g.controller || null;
+              originNft    = g.origin_nft || null;
+              tokenId      = g.minted_tokenId || null;
+            } catch { onChainOwner = gnoOwnerRaw; }
+          }
+
+          // Parse safe + storyIp (acct-tier: key)
+          let safe: string | null = null;
+          let storyIp: string | null = null;
+          if (acctTierRaw) {
+            try { const t = JSON.parse(acctTierRaw); safe = t.safe || null; storyIp = t.story_ip || null; } catch {}
+          }
+
+          const tld = tldRaw ?? null;
+
+          const gnosis      = gnosisRaw      ? JSON.parse(gnosisRaw)      : null;
+          const base        = baseRaw         ? JSON.parse(baseRaw)         : null;
+          const baseSepolia = baseSepoliaRaw  ? JSON.parse(baseSepoliaRaw)  : null;
+
+          return corsify(Response.json({
+            name: agentName,
+            email: `${agentName}_@nftmail.box`,
+            // Identity NFT layer
+            identityNft: originNft ? {
+              name:    originNft,
+              tokenId: tokenId,
+              owner:   onChainOwner,
+              tld:     tld,
+            } : null,
+            // Safe (multisig treasury)
+            safe: safe ?? null,
+            // Story Protocol IP
+            storyIp: storyIp ?? null,
+            // ERC-8004 registrations (multi-chain)
+            erc8004: {
+              ...(gnosis      ? { gnosis:      { agentId: gnosis.agentId,      chainId: 100,   agentURI: gnosis.agentURI,      registeredAt: gnosis.registeredAt } } : {}),
+              ...(base        ? { base:        { agentId: base.agentId,        chainId: 8453,  agentURI: base.agentURI,        registeredAt: base.registeredAt   } } : {}),
+              ...(baseSepolia ? { baseSepolia: { agentId: baseSepolia.agentId, chainId: 84532, agentURI: baseSepolia.agentURI, registeredAt: baseSepolia.registeredAt } } : {}),
+            },
+            // Links
+            links: {
+              profile:    `https://ghostagent.ninja/agent/${agentName}`,
+              agentCard:  `https://ghostagent.ninja/api/agent-card?agent=${agentName}`,
+              a2aCard:    `https://ghostagent.ninja/.well-known/agent.json`,
+              registry:   `https://ghostagent.ninja/api/agents`,
+            },
+          }), request);
+        }
+
         // Agent Registry: set TLD for an agent (seeds tld: KV key for listAgents)
         if (email.action === 'setTld') {
           const agentName = ((email as any).agentName || '').toLowerCase().trim();
