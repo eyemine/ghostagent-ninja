@@ -868,6 +868,42 @@ export default {
           return corsify(result, request);
         }
 
+        // Agent Registry: list all registered agents with ERC-8004 IDs and TLDs
+        if (email.action === 'listAgents') {
+          try {
+            const listed = await env.INBOX_KV.list({ prefix: 'tld:' });
+            const agents = await Promise.all(
+              listed.keys.map(async (k) => {
+                const name = k.name.replace(/^tld:/, '');
+                const [tld, gnosisRaw, baseRaw, baseSepoliaRaw] = await Promise.all([
+                  env.INBOX_KV.get(k.name),
+                  env.INBOX_KV.get(`erc8004:gnosis:${name}`),
+                  env.INBOX_KV.get(`erc8004:base:${name}`),
+                  env.INBOX_KV.get(`erc8004:baseSepolia:${name}`),
+                ]);
+                const gnosis      = gnosisRaw      ? JSON.parse(gnosisRaw)      : null;
+                const base        = baseRaw         ? JSON.parse(baseRaw)         : null;
+                const baseSepolia = baseSepoliaRaw  ? JSON.parse(baseSepoliaRaw)  : null;
+                return {
+                  name,
+                  tld: tld ?? null,
+                  agentCardUrl: `https://ghostagent.ninja/api/agent-card?agent=${name}`,
+                  a2aCardUrl:   `https://ghostagent.ninja/.well-known/agent.json`,
+                  profileUrl:   `https://ghostagent.ninja/agent/${name}`,
+                  erc8004: {
+                    ...(gnosis      ? { gnosis:      { agentId: gnosis.agentId,      chainId: 100,   agentURI: gnosis.agentURI      } } : {}),
+                    ...(base        ? { base:        { agentId: base.agentId,        chainId: 8453,  agentURI: base.agentURI        } } : {}),
+                    ...(baseSepolia ? { baseSepolia: { agentId: baseSepolia.agentId, chainId: 84532, agentURI: baseSepolia.agentURI } } : {}),
+                  },
+                };
+              })
+            );
+            return corsify(Response.json({ agents, total: agents.length }), request);
+          } catch (e: any) {
+            return corsify(Response.json({ error: e?.message ?? 'listAgents failed' }, { status: 500 }), request);
+          }
+        }
+
         // Ghost-Calendar actions
         if (email.action === 'getCalendar') {
           const agent = email.localPart || email.email?.split('@')[0] || '';
