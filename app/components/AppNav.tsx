@@ -13,6 +13,7 @@ const NAV = [
   { href: '/ip-portal', label: '🏛️ IP Portal' },
   { href: '/chonk-molt', label: 'OG NFT Molt' },
   { href: '/host', label: '$HOST' },
+  { href: '/docs', label: 'Docs' },
 ];
 
 export function AppNav() {
