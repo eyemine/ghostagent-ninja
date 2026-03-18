@@ -60,6 +60,6 @@ coverage/
 /src/
 /contracts/
 apps/
-docs/
+docs/*.md
 tsconfig.tsbuildinfo
 package-lock.json
