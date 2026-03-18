@@ -58,6 +58,16 @@ export async function GET(req: NextRequest) {
     // Non-fatal — serve file without agentId
   }
 
+  // Content negotiation: browsers get a human-readable agent profile page;
+  // API clients / A2A agents get the raw JSON.
+  const accept = req.headers.get('accept') ?? '';
+  if (accept.includes('text/html') && !accept.includes('application/json')) {
+    return NextResponse.redirect(
+      `https://ghostagent.ninja/agent/${agentName}`,
+      { status: 302 },
+    );
+  }
+
   return new NextResponse(JSON.stringify(regFile, null, 2), {
     headers: {
       'Content-Type': 'application/json',
