@@ -128,10 +128,10 @@ export async function GET() {
         description: 'ERC-8004 Trustless Agents — on-chain identity registry',
         required: false,
         params: {
-          agentId: 3180,
+          agentId: 3199,
           identityRegistry:   'eip155:100:0x8004A169FB4a3325136EB29fA0ceB6D2e539a432',
           reputationRegistry: 'eip155:100:0x8004BAa17C55a88189AE136b182e5fdA19dE9b63',
-          registrationJson:   `${APP_URL}/api/agent/ghostagent/registration.json`,
+          registrationJson:   `${APP_URL}/api/agent-card?agent=ghostagent`,
         },
       },
       {

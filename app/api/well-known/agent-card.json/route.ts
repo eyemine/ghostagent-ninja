@@ -94,7 +94,7 @@ export async function GET() {
           'Fetch the ERC-8004 #registration-v1 document for any GhostAgent. Includes on-chain agentId, Gnosis Safe, Story IP, and service endpoints.',
         tags: ['erc8004', 'identity', 'registry', 'gnosis'],
         examples: [
-          `${APP_URL}/api/agent/ghostagent/registration.json`,
+          `${APP_URL}/api/agent-card?agent=ghostagent`,
         ],
         inputModes: ['application/json'],
         outputModes: ['application/json'],
@@ -111,7 +111,7 @@ export async function GET() {
           agentId: 3199,
           identityRegistry: 'eip155:100:0x8004A169FB4a3325136EB29fA0ceB6D2e539a432',
           reputationRegistry: 'eip155:100:0x8004BAa17C55a88189AE136b182e5fdA19dE9b63',
-          registrationJson: `${APP_URL}/api/agent/ghostagent/registration.json`,
+          registrationJson: `${APP_URL}/api/agent-card?agent=ghostagent`,
         },
       },
     ],
