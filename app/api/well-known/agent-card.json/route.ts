@@ -9,11 +9,10 @@
 /// and are referenced from the ERC-8004 registration.json services array.
 
 import { NextResponse } from 'next/server';
-import { WORKER_URL } from '../../../utils/config';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://ghostagent.ninja';
 
-export const dynamic = 'force-dynamic';
+export const dynamic = 'force-static';
 
 export async function GET() {
   const agentCard = {

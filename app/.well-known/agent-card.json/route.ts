@@ -8,9 +8,8 @@
 /// Individual per-agent ERC-8004 docs also at /api/agent-card?agent=<name>&sld=<sld>
 
 import { NextResponse } from 'next/server';
-import { WORKER_URL } from '../../utils/config';
 
-export const dynamic = 'force-dynamic';
+export const dynamic = 'force-static';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://ghostagent.ninja';
 
@@ -34,7 +33,7 @@ export async function GET() {
         protocolVersion: '1.0',
       },
       {
-        url: `${WORKER_URL}`,
+        url: 'https://nftmail-email-worker.richard-159.workers.dev',
         protocolBinding: 'HTTP+JSON',
         protocolVersion: '1.0',
       },
