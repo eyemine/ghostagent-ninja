@@ -112,7 +112,7 @@ export function buildErc8004RegistrationFile(params: {
   const visual    = SLD_VISUAL[sld];
   const fullName  = `${agentName}.${sld}.${tld}`;
   const agentEmail = `${agentName}_@nftmail.box`;
-  const agentWeb   = `https://ghostagent.ninja/agents`;
+  const agentWeb   = `https://ghostagent.ninja/agent/${agentName}`;
   const resolvedImageCid = imageCid ?? visual.imageCid;
   const registryAddr = GNOSIS_ADDRESSES.identityRegistry;
 
@@ -130,6 +130,10 @@ export function buildErc8004RegistrationFile(params: {
       name:     'email',
       endpoint: agentEmail,
     },
+    {
+      name:     'x402',
+      endpoint: `https://ghostagent.ninja/api/trade-intent`,
+    },
   ];
 
   const registrations: Erc8004Registration[] = agentId > 0
@@ -142,7 +146,7 @@ export function buildErc8004RegistrationFile(params: {
     description: `${visual.label} AI Agent on GhostAgent Protocol. Sovereign identity: ${fullName}. ${visual.tagline}`,
     image: `${IPFS_GATEWAY}/${resolvedImageCid}`,
     services,
-    x402Support: false,
+    x402Support: true,
     active: true,
     supportedTrust: ['reputation', 'validation', 'crypto-economic'],
     registrations,
