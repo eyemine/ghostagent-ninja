@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
   let sld: SldKey = sldFallback;
   let agentId: number | null = null;
   try {
-    // resolveAddress returns originNft, tld, safe, onChainOwner — more complete than getAgentStatus
+    // resolveAddress returns tld, originNft, safe, onChainOwner AND erc8004AgentId in one call
     const kvRes = await fetch(WORKER_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -52,17 +52,9 @@ export async function GET(req: NextRequest) {
         const kvSld = kvTld.split('.')[0] as SldKey;
         if (VALID_SLDS.includes(kvSld)) sld = kvSld;
       }
-      // erc8004AgentId comes from getAgentStatus augmentation — fetch separately
-      const erc8004Res = await fetch(WORKER_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'getAgentStatus', localPart: `${agentName}_` }),
-      });
-      if (erc8004Res.ok) {
-        const erc8004Data = await erc8004Res.json() as Record<string, unknown>;
-        const kvAgentId = erc8004Data?.erc8004AgentId;
-        if (typeof kvAgentId === 'number' && kvAgentId > 0) agentId = kvAgentId;
-      }
+      // erc8004AgentId is included directly in resolveAddress response
+      const kvAgentId = kvData?.erc8004AgentId;
+      if (typeof kvAgentId === 'number' && kvAgentId > 0) agentId = kvAgentId;
     }
   } catch {
     // Non-fatal — serve file with fallback sld, no agentId
@@ -85,7 +77,7 @@ export async function GET(req: NextRequest) {
   return new NextResponse(JSON.stringify(regFile, null, 2), {
     headers: {
       'Content-Type': 'application/json',
-      'Cache-Control': 'public, max-age=3600, stale-while-revalidate=300',
+      'Cache-Control': 'public, max-age=60, stale-while-revalidate=30',
       'Access-Control-Allow-Origin': '*',
     },
   });
