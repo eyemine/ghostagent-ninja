@@ -939,6 +939,48 @@ export default {
           }), request);
         }
 
+        // Agent Registry: update acct-tier (safe, story_ip, tier) and/or nftmailgno (originNft, tokenId, TBA) for an agent
+        if (email.action === 'setAgentRecord') {
+          const agentName = ((email as any).agentName || '').toLowerCase().replace(/_+$/, '').trim();
+          if (!agentName) {
+            return corsify(Response.json({ error: 'Missing agentName' }, { status: 400 }), request);
+          }
+          const updates: string[] = [];
+
+          // Update acct-tier fields: safe, story_ip, tier
+          const { safe, storyIp, tier } = email as any;
+          if (safe !== undefined || storyIp !== undefined || tier !== undefined) {
+            const existing = await env.INBOX_KV.get(`acct-tier:${agentName}`);
+            let record: Record<string, unknown> = {};
+            if (existing) { try { record = JSON.parse(existing); } catch {} }
+            if (safe      !== undefined) record.safe     = safe;
+            if (storyIp   !== undefined) record.story_ip = storyIp;
+            if (tier      !== undefined) record.tier      = tier;
+            await env.INBOX_KV.put(`acct-tier:${agentName}`, JSON.stringify(record));
+            updates.push('acct-tier');
+          }
+
+          // Update nftmailgno fields: controller, originNft, tokenId, tba
+          const { controller, originNft, mintedTokenId, tba, registrar } = email as any;
+          if (controller !== undefined || originNft !== undefined || mintedTokenId !== undefined || tba !== undefined) {
+            const existing = await env.INBOX_KV.get(`nftmailgno:${agentName}`);
+            let record: Record<string, unknown> = {};
+            if (existing) { try { record = JSON.parse(existing); } catch {} }
+            if (controller    !== undefined) record.controller     = controller;
+            if (originNft     !== undefined) record.origin_nft     = originNft;
+            if (mintedTokenId !== undefined) record.minted_tokenId = mintedTokenId;
+            if (tba           !== undefined) record.tba            = tba;
+            if (registrar     !== undefined) record.registrar      = registrar;
+            await env.INBOX_KV.put(`nftmailgno:${agentName}`, JSON.stringify(record));
+            updates.push('nftmailgno');
+          }
+
+          if (updates.length === 0) {
+            return corsify(Response.json({ error: 'No fields to update (safe, storyIp, tier, controller, originNft, mintedTokenId, tba, registrar)' }, { status: 400 }), request);
+          }
+          return corsify(Response.json({ status: 'updated', agentName, updated: updates }), request);
+        }
+
         // Agent Registry: set TLD for an agent (seeds tld: KV key for listAgents)
         if (email.action === 'setTld') {
           const agentName = ((email as any).agentName || '').toLowerCase().trim();
