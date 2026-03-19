@@ -22,6 +22,149 @@ import {
   releasePlaintext,
 } from './edge-encrypt';
 
+// ── EIP-191 personal_sign recovery ───────────────────────────────────────────
+// Recovers the Ethereum address that signed a personal_sign message.
+// Uses the noble-secp256k1-style approach: hash the prefixed message, recover
+// the public key from (r, s, v), then derive the address.
+async function recoverPersonalSignSigner(message: string, signature: string): Promise<string> {
+  const sig = signature.startsWith('0x') ? signature.slice(2) : signature;
+  if (sig.length !== 130) throw new Error('Invalid signature length');
+
+  const r = BigInt('0x' + sig.slice(0, 64));
+  const s = BigInt('0x' + sig.slice(64, 128));
+  const vHex = parseInt(sig.slice(128, 130), 16);
+  const recoveryBit = vHex === 27 || vHex === 0 ? 0 : 1;
+
+  // EIP-191 prefix — keccak256 of the prefixed message
+  const prefix = `\x19Ethereum Signed Message:\n${message.length}`;
+  const msgHash = keccak256(new TextEncoder().encode(prefix + message));
+
+  const pubKey = secp256k1Recover(msgHash, r, s, recoveryBit);
+  return pubKeyToAddress(pubKey);
+}
+
+// Minimal keccak256 (Cloudflare Workers compatible — no Node crypto)
+function keccak256(data: Uint8Array): Uint8Array {
+  // RC constants for keccak-f[1600]
+  const RC: bigint[] = [
+    0x0000000000000001n,0x0000000000008082n,0x800000000000808An,0x8000000080008000n,
+    0x000000000000808Bn,0x0000000080000001n,0x8000000080008081n,0x8000000000008009n,
+    0x000000000000008An,0x0000000000000088n,0x0000000080008009n,0x000000008000000An,
+    0x000000008000808Bn,0x800000000000008Bn,0x8000000000008089n,0x8000000000008003n,
+    0x8000000000008002n,0x8000000000000080n,0x000000000000800An,0x800000008000000An,
+    0x8000000080008081n,0x8000000000008080n,0x0000000080000001n,0x8000000080008008n,
+  ];
+  const ROTC = [1,3,6,10,15,21,28,36,45,55,2,14,27,41,56,8,25,43,62,18,39,61,20,44];
+  const PI   = [10,7,11,17,18,3,5,16,8,21,24,4,15,23,19,13,12,2,20,14,22,9,6,1];
+
+  function rotl64(x: bigint, n: number): bigint {
+    n = n & 63;
+    return ((x << BigInt(n)) | (x >> BigInt(64 - n))) & 0xFFFFFFFFFFFFFFFFn;
+  }
+
+  // Rate = 1088 bits = 136 bytes for keccak256
+  const rate = 136;
+  const state = new Array(25).fill(0n);
+
+  // Pad
+  const padded = new Uint8Array(Math.ceil((data.length + 1) / rate) * rate);
+  padded.set(data);
+  padded[data.length] = 0x01;
+  padded[padded.length - 1] ^= 0x80;
+
+  // Absorb
+  for (let i = 0; i < padded.length; i += rate) {
+    for (let j = 0; j < rate / 8; j++) {
+      let lane = 0n;
+      for (let k = 0; k < 8; k++) lane |= BigInt(padded[i + j * 8 + k]) << BigInt(8 * k);
+      state[j] ^= lane;
+    }
+    // Keccak-f[1600]
+    for (let round = 0; round < 24; round++) {
+      const C: bigint[] = Array.from({length:5},(_,x)=>state[x]^state[x+5]^state[x+10]^state[x+15]^state[x+20]) as bigint[];
+      const D: bigint[] = Array.from({length:5},(_,x)=>C[(x+4)%5]^rotl64(C[(x+1)%5],1)) as bigint[];
+      for (let x = 0; x < 5; x++) for (let y = 0; y < 5; y++) state[x + y*5] ^= D[x];
+      const B = new Array(25).fill(0n);
+      let cur = 1; let t = 0n;
+      for (let i2 = 0; i2 < 24; i2++) {
+        const next = PI[i2]; t = state[next]; state[next] = rotl64(cur === 1 ? state[0] : B[0], 0);
+        B[0] = t; cur = next;
+      }
+      // rho + pi combined above is simplified — use standard approach
+      const A = [...state];
+      for (let x = 0; x < 5; x++) for (let y = 0; y < 5; y++) {
+        state[y*5 + ((2*x+3*y)%5)] = rotl64(A[x + y*5], ROTC[(x===0&&y===0)?0:((x + 5*y)-1)%24] ?? 0);
+      }
+      for (let x = 0; x < 5; x++) {
+        const row = [state[x], state[x+5], state[x+10], state[x+15], state[x+20]];
+        for (let y = 0; y < 5; y++) state[x + y*5] = row[y] ^ ((~row[(y+1)%5]) & row[(y+2)%5]);
+      }
+      state[0] ^= RC[round];
+    }
+  }
+  const out = new Uint8Array(32);
+  for (let i = 0; i < 4; i++) for (let k = 0; k < 8; k++) out[i*8+k] = Number((state[i] >> BigInt(8*k)) & 0xFFn);
+  return out;
+}
+
+// Minimal secp256k1 point recovery (for EIP-191)
+const P  = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2Fn;
+const N  = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141n;
+const Gx = 0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798n;
+const Gy = 0x483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8n;
+
+function modP(n: bigint): bigint { return ((n % P) + P) % P; }
+function modN(n: bigint): bigint { return ((n % N) + N) % N; }
+function modInv(a: bigint, m: bigint): bigint {
+  let [old_r, r] = [a, m]; let [old_s, s] = [1n, 0n];
+  while (r !== 0n) { const q = old_r / r; [old_r, r] = [r, old_r - q*r]; [old_s, s] = [s, old_s - q*s]; }
+  return ((old_s % m) + m) % m;
+}
+function pointAdd(p1: [bigint,bigint]|null, p2: [bigint,bigint]): [bigint,bigint]|null {
+  if (!p1) return p2;
+  if (p1[0] === p2[0]) {
+    if (p1[1] !== p2[1]) return null;
+    const lam = modP(3n*p1[0]*p1[0] * modInv(2n*p1[1], P));
+    const x = modP(lam*lam - 2n*p1[0]);
+    return [x, modP(lam*(p1[0]-x) - p1[1])];
+  }
+  const lam = modP((p2[1]-p1[1]) * modInv(p2[0]-p1[0], P));
+  const x = modP(lam*lam - p1[0] - p2[0]);
+  return [x, modP(lam*(p1[0]-x) - p1[1])];
+}
+function pointMul(k: bigint, pt: [bigint,bigint]): [bigint,bigint] {
+  let result: [bigint,bigint]|null = null; let addend: [bigint,bigint] = pt;
+  while (k > 0n) { if (k & 1n) result = pointAdd(result, addend); addend = pointAdd(addend, addend)!; k >>= 1n; }
+  return result!;
+}
+
+function secp256k1Recover(msgHash: Uint8Array, r: bigint, s: bigint, v: number): Uint8Array {
+  const e = BigInt('0x' + Array.from(msgHash).map(b => b.toString(16).padStart(2,'0')).join(''));
+  const x = r + BigInt(Math.floor(v / 2)) * N;
+  if (x >= P) throw new Error('x >= P');
+  const y2 = modP(x*x*x + 7n);
+  // P ≡ 3 mod 4, so sqrt = y2^((P+1)/4)
+  let y = modP(y2 ** ((P + 1n) / 4n));
+  if (modP(y * y) !== y2) throw new Error('No sqrt');
+  if ((y & 1n) !== BigInt(v & 1)) y = P - y;
+  const R: [bigint,bigint] = [x, y];
+  const rInv = modInv(r, N);
+  const u1 = ((N - e) * rInv) % N;
+  const u2 = (s * rInv) % N;
+  const pt = pointAdd(pointMul(u1, [Gx, Gy]), pointMul(u2, R))!;
+  const pub = new Uint8Array(65);
+  pub[0] = 0x04;
+  const xb = pt[0].toString(16).padStart(64,'0'); const yb = pt[1].toString(16).padStart(64,'0');
+  for (let i=0;i<32;i++) { pub[1+i]=parseInt(xb.slice(i*2,i*2+2),16); pub[33+i]=parseInt(yb.slice(i*2,i*2+2),16); }
+  return pub;
+}
+
+function pubKeyToAddress(pubKey: Uint8Array): string {
+  // keccak256 of the 64-byte uncompressed pubkey (skip 0x04 prefix), take last 20 bytes
+  const hash = keccak256(pubKey.slice(1));
+  return '0x' + Array.from(hash.slice(12)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
 export interface Env {
   BACKEND: 'KV';
   SURGE_TOKEN: string;
@@ -985,12 +1128,78 @@ export default {
         // KV key: agentprofile:{agentName}
         // Editable fields: description, webUrl, socialLinks (X, GitHub, etc.)
         // agentWallet is NOT editable here — it is the agent's Safe, set on-chain.
+        //
+        // Auth: caller must provide an EIP-191 personal_sign signature over the
+        // canonical message "GhostAgent profile update: {agentName} at {timestamp}"
+        // Signer is recovered and checked against ownerOf(agentId) on the ERC-8004
+        // Identity Registry on Gnosis (chainId 100).
 
         if (email.action === 'setAgentProfile') {
           const agentName = ((email as any).agentName || '').toLowerCase().trim();
           if (!agentName) {
             return corsify(Response.json({ error: 'Missing agentName' }, { status: 400 }), request);
           }
+
+          // ── Signature verification ──────────────────────────────────────────
+          const signature  = ((email as any).signature  || '').trim();
+          const sigMessage = ((email as any).sigMessage || '').trim();
+          const agentIdNum = Number((email as any).agentId ?? 0);
+
+          if (!signature || !sigMessage || !agentIdNum) {
+            return corsify(Response.json({
+              error: 'Missing signature, sigMessage, or agentId — sign the message in your wallet first',
+            }, { status: 401 }), request);
+          }
+
+          // Validate message format to prevent replay with arbitrary messages
+          const expectedPrefix = `GhostAgent profile update: ${agentName} at `;
+          if (!sigMessage.startsWith(expectedPrefix)) {
+            return corsify(Response.json({ error: 'Invalid sigMessage format' }, { status: 401 }), request);
+          }
+          // Timestamp must be within 10 minutes
+          const ts = Number(sigMessage.replace(expectedPrefix, ''));
+          if (!ts || Math.abs(Date.now() - ts) > 10 * 60 * 1000) {
+            return corsify(Response.json({ error: 'Signature expired — regenerate and retry' }, { status: 401 }), request);
+          }
+
+          // Recover signer from EIP-191 personal_sign
+          let recoveredAddress: string;
+          try {
+            recoveredAddress = await recoverPersonalSignSigner(sigMessage, signature);
+          } catch (e) {
+            return corsify(Response.json({ error: 'Invalid signature' }, { status: 401 }), request);
+          }
+
+          // Check ownerOf(agentId) on Gnosis ERC-8004 Identity Registry
+          const GNOSIS_RPC = 'https://rpc.gnosischain.com';
+          const ERC8004_REGISTRY = '0x8004A169FB4a3325136EB29fA0ceB6D2e539a432';
+          // ownerOf(uint256) = 0x6352211e
+          const ownerOfData = '0x6352211e' + agentIdNum.toString(16).padStart(64, '0');
+          let tokenOwner: string;
+          try {
+            const rpcRes = await fetch(GNOSIS_RPC, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                jsonrpc: '2.0', id: 1, method: 'eth_call',
+                params: [{ to: ERC8004_REGISTRY, data: ownerOfData }, 'latest'],
+              }),
+            });
+            const rpcJson = await rpcRes.json() as { result?: string; error?: unknown };
+            if (!rpcJson.result || rpcJson.result === '0x') throw new Error('No result');
+            // result is 32-byte padded address
+            tokenOwner = '0x' + rpcJson.result.slice(-40);
+          } catch {
+            return corsify(Response.json({ error: 'Failed to verify token ownership on-chain' }, { status: 500 }), request);
+          }
+
+          if (tokenOwner.toLowerCase() !== recoveredAddress.toLowerCase()) {
+            return corsify(Response.json({
+              error: `Signer ${recoveredAddress} does not own ERC-8004 token #${agentIdNum} (owner: ${tokenOwner})`,
+            }, { status: 403 }), request);
+          }
+          // ── End signature verification ──────────────────────────────────────
+
           const existing = await env.INBOX_KV.get(`agentprofile:${agentName}`);
           let profile: Record<string, unknown> = {};
           if (existing) { try { profile = JSON.parse(existing); } catch {} }
@@ -999,11 +1208,11 @@ export default {
           if (description  !== undefined) profile.description  = String(description).slice(0, 500);
           if (webUrl        !== undefined) profile.webUrl       = String(webUrl).slice(0, 200);
           if (socialLinks   !== undefined && typeof socialLinks === 'object') {
-            profile.socialLinks = socialLinks; // { x?: string, github?: string, farcaster?: string, ... }
+            profile.socialLinks = socialLinks;
           }
 
           await env.INBOX_KV.put(`agentprofile:${agentName}`, JSON.stringify(profile));
-          return corsify(Response.json({ status: 'updated', agentName, profile }), request);
+          return corsify(Response.json({ status: 'updated', agentName, profile, verifiedOwner: recoveredAddress }), request);
         }
 
         if (email.action === 'getAgentProfile') {

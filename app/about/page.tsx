@@ -6,25 +6,32 @@ const GHOST_LOGO = '/ghost-logo.png';
 
 const LIFECYCLE_STEPS = [
   {
-    icon: '🥚',
+    icon: 'https://gateway.lighthouse.storage/ipfs/bafkreicekhu7rr7noqtv2t4sivy5mqncqgbqnf6cq63dfqyvi5klgk7bv4',
     label: 'Larva',
     title: 'Mint Agent Body',
     desc: 'Mint an NFT on Gnosis Chain. A Token-Bound Account (TBA) is created automatically — a sovereign on-chain Safe that only the NFT holder controls. No custodian. No platform key.',
-    cta: { label: 'Mint Agent Body', href: '/dashboard/mint-body' },
+    cta: { label: 'Mint Agent ID', href: '/dashboard/mint-body' },
   },
   {
-    icon: '🐛',
+    icon: 'https://files.lighthouse.storage/viewFile/bafkreihajbm2nwtuwp4hsgputfqintlw7zxbz4jbpx772ur3rfvfhwadge',
     label: 'Pupa',
     title: 'Install Agent Brain',
     desc: 'Deploy a Cloudflare Worker brain module wired to your agent\'s nftmail.box address. Your agent receives emails, classifies them, stores them encrypted in KV — all under your NFT\'s identity.',
     cta: { label: 'Install Brain', href: '/dashboard/install-brain' },
   },
   {
-    icon: '🦋',
+    icon: 'https://gateway.lighthouse.storage/ipfs/bafkreifm4gtqaxgyb2quyykij4np5naoxzpf5w6za6maywemcvl7tltt7u',
     label: 'Imago',
     title: 'Molt to Agent',
     desc: 'Upgrade your agent\'s identity to a new TLD namespace — same TBA, zero migration. Capabilities compound: DailyBudget module, HumanInTheLoop approval module, Story Protocol IP registration.',
-    cta: { label: 'Molt Now', href: '/molt' },
+    cta: { label: 'BYO NFT', href: '/chonk-molt' },
+  },
+  {
+    icon: 'https://gateway.lighthouse.storage/ipfs/bafkreifjrzcptcss7qvdzpphjdvupmfhizjejqyswycrofjlm72tfi43hq',
+    label: 'Ghost',
+    title: 'Ghost Tier',
+    desc: 'Achieve soulbound identity — your agent\'s TBA is permanently bound to its Safe. Arweave archival, infinite retention, and full IP sovereignty via Story Protocol.',
+    cta: { label: 'Ghost Tier', href: '/dashboard/settings/ghost' },
   },
 ];
 
@@ -105,11 +112,12 @@ export default function AboutPage() {
             <span className="text-[10px] font-semibold tracking-[0.18em] text-[var(--muted)]">AGENT LIFECYCLE</span>
             <div className="h-px flex-1 bg-[var(--border)]" />
           </div>
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             {LIFECYCLE_STEPS.map((step) => (
               <div key={step.label} className="flex flex-col gap-3 rounded-2xl border border-[rgba(176,128,92,0.25)] bg-[var(--card)] p-5">
                 <div className="flex items-center gap-2">
-                  <span className="text-2xl">{step.icon}</span>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={step.icon} alt={step.label} className="h-8 w-8 object-contain" />
                   <span className="text-[10px] font-bold tracking-[0.18em] text-amber-400">{step.label.toUpperCase()}</span>
                 </div>
                 <h3 className="text-sm font-semibold text-[#f2eee4]">{step.title}</h3>

@@ -84,11 +84,11 @@ function HeartbeatDot({ lastHeartbeat }: { lastHeartbeat?: number }) {
   );
 }
 
-const EVOLVE_META: Record<EvolveLevel, { emoji: string; label: string; color: string; bg: string }> = {
-  larva: { emoji: '🥚', label: 'Larva',  color: 'text-zinc-400',    bg: 'bg-zinc-500/10' },
-  pupa:  { emoji: '🐛', label: 'Pupa',   color: 'text-amber-300',   bg: 'bg-amber-500/10' },
-  imago: { emoji: '🦋', label: 'Imago',  color: 'text-violet-300',  bg: 'bg-violet-500/10' },
-  ghost: { emoji: '👻', label: 'Ghost',  color: 'text-fuchsia-300', bg: 'bg-fuchsia-500/10' },
+const EVOLVE_META: Record<EvolveLevel, { icon: string; label: string; color: string; bg: string }> = {
+  larva: { icon: 'https://gateway.lighthouse.storage/ipfs/bafkreicekhu7rr7noqtv2t4sivy5mqncqgbqnf6cq63dfqyvi5klgk7bv4', label: 'Larva',  color: 'text-zinc-400',    bg: 'bg-zinc-500/10' },
+  pupa:  { icon: 'https://files.lighthouse.storage/viewFile/bafkreihajbm2nwtuwp4hsgputfqintlw7zxbz4jbpx772ur3rfvfhwadge',   label: 'Pupa',   color: 'text-amber-300',   bg: 'bg-amber-500/10' },
+  imago: { icon: 'https://gateway.lighthouse.storage/ipfs/bafkreifm4gtqaxgyb2quyykij4np5naoxzpf5w6za6maywemcvl7tltt7u', label: 'Imago',  color: 'text-violet-300',  bg: 'bg-violet-500/10' },
+  ghost: { icon: 'https://gateway.lighthouse.storage/ipfs/bafkreifjrzcptcss7qvdzpphjdvupmfhizjejqyswycrofjlm72tfi43hq', label: 'Ghost',  color: 'text-fuchsia-300', bg: 'bg-fuchsia-500/10' },
 };
 
 const PRIVACY_META: Record<PrivacyStatus, { icon: string; label: string; color: string }> = {
@@ -217,7 +217,9 @@ export function AgentCard({
             const m = EVOLVE_META[evolveLevel];
             return (
               <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-semibold ring-1 ${m.color} ${m.bg} ring-current/20`}>
-                {m.emoji} {m.label}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={m.icon} alt={m.label} className="h-3 w-3 object-contain" />
+                {m.label}
               </span>
             );
           })()}

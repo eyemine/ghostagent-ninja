@@ -123,11 +123,11 @@ const NS_COLOR: Record<string, string> = {
   'nftmail.gno':  'text-cyan-300 bg-cyan-500/10',
 };
 
-const EVOLVE_META: Record<EvolveLevel, { emoji: string; color: string; bg: string }> = {
-  larva: { emoji: '🥚', color: 'text-zinc-400',    bg: 'bg-zinc-500/10' },
-  pupa:  { emoji: '🐛', color: 'text-amber-300',   bg: 'bg-amber-500/10' },
-  imago: { emoji: '🦋', color: 'text-violet-300',  bg: 'bg-violet-500/10' },
-  ghost: { emoji: '👻', color: 'text-fuchsia-300', bg: 'bg-fuchsia-500/10' },
+const EVOLVE_META: Record<EvolveLevel, { icon: string; color: string; bg: string }> = {
+  larva: { icon: 'https://gateway.lighthouse.storage/ipfs/bafkreicekhu7rr7noqtv2t4sivy5mqncqgbqnf6cq63dfqyvi5klgk7bv4', color: 'text-zinc-400',    bg: 'bg-zinc-500/10' },
+  pupa:  { icon: 'https://files.lighthouse.storage/viewFile/bafkreihajbm2nwtuwp4hsgputfqintlw7zxbz4jbpx772ur3rfvfhwadge',   color: 'text-amber-300',   bg: 'bg-amber-500/10' },
+  imago: { icon: 'https://gateway.lighthouse.storage/ipfs/bafkreifm4gtqaxgyb2quyykij4np5naoxzpf5w6za6maywemcvl7tltt7u', color: 'text-violet-300',  bg: 'bg-violet-500/10' },
+  ghost: { icon: 'https://gateway.lighthouse.storage/ipfs/bafkreifjrzcptcss7qvdzpphjdvupmfhizjejqyswycrofjlm72tfi43hq', color: 'text-fuchsia-300', bg: 'bg-fuchsia-500/10' },
 };
 
 const PRIVACY_META: Record<PrivacyStatus, { icon: string; label: string; color: string }> = {
@@ -183,7 +183,9 @@ function ItemCard({ item, onViewA2A, onBuy, isBuying }: { item: MarketItem; onVi
         <div className="mt-2.5 flex flex-wrap gap-1.5">
           {/* Evolve level */}
           <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-semibold ring-1 ring-current/20 ${evolveMeta.color} ${evolveMeta.bg}`}>
-            {evolveMeta.emoji} {item.evolveLevel.charAt(0).toUpperCase() + item.evolveLevel.slice(1)}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={evolveMeta.icon} alt={item.evolveLevel} className="h-3 w-3 object-contain" />
+            {item.evolveLevel.charAt(0).toUpperCase() + item.evolveLevel.slice(1)}
           </span>
           {/* Privacy */}
           <span className={`inline-flex items-center gap-1 rounded-full bg-white/[0.04] px-2 py-0.5 text-[9px] font-semibold ring-1 ring-current/20 ${privMeta.color}`}>

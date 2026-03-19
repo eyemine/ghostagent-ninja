@@ -165,11 +165,16 @@ function AgentCard({ agent, onEvolve, onViewA2A, onSelect, selected }: { agent: 
           <div className="mt-2 flex flex-wrap gap-1">
             {agent.tier === 'pro' ? (
               <span className="inline-flex items-center gap-1 rounded-full bg-violet-500/15 px-2 py-0.5 text-[9px] font-bold text-violet-300 ring-1 ring-violet-500/30">
-                <svg className="h-2 w-2" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="https://files.lighthouse.storage/viewFile/bafkreihajbm2nwtuwp4hsgputfqintlw7zxbz4jbpx772ur3rfvfhwadge" alt="Pupa" className="h-3 w-3 object-contain" />
                 PUPA
               </span>
             ) : (
-              <span className="inline-flex items-center rounded-full bg-zinc-500/15 px-2 py-0.5 text-[9px] font-medium text-zinc-400 ring-1 ring-zinc-500/20">LARVA</span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-zinc-500/15 px-2 py-0.5 text-[9px] font-medium text-zinc-400 ring-1 ring-zinc-500/20">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="https://gateway.lighthouse.storage/ipfs/bafkreicekhu7rr7noqtv2t4sivy5mqncqgbqnf6cq63dfqyvi5klgk7bv4" alt="Larva" className="h-3 w-3 object-contain" />
+                LARVA
+              </span>
             )}
             {agent.ipDomain && (
               <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-[9px] font-medium text-emerald-300 ring-1 ring-emerald-500/20 truncate max-w-full">
