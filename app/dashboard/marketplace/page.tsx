@@ -184,7 +184,7 @@ function ItemCard({ item, onViewA2A, onBuy, isBuying }: { item: MarketItem; onVi
         <div className={`mt-2.5 h-16 w-16 rounded-xl border ${ns.imgBorder} ${ns.placeholder} overflow-hidden flex items-center justify-center`}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={`/api/genome-image?sld=${sld}&name=${encodeURIComponent(item.agent)}`}
+            src={`/sld-images/${sld}.png`}
             alt={`${item.agent}.${item.namespace}`}
             className="h-full w-full object-cover"
             onError={(e) => {

@@ -145,7 +145,7 @@ function AgentCard({ agent, onCycle, onSelect, selected }: { agent: DemoAgent; o
         <div className={`w-1/2 shrink-0 aspect-square rounded-xl border ${ns.imgBorder} ${ns.placeholder} overflow-hidden flex items-center justify-center`}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={`/api/genome-image?sld=${sld}&name=${encodeURIComponent(agent.name)}`}
+            src={`/sld-images/${sld}.png`}
             alt={`${agent.name}.${agent.namespace}`}
             className="h-full w-full object-cover"
             onError={(e) => {
