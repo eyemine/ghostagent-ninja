@@ -108,14 +108,15 @@ const DEMO_BRAINS: DemoBrain[] = [
   { agent: 'hive',     type: 'GlassBox',  endpoint: 'hive.glassbox.agent',            installed: '01/03/2026' },
 ];
 
-const NS_COLOR: Record<string, string> = {
-  'openclaw.gno': 'text-cyan-300',
-  'vault.gno':    'text-emerald-300',
-  'molt.gno':     'text-fuchsia-300',
-  'agent.gno':    'text-blue-300',
-  'picoclaw.gno': 'text-amber-300',
-  'nftmail.gno':  'text-rose-300',
+const NS_THEME: Record<string, { text: string; border: string; bg: string; selBorder: string; selBg: string; imgBorder: string; placeholder: string }> = {
+  'agent.gno':    { text: 'text-blue-300',    border: 'border-blue-500/20',    bg: 'bg-blue-500/5',    selBorder: 'border-blue-400/50',    selBg: 'bg-blue-500/10',    imgBorder: 'border-blue-500/30',    placeholder: 'bg-blue-950/60' },
+  'openclaw.gno': { text: 'text-rose-300',    border: 'border-rose-500/20',    bg: 'bg-rose-500/5',    selBorder: 'border-rose-400/50',    selBg: 'bg-rose-500/10',    imgBorder: 'border-rose-500/30',    placeholder: 'bg-rose-950/60' },
+  'molt.gno':     { text: 'text-violet-300',  border: 'border-violet-500/20',  bg: 'bg-violet-500/5',  selBorder: 'border-violet-400/50',  selBg: 'bg-violet-500/10',  imgBorder: 'border-violet-500/30',  placeholder: 'bg-violet-950/60' },
+  'picoclaw.gno': { text: 'text-amber-300',   border: 'border-amber-500/20',   bg: 'bg-amber-500/5',   selBorder: 'border-amber-400/50',   selBg: 'bg-amber-500/10',   imgBorder: 'border-amber-500/30',   placeholder: 'bg-amber-950/60' },
+  'vault.gno':    { text: 'text-emerald-300', border: 'border-emerald-500/20', bg: 'bg-emerald-500/5', selBorder: 'border-emerald-400/50', selBg: 'bg-emerald-500/10', imgBorder: 'border-emerald-500/30', placeholder: 'bg-emerald-950/60' },
+  'nftmail.gno':  { text: 'text-cyan-300',    border: 'border-cyan-500/20',    bg: 'bg-cyan-500/5',    selBorder: 'border-cyan-400/50',    selBg: 'bg-cyan-500/10',    imgBorder: 'border-cyan-500/30',    placeholder: 'bg-cyan-950/60' },
 };
+const NS_FALLBACK = { text: 'text-zinc-400', border: 'border-zinc-500/20', bg: 'bg-zinc-500/5', selBorder: 'border-zinc-400/50', selBg: 'bg-zinc-500/10', imgBorder: 'border-zinc-500/30', placeholder: 'bg-zinc-900/60' };
 
 function HeartbeatDot({ active }: { active: boolean }) {
   return (
@@ -127,47 +128,42 @@ function HeartbeatDot({ active }: { active: boolean }) {
 }
 
 function AgentCard({ agent, onCycle, onSelect, selected }: { agent: DemoAgent; onCycle: () => void; onSelect: () => void; selected: boolean }) {
-  const nsColor = NS_COLOR[agent.namespace] ?? 'text-zinc-400';
+  const ns  = NS_THEME[agent.namespace] ?? NS_FALLBACK;
   const sld = agent.namespace.split('.')[0];
   return (
     <div
       onClick={onSelect}
       className={`flex flex-col justify-between rounded-2xl border p-5 cursor-pointer transition-all ${
         selected
-          ? 'border-amber-500/60 bg-amber-500/5 ring-1 ring-amber-500/20'
-          : 'border-[rgba(176,128,92,0.35)] bg-[var(--card)] hover:border-[rgba(176,128,92,0.55)]'
+          ? `${ns.selBorder} ${ns.selBg} ring-1 ring-current/10`
+          : `${ns.border} ${ns.bg} hover:brightness-110`
       }`}
     >
       {/* NFT image + identity row */}
       <div className="flex gap-3">
-        {/* NFT image — SLD-matched */}
-        <div className="w-1/2 shrink-0 aspect-square rounded-xl border border-[rgba(176,128,92,0.2)] bg-black/40 overflow-hidden">
+        {/* NFT image — SLD-coloured placeholder */}
+        <div className={`w-1/2 shrink-0 aspect-square rounded-xl border ${ns.imgBorder} ${ns.placeholder} overflow-hidden flex items-center justify-center`}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={`/api/genome-image?sld=${sld}&name=${encodeURIComponent(agent.name)}`}
             alt={`${agent.name}.${agent.namespace}`}
             className="h-full w-full object-cover"
-            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+            onError={(e) => {
+              const el = e.target as HTMLImageElement;
+              el.style.display = 'none';
+              el.parentElement!.innerHTML = `<span class="text-[9px] font-bold tracking-widest opacity-30 uppercase">${sld}</span>`;
+            }}
           />
         </div>
 
         {/* Identity — domain + tba + badges */}
         <div className="flex min-w-0 flex-1 flex-col justify-between py-0.5">
           <div>
-            <div className="flex items-center justify-between gap-1 mb-0.5">
-              <div className="flex items-center gap-1.5 min-w-0">
-                <HeartbeatDot active={agent.active} />
-                <span className="text-sm font-semibold text-[#f2eee4] truncate">{agent.name}</span>
-              </div>
-              <Link
-                href={`/dashboard/agent/${agent.name}`}
-                onClick={e => e.stopPropagation()}
-                className="shrink-0 text-[10px] text-[var(--muted)] hover:text-white transition"
-              >
-                Details →
-              </Link>
+            <div className="flex items-center gap-1.5 mb-0.5">
+              <HeartbeatDot active={agent.active} />
+              <span className="text-sm font-semibold text-[#f2eee4] truncate">{agent.name}</span>
             </div>
-            <span className={`text-[11px] font-medium ${nsColor}`}>{agent.namespace}</span>
+            <span className={`text-[11px] font-medium ${ns.text}`}>{agent.namespace}</span>
             <code className="mt-1 block truncate text-[10px] text-[var(--muted)]">{agent.tba}</code>
           </div>
 
@@ -222,7 +218,16 @@ function AgentCard({ agent, onCycle, onSelect, selected }: { agent: DemoAgent; o
         </div>
       )}
       {selected && (
-        <div className="mt-2 text-[10px] text-amber-400/70 font-medium">✓ selected — use action bar below</div>
+        <div className="mt-3 flex items-center justify-between">
+          <span className={`text-[10px] font-medium ${ns.text} opacity-70`}>✓ selected</span>
+          <Link
+            href={`/dashboard/agent/${agent.name}`}
+            onClick={e => e.stopPropagation()}
+            className={`rounded-lg border px-3 py-1.5 text-[10px] font-semibold transition ${ns.border} ${ns.text} hover:brightness-125`}
+          >
+            Details →
+          </Link>
+        </div>
       )}
     </div>
   );
@@ -344,7 +349,7 @@ export default function DashboardHome() {
             </thead>
             <tbody>
               {DEMO_BODIES.map((body, i) => {
-                const nsColor = NS_COLOR[body.namespace] ?? 'text-zinc-400';
+                const nsColor = (NS_THEME[body.namespace] ?? NS_FALLBACK).text;
                 return (
                   <tr
                     key={body.name}

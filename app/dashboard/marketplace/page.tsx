@@ -114,6 +114,16 @@ const TYPE_BADGE: Record<string, { label: string; className: string }> = {
   bundle:  { label: 'Bundle',     className: 'text-amber-300 bg-amber-500/10' },
 };
 
+const NS_THEME: Record<string, { text: string; border: string; bg: string; imgBorder: string; placeholder: string }> = {
+  'agent.gno':    { text: 'text-blue-300',    border: 'border-blue-500/20',    bg: 'bg-blue-500/5',    imgBorder: 'border-blue-500/30',    placeholder: 'bg-blue-950/60' },
+  'openclaw.gno': { text: 'text-rose-300',    border: 'border-rose-500/20',    bg: 'bg-rose-500/5',    imgBorder: 'border-rose-500/30',    placeholder: 'bg-rose-950/60' },
+  'molt.gno':     { text: 'text-violet-300',  border: 'border-violet-500/20',  bg: 'bg-violet-500/5',  imgBorder: 'border-violet-500/30',  placeholder: 'bg-violet-950/60' },
+  'picoclaw.gno': { text: 'text-amber-300',   border: 'border-amber-500/20',   bg: 'bg-amber-500/5',   imgBorder: 'border-amber-500/30',   placeholder: 'bg-amber-950/60' },
+  'vault.gno':    { text: 'text-emerald-300', border: 'border-emerald-500/20', bg: 'bg-emerald-500/5', imgBorder: 'border-emerald-500/30', placeholder: 'bg-emerald-950/60' },
+  'nftmail.gno':  { text: 'text-cyan-300',    border: 'border-cyan-500/20',    bg: 'bg-cyan-500/5',    imgBorder: 'border-cyan-500/30',    placeholder: 'bg-cyan-950/60' },
+};
+const NS_FALLBACK_THEME = { text: 'text-zinc-300', border: 'border-zinc-500/20', bg: 'bg-zinc-500/5', imgBorder: 'border-zinc-500/30', placeholder: 'bg-zinc-900/60' };
+
 const NS_COLOR: Record<string, string> = {
   'agent.gno':    'text-blue-300 bg-blue-500/10',
   'openclaw.gno': 'text-rose-300 bg-rose-500/10',
@@ -141,6 +151,8 @@ const PRIVACY_META: Record<PrivacyStatus, { icon: string; label: string; color: 
 function ItemCard({ item, onViewA2A, onBuy, isBuying }: { item: MarketItem; onViewA2A: () => void; onBuy: () => void; isBuying: boolean }) {
   const badge    = TYPE_BADGE[item.type];
   const nsColor  = NS_COLOR[item.namespace] ?? 'text-zinc-300 bg-zinc-500/10';
+  const ns       = NS_THEME[item.namespace] ?? NS_FALLBACK_THEME;
+  const sld      = item.namespace.split('.')[0];
   const evolveMeta  = EVOLVE_META[item.evolveLevel];
   const privMeta    = PRIVACY_META[item.privacyStatus];
   const decayColor  = item.decayDays === 365 ? 'text-emerald-300 bg-emerald-500/10 ring-emerald-500/20'
@@ -148,7 +160,7 @@ function ItemCard({ item, onViewA2A, onBuy, isBuying }: { item: MarketItem; onVi
     : 'text-amber-300 bg-amber-500/10 ring-amber-500/20';
 
   return (
-    <div className="flex flex-col justify-between rounded-2xl border border-[rgba(176,128,92,0.35)] bg-[var(--card)] p-5 transition hover:border-[rgba(176,128,92,0.55)]">
+    <div className={`flex flex-col justify-between rounded-2xl border p-5 transition hover:brightness-110 ${ns.border} ${ns.bg}`}>
       <div>
         {/* Title row */}
         <div className="flex items-start justify-between gap-2">
@@ -169,14 +181,18 @@ function ItemCard({ item, onViewA2A, onBuy, isBuying }: { item: MarketItem; onVi
           )}
         </div>
 
-        {/* NFT image — SLD-matched placeholder */}
-        <div className="mt-2.5">
+        {/* NFT image — SLD-coloured placeholder */}
+        <div className={`mt-2.5 h-16 w-16 rounded-xl border ${ns.imgBorder} ${ns.placeholder} overflow-hidden flex items-center justify-center`}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={`/api/genome-image?sld=${item.namespace.split('.')[0]}&name=${encodeURIComponent(item.agent)}`}
+            src={`/api/genome-image?sld=${sld}&name=${encodeURIComponent(item.agent)}`}
             alt={`${item.agent}.${item.namespace}`}
-            className="h-16 w-16 rounded-xl border border-[rgba(176,128,92,0.2)] object-cover"
-            onError={(e) => { (e.target as HTMLImageElement).src = '/ghost-logo.png'; }}
+            className="h-full w-full object-cover"
+            onError={(e) => {
+              const el = e.target as HTMLImageElement;
+              el.style.display = 'none';
+              el.parentElement!.innerHTML = `<span class="text-[9px] font-bold tracking-widest opacity-30 uppercase">${sld}</span>`;
+            }}
           />
         </div>
 
