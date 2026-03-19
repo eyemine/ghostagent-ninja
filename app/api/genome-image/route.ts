@@ -9,6 +9,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { readFileSync, existsSync } from 'fs';
+import { join } from 'path';
 import {
   generateSubnameSvg,
   generatePlaceholderSvg,
@@ -20,6 +22,26 @@ const LIGHTHOUSE_API_KEY = process.env.LIGHTHOUSE_API_KEY;
 const LIGHTHOUSE_UPLOAD = 'https://node.lighthouse.storage/api/v0/add';
 const IPFS_GATEWAY = 'https://gateway.lighthouse.storage/ipfs';
 
+// ── Static SLD image loader ───────────────────────────────────────────────────
+// Images are pre-fetched at build time by scripts/fetch-sld-images.mjs
+// and saved to public/sld-images/{sld}.png — served as static assets.
+// This avoids any runtime IPFS fetch in the serverless function.
+const SLD_IMAGE_CACHE = new Map<string, string>();
+
+function loadSldImage(sld: SldKey): string | undefined {
+  if (SLD_IMAGE_CACHE.has(sld)) return SLD_IMAGE_CACHE.get(sld);
+  try {
+    const filePath = join(process.cwd(), 'public', 'sld-images', `${sld}.png`);
+    if (!existsSync(filePath)) return undefined;
+    const buf = readFileSync(filePath);
+    const dataUri = `data:image/png;base64,${buf.toString('base64')}`;
+    SLD_IMAGE_CACHE.set(sld, dataUri);
+    return dataUri;
+  } catch {
+    return undefined;
+  }
+}
+
 const MAX_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
 
 // ── GET — composited NFT image SVG ────────────────────────────────────────────
@@ -30,44 +52,13 @@ const MAX_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
 
 const VALID_SLD_KEYS = Object.keys(SLD_VISUAL) as SldKey[];
 
-// Module-level cache: CID → base64 data URI.
-// Shared across requests within the same serverless function instance,
-// preventing repeated Lighthouse fetches for the same SLD background image.
-const IMAGE_CACHE = new Map<string, string>();
-
-async function fetchImageDataUri(cid: string): Promise<string | undefined> {
-  if (IMAGE_CACHE.has(cid)) return IMAGE_CACHE.get(cid);
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5000);
-    const imgRes = await fetch(`${IPFS_GATEWAY}/${cid}`, {
-      headers: { 'User-Agent': 'ghostagent-nft-compositor/1.0' },
-      signal: controller.signal,
-    });
-    clearTimeout(timeout);
-    if (imgRes.ok) {
-      const contentType = imgRes.headers.get('content-type') ?? 'image/jpeg';
-      const buf = await imgRes.arrayBuffer();
-      const b64 = Buffer.from(buf).toString('base64');
-      const dataUri = `data:${contentType};base64,${b64}`;
-      IMAGE_CACHE.set(cid, dataUri);
-      return dataUri;
-    }
-  } catch {
-    // Non-fatal — caller falls back to gradient SVG
-  }
-  return undefined;
-}
-
 export async function GET(req: NextRequest) {
   const rawSld = req.nextUrl.searchParams.get('sld') ?? 'agent';
   const sld: SldKey = VALID_SLD_KEYS.includes(rawSld as SldKey) ? (rawSld as SldKey) : 'agent';
   const name = req.nextUrl.searchParams.get('name') ?? 'agent';
 
-  const visual = SLD_VISUAL[sld];
-
-  // Fetch (or reuse cached) base image as embedded data URI.
-  const imageDataUri = await fetchImageDataUri(visual.imageCid);
+  // Load pre-built static image (sync, no network). Falls back to gradient SVG.
+  const imageDataUri = loadSldImage(sld);
 
   const svg = generateSubnameSvg(name, sld, imageDataUri);
 
