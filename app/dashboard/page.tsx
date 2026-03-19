@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { WorkReceiptCard } from '../components/WorkReceiptCard';
-import A2ACardModal from '../../components/A2ACardModal';
 
 const GHOST_LOGO = '/ghost-logo.png';
 
@@ -127,8 +126,9 @@ function HeartbeatDot({ active }: { active: boolean }) {
   );
 }
 
-function AgentCard({ agent, onEvolve, onViewA2A, onSelect, selected }: { agent: DemoAgent; onEvolve: () => void; onViewA2A: () => void; onSelect: () => void; selected: boolean }) {
+function AgentCard({ agent, onCycle, onSelect, selected }: { agent: DemoAgent; onCycle: () => void; onSelect: () => void; selected: boolean }) {
   const nsColor = NS_COLOR[agent.namespace] ?? 'text-zinc-400';
+  const sld = agent.namespace.split('.')[0];
   return (
     <div
       onClick={onSelect}
@@ -140,22 +140,32 @@ function AgentCard({ agent, onEvolve, onViewA2A, onSelect, selected }: { agent: 
     >
       {/* NFT image + identity row */}
       <div className="flex gap-3">
-        {/* NFT placeholder — square, half panel width */}
-        <div className="w-1/2 shrink-0 aspect-square rounded-xl border border-[rgba(176,128,92,0.2)] bg-black/40 flex flex-col items-center justify-center gap-1.5 overflow-hidden">
-          <svg className="h-8 w-8 text-zinc-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="3" y="3" width="18" height="18" rx="3"/>
-            <circle cx="8.5" cy="8.5" r="1.5"/>
-            <polyline points="21 15 16 10 5 21"/>
-          </svg>
-          <span className="text-[9px] font-semibold tracking-wider text-zinc-700 uppercase">NFT #{agent.name}</span>
+        {/* NFT image — SLD-matched */}
+        <div className="w-1/2 shrink-0 aspect-square rounded-xl border border-[rgba(176,128,92,0.2)] bg-black/40 overflow-hidden">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={`/api/genome-image?sld=${sld}&name=${encodeURIComponent(agent.name)}`}
+            alt={`${agent.name}.${agent.namespace}`}
+            className="h-full w-full object-cover"
+            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+          />
         </div>
 
-        {/* Identity — domain + safe address + badges */}
+        {/* Identity — domain + tba + badges */}
         <div className="flex min-w-0 flex-1 flex-col justify-between py-0.5">
           <div>
-            <div className="flex items-center gap-1.5 mb-0.5">
-              <HeartbeatDot active={agent.active} />
-              <span className="text-sm font-semibold text-[#f2eee4] truncate">{agent.name}</span>
+            <div className="flex items-center justify-between gap-1 mb-0.5">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <HeartbeatDot active={agent.active} />
+                <span className="text-sm font-semibold text-[#f2eee4] truncate">{agent.name}</span>
+              </div>
+              <Link
+                href={`/dashboard/agent/${agent.name}`}
+                onClick={e => e.stopPropagation()}
+                className="shrink-0 text-[10px] text-[var(--muted)] hover:text-white transition"
+              >
+                Details →
+              </Link>
             </div>
             <span className={`text-[11px] font-medium ${nsColor}`}>{agent.namespace}</span>
             <code className="mt-1 block truncate text-[10px] text-[var(--muted)]">{agent.tba}</code>
@@ -166,7 +176,7 @@ function AgentCard({ agent, onEvolve, onViewA2A, onSelect, selected }: { agent: 
             {agent.tier === 'pro' ? (
               <span className="inline-flex items-center gap-1 rounded-full bg-violet-500/15 px-2 py-0.5 text-[9px] font-bold text-violet-300 ring-1 ring-violet-500/30">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="https://files.lighthouse.storage/viewFile/bafkreihajbm2nwtuwp4hsgputfqintlw7zxbz4jbpx772ur3rfvfhwadge" alt="Pupa" className="h-3 w-3 object-contain" />
+                <img src="https://gateway.lighthouse.storage/ipfs/bafkreihajbm2nwtuwp4hsgputfqintlw7zxbz4jbpx772ur3rfvfhwadge" alt="Pupa" className="h-3 w-3 object-contain" />
                 PUPA
               </span>
             ) : (
@@ -204,34 +214,16 @@ function AgentCard({ agent, onEvolve, onViewA2A, onSelect, selected }: { agent: 
         ))}
       </div>
 
-      {/* Actions */}
-      <div className="mt-4 flex flex-col gap-2">
-        <div className="flex gap-2 flex-wrap">
-          {agent.tier === 'free' && (
-            <button
-              onClick={e => { e.stopPropagation(); onEvolve(); }}
-              className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-violet-600 to-fuchsia-600 px-3 py-2 text-xs font-semibold text-white transition hover:opacity-90"
-            >
-              + Evolve to Pro
-            </button>
-          )}
-          <button
-            onClick={e => { e.stopPropagation(); onViewA2A(); }}
-            className="flex items-center gap-1 rounded-lg border border-[rgba(176,128,92,0.3)] bg-black/30 px-3 py-2 text-xs font-medium text-[var(--muted)] transition hover:text-white"
-          >
-            A2A Card
-          </button>
+      {/* Free tier warning */}
+      {agent.tier === 'free' && (
+        <div className="mt-4 flex items-start gap-2 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2">
+          <svg className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          <span className="text-[10px] text-amber-300/80">Free tier — 8-day history window. Cycle to Pupa for persistent storage + IP protection.</span>
         </div>
-        {selected && (
-          <div className="text-[10px] text-amber-400/70 font-medium">✓ selected — use action bar below</div>
-        )}
-        {agent.tier === 'free' && (
-          <div className="flex items-start gap-2 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2">
-            <svg className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-            <span className="text-[10px] text-amber-300/80">Free tier — 8-day history window. Evolve to Pro for persistent storage + IP protection.</span>
-          </div>
-        )}
-      </div>
+      )}
+      {selected && (
+        <div className="mt-2 text-[10px] text-amber-400/70 font-medium">✓ selected — use action bar below</div>
+      )}
     </div>
   );
 }
@@ -239,25 +231,31 @@ function AgentCard({ agent, onEvolve, onViewA2A, onSelect, selected }: { agent: 
 const DEMO_RECEIPT_DATA = DEMO_RECEIPTS;
 
 const AGENT_ACTIONS = [
-  { key: 'agent-profile', label: '✏️ Agent Profile', href: (n: string) => `/dashboard/agent-profile`, color: 'border-amber-500/30 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20' },
-  { key: 'byo-nft',       label: '🖼 BYO NFT',        href: (n: string) => `/chonk-molt?agent=${n}`,    color: 'border-sky-500/30 bg-sky-500/10 text-sky-300 hover:bg-sky-500/20' },
-  { key: 'install-brain', label: '🧠 Install Brain',  href: (n: string) => `/dashboard/install-brain?agent=${n}`, color: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20' },
-  { key: 'swarm',         label: '🤝 Swarm',           href: (n: string) => `/dashboard/swarm?agent=${n}`, color: 'border-violet-500/30 bg-violet-500/10 text-violet-300 hover:bg-violet-500/20' },
-  { key: 'ghost-tier',    label: '👻 Ghost Tier',      href: (n: string) => `/dashboard/settings/ghost`,   color: 'border-fuchsia-500/30 bg-fuchsia-500/10 text-fuchsia-300 hover:bg-fuchsia-500/20' },
-  { key: 'trade',         label: '📈 Trade Intent',    href: (n: string) => `/dashboard/trade?agent=${n}`, color: 'border-violet-500/30 bg-violet-500/10 text-violet-300 hover:bg-violet-500/20' },
-  { key: 'ip-portal',     label: '🏛️ IP Portal',      href: (n: string) => `/ip-portal?agent=${n}`,       color: 'border-[#7c4dff]/30 bg-[#7c4dff]/10 text-[#a78bfa] hover:bg-[#7c4dff]/20' },
-  { key: 'details',       label: '🔍 Details',          href: (n: string) => `/dashboard/agent/${n}`,       color: 'border-[rgba(176,128,92,0.3)] bg-black/20 text-[var(--muted)] hover:text-white' },
+  { key: 'agent-profile', label: '✏️ Agent Profile', href: (n: string) => `/dashboard/agent-profile?agent=${n}`, color: 'border-amber-500/30 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20' },
+  { key: 'molt',          label: '🔄 Molt',           href: (n: string) => `/molt?agent=${n}`,                    color: 'border-fuchsia-500/30 bg-fuchsia-500/10 text-fuchsia-300 hover:bg-fuchsia-500/20' },
+  { key: 'cycle',         label: '🔁 Cycle',          href: (n: string) => `/dashboard/cycle?agent=${n}`,         color: 'border-sky-500/30 bg-sky-500/10 text-sky-300 hover:bg-sky-500/20' },
+  { key: 'ghost-tier',    label: '👻 Ghost Tier',     href: (n: string) => `/dashboard/settings/ghost?agent=${n}`,color: 'border-zinc-500/30 bg-zinc-500/10 text-zinc-300 hover:bg-zinc-500/20' },
+  { key: 'byo-nft',       label: '🖼 BYO NFT',        href: (n: string) => `/chonk-molt?agent=${n}`,              color: 'border-violet-500/30 bg-violet-500/10 text-violet-300 hover:bg-violet-500/20' },
+  { key: 'swarm',         label: '🤝 Swarm',          href: (n: string) => `/dashboard/swarm?agent=${n}`,         color: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20' },
+  { key: 'trade',         label: '📈 Trade Intent',   href: (n: string) => `/dashboard/trade?agent=${n}`,         color: 'border-violet-500/30 bg-violet-500/10 text-violet-300 hover:bg-violet-500/20' },
+  { key: 'ip-portal',     label: '🏛️ IP Portal',     href: (n: string) => `/ip-portal?agent=${n}`,               color: 'border-[#7c4dff]/30 bg-[#7c4dff]/10 text-[#a78bfa] hover:bg-[#7c4dff]/20' },
+];
+
+const BODY_ACTIONS = [
+  { key: 'install-brain', label: '🧠 Install Brain', href: (n: string) => `/dashboard/install-brain?body=${n}`, color: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20' },
+  { key: 'molt',          label: '🔄 Molt',          href: (n: string) => `/molt?body=${n}`,                    color: 'border-fuchsia-500/30 bg-fuchsia-500/10 text-fuchsia-300 hover:bg-fuchsia-500/20' },
+  { key: 'cycle',         label: '🔁 Cycle',         href: (n: string) => `/dashboard/cycle?body=${n}`,         color: 'border-sky-500/30 bg-sky-500/10 text-sky-300 hover:bg-sky-500/20' },
+];
+
+const BRAIN_ACTIONS = [
+  { key: 'create-brain',   label: '🧠 Create Brain',   href: (_n: string) => `/dashboard/install-brain`,       color: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20' },
+  { key: 'create-service', label: '📡 Create Service', href: (_n: string) => `/dashboard/create-service`,      color: 'border-violet-500/30 bg-violet-500/10 text-violet-300 hover:bg-violet-500/20' },
 ];
 
 export default function DashboardHome() {
-  const [evolvingAgent, setEvolvingAgent] = useState<string | null>(null);
-  const [a2aAgent, setA2aAgent]           = useState<string | null>(null);
   const [selectedAgent, setSelectedAgent] = useState<string>(DEMO_AGENTS[0].name);
-
-  function handleEvolve(agentName: string) {
-    setEvolvingAgent(agentName);
-    setTimeout(() => setEvolvingAgent(null), 3000);
-  }
+  const [selectedBody,  setSelectedBody]  = useState<string>(DEMO_BODIES[0].name);
+  const [selectedBrain, setSelectedBrain] = useState<string>(DEMO_BRAINS[0].agent);
 
   return (
     <div className="space-y-8">
@@ -293,20 +291,19 @@ export default function DashboardHome() {
             agent={agent}
             selected={selectedAgent === agent.name}
             onSelect={() => setSelectedAgent(agent.name)}
-            onEvolve={() => handleEvolve(agent.name)}
-            onViewA2A={() => setA2aAgent(agent.name)}
+            onCycle={() => {}}
           />
         ))}
       </div>
 
-      {/* ── Action Bar — context-sensitive for selected agent ── */}
+      {/* ── Agent Action Bar ── */}
       <div className="rounded-2xl border border-[rgba(176,128,92,0.25)] bg-[var(--card)] px-5 py-4">
         <div className="mb-3 flex items-center gap-3">
           <span className="text-[10px] font-semibold tracking-widest text-[var(--muted)]">ACTIONS FOR</span>
           <span className="rounded-full bg-amber-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-amber-300 ring-1 ring-amber-500/20">
             {selectedAgent}
           </span>
-          <span className="text-[10px] text-zinc-600">← click any agent card to switch</span>
+          <span className="text-[10px] text-zinc-600">select agent card to action</span>
         </div>
         <div className="flex flex-wrap gap-2">
           {AGENT_ACTIONS.map(action => (
@@ -320,14 +317,6 @@ export default function DashboardHome() {
           ))}
         </div>
       </div>
-
-      {a2aAgent && (
-        <A2ACardModal
-          agentName={a2aAgent}
-          isOwner
-          onClose={() => setA2aAgent(null)}
-        />
-      )}
 
       {/* MY BODIES separator */}
       <div className="flex items-center gap-4 py-2">
@@ -357,7 +346,13 @@ export default function DashboardHome() {
               {DEMO_BODIES.map((body, i) => {
                 const nsColor = NS_COLOR[body.namespace] ?? 'text-zinc-400';
                 return (
-                  <tr key={body.name} className={i < DEMO_BODIES.length - 1 ? 'border-b border-[rgba(176,128,92,0.15)]' : ''}>
+                  <tr
+                    key={body.name}
+                    onClick={() => setSelectedBody(body.name)}
+                    className={`cursor-pointer transition ${
+                      selectedBody === body.name ? 'bg-amber-500/5' : 'hover:bg-white/[0.02]'
+                    } ${i < DEMO_BODIES.length - 1 ? 'border-b border-[rgba(176,128,92,0.15)]' : ''}`}
+                  >
                     <td className="px-4 py-3 font-medium text-[#f2eee4]">{body.name}</td>
                     <td className={`px-4 py-3 text-xs font-medium ${nsColor}`}>{body.namespace}</td>
                     <td className="px-4 py-3 text-[var(--muted)]">#{body.tokenId}</td>
@@ -370,6 +365,28 @@ export default function DashboardHome() {
           </table>
         </div>
       </section>
+
+      {/* Body Action Bar */}
+      <div className="rounded-2xl border border-[rgba(176,128,92,0.25)] bg-[var(--card)] px-5 py-4">
+        <div className="mb-3 flex items-center gap-3">
+          <span className="text-[10px] font-semibold tracking-widest text-[var(--muted)]">BODY ACTIONS FOR</span>
+          <span className="rounded-full bg-amber-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-amber-300 ring-1 ring-amber-500/20">
+            {selectedBody}
+          </span>
+          <span className="text-[10px] text-zinc-600">select body row to action</span>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {BODY_ACTIONS.map(action => (
+            <Link
+              key={action.key}
+              href={action.href(selectedBody)}
+              className={`rounded-lg border px-4 py-1.5 text-xs font-semibold transition ${action.color}`}
+            >
+              {action.label}
+            </Link>
+          ))}
+        </div>
+      </div>
 
       {/* MY BRAINS separator */}
       <div className="flex items-center gap-4 py-2">
@@ -397,7 +414,13 @@ export default function DashboardHome() {
             </thead>
             <tbody>
               {DEMO_BRAINS.map((brain, i) => (
-                <tr key={brain.agent} className={i < DEMO_BRAINS.length - 1 ? 'border-b border-[rgba(176,128,92,0.15)]' : ''}>
+                <tr
+                  key={brain.agent}
+                  onClick={() => setSelectedBrain(brain.agent)}
+                  className={`cursor-pointer transition ${
+                    selectedBrain === brain.agent ? 'bg-amber-500/5' : 'hover:bg-white/[0.02]'
+                  } ${i < DEMO_BRAINS.length - 1 ? 'border-b border-[rgba(176,128,92,0.15)]' : ''}`}
+                >
                   <td className="px-4 py-3 font-medium text-[#f2eee4]">{brain.agent}</td>
                   <td className="px-4 py-3">
                     <span className="inline-flex items-center rounded-full bg-sky-500/10 px-2 py-0.5 text-[10px] font-medium text-sky-300 ring-1 ring-sky-500/20">
@@ -412,6 +435,28 @@ export default function DashboardHome() {
           </table>
         </div>
       </section>
+
+      {/* Brain Action Bar */}
+      <div className="rounded-2xl border border-[rgba(176,128,92,0.25)] bg-[var(--card)] px-5 py-4">
+        <div className="mb-3 flex items-center gap-3">
+          <span className="text-[10px] font-semibold tracking-widest text-[var(--muted)]">BRAIN ACTIONS FOR</span>
+          <span className="rounded-full bg-sky-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-sky-300 ring-1 ring-sky-500/20">
+            {selectedBrain}
+          </span>
+          <span className="text-[10px] text-zinc-600">select brain row to action</span>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {BRAIN_ACTIONS.map(action => (
+            <Link
+              key={action.key}
+              href={action.href(selectedBrain)}
+              className={`rounded-lg border px-4 py-1.5 text-xs font-semibold transition ${action.color}`}
+            >
+              {action.label}
+            </Link>
+          ))}
+        </div>
+      </div>
 
       {/* TELEMETRY separator */}
       <div className="flex items-center gap-4 py-2">

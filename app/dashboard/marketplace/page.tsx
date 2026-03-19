@@ -125,7 +125,7 @@ const NS_COLOR: Record<string, string> = {
 
 const EVOLVE_META: Record<EvolveLevel, { icon: string; color: string; bg: string }> = {
   larva: { icon: 'https://gateway.lighthouse.storage/ipfs/bafkreicekhu7rr7noqtv2t4sivy5mqncqgbqnf6cq63dfqyvi5klgk7bv4', color: 'text-zinc-400',    bg: 'bg-zinc-500/10' },
-  pupa:  { icon: 'https://files.lighthouse.storage/viewFile/bafkreihajbm2nwtuwp4hsgputfqintlw7zxbz4jbpx772ur3rfvfhwadge',   color: 'text-amber-300',   bg: 'bg-amber-500/10' },
+  pupa:  { icon: 'https://gateway.lighthouse.storage/ipfs/bafkreihajbm2nwtuwp4hsgputfqintlw7zxbz4jbpx772ur3rfvfhwadge', color: 'text-amber-300',   bg: 'bg-amber-500/10' },
   imago: { icon: 'https://gateway.lighthouse.storage/ipfs/bafkreifm4gtqaxgyb2quyykij4np5naoxzpf5w6za6maywemcvl7tltt7u', color: 'text-violet-300',  bg: 'bg-violet-500/10' },
   ghost: { icon: 'https://gateway.lighthouse.storage/ipfs/bafkreifjrzcptcss7qvdzpphjdvupmfhizjejqyswycrofjlm72tfi43hq', color: 'text-fuchsia-300', bg: 'bg-fuchsia-500/10' },
 };
@@ -169,19 +169,20 @@ function ItemCard({ item, onViewA2A, onBuy, isBuying }: { item: MarketItem; onVi
           )}
         </div>
 
-        {/* NFT image — SLD base image composited with agent name */}
+        {/* NFT image — SLD-matched placeholder */}
         <div className="mt-2.5">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={`/api/genome-image?sld=${item.namespace.split('.')[0]}&name=${encodeURIComponent(item.agent)}`}
             alt={`${item.agent}.${item.namespace}`}
             className="h-16 w-16 rounded-xl border border-[rgba(176,128,92,0.2)] object-cover"
+            onError={(e) => { (e.target as HTMLImageElement).src = '/ghost-logo.png'; }}
           />
         </div>
 
         {/* Domain attribute badges */}
         <div className="mt-2.5 flex flex-wrap gap-1.5">
-          {/* Evolve level */}
+          {/* Cycle level */}
           <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-semibold ring-1 ring-current/20 ${evolveMeta.color} ${evolveMeta.bg}`}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={evolveMeta.icon} alt={item.evolveLevel} className="h-3 w-3 object-contain" />
@@ -242,14 +243,8 @@ function ItemCard({ item, onViewA2A, onBuy, isBuying }: { item: MarketItem; onVi
               href={`/agent/${item.agent}`}
               className="rounded-lg border border-[rgba(176,128,92,0.25)] bg-black/30 px-2.5 py-1.5 text-[10px] font-medium text-[var(--muted)] transition hover:text-white"
             >
-              View →
+              Details →
             </Link>
-            <button
-              onClick={onViewA2A}
-              className="rounded-lg border border-[rgba(176,128,92,0.25)] bg-black/30 px-2.5 py-1.5 text-[10px] font-medium text-[var(--muted)] transition hover:text-white"
-            >
-              A2A ↗
-            </button>
             <button
               onClick={onBuy}
               disabled={isBuying}
@@ -327,7 +322,7 @@ export default function MarketplacePage() {
           <div>
             <h1 className="pl-1 text-2xl font-bold text-[#f2eee4]">Marketplace</h1>
             <p className="mt-1 pl-1 text-sm text-[var(--muted)]">
-              Buy agents, bodies, brains &amp; bundles. Filter by domain type, evolve level, or privacy.
+              Buy agents, bodies, brains &amp; bundles. Filter by domain type, cycle level, or privacy.
             </p>
           </div>
         </div>

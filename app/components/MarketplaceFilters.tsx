@@ -48,12 +48,12 @@ const DOMAIN_TABS: { value: DomainFilter; label: string; color: string }[] = [
   { value: 'nftmail.gno',  label: 'nftmail.gno',    color: 'text-rose-300' },
 ];
 
-const LEVEL_TABS: { value: LevelFilter; label: string }[] = [
-  { value: 'all',   label: 'Any level' },
-  { value: 'larva', label: '🥚 Larva' },
-  { value: 'pupa',  label: '🐛 Pupa' },
-  { value: 'imago', label: '🦋 Imago' },
-  { value: 'ghost', label: '👻 Ghost' },
+const LEVEL_TABS: { value: LevelFilter; label: string; icon: string }[] = [
+  { value: 'all',   label: 'Any level', icon: '' },
+  { value: 'larva', label: 'Larva', icon: 'https://gateway.lighthouse.storage/ipfs/bafkreicekhu7rr7noqtv2t4sivy5mqncqgbqnf6cq63dfqyvi5klgk7bv4' },
+  { value: 'pupa',  label: 'Pupa',  icon: 'https://gateway.lighthouse.storage/ipfs/bafkreihajbm2nwtuwp4hsgputfqintlw7zxbz4jbpx772ur3rfvfhwadge' },
+  { value: 'imago', label: 'Imago', icon: 'https://gateway.lighthouse.storage/ipfs/bafkreifm4gtqaxgyb2quyykij4np5naoxzpf5w6za6maywemcvl7tltt7u' },
+  { value: 'ghost', label: 'Ghost', icon: 'https://gateway.lighthouse.storage/ipfs/bafkreifjrzcptcss7qvdzpphjdvupmfhizjejqyswycrofjlm72tfi43hq' },
 ];
 
 const PRIVACY_TABS: { value: PrivacyFilter; label: string }[] = [
@@ -68,8 +68,8 @@ const Divider = () => (
 
 export function MarketplaceFilters({ filters, onChange, counts }: MarketplaceFiltersProps) {
   return (
-    <div className="space-y-2">
-      {/* Row 1: type + cat */}
+    <div className="space-y-1.5">
+      {/* Row 1: type */}
       <div className="flex flex-wrap items-center gap-1">
         {TYPE_TABS.map(t => (
           <button key={t.value} className={pill(filters.type === t.value)} onClick={() => onChange({ type: t.value })}>
@@ -78,7 +78,7 @@ export function MarketplaceFilters({ filters, onChange, counts }: MarketplaceFil
         ))}
       </div>
 
-      {/* Row 2: domain + level + privacy */}
+      {/* Row 2: domain */}
       <div className="flex flex-wrap items-center gap-1">
         {DOMAIN_TABS.map(d => (
           <button
@@ -93,12 +93,20 @@ export function MarketplaceFilters({ filters, onChange, counts }: MarketplaceFil
             {d.label}
           </button>
         ))}
+      </div>
 
-        <Divider />
-
+      {/* Row 3: level + privacy */}
+      <div className="flex flex-wrap items-center gap-1">
         {LEVEL_TABS.map(l => (
           <button key={l.value} className={pill(filters.level === l.value)} onClick={() => onChange({ level: l.value })}>
-            {l.label}
+            {l.icon
+              ? <span className="inline-flex items-center gap-1.5">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={l.icon} alt={l.label} className="h-3.5 w-3.5 object-contain" />
+                  {l.label}
+                </span>
+              : l.label
+            }
           </button>
         ))}
 

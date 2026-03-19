@@ -13,7 +13,7 @@ const LIFECYCLE_STEPS = [
     cta: { label: 'Mint Agent ID', href: '/dashboard/mint-body' },
   },
   {
-    icon: 'https://files.lighthouse.storage/viewFile/bafkreihajbm2nwtuwp4hsgputfqintlw7zxbz4jbpx772ur3rfvfhwadge',
+    icon: 'https://gateway.lighthouse.storage/ipfs/bafkreihajbm2nwtuwp4hsgputfqintlw7zxbz4jbpx772ur3rfvfhwadge',
     label: 'Pupa',
     title: 'Install Agent Brain',
     desc: 'Deploy a Cloudflare Worker brain module wired to your agent\'s nftmail.box address. Your agent receives emails, classifies them, stores them encrypted in KV — all under your NFT\'s identity.',
@@ -132,7 +132,7 @@ export default function AboutPage() {
             ))}
           </div>
           <p className="mt-4 text-center text-[10px] text-[var(--muted)]">
-            Mint → Evolve → Molt — same TBA, zero migration
+            Mint → Cycle → Molt — same TBA, zero migration
           </p>
         </section>
 

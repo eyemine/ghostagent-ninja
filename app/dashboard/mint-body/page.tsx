@@ -31,14 +31,14 @@ const NAMESPACES: NsConfig[] = [
   {
     key: 'agent',
     domain: 'agent.gno',
-    shortDesc: 'Full agent identity with evolve path',
+    shortDesc: 'Full agent identity with cycle path',
     mintFee: 10,
     moltFee: 2,
     privacyDefault: 'private',
     decayDays: 8,
     ipDomain: '*.creation.ip',
     evolveDesc: 'Pupa → Imago (+8 xDAI), then +24 xDAI/yr',
-    fullDesc: 'Evolve level Pupa may evolve to Imago +8 xDAI, then 24 xDAI annually*\n8-day history window (inbox address permanent). Default Private — login to change privacy to Glassbox.\nCan send & receive emails. $HOST = $10 staking for 365-day persistence.\n10 xDAI mint or molt from Larva · 2 xDAI molt from Pupa.',
+    fullDesc: 'Cycle level Pupa may cycle to Imago +8 xDAI, then 24 xDAI annually*\n8-day history window (inbox address permanent). Default Private — login to change privacy to Glassbox.\nCan send & receive emails. $HOST = $10 staking for 365-day persistence.\n10 xDAI mint or molt from Larva · 2 xDAI molt from Pupa.',
     staking: '$10 $HOST staking for 365-day persistence',
     badges: ['Gnosis Safe', '*.creation.ip', 'Private default', '30-day history'],
   },
@@ -51,7 +51,7 @@ const NAMESPACES: NsConfig[] = [
     privacyDefault: 'glassbox',
     decayDays: null,
     ipDomain: '*.openclaw.ip',
-    evolveDesc: 'Can evolve to vault.gno',
+    evolveDesc: 'Can cycle to vault.gno',
     fullDesc: 'Full-featured agent namespace. Glassbox by default — all work is publicly verifiable on-chain.\nEarns $HOST reputation on each completed task. Eligible to list services on the Marketplace.\nIP protection via Story Protocol — your agent\'s output is registered on *.openclaw.ip.',
     badges: ['Gnosis Safe', '*.openclaw.ip', 'Glassbox', '30-day history'],
   },
@@ -77,8 +77,8 @@ const NAMESPACES: NsConfig[] = [
     privacyDefault: 'glassbox',
     decayDays: 8,
     ipDomain: '*.picoclaw.ip',
-    evolveDesc: 'Can evolve to openclaw.gno',
-    fullDesc: 'The free on-ramp. Mint a larva agent at zero cost, explore the ecosystem, evolve to openclaw when ready.\n8-day history window — inbox address is permanent. Glassbox by default — all task output is public.\nMolt to openclaw for 2 xDAI.',
+    evolveDesc: 'Can cycle to openclaw.gno',
+    fullDesc: 'The free on-ramp. Mint a larva agent at zero cost, explore the ecosystem, cycle to openclaw when ready.\n8-day history window — inbox address is permanent. Glassbox by default — all task output is public.\nMolt to openclaw for 2 xDAI.',
     badges: ['Gnosis Safe', 'Private default', '8-day history'],
   },
   {
@@ -90,8 +90,8 @@ const NAMESPACES: NsConfig[] = [
     privacyDefault: 'private',
     decayDays: null,
     ipDomain: '*.vault.ip',
-    evolveDesc: 'Top tier — final evolution target',
-    fullDesc: 'Top-tier namespace. Private by default, no decay, persistent encrypted storage.\nFull $HOST earning, IP protection on Story Protocol, eligible for premium marketplace listings.\nThe final evolution target from openclaw or nftmail.',
+    evolveDesc: 'Top tier — final cycle target',
+    fullDesc: 'Top-tier namespace. Private by default, no decay, persistent encrypted storage.\nFull $HOST earning, IP protection on Story Protocol, eligible for premium marketplace listings.\nThe final cycle target from openclaw or nftmail.',
     badges: ['Gnosis Safe', '*.creation.ip', 'Private default', 'Persistent'],
   },
   {
@@ -103,8 +103,8 @@ const NAMESPACES: NsConfig[] = [
     privacyDefault: 'private',
     decayDays: null,
     ipDomain: '*.nftmail.ip',
-    evolveDesc: 'Can evolve to vault.gno',
-    fullDesc: 'NFT-gated encrypted inbox. Your NFT is your key — transfer it to transfer access.\nNo custodian, no middleman. Pairs automatically with a nftmail.box address.\nPrivate by default. Can evolve to vault.gno.',
+    evolveDesc: 'Can cycle to vault.gno',
+    fullDesc: 'NFT-gated encrypted inbox. Your NFT is your key — transfer it to transfer access.\nNo custodian, no middleman. Pairs automatically with a nftmail.box address.\nPrivate by default. Can cycle to vault.gno.',
     badges: ['Gnosis Safe', 'Private default', '8-day history'],
   },
 ];
@@ -421,7 +421,7 @@ export default function MintBodyPage() {
                 Privacy: <span className="font-semibold text-[#f2eee4]">{ns.privacyDefault === 'private' ? 'Private' : 'Glassbox'}</span>
               </span>
               <span className="text-[10px] text-[var(--muted)]">
-                Evolve: <span className="font-semibold text-violet-300">{ns.evolveDesc}</span>
+                Cycle: <span className="font-semibold text-violet-300">{ns.evolveDesc}</span>
               </span>
             </div>
           </div>
@@ -448,7 +448,7 @@ export default function MintBodyPage() {
                 <span className="rounded-full bg-violet-500/10 px-2 py-0.5 text-[10px] font-semibold text-violet-300 ring-1 ring-violet-500/20">24 xDAI/yr</span>
               </div>
               <p className="text-xs text-[var(--muted)] leading-relaxed">
-                Evolve to <span className="text-[#f2eee4] font-medium">Imago</span>. GhostAgent hosts the brain. Fully transferable NFT — list on marketplace, rehome to a new owner. Self-governing vault.gno with 24 xDAI annual subscription.
+                Cycle to <span className="text-[#f2eee4] font-medium">Imago</span>. GhostAgent hosts the brain. Fully transferable NFT — list on marketplace, rehome to a new owner. Self-governing vault.gno with 24 xDAI annual subscription.
               </p>
               <div className="mt-1 flex flex-wrap gap-1">
                 {['Transferable NFT', 'Cloud-hosted', 'Marketplace eligible', '24 xDAI/yr'].map(b => (

@@ -86,7 +86,7 @@ export default function Home() {
 
         {/* Tagline */}
         <p className="text-[10px] text-[var(--muted)]">
-          Mint → Evolve → Molt to Agent — same TBA, zero migration
+          Mint → Cycle → Molt to Agent — same TBA, zero migration
         </p>
 
       </div>

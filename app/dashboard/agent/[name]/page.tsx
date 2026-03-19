@@ -25,7 +25,7 @@ const STUB_SECTIONS = [
       { label: 'ERC-8004 AgentID', value: '—' },
       { label: 'Story IP Account', value: '—' },
       { label: 'NFT Token ID',     value: '—' },
-      { label: 'Evolve Level',     value: '—' },
+      { label: 'Cycle Level',      value: '—' },
     ],
   },
   {

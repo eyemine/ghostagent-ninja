@@ -226,7 +226,7 @@ export default function EvolveModal({
                           Evolving…
                         </span>
                       ) : (
-                        `Evolve to Imago +${action.oneOffXdai} xDAI`
+                        `Cycle to Imago +${action.oneOffXdai} xDAI`
                       )}
                     </button>
 
