@@ -43,11 +43,16 @@ const REPUTATION_REGISTRY_ABI = parseAbi([
 ]);
 
 async function main() {
-  const agentName = process.argv[2];
-  const agentId = Number(process.argv[3]);
+  const args      = process.argv.slice(2);
+  const agentName = args.find(a => !a.startsWith('--'));
+  const agentId   = Number(args.filter(a => !a.startsWith('--'))[1]);
+  const isNeg     = args.includes('--negative');
+  const useGnosis = args.includes('--gnosis');
+  const useBase   = args.includes('--base');
+  // default chain: base-sepolia (hackathon chain)
 
   if (!agentName || isNaN(agentId)) {
-    console.error('Usage: node scripts/erc8004-reputation.mjs <agentName> <agentId>');
+    console.error('Usage: node scripts/erc8004-reputation.mjs <agentName> <agentId> [--negative] [--gnosis|--base|--base-sepolia]');
     process.exit(1);
   }
 
@@ -64,8 +69,14 @@ async function main() {
 
   const account = privateKeyToAccount(RESPONDER_PRIVATE_KEY);
 
+  // Chain selection
+  const { chain, rpc, explorer, reputationRegistry, chainId } = useGnosis
+    ? { chain: (await import('viem/chains')).gnosis,      rpc: 'https://rpc.gnosischain.com', explorer: 'https://gnosisscan.io',       reputationRegistry: '0x8004B663056A597Dffe9eCcC1965A193B7388713', chainId: 100   }
+    : useBase
+    ? { chain: (await import('viem/chains')).base,        rpc: 'https://mainnet.base.org',    explorer: 'https://basescan.org',        reputationRegistry: '0x8004B663056A597Dffe9eCcC1965A193B7388713', chainId: 8453  }
+    : { chain: (await import('viem/chains')).baseSepolia, rpc: 'https://sepolia.base.org',    explorer: 'https://sepolia.basescan.org',reputationRegistry: ERC8004_REPUTATION_REGISTRY,                   chainId: 84532 };
+
   // Fetch live agent status to build feedback URI with real telemetry
-  let inboxCount = 0;
   let surgeScore = 0;
   try {
     const res = await fetch(WORKER_URL, {
@@ -75,7 +86,6 @@ async function main() {
     });
     if (res.ok) {
       const data = await res.json();
-      inboxCount = data.inbox?.count ?? 0;
       surgeScore = data.surgeScore ?? 0;
     }
   } catch {}
@@ -84,45 +94,50 @@ async function main() {
   const feedbackURI = `${APP_URL}/api/agent-lookup?q=${agentName}_`;
   const feedbackHash = keccak256(toBytes(feedbackURI));
 
-  // value: reputation score (int128). Scale: 100 = 1.00 (2 decimals)
-  // We use surgeScore as the basis, min 50 for an active agent
-  const reputationValue = Math.max(50, Math.min(100, Math.round(surgeScore || 75)));
+  // value: int128. Scale: 2 decimals (100 = 1.00, -100 = -1.00)
+  // Negative: fixed -75 (flagged bad actor). Positive: surgeScore-based, min 50.
+  const reputationValue = isNeg
+    ? -75
+    : Math.max(50, Math.min(100, Math.round(surgeScore || 75)));
+
+  const tag1 = isNeg ? 'fraud'  : 'A2A';
+  const tag2 = isNeg ? 'badActor' : 'email';
 
   // Endpoint: the agent's A2A service endpoint
   const endpoint = WORKER_URL;
 
-  console.log(`\n⭐ Reputation Feedback`);
+  console.log(`\n${isNeg ? '🚨' : '⭐'} Reputation Feedback${isNeg ? ' — NEGATIVE' : ''}`);
   console.log(`   Agent:    ${agentName} (agentId: ${agentId})`);
   console.log(`   From:     ${account.address}`);
   console.log(`   Value:    ${reputationValue} (${reputationValue / 100} on 2-decimal scale)`);
-  console.log(`   Tags:     A2A, email`);
+  console.log(`   Tags:     ${tag1}, ${tag2}`);
   console.log(`   Endpoint: ${endpoint}`);
-  console.log(`   Chain:    Base Sepolia (${CHAIN_ID})`);
+  console.log(`   Chain:    ${useGnosis ? 'Gnosis' : useBase ? 'Base' : 'Base Sepolia'} (${chainId})`);
 
   const walletClient = createWalletClient({
     account,
-    chain: baseSepolia,
-    transport: http('https://sepolia.base.org'),
+    chain,
+    transport: http(rpc),
   });
 
   const publicClient = createPublicClient({
-    chain: baseSepolia,
-    transport: http('https://sepolia.base.org'),
+    chain,
+    transport: http(rpc),
   });
 
   console.log('\n⏳ Sending giveFeedback() transaction...');
   let txHash;
   try {
     txHash = await walletClient.writeContract({
-      address: ERC8004_REPUTATION_REGISTRY,
+      address: reputationRegistry,
       abi: REPUTATION_REGISTRY_ABI,
       functionName: 'giveFeedback',
       args: [
         BigInt(agentId),
         BigInt(reputationValue),  // value
         2,                        // valueDecimals (so 75 = 0.75)
-        'A2A',                    // tag1
-        'email',                  // tag2
+        tag1,                     // tag1
+        tag2,                     // tag2
         endpoint,                 // endpoint
         feedbackURI,              // feedbackURI
         feedbackHash,             // feedbackHash
@@ -144,7 +159,7 @@ async function main() {
   Score:       ${reputationValue / 100} (tags: A2A, email)
   FeedbackURI: ${feedbackURI}
   Tx:          ${txHash}
-  Explorer:    https://sepolia.basescan.org/tx/${txHash}
+  Explorer:    ${explorer}/tx/${txHash}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 All 4 ERC-8004 mandatory steps complete:

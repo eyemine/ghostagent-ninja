@@ -8,10 +8,8 @@ const NAV = [
   { href: '/about', label: 'About' },
   { href: '/dashboard', label: 'Dashboard' },
   { href: '/dashboard/marketplace', label: 'Marketplace' },
-  { href: '/dashboard/mint-body', label: 'Mint Agent' },
-  { href: '/dashboard/install-brain', label: 'Install Brain' },
-  { href: '/ip-portal', label: '🏛️ IP Portal' },
-  { href: '/chonk-molt', label: 'OG NFT Molt' },
+  { href: '/dashboard/mint-body', label: 'Mint Agent ID' },
+  { href: '/chonk-molt', label: 'BYO NFT' },
   { href: '/host', label: '$HOST' },
   { href: '/docs', label: 'Docs' },
 ];

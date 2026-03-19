@@ -64,6 +64,46 @@ export async function GET(req: NextRequest) {
   let regFile: Erc8004RegistrationFile = buildErc8004RegistrationFile({ agentName, sld });
   if (agentId != null) regFile = patchRegistrationWithAgentId(regFile, agentId);
 
+  // Merge per-agent KV profile overrides (description, webUrl, socialLinks)
+  try {
+    const profileRes = await fetch(WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'getAgentProfile', agentName }),
+    });
+    if (profileRes.ok) {
+      const { profile } = await profileRes.json() as { profile: Record<string, unknown> };
+      if (profile.description && typeof profile.description === 'string') {
+        regFile = { ...regFile, description: profile.description };
+      }
+      if (profile.webUrl && typeof profile.webUrl === 'string') {
+        regFile = {
+          ...regFile,
+          services: regFile.services.map(s =>
+            s.name === 'web' ? { ...s, endpoint: profile.webUrl as string } : s,
+          ),
+        };
+      }
+      if (profile.socialLinks && typeof profile.socialLinks === 'object') {
+        const socials = profile.socialLinks as Record<string, string>;
+        const extraServices = Object.entries(socials)
+          .filter(([, url]) => url)
+          .map(([name, endpoint]) => ({ name, endpoint }));
+        if (extraServices.length > 0) {
+          const existingNames = new Set(regFile.services.map(s => s.name));
+          const newServices = extraServices.filter(s => !existingNames.has(s.name));
+          const updatedServices = regFile.services.map(s => {
+            const override = extraServices.find(e => e.name === s.name);
+            return override ? { ...s, endpoint: override.endpoint } : s;
+          });
+          regFile = { ...regFile, services: [...updatedServices, ...newServices] };
+        }
+      }
+    }
+  } catch {
+    // Non-fatal — serve base file without profile overrides
+  }
+
   // Content negotiation: browsers get a human-readable agent profile page;
   // API clients / A2A agents get the raw JSON.
   const accept = req.headers.get('accept') ?? '';

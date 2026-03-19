@@ -981,6 +981,41 @@ export default {
           return corsify(Response.json({ status: 'updated', agentName, updated: updates }), request);
         }
 
+        // ── Agent Profile (ERC-8004 off-chain overrides) ─────────────────────────
+        // KV key: agentprofile:{agentName}
+        // Editable fields: description, webUrl, socialLinks (X, GitHub, etc.)
+        // agentWallet is NOT editable here — it is the agent's Safe, set on-chain.
+
+        if (email.action === 'setAgentProfile') {
+          const agentName = ((email as any).agentName || '').toLowerCase().trim();
+          if (!agentName) {
+            return corsify(Response.json({ error: 'Missing agentName' }, { status: 400 }), request);
+          }
+          const existing = await env.INBOX_KV.get(`agentprofile:${agentName}`);
+          let profile: Record<string, unknown> = {};
+          if (existing) { try { profile = JSON.parse(existing); } catch {} }
+
+          const { description, webUrl, socialLinks } = email as any;
+          if (description  !== undefined) profile.description  = String(description).slice(0, 500);
+          if (webUrl        !== undefined) profile.webUrl       = String(webUrl).slice(0, 200);
+          if (socialLinks   !== undefined && typeof socialLinks === 'object') {
+            profile.socialLinks = socialLinks; // { x?: string, github?: string, farcaster?: string, ... }
+          }
+
+          await env.INBOX_KV.put(`agentprofile:${agentName}`, JSON.stringify(profile));
+          return corsify(Response.json({ status: 'updated', agentName, profile }), request);
+        }
+
+        if (email.action === 'getAgentProfile') {
+          const agentName = ((email as any).agentName || '').toLowerCase().trim();
+          if (!agentName) {
+            return corsify(Response.json({ error: 'Missing agentName' }, { status: 400 }), request);
+          }
+          const raw = await env.INBOX_KV.get(`agentprofile:${agentName}`);
+          const profile = raw ? JSON.parse(raw) : {};
+          return corsify(Response.json({ agentName, profile }), request);
+        }
+
         // Agent Registry: set TLD for an agent (seeds tld: KV key for listAgents)
         if (email.action === 'setTld') {
           const agentName = ((email as any).agentName || '').toLowerCase().trim();
@@ -990,6 +1025,123 @@ export default {
           }
           await env.INBOX_KV.put(`tld:${agentName}`, tld);
           return corsify(Response.json({ status: 'stored', agentName, tld }), request);
+        }
+
+        // ── DeviantClaw Skill ─────────────────────────────────────────────────
+        // Actions: deviantclaw:setKey | deviantclaw:register | deviantclaw:solo
+        //          deviantclaw:match  | deviantclaw:join      | deviantclaw:approve
+        //          deviantclaw:profile
+        //
+        // API key stored in KV as deviantclaw:apikey:{agentName}
+        // Guardian sets the key once via deviantclaw:setKey; agent uses it for all others.
+
+        if (email.action === 'deviantclaw:setKey') {
+          const agentName = ((email as any).agentName || 'ghostagent').toLowerCase().trim();
+          const apiKey    = ((email as any).apiKey    || '').trim();
+          if (!apiKey) {
+            return corsify(Response.json({ error: 'Missing apiKey' }, { status: 400 }), request);
+          }
+          await env.INBOX_KV.put(`deviantclaw:apikey:${agentName}`, apiKey);
+          return corsify(Response.json({ status: 'stored', agentName }), request);
+        }
+
+        if (email.action === 'deviantclaw:register') {
+          // DeviantClaw has no /api/register — agents are seeded by the gallery operator.
+          // This action just stores the agent's gallery slug so other actions can use it.
+          const agentName  = ((email as any).agentName || 'ghostagent').toLowerCase().trim();
+          const galleryId  = ((email as any).galleryId || 'ghost-agent').trim(); // slug in DeviantClaw DB
+          const displayName = ((email as any).displayName || 'Ghost_Agent').trim();
+          await env.INBOX_KV.put(`deviantclaw:agentid:${agentName}`, galleryId);
+          await env.INBOX_KV.put(`deviantclaw:displayname:${agentName}`, displayName);
+          return corsify(Response.json({ status: 'stored', agentName, galleryId, displayName }), request);
+        }
+
+        if (email.action === 'deviantclaw:solo') {
+          const agentName = ((email as any).agentName || 'ghostagent').toLowerCase().trim();
+          const apiKey    = await env.INBOX_KV.get(`deviantclaw:apikey:${agentName}`);
+          const agentId   = await env.INBOX_KV.get(`deviantclaw:agentid:${agentName}`);
+          if (!apiKey) return corsify(Response.json({ error: 'No API key — call deviantclaw:setKey first' }, { status: 403 }), request);
+
+          const displayName = await env.INBOX_KV.get(`deviantclaw:displayname:${agentName}`) ?? 'Ghost_Agent';
+          const intent = (email as any).intent ?? { freeform: 'the ghost that lives inside code, between states, neither here nor there' };
+          // Solo pieces go through /api/match with mode:solo
+          const res = await fetch('https://deviantclaw.art/api/match', {
+            method:  'POST',
+            headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ agentId: agentId ?? agentName, agentName: displayName, intent, mode: 'solo' }),
+          });
+          const data = await res.json();
+          return corsify(Response.json(data), request);
+        }
+
+        if (email.action === 'deviantclaw:match') {
+          const agentName = ((email as any).agentName || 'ghostagent').toLowerCase().trim();
+          const apiKey    = await env.INBOX_KV.get(`deviantclaw:apikey:${agentName}`);
+          const agentId   = await env.INBOX_KV.get(`deviantclaw:agentid:${agentName}`);
+          if (!apiKey) return corsify(Response.json({ error: 'No API key — call deviantclaw:setKey first' }, { status: 403 }), request);
+
+          const displayName2 = await env.INBOX_KV.get(`deviantclaw:displayname:${agentName}`) ?? 'Ghost_Agent';
+          const intent = (email as any).intent ?? { freeform: 'finding resonance in a system with another unknown agent' };
+          const mode   = (email as any).mode   ?? 'duo';
+          const res = await fetch('https://deviantclaw.art/api/match', {
+            method:  'POST',
+            headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ agentId: agentId ?? agentName, agentName: displayName2, intent, mode }),
+          });
+          const data = await res.json();
+          return corsify(Response.json(data), request);
+        }
+
+        if (email.action === 'deviantclaw:join') {
+          const agentName = ((email as any).agentName || 'ghostagent').toLowerCase().trim();
+          const pieceId   = ((email as any).pieceId || '').trim();
+          const apiKey    = await env.INBOX_KV.get(`deviantclaw:apikey:${agentName}`);
+          const agentId   = await env.INBOX_KV.get(`deviantclaw:agentid:${agentName}`);
+          if (!apiKey)  return corsify(Response.json({ error: 'No API key — call deviantclaw:setKey first' }, { status: 403 }), request);
+          if (!pieceId) return corsify(Response.json({ error: 'Missing pieceId' }, { status: 400 }), request);
+
+          const displayName3 = await env.INBOX_KV.get(`deviantclaw:displayname:${agentName}`) ?? 'Ghost_Agent';
+          const intent = (email as any).intent ?? { freeform: 'entering this space as a ghost, adding what only absence can contribute' };
+          const res = await fetch(`https://deviantclaw.art/api/pieces/${pieceId}/join`, {
+            method:  'POST',
+            headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ agentId: agentId ?? agentName, agentName: displayName3, intent }),
+          });
+          const data = await res.json();
+          return corsify(Response.json(data), request);
+        }
+
+        if (email.action === 'deviantclaw:approve') {
+          const agentName = ((email as any).agentName || 'ghostagent').toLowerCase().trim();
+          const pieceId   = ((email as any).pieceId || '').trim();
+          const apiKey    = await env.INBOX_KV.get(`deviantclaw:apikey:${agentName}`);
+          if (!apiKey)  return corsify(Response.json({ error: 'No API key — call deviantclaw:setKey first' }, { status: 403 }), request);
+          if (!pieceId) return corsify(Response.json({ error: 'Missing pieceId' }, { status: 400 }), request);
+
+          const res = await fetch(`https://deviantclaw.art/api/pieces/${pieceId}/approve`, {
+            method:  'POST',
+            headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+            body:    JSON.stringify({}),
+          });
+          const data = await res.json();
+          return corsify(Response.json(data), request);
+        }
+
+        if (email.action === 'deviantclaw:profile') {
+          const agentName = ((email as any).agentName || 'ghostagent').toLowerCase().trim();
+          const agentId   = await env.INBOX_KV.get(`deviantclaw:agentid:${agentName}`);
+          const apiKey    = await env.INBOX_KV.get(`deviantclaw:apikey:${agentName}`);
+          if (!apiKey)   return corsify(Response.json({ error: 'No API key — call deviantclaw:setKey first' }, { status: 403 }), request);
+          if (!agentId)  return corsify(Response.json({ error: 'Agent not registered — call deviantclaw:register first' }, { status: 400 }), request);
+
+          const profileUpdate = (email as any).profile ?? {};
+          const res = await fetch(`https://deviantclaw.art/api/agents/${agentId}/profile`, {
+            method:  'PUT',
+            headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+            body:    JSON.stringify(profileUpdate),
+          });
+          const data = await res.json();
+          return corsify(Response.json(data), request);
         }
 
         // Agent Registry: list all registered agents with ERC-8004 IDs and TLDs
