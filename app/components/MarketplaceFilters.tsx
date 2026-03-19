@@ -3,7 +3,7 @@
 export type DomainFilter  = 'all' | 'agent.gno' | 'openclaw.gno' | 'molt.gno' | 'picoclaw.gno' | 'vault.gno' | 'nftmail.gno';
 export type LevelFilter   = 'all' | 'larva' | 'pupa' | 'imago' | 'ghost';
 export type PrivacyFilter = 'all' | 'glassbox' | 'private';
-export type TypeFilter    = 'all' | 'service' | 'body' | 'brain' | 'bundle';
+export type TypeFilter    = 'all' | 'service' | 'body' | 'bundle';
 export type CatFilter     = 'all' | 'data' | 'defi' | 'social' | 'content';
 
 export interface Filters {
@@ -32,20 +32,19 @@ const pill = (active: boolean) =>
 
 const TYPE_TABS: { value: TypeFilter; label: string }[] = [
   { value: 'all',     label: 'All' },
-  { value: 'service', label: 'Services' },
+  { value: 'service', label: 'Hire' },
   { value: 'body',    label: 'Agent Bodies' },
-  { value: 'brain',   label: 'Brains' },
   { value: 'bundle',  label: 'Bundles' },
 ];
 
 const DOMAIN_TABS: { value: DomainFilter; label: string; color: string }[] = [
   { value: 'all',          label: 'All domains',    color: 'text-[var(--muted)]' },
   { value: 'agent.gno',    label: 'agent.gno',      color: 'text-blue-300' },
-  { value: 'openclaw.gno', label: 'openclaw.gno',   color: 'text-cyan-300' },
-  { value: 'molt.gno',     label: 'molt.gno',       color: 'text-fuchsia-300' },
+  { value: 'openclaw.gno', label: 'openclaw.gno',   color: 'text-rose-300' },
+  { value: 'molt.gno',     label: 'molt.gno',       color: 'text-violet-300' },
   { value: 'picoclaw.gno', label: 'picoclaw.gno',   color: 'text-amber-300' },
   { value: 'vault.gno',    label: 'vault.gno',      color: 'text-emerald-300' },
-  { value: 'nftmail.gno',  label: 'nftmail.gno',    color: 'text-rose-300' },
+  { value: 'nftmail.gno',  label: 'nftmail.gno',    color: 'text-cyan-300' },
 ];
 
 const LEVEL_TABS: { value: LevelFilter; label: string; icon: string }[] = [

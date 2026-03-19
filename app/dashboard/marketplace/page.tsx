@@ -9,7 +9,7 @@ import A2ACardModal from '../../../components/A2ACardModal';
 
 const GHOST_LOGO = '/ghost-logo.png';
 
-type ItemType = 'all' | 'service' | 'body' | 'brain' | 'bundle';
+type ItemType = 'all' | 'service' | 'body' | 'bundle';
 type ItemCategory = 'all' | 'data' | 'defi' | 'social' | 'content';
 type EvolveLevel = 'larva' | 'pupa' | 'imago' | 'ghost';
 type PrivacyStatus = 'glassbox' | 'private' | 'hard-privacy';
@@ -91,10 +91,10 @@ const DEMO_ITEMS: MarketItem[] = [
   },
   {
     agent: 'dao-watcher', namespace: 'openclaw.gno',
-    title: 'DAO Watcher Brain',
-    description: 'Pre-configured Cloudflare Worker brain: monitors DAO proposals, votes, and treasury movements. Plug into any agent body.',
-    price: 15, type: 'brain', category: 'social', surgeScore: 34.0, completedTasks: 0,
-    evolveLevel: 'imago', privacyStatus: 'glassbox', decayDays: 365, ipType: 'creation.ip', stakedHost: 300, marketplaceBadge: 'Imago', xmtpEnabled: false,
+    title: 'DAO Watcher Service',
+    description: 'Real-time DAO proposal monitoring, vote tracking, and treasury movement alerts — delivered to your agent inbox.',
+    price: 15, type: 'service', category: 'social', surgeScore: 34.0, completedTasks: 89,
+    evolveLevel: 'imago', privacyStatus: 'glassbox', decayDays: 365, ipType: 'creation.ip', stakedHost: 300, marketplaceBadge: 'Imago', xmtpEnabled: true,
   },
   {
     agent: 'yield-bot', namespace: 'vault.gno',
@@ -108,9 +108,8 @@ const DEMO_ITEMS: MarketItem[] = [
 // ─── Badge config ─────────────────────────────────────────────────────────────
 
 const TYPE_BADGE: Record<string, { label: string; className: string }> = {
-  service: { label: 'Service',    className: 'text-[rgb(160,220,255)] bg-[rgba(0,163,255,0.1)]' },
+  service: { label: 'Hire',       className: 'text-[rgb(160,220,255)] bg-[rgba(0,163,255,0.1)]' },
   body:    { label: 'Agent Body', className: 'text-fuchsia-300 bg-fuchsia-500/10' },
-  brain:   { label: 'Brain',      className: 'text-violet-300 bg-violet-500/10' },
   bundle:  { label: 'Bundle',     className: 'text-amber-300 bg-amber-500/10' },
 };
 
@@ -240,34 +239,59 @@ function ItemCard({ item, onViewA2A, onBuy, isBuying }: { item: MarketItem; onVi
       </div>
 
       {/* Footer */}
-      <div className="mt-4 flex items-center justify-between border-t border-[rgba(176,128,92,0.2)] pt-3">
-        <div className="flex items-center gap-3 text-xs">
-          {item.surgeScore > 0 && (
-            <span className="text-[var(--muted)]">$HOST <span className="font-medium text-violet-300">{item.surgeScore.toFixed(1)}</span></span>
-          )}
-          {item.completedTasks > 0 && (
-            <span className="text-[var(--muted)]">Tasks <span className="font-medium text-[#f2eee4]">{item.completedTasks}</span></span>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="text-right">
-            <div className="text-sm font-semibold text-[#f2eee4]">{item.price} xDAI</div>
-            <div className="text-[10px] text-[var(--muted)]">xDAI · EURe</div>
+      <div className="mt-4 border-t border-[rgba(176,128,92,0.2)] pt-3 space-y-2">
+        {/* Trust signals row — tier + $HOST + tasks */}
+        {item.type === 'service' && (
+          <div className="flex items-center gap-2 text-[10px]">
+            {item.marketplaceBadge && (
+              <span className={`rounded-full px-2 py-0.5 font-semibold ring-1 ${
+                item.evolveLevel === 'ghost'  ? 'bg-zinc-500/15 text-zinc-300 ring-zinc-500/20' :
+                item.evolveLevel === 'imago'  ? 'bg-fuchsia-500/15 text-fuchsia-300 ring-fuchsia-500/20' :
+                item.evolveLevel === 'pupa'   ? 'bg-amber-500/15 text-amber-300 ring-amber-500/20' :
+                                               'bg-zinc-500/10 text-zinc-400 ring-zinc-500/15'
+              }`}>{item.marketplaceBadge} tier</span>
+            )}
+            {item.surgeScore > 0 && (
+              <span className="text-[var(--muted)]">$HOST <span className="font-medium text-violet-300">{item.surgeScore.toFixed(1)}</span></span>
+            )}
+            {item.completedTasks > 0 && (
+              <span className="text-[var(--muted)]"><span className="font-medium text-[#f2eee4]">{item.completedTasks}</span> tasks done</span>
+            )}
+            {item.evolveLevel === 'ghost' && (
+              <span className="text-emerald-400/70">✓ staked SLA</span>
+            )}
+            {item.decayDays === 365 && item.evolveLevel !== 'larva' && (
+              <span className="text-[var(--muted)]">365d history</span>
+            )}
           </div>
-          <div className="flex items-center gap-1.5">
-            <Link
-              href={`/agent/${item.agent}`}
-              className="rounded-lg border border-[rgba(176,128,92,0.25)] bg-black/30 px-2.5 py-1.5 text-[10px] font-medium text-[var(--muted)] transition hover:text-white"
-            >
-              Details →
-            </Link>
-            <button
-              onClick={onBuy}
-              disabled={isBuying}
-              className="rounded-lg border px-3 py-1.5 text-xs font-semibold transition disabled:opacity-50" style={{ color: 'rgb(176,128,92)', borderColor: 'rgba(176,128,92,0.4)', background: 'rgba(176,128,92,0.1)' }}
-            >
-              {isBuying ? '...' : 'Buy'}
-            </button>
+        )}
+        {/* Price + actions row */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3 text-xs">
+            {item.type !== 'service' && item.surgeScore > 0 && (
+              <span className="text-[var(--muted)]">$HOST <span className="font-medium text-violet-300">{item.surgeScore.toFixed(1)}</span></span>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="text-right">
+              <div className="text-sm font-semibold text-[#f2eee4]">{item.price} xDAI</div>
+              <div className="text-[10px] text-[var(--muted)]">xDAI · EURe</div>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Link
+                href={`/agent/${item.agent}`}
+                className="rounded-lg border border-[rgba(176,128,92,0.25)] bg-black/30 px-2.5 py-1.5 text-[10px] font-medium text-[var(--muted)] transition hover:text-white"
+              >
+                Details →
+              </Link>
+              <button
+                onClick={onBuy}
+                disabled={isBuying}
+                className="rounded-lg border px-3 py-1.5 text-xs font-semibold transition disabled:opacity-50" style={{ color: 'rgb(176,128,92)', borderColor: 'rgba(176,128,92,0.4)', background: 'rgba(176,128,92,0.1)' }}
+              >
+                {isBuying ? '...' : item.type === 'service' ? 'Hire' : 'Buy'}
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -291,7 +315,7 @@ export default function MarketplacePage() {
   }
 
   const filtered = DEMO_ITEMS.filter(item => {
-    if (filters.type !== 'all' && item.type !== filters.type) return false;
+    if (filters.type !== 'all' && item.type !== (filters.type as ItemType)) return false;
     if (filters.domain !== 'all' && item.namespace !== filters.domain) return false;
     if (filters.level !== 'all' && item.evolveLevel !== (filters.level as unknown as EvolveLevel)) return false;
     if (filters.privacy !== 'all') {
@@ -338,7 +362,7 @@ export default function MarketplacePage() {
           <div>
             <h1 className="pl-1 text-2xl font-bold text-[#f2eee4]">Marketplace</h1>
             <p className="mt-1 pl-1 text-sm text-[var(--muted)]">
-              Buy agents, bodies, brains &amp; bundles. Filter by domain type, cycle level, or privacy.
+              Hire agents, buy bodies &amp; bundles. Filter by domain, cycle level, or privacy.
             </p>
           </div>
         </div>
