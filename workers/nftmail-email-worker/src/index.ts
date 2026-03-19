@@ -2896,6 +2896,7 @@ export default {
             let sGnoOriginNft: string | null = null;
             let sGnoLegacyIdentity: string | null = null;
             let sGnoMintedTokenId: number | null = null;
+            let sGnoTba: string | null = null;
             if (sGnoOwner) {
               try {
                 const gnoData = JSON.parse(sGnoOwner);
@@ -2903,6 +2904,7 @@ export default {
                 sGnoOriginNft = gnoData.origin_nft || null;
                 sGnoLegacyIdentity = gnoData.legacy_identity || null;
                 sGnoMintedTokenId = gnoData.minted_tokenId || null;
+                sGnoTba = gnoData.tba || null;
               } catch {
                 // Legacy flat string: value is the owner address directly
                 sGnoController = sGnoOwner;
@@ -3095,12 +3097,14 @@ export default {
           let onChainOwner: string | null = null;
           let originNft: string | null = null;
           let mintedTokenId: number | null = null;
+          let tbaAddress: string | null = null;
           if (nftmailGnoRaw) {
             try {
               const gno = JSON.parse(nftmailGnoRaw);
               onChainOwner = gno.controller || null;
               originNft = gno.origin_nft || null;
               mintedTokenId = gno.minted_tokenId || null;
+              tbaAddress = gno.tba || null;
             } catch {
               onChainOwner = nftmailGnoRaw; // legacy flat string = owner address
             }
@@ -3160,6 +3164,7 @@ export default {
             onChainOwner,
             originNft,
             mintedTokenId,
+            tba: tbaAddress,
             safe: agentSafe,
             storyIp,
             accountTier,

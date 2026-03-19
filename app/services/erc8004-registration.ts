@@ -123,7 +123,7 @@ export function buildErc8004RegistrationFile(params: {
     },
     {
       name:     'A2A',
-      endpoint: `https://ghostagent.ninja/.well-known/agent.json`,
+      endpoint: `https://ghostagent.ninja/api/agent-card?agent=${agentName}`,
       version:  '0.3.0',
     },
     {

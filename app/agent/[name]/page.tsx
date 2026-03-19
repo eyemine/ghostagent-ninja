@@ -45,6 +45,13 @@ interface AgentIdentity {
   moltPath: { currentLevel: string | null; surgeReputationScore: number | null } | null;
 }
 
+const TIER_LABEL: Record<string, string> = {
+  basic:   'Larva',
+  lite:    'Pupa',
+  premium: 'Imago',
+  ghost:   'Ghost',
+};
+
 function shortAddr(addr: string | null) {
   if (!addr) return '—';
   return addr.slice(0, 6) + '…' + addr.slice(-4);
@@ -147,7 +154,7 @@ export default function AgentPublicProfilePage() {
             <div className="grid grid-cols-3 gap-3 text-center text-[11px]">
               {[
                 { label: 'Surge Score', value: identity?.moltPath?.surgeReputationScore != null ? String(identity.moltPath.surgeReputationScore) : '—', color: 'text-violet-300' },
-                { label: 'Tier',        value: identity?.accountTier ?? '—',   color: 'text-[#f2eee4]' },
+                { label: 'Tier',        value: TIER_LABEL[identity?.accountTier ?? ''] ?? identity?.accountTier ?? '—', color: 'text-[#f2eee4]' },
                 { label: 'ERC-8004 ID', value: agentId != null ? `#${agentId}` : '—', color: 'text-amber-300' },
               ].map(({ label, value, color }) => (
                 <div key={label} className="rounded-lg border border-[rgba(176,128,92,0.2)] bg-black/20 px-2.5 py-3">
@@ -182,7 +189,7 @@ export default function AgentPublicProfilePage() {
                   { label: 'TBA',        value: shortAddr(identity?.tbaAddress ?? null), href: identity?.tbaAddress ? `https://gnosisscan.io/address/${identity.tbaAddress}` : null },
                   { label: 'Safe',       value: identity?.safe ? shortAddr(identity.safe) : '—', href: identity?.safe ? `https://app.safe.global/home?safe=gno:${identity.safe}` : null },
                   { label: 'Owner',      value: shortAddr(identity?.onChainOwner ?? null), href: identity?.onChainOwner ? `https://gnosisscan.io/address/${identity.onChainOwner}` : null },
-                  { label: 'ERC-8004 URI', value: a2aService?.endpoint ?? '—', href: a2aService?.endpoint ?? null },
+                  { label: 'ERC-8004 URI', value: `ghostagent.ninja/api/agent-card?agent=${name}`, href: `https://ghostagent.ninja/api/agent-card?agent=${name}` },
                 ].map((row) => (
                   <div key={row.label} className="flex items-center justify-between gap-4 text-[11px]">
                     <span className="text-[var(--muted)] shrink-0 w-24">{row.label}</span>
@@ -205,7 +212,12 @@ export default function AgentPublicProfilePage() {
             <div className="flex items-center justify-between gap-3 flex-wrap">
               <div className="text-[10px] text-[var(--muted)]">
                 {identity?.emailAddress && (
-                  <span className="font-mono">{identity.emailAddress}</span>
+                  <a
+                    href={`https://notapaperclip.red/inbox?address=${encodeURIComponent(identity.emailAddress)}`}
+                    target="_blank" rel="noopener noreferrer"
+                    className="font-mono hover:text-white transition">
+                    {identity.emailAddress}
+                  </a>
                 )}
               </div>
               <div className="flex gap-2">
@@ -215,13 +227,11 @@ export default function AgentPublicProfilePage() {
                     A2A Card ↗
                   </a>
                 )}
-                {webService && (
-                  <a href={webService.endpoint} target="_blank" rel="noopener noreferrer"
-                    className="rounded-lg border px-4 py-1.5 text-xs font-semibold transition"
-                    style={{ color: 'rgb(176,128,92)', borderColor: 'rgba(176,128,92,0.4)', background: 'rgba(176,128,92,0.1)' }}>
-                    Profile ↗
-                  </a>
-                )}
+                <a href={`https://notapaperclip.red/agent/${encodeURIComponent(name)}`} target="_blank" rel="noopener noreferrer"
+                  className="rounded-lg border px-4 py-1.5 text-xs font-semibold transition"
+                  style={{ color: 'rgb(176,128,92)', borderColor: 'rgba(176,128,92,0.4)', background: 'rgba(176,128,92,0.1)' }}>
+                  Profile ↗
+                </a>
               </div>
             </div>
           </div>

@@ -169,10 +169,13 @@ export async function GET(req: NextRequest) {
     let beaconCid: string | null = null;
     let beaconMetadataUrl: string | null = null;
     let moltPath: AgentIdentityGraph['moltPath'] = null;
-    let tbaAddress: string | null = null;
+    let tbaAddress: string | null = resolved.tba ?? null; // prefer KV-stored TBA
 
     if (resolved.exists) {
       const mintedTokenId: number | null = resolved.mintedTokenId ?? null;
+
+      // Only derive on-chain if TBA not already in KV
+      const needsTbaDerivation = tbaAddress === null && mintedTokenId !== null;
 
       const [beaconResult, moltResult, tbaResult] = await Promise.allSettled([
         // Beacon
@@ -189,11 +192,11 @@ export async function GET(req: NextRequest) {
           body: JSON.stringify({ action: 'getMoltPath', name }),
         }).then(r => r.json()),
 
-        // TBA derivation — use registrar matching agent's SLD
-        mintedTokenId != null ? (() => {
+        // TBA derivation — use registrar matching agent's SLD (fallback if not in KV)
+        needsTbaDerivation ? (() => {
           const sld = (resolved.tld as string | undefined)?.split('.')?.[0] ?? 'nftmail';
           const registrar = SLD_REGISTRARS[sld] ?? SLD_REGISTRARS['nftmail'];
-          return deriveTbaAddress(mintedTokenId, registrar);
+          return deriveTbaAddress(mintedTokenId!, registrar);
         })() : Promise.resolve(null),
       ]);
 
@@ -215,7 +218,7 @@ export async function GET(req: NextRequest) {
         }
       }
 
-      if (tbaResult.status === 'fulfilled') {
+      if (tbaResult.status === 'fulfilled' && tbaResult.value !== null) {
         tbaAddress = tbaResult.value as string | null;
       }
     }
