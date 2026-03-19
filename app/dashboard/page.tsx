@@ -221,7 +221,7 @@ function AgentCard({ agent, onCycle, onSelect, selected }: { agent: DemoAgent; o
         <div className="mt-3 flex items-center justify-between">
           <span className={`text-[10px] font-medium ${ns.text} opacity-70`}>✓ selected</span>
           <Link
-            href={`/dashboard/agent/${agent.name}`}
+            href={`/dashboard/agent/${agent.name}?sld=${sld}`}
             onClick={e => e.stopPropagation()}
             className={`rounded-lg border px-3 py-1.5 text-[10px] font-semibold transition ${ns.border} ${ns.text} hover:brightness-125`}
           >

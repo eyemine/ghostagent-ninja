@@ -2,12 +2,22 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { TradeIntentPanel } from '../../../components/TradeIntentPanel';
 import SwarmConsensus from '../../../components/SwarmConsensus';
 import { GhostHandshakePanel } from '../../../components/GhostHandshakePanel';
 
-const GHOST_LOGO = '/ghost-logo.png';
+const VALID_SLDS = ['agent', 'openclaw', 'molt', 'picoclaw', 'vault', 'nftmail'] as const;
+type SldKey = typeof VALID_SLDS[number];
+
+const SLD_COLOR: Record<SldKey, string> = {
+  agent:    'text-blue-300',
+  openclaw: 'text-rose-300',
+  molt:     'text-violet-300',
+  picoclaw: 'text-amber-300',
+  vault:    'text-emerald-300',
+  nftmail:  'text-cyan-300',
+};
 
 const SECTION_COMING = 'Data will be populated once connected to your agent\'s TBA and on-chain registry.';
 
@@ -109,6 +119,10 @@ type TabId = typeof TABS[number]['id'];
 
 export default function AgentDetailPage() {
   const { name } = useParams<{ name: string }>();
+  const searchParams = useSearchParams();
+  const rawSld = searchParams.get('sld') ?? '';
+  const sld: SldKey | null = VALID_SLDS.includes(rawSld as SldKey) ? (rawSld as SldKey) : null;
+  const sldColor = sld ? SLD_COLOR[sld] : 'text-[var(--muted)]';
   const [activeTab, setActiveTab] = useState<TabId>('overview');
 
   return (
@@ -117,11 +131,23 @@ export default function AgentDetailPage() {
       {/* Header */}
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={GHOST_LOGO} alt="GhostAgent" className="h-16 w-16 object-contain drop-shadow-[0_0_14px_rgba(184,134,97,0.4)]" />
+          {/* SLD image at ~200% of card size */}
+          <div className="h-32 w-32 shrink-0 rounded-2xl overflow-hidden border border-[rgba(176,128,92,0.2)] bg-black/40">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={sld ? `/sld-images/${sld}.png` : '/ghost-logo.png'}
+              alt={sld ? `${sld}.gno` : 'GhostAgent'}
+              className="h-full w-full object-cover"
+            />
+          </div>
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-2xl font-bold text-[#f2eee4]">{name}</h1>
+              {sld && (
+                <span className={`rounded-full bg-black/30 px-2 py-0.5 text-[10px] font-bold ring-1 ring-current/20 ${sldColor}`}>
+                  {sld}.gno
+                </span>
+              )}
               <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-300 ring-1 ring-amber-500/20">
                 OWNER VIEW
               </span>
