@@ -24,22 +24,25 @@ import { WORKER_URL } from '../../utils/config';
 
 
 // ── ERC-6551 TBA derivation ───────────────────────────────────────────────────
-// Standard ERC-6551 registry (same address on all EVM chains)
-const ERC6551_REGISTRY = '0x000000006551c19487814612e58FE06813775758';
-// nftmail.gno registrar (NFT contract) on Gnosis
-const NFTMAIL_GNO_REGISTRAR = '0x831ddd71e7c33e16b674099129e6e379da407faf';
-// Default TBA implementation (ERC-6551 reference impl, deployed on Gnosis)
+const ERC6551_REGISTRY    = '0x000000006551c19487814612e58FE06813775758';
 const TBA_IMPLEMENTATION  = '0x55266d75D1a14E4572138116aF39863Ed6596E7F';
-// Default salt used in mintSubname (all zeros)
-const TBA_SALT = '0x0000000000000000000000000000000000000000000000000000000000000000';
-const GNOSIS_RPC = 'https://rpc.gnosischain.com';
-const GNOSIS_CHAIN_ID = 100;
+const GNOSIS_RPC          = 'https://rpc.gnosischain.com';
+const GNOSIS_CHAIN_ID     = 100;
+
+// Registrar (NFT contract) addresses per SLD on Gnosis mainnet
+const SLD_REGISTRARS: Record<string, string> = {
+  nftmail:  '0x831ddd71e7c33e16b674099129e6e379da407faf',
+  molt:     '0x4b54213c1e5826497ff39ba8c87a7b75d2bc3c50',
+  openclaw: '0xbD8285A8455CCEC4bE671D9eE3924Ab1264fcbbe',
+  picoclaw: '0xe5fd65562698f46ea9762bd38141535b1fd875b5',
+  agent:    '0x73f2f2ef73dc512cac0f5b0372f1d58a84ed13e6', // GhostRegistry v1
+};
 
 /**
  * Derive TBA address deterministically from ERC-6551 registry on Gnosis.
  * Calls registry.account(implementation, chainId, tokenContract, tokenId, salt).
  */
-async function deriveTbaAddress(tokenId: number): Promise<string | null> {
+async function deriveTbaAddress(tokenId: number, tokenContract: string): Promise<string | null> {
   try {
     // ABI-encode: account(address impl, uint256 chainId, address tokenContract, uint256 tokenId, uint256 salt)
     // selector: keccak256("account(address,uint256,address,uint256,uint256)")[0:4]
@@ -49,7 +52,7 @@ async function deriveTbaAddress(tokenId: number): Promise<string | null> {
       selector +
       pad(TBA_IMPLEMENTATION) +               // impl address (padded to 32 bytes)
       pad(GNOSIS_CHAIN_ID.toString(16)) +      // chainId = 100
-      pad(NFTMAIL_GNO_REGISTRAR) +             // tokenContract
+      pad(tokenContract) +                    // tokenContract (registrar for this agent's SLD)
       pad(tokenId.toString(16)) +              // tokenId
       pad('0');                                // salt = 0
 
@@ -186,8 +189,12 @@ export async function GET(req: NextRequest) {
           body: JSON.stringify({ action: 'getMoltPath', name }),
         }).then(r => r.json()),
 
-        // TBA derivation — only possible if we have a tokenId
-        mintedTokenId != null ? deriveTbaAddress(mintedTokenId) : Promise.resolve(null),
+        // TBA derivation — use registrar matching agent's SLD
+        mintedTokenId != null ? (() => {
+          const sld = (resolved.tld as string | undefined)?.split('.')?.[0] ?? 'nftmail';
+          const registrar = SLD_REGISTRARS[sld] ?? SLD_REGISTRARS['nftmail'];
+          return deriveTbaAddress(mintedTokenId, registrar);
+        })() : Promise.resolve(null),
       ]);
 
       if (beaconResult.status === 'fulfilled') {

@@ -32,16 +32,17 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const sldFallback: SldKey = VALID_SLDS.includes(sldParam as SldKey) ? (sldParam as SldKey) : 'nftmail';
+  const sldFallback: SldKey = VALID_SLDS.includes(sldParam as SldKey) ? (sldParam as SldKey) : 'agent';
 
   // Resolve current SLD and agentId from KV — single worker call
   let sld: SldKey = sldFallback;
   let agentId: number | null = null;
   try {
+    // resolveAddress returns originNft, tld, safe, onChainOwner — more complete than getAgentStatus
     const kvRes = await fetch(WORKER_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'getAgentStatus', agentName }),
+      body: JSON.stringify({ action: 'resolveAddress', name: `${agentName}_` }),
     });
     if (kvRes.ok) {
       const kvData = await kvRes.json() as Record<string, unknown>;
@@ -51,8 +52,17 @@ export async function GET(req: NextRequest) {
         const kvSld = kvTld.split('.')[0] as SldKey;
         if (VALID_SLDS.includes(kvSld)) sld = kvSld;
       }
-      const kvAgentId = kvData?.erc8004AgentId;
-      if (typeof kvAgentId === 'number' && kvAgentId > 0) agentId = kvAgentId;
+      // erc8004AgentId comes from getAgentStatus augmentation — fetch separately
+      const erc8004Res = await fetch(WORKER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'getAgentStatus', localPart: `${agentName}_` }),
+      });
+      if (erc8004Res.ok) {
+        const erc8004Data = await erc8004Res.json() as Record<string, unknown>;
+        const kvAgentId = erc8004Data?.erc8004AgentId;
+        if (typeof kvAgentId === 'number' && kvAgentId > 0) agentId = kvAgentId;
+      }
     }
   } catch {
     // Non-fatal — serve file with fallback sld, no agentId

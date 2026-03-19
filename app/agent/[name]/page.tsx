@@ -178,10 +178,11 @@ export default function AgentPublicProfilePage() {
               <h2 className="text-[10px] font-semibold tracking-[0.16em] text-[var(--muted)] mb-3">ON-CHAIN IDENTITY</h2>
               <div className="space-y-2">
                 {[
-                  { label: 'NFT Origin',   value: identity?.originNft ?? '—',    href: null },
-                  { label: 'Safe / TBA',   value: identity?.safe ? shortAddr(identity.safe) : shortAddr(identity?.tbaAddress ?? null), href: identity?.safe ? `https://app.safe.global/home?safe=gno:${identity.safe}` : null },
-                  { label: 'Owner',        value: shortAddr(identity?.onChainOwner ?? null), href: identity?.onChainOwner ? `https://gnosisscan.io/address/${identity.onChainOwner}` : null },
-                  { label: 'ERC-8004 URI', value: a2aService?.endpoint ?? '—',   href: a2aService?.endpoint ?? null },
+                  { label: 'NFT Origin', value: identity?.originNft ?? '—', href: null },
+                  { label: 'TBA',        value: shortAddr(identity?.tbaAddress ?? null), href: identity?.tbaAddress ? `https://gnosisscan.io/address/${identity.tbaAddress}` : null },
+                  { label: 'Safe',       value: identity?.safe ? shortAddr(identity.safe) : '—', href: identity?.safe ? `https://app.safe.global/home?safe=gno:${identity.safe}` : null },
+                  { label: 'Owner',      value: shortAddr(identity?.onChainOwner ?? null), href: identity?.onChainOwner ? `https://gnosisscan.io/address/${identity.onChainOwner}` : null },
+                  { label: 'ERC-8004 URI', value: a2aService?.endpoint ?? '—', href: a2aService?.endpoint ?? null },
                 ].map((row) => (
                   <div key={row.label} className="flex items-center justify-between gap-4 text-[11px]">
                     <span className="text-[var(--muted)] shrink-0 w-24">{row.label}</span>
