@@ -28,19 +28,26 @@ const MAX_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
 // The base image is fetched server-side and embedded as a data URI so the SVG
 // is fully self-contained (works in wallets, OpenSea, IPFS gateways).
 
+const VALID_SLD_KEYS = Object.keys(SLD_VISUAL) as SldKey[];
+
 export async function GET(req: NextRequest) {
-  const sld  = (req.nextUrl.searchParams.get('sld')  ?? 'agent') as SldKey;
-  const name =  req.nextUrl.searchParams.get('name') ?? 'agent';
+  const rawSld = req.nextUrl.searchParams.get('sld') ?? 'agent';
+  const sld: SldKey = VALID_SLD_KEYS.includes(rawSld as SldKey) ? (rawSld as SldKey) : 'agent';
+  const name = req.nextUrl.searchParams.get('name') ?? 'agent';
 
   const visual = SLD_VISUAL[sld];
 
-  // Fetch the base image from Lighthouse and embed as data URI
+  // Fetch the base image from Lighthouse and embed as data URI.
+  // Use a tight timeout so slow IPFS gateways don't stall the serverless fn.
   let imageDataUri: string | undefined;
   try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 4000);
     const imgRes = await fetch(`${IPFS_GATEWAY}/${visual.imageCid}`, {
       headers: { 'User-Agent': 'ghostagent-nft-compositor/1.0' },
-      // next: { revalidate: 86400 } — only valid in Next 13+ fetch, fine here
+      signal: controller.signal,
     });
+    clearTimeout(timeout);
     if (imgRes.ok) {
       const contentType = imgRes.headers.get('content-type') ?? 'image/jpeg';
       const buf = await imgRes.arrayBuffer();
@@ -48,7 +55,7 @@ export async function GET(req: NextRequest) {
       imageDataUri = `data:${contentType};base64,${b64}`;
     }
   } catch {
-    // Non-fatal — fall back to remote href in the SVG
+    // Non-fatal — falls through to self-contained gradient SVG fallback
   }
 
   const svg = generateSubnameSvg(name, sld, imageDataUri);
@@ -57,6 +64,8 @@ export async function GET(req: NextRequest) {
     headers: {
       'Content-Type': 'image/svg+xml',
       'Cache-Control': 'public, max-age=86400, stale-while-revalidate=3600',
+      'Vary': 'Accept',
+      'X-SLD': sld,
     },
   });
 }

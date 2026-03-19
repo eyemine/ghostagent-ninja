@@ -603,7 +603,6 @@ export function generateSubnameSvg(
   imageDataUri?: string,
 ): string {
   const v = SLD_VISUAL[sld];
-  const imageHref = imageDataUri ?? `${GATEWAY}/${v.imageCid}`;
 
   // Scale font down for names longer than MAX_CHARS_FULL
   const len = subname.length;
@@ -614,22 +613,66 @@ export function generateSubnameSvg(
   // Vertical centre of the top-25% band
   const textY = Math.round(OVERLAY_H / 2);
 
+  if (imageDataUri) {
+    // Fully self-contained: embed the base64 image, no external requests
+    return [
+      `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"`,
+      `     width="${IMAGE_W}" height="${IMAGE_H}" viewBox="0 0 ${IMAGE_W} ${IMAGE_H}">`,
+      `  <image href="${imageDataUri}" x="0" y="0" width="${IMAGE_W}" height="${IMAGE_H}" preserveAspectRatio="xMidYMid slice"/>`,
+      `  <!-- name overlay top 25% -->`,
+      `  <rect x="0" y="0" width="${IMAGE_W}" height="${OVERLAY_H}" fill="${v.bgColor}" fill-opacity="0.55"/>`,
+      `  <text`,
+      `    x="${IMAGE_W / 2}" y="${textY}"`,
+      `    text-anchor="middle" dominant-baseline="middle"`,
+      `    font-family="'Courier New', Courier, monospace"`,
+      `    font-size="${fontSize}" font-weight="bold" fill="${v.textColor}"`,
+      `  >${subname}</text>`,
+      `</svg>`,
+    ].join('\n');
+  }
+
+  // Fallback: fully self-contained SLD-themed gradient SVG — no external deps
+  const labelFontSize = Math.max(18, Math.floor(36 * (MAX_CHARS_FULL / Math.max(len, MAX_CHARS_FULL))));
   return [
-    `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"`,
-    `     width="${IMAGE_W}" height="${IMAGE_H}" viewBox="0 0 ${IMAGE_W} ${IMAGE_H}">`,
-    `  <!-- Base image -->`,
-    `  <image href="${imageHref}" x="0" y="0" width="${IMAGE_W}" height="${IMAGE_H}" preserveAspectRatio="xMidYMid slice"/>`,
-    `  <!-- Subname overlay in top 25% -->`,
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${IMAGE_W}" height="${IMAGE_H}" viewBox="0 0 ${IMAGE_W} ${IMAGE_H}">`,
+    `  <defs>`,
+    `    <radialGradient id="bg" cx="50%" cy="50%" r="70%">`,
+    `      <stop offset="0%" stop-color="${v.accentColor}" stop-opacity="0.25"/>`,
+    `      <stop offset="100%" stop-color="${v.bgColor}" stop-opacity="1"/>`,
+    `    </radialGradient>`,
+    `    <radialGradient id="glow" cx="50%" cy="50%" r="50%">`,
+    `      <stop offset="0%" stop-color="${v.primaryColor}" stop-opacity="0.15"/>`,
+    `      <stop offset="100%" stop-color="${v.primaryColor}" stop-opacity="0"/>`,
+    `    </radialGradient>`,
+    `  </defs>`,
+    `  <rect width="${IMAGE_W}" height="${IMAGE_H}" fill="url(#bg)"/>`,
+    `  <rect width="${IMAGE_W}" height="${IMAGE_H}" fill="url(#glow)"/>`,
+    `  <!-- border -->`,
+    `  <rect x="4" y="4" width="${IMAGE_W - 8}" height="${IMAGE_H - 8}" rx="32" fill="none" stroke="${v.primaryColor}" stroke-width="2" stroke-opacity="0.3"/>`,
+    `  <!-- hex grid pattern suggestion -->`,
+    `  <circle cx="500" cy="500" r="280" fill="none" stroke="${v.primaryColor}" stroke-width="1" stroke-opacity="0.08"/>`,
+    `  <circle cx="500" cy="500" r="200" fill="none" stroke="${v.primaryColor}" stroke-width="1" stroke-opacity="0.06"/>`,
+    `  <circle cx="500" cy="500" r="120" fill="${v.accentColor}" fill-opacity="0.08" stroke="${v.primaryColor}" stroke-width="1" stroke-opacity="0.15"/>`,
+    `  <!-- SLD label band top 25% -->`,
+    `  <rect x="0" y="0" width="${IMAGE_W}" height="${OVERLAY_H}" fill="${v.bgColor}" fill-opacity="0.5"/>`,
+    `  <line x1="0" y1="${OVERLAY_H}" x2="${IMAGE_W}" y2="${OVERLAY_H}" stroke="${v.primaryColor}" stroke-width="1" stroke-opacity="0.2"/>`,
+    `  <!-- agent name in top band -->`,
     `  <text`,
-    `    x="${IMAGE_W / 2}"`,
-    `    y="${textY}"`,
-    `    text-anchor="middle"`,
-    `    dominant-baseline="middle"`,
+    `    x="${IMAGE_W / 2}" y="${textY}"`,
+    `    text-anchor="middle" dominant-baseline="middle"`,
     `    font-family="'Courier New', Courier, monospace"`,
-    `    font-size="${fontSize}"`,
-    `    font-weight="bold"`,
-    `    fill="${v.textColor}"`,
+    `    font-size="${fontSize}" font-weight="bold" fill="${v.textColor}"`,
     `  >${subname}</text>`,
+    `  <!-- SLD.gno label centred -->`,
+    `  <rect x="340" y="780" width="320" height="52" rx="26" fill="${v.accentColor}" fill-opacity="0.15" stroke="${v.primaryColor}" stroke-width="1" stroke-opacity="0.25"/>`,
+    `  <text`,
+    `    x="500" y="806"`,
+    `    text-anchor="middle" dominant-baseline="middle"`,
+    `    font-family="'Courier New', Courier, monospace"`,
+    `    font-size="${labelFontSize}" font-weight="bold" fill="${v.primaryColor}" fill-opacity="0.9"`,
+    `  >${sld}.gno</text>`,
+    `  <!-- ghost watermark -->`,
+    `  <text x="500" y="940" text-anchor="middle" font-family="'Courier New', Courier, monospace" font-size="18" fill="${v.primaryColor}" fill-opacity="0.2">GhostAgent · nftmail.box</text>`,
     `</svg>`,
   ].join('\n');
 }
