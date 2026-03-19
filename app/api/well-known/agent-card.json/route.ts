@@ -10,7 +10,8 @@
 
 import { NextResponse } from 'next/server';
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://ghostagent.ninja';
+const APP_URL    = process.env.NEXT_PUBLIC_APP_URL ?? 'https://ghostagent.ninja';
+const WORKER_URL = 'https://nftmail-email-worker.richard-159.workers.dev';
 
 export const dynamic = 'force-static';
 
