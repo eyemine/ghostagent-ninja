@@ -1,9 +1,188 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import { DomainCard, Domain } from '../components/DomainCard';
 
 const GHOST_LOGO = '/ghost-logo.png';
+const PAGE_SIZE = 20;
+
+const SLD_COLORS: Record<string, string> = {
+  'agent.gno':    'text-blue-300 bg-blue-500/10 ring-blue-500/20',
+  'openclaw.gno': 'text-rose-300 bg-rose-500/10 ring-rose-500/20',
+  'molt.gno':     'text-violet-300 bg-violet-500/10 ring-violet-500/20',
+  'picoclaw.gno': 'text-amber-300 bg-amber-500/10 ring-amber-500/20',
+  'vault.gno':    'text-emerald-300 bg-emerald-500/10 ring-emerald-500/20',
+  'nftmail.gno':  'text-cyan-300 bg-cyan-500/10 ring-cyan-500/20',
+};
+
+interface RegistryEntry {
+  name: string;
+  tld: string | null;
+  profileUrl: string;
+  agentCardUrl: string;
+  erc8004: {
+    gnosis?:      { agentId: number };
+    base?:        { agentId: number };
+    baseSepolia?: { agentId: number };
+  };
+}
+
+function RegistryTab() {
+  const [agents, setAgents]     = useState<RegistryEntry[]>([]);
+  const [loading, setLoading]   = useState(true);
+  const [error, setError]       = useState<string | null>(null);
+  const [search, setSearch]     = useState('');
+  const [sldFilter, setSldFilter] = useState('all');
+  const [page, setPage]         = useState(0);
+
+  useEffect(() => {
+    setLoading(true);
+    fetch('/api/agents')
+      .then(r => r.json())
+      .then(data => { setAgents(data.agents ?? []); setLoading(false); })
+      .catch(() => { setError('Failed to load registry'); setLoading(false); });
+  }, []);
+
+  const tlds = ['all', ...Array.from(new Set(agents.map(a => a.tld).filter(Boolean) as string[])).sort()];
+
+  const filtered = agents.filter(a => {
+    if (sldFilter !== 'all' && a.tld !== sldFilter) return false;
+    if (search && !a.name.toLowerCase().includes(search.toLowerCase())) return false;
+    return true;
+  });
+
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  const pageAgents = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+
+  const reset = useCallback(() => setPage(0), []);
+
+  if (loading) return (
+    <div className="flex justify-center py-20">
+      <div className="h-6 w-6 animate-spin rounded-full border-2 border-[rgba(176,128,92,0.3)] border-t-[rgba(176,128,92,0.9)]" />
+    </div>
+  );
+  if (error) return <p className="py-10 text-center text-sm text-rose-400">{error}</p>;
+
+  return (
+    <div className="space-y-4">
+      {/* Search + filter bar */}
+      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-[var(--border)] bg-[var(--card)] px-4 py-3">
+        <input
+          type="text"
+          value={search}
+          onChange={e => { setSearch(e.target.value); reset(); }}
+          placeholder="Search agents…"
+          className="min-w-0 flex-1 bg-transparent text-sm text-[#f2eee4] outline-none placeholder:text-zinc-600"
+        />
+        <div className="mx-2 h-4 w-px bg-[var(--border)]" />
+        <div className="flex flex-wrap gap-1">
+          {tlds.map(t => (
+            <button
+              key={t}
+              onClick={() => { setSldFilter(t); reset(); }}
+              className={`rounded-lg px-2.5 py-1 text-[10px] font-semibold transition ${
+                sldFilter === t
+                  ? 'bg-[rgba(176,128,92,0.2)] text-[#f2eee4]'
+                  : 'text-[var(--muted)] hover:text-[#f2eee4]'
+              }`}
+            >
+              {t === 'all' ? 'All' : t}
+            </button>
+          ))}
+        </div>
+        <span className="ml-auto shrink-0 text-[10px] text-[var(--muted)]">
+          {filtered.length} agent{filtered.length !== 1 ? 's' : ''}
+        </span>
+      </div>
+
+      {/* Table */}
+      {pageAgents.length === 0 ? (
+        <p className="py-10 text-center text-sm text-[var(--muted)]">No agents match.</p>
+      ) : (
+        <div className="overflow-hidden rounded-2xl border border-[var(--border)]">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b border-[var(--border)] bg-[var(--card)]">
+                <th className="px-4 py-2.5 text-left text-[9px] font-semibold tracking-wider text-[var(--muted)]">AGENT</th>
+                <th className="px-4 py-2.5 text-left text-[9px] font-semibold tracking-wider text-[var(--muted)]">NAMESPACE</th>
+                <th className="hidden px-4 py-2.5 text-left text-[9px] font-semibold tracking-wider text-[var(--muted)] sm:table-cell">ERC-8004</th>
+                <th className="px-4 py-2.5 text-right text-[9px] font-semibold tracking-wider text-[var(--muted)]">PROFILE</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[var(--border)] bg-[var(--card)]/60">
+              {pageAgents.map((a, i) => {
+                const tldKey = a.tld ?? '';
+                const colors = SLD_COLORS[tldKey] ?? 'text-zinc-400 bg-zinc-500/10 ring-zinc-500/20';
+                const chains = Object.keys(a.erc8004 ?? {});
+                return (
+                  <tr key={i} className="hover:bg-white/[0.02] transition">
+                    <td className="px-4 py-2.5">
+                      <div className="flex items-center gap-2">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={`/sld-images/${tldKey.split('.')[0] || 'agent'}.png`}
+                          alt=""
+                          className="h-6 w-6 rounded-md object-cover shrink-0"
+                        />
+                        <span className="font-medium text-[#f2eee4]">{a.name}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-2.5">
+                      {tldKey && (
+                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-semibold ring-1 ${colors}`}>
+                          {tldKey}
+                        </span>
+                      )}
+                    </td>
+                    <td className="hidden px-4 py-2.5 sm:table-cell">
+                      <div className="flex flex-wrap gap-1">
+                        {chains.length === 0 ? (
+                          <span className="text-zinc-600">—</span>
+                        ) : chains.map(c => (
+                          <span key={c} className="rounded bg-zinc-500/10 px-1.5 py-0.5 text-[9px] text-zinc-400">{c}</span>
+                        ))}
+                      </div>
+                    </td>
+                    <td className="px-4 py-2.5 text-right">
+                      <Link
+                        href={`/agent/${a.name}`}
+                        className="rounded-lg border border-[rgba(176,128,92,0.25)] bg-black/20 px-2.5 py-1 text-[10px] font-medium text-[var(--muted)] transition hover:text-white"
+                      >
+                        View →
+                      </Link>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between pt-1 text-xs text-[var(--muted)]">
+          <button
+            disabled={page === 0}
+            onClick={() => setPage(p => p - 1)}
+            className="rounded-lg border border-[var(--border)] px-3 py-1.5 transition hover:text-white disabled:opacity-30"
+          >
+            ← Prev
+          </button>
+          <span>Page {page + 1} of {totalPages}</span>
+          <button
+            disabled={page >= totalPages - 1}
+            onClick={() => setPage(p => p + 1)}
+            className="rounded-lg border border-[var(--border)] px-3 py-1.5 transition hover:text-white disabled:opacity-30"
+          >
+            Next →
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 const DOMAINS: Domain[] = [
   {
@@ -214,10 +393,13 @@ function MintModal({ domain, onClose }: { domain: Domain; onClose: () => void })
   );
 }
 
+type PageTab = 'domains' | 'registry';
+
 export default function AgentsPage() {
-  const [filterFee, setFilterFee] = useState<FilterFee>('all');
+  const [pageTab, setPageTab]       = useState<PageTab>('domains');
+  const [filterFee, setFilterFee]   = useState<FilterFee>('all');
   const [filterPrivacy, setFilterPrivacy] = useState<FilterPrivacy>('all');
-  const [filterEvolve, setFilterEvolve] = useState<FilterEvolve>('all');
+  const [filterEvolve, setFilterEvolve]   = useState<FilterEvolve>('all');
   const [mintTarget, setMintTarget] = useState<Domain | null>(null);
 
   const filtered = DOMAINS.filter((d) => {
@@ -266,17 +448,39 @@ export default function AgentsPage() {
         <div className="mx-auto max-w-5xl px-4 py-8 md:px-8">
 
           {/* Header */}
-          <div className="mb-8 flex items-center gap-4">
+          <div className="mb-6 flex items-center gap-4">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={GHOST_LOGO} alt="GhostAgent" className="h-28 w-28 object-contain drop-shadow-[0_0_18px_rgba(184,134,97,0.4)]" />
+            <img src={GHOST_LOGO} alt="GhostAgent" className="h-20 w-20 object-contain drop-shadow-[0_0_18px_rgba(184,134,97,0.4)]" />
             <div>
-              <h1 className="text-2xl font-bold text-[#f2eee4]">Choose Your Domain</h1>
+              <h1 className="text-2xl font-bold text-[#f2eee4]">Agent Namespaces</h1>
               <p className="mt-1 text-sm text-[var(--muted)]">
-                5 namespaces · zero lock-in · transfer or burn your NFT at any time
+                6 namespaces · zero lock-in · transfer or burn your NFT at any time
               </p>
             </div>
           </div>
 
+          {/* Tab switcher */}
+          <div className="mb-6 flex gap-1 rounded-xl border border-[rgba(176,128,92,0.15)] bg-[var(--card)] p-1">
+            {(['domains', 'registry'] as const).map(t => (
+              <button
+                key={t}
+                onClick={() => setPageTab(t)}
+                className={`flex-1 rounded-lg px-4 py-2 text-xs font-semibold transition ${
+                  pageTab === t
+                    ? 'bg-[rgba(176,128,92,0.18)] text-[#f2eee4]'
+                    : 'text-[var(--muted)] hover:text-[#f2eee4]'
+                }`}
+              >
+                {t === 'domains' ? '🗂 Domain Catalogue' : '📡 Agent Registry'}
+              </button>
+            ))}
+          </div>
+
+          {/* ── Registry tab ── */}
+          {pageTab === 'registry' && <RegistryTab />}
+
+          {/* ── Domains tab ── */}
+          {pageTab === 'domains' && <>
           {/* Filters */}
           <div className="mb-6 flex flex-wrap items-center gap-2 rounded-2xl border border-[var(--border)] bg-[var(--card)] px-4 py-3">
             <span className="mr-1 text-[10px] font-semibold tracking-wider text-[var(--muted)]">FEE</span>
@@ -316,6 +520,7 @@ export default function AgentsPage() {
           <p className="mt-8 text-center text-[10px] text-[var(--muted)]">
             All agent NFTs are non-custodial · transfer = transfer control · burn = destroy identity
           </p>
+          </>}
 
         </div>
       </div>
