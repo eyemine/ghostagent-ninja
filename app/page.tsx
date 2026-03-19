@@ -52,13 +52,13 @@ export default function Home() {
           </Link>
 
           <Link
-            href="/dashboard/install-brain"
+            href="/dashboard/marketplace"
             className="w-full rounded-xl px-6 py-3 text-center text-sm font-semibold transition"
             style={{ color: '#ffca92', border: '1px solid rgba(243,238,228,0.2)', background: 'rgba(255,255,255,0.04)' }}
             onMouseEnter={e => (e.currentTarget.style.background = '#262934')}
             onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')}
           >
-            Install Agent Brain
+            Buy / Hire Agent
           </Link>
 
           <Link
@@ -86,7 +86,7 @@ export default function Home() {
 
         {/* Tagline */}
         <p className="text-[10px] text-[var(--muted)]">
-          Mint → Cycle → Molt to Agent — same TBA, zero migration
+          Mint → Cycle → Molt to Agent — same Safe, zero migration
         </p>
 
       </div>

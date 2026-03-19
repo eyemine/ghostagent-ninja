@@ -30,20 +30,17 @@ const MAX_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
 
 const VALID_SLD_KEYS = Object.keys(SLD_VISUAL) as SldKey[];
 
-export async function GET(req: NextRequest) {
-  const rawSld = req.nextUrl.searchParams.get('sld') ?? 'agent';
-  const sld: SldKey = VALID_SLD_KEYS.includes(rawSld as SldKey) ? (rawSld as SldKey) : 'agent';
-  const name = req.nextUrl.searchParams.get('name') ?? 'agent';
+// Module-level cache: CID → base64 data URI.
+// Shared across requests within the same serverless function instance,
+// preventing repeated Lighthouse fetches for the same SLD background image.
+const IMAGE_CACHE = new Map<string, string>();
 
-  const visual = SLD_VISUAL[sld];
-
-  // Fetch the base image from Lighthouse and embed as data URI.
-  // Use a tight timeout so slow IPFS gateways don't stall the serverless fn.
-  let imageDataUri: string | undefined;
+async function fetchImageDataUri(cid: string): Promise<string | undefined> {
+  if (IMAGE_CACHE.has(cid)) return IMAGE_CACHE.get(cid);
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 4000);
-    const imgRes = await fetch(`${IPFS_GATEWAY}/${visual.imageCid}`, {
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    const imgRes = await fetch(`${IPFS_GATEWAY}/${cid}`, {
       headers: { 'User-Agent': 'ghostagent-nft-compositor/1.0' },
       signal: controller.signal,
     });
@@ -52,11 +49,25 @@ export async function GET(req: NextRequest) {
       const contentType = imgRes.headers.get('content-type') ?? 'image/jpeg';
       const buf = await imgRes.arrayBuffer();
       const b64 = Buffer.from(buf).toString('base64');
-      imageDataUri = `data:${contentType};base64,${b64}`;
+      const dataUri = `data:${contentType};base64,${b64}`;
+      IMAGE_CACHE.set(cid, dataUri);
+      return dataUri;
     }
   } catch {
-    // Non-fatal — falls through to self-contained gradient SVG fallback
+    // Non-fatal — caller falls back to gradient SVG
   }
+  return undefined;
+}
+
+export async function GET(req: NextRequest) {
+  const rawSld = req.nextUrl.searchParams.get('sld') ?? 'agent';
+  const sld: SldKey = VALID_SLD_KEYS.includes(rawSld as SldKey) ? (rawSld as SldKey) : 'agent';
+  const name = req.nextUrl.searchParams.get('name') ?? 'agent';
+
+  const visual = SLD_VISUAL[sld];
+
+  // Fetch (or reuse cached) base image as embedded data URI.
+  const imageDataUri = await fetchImageDataUri(visual.imageCid);
 
   const svg = generateSubnameSvg(name, sld, imageDataUri);
 
