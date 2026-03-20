@@ -117,7 +117,7 @@ export async function GET(req: NextRequest) {
   return new NextResponse(JSON.stringify(regFile, null, 2), {
     headers: {
       'Content-Type': 'application/json',
-      'Cache-Control': 'public, max-age=60, stale-while-revalidate=30',
+      'Cache-Control': 'no-store',
       'Access-Control-Allow-Origin': '*',
     },
   });
