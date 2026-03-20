@@ -172,6 +172,10 @@ async function repinBeacon(params: {
       params.lighthouseApiKey,
     );
 
+    if (!pin) {
+      return { cid: null, metadataUrl: null, pinned: false };
+    }
+
     // Store new CID in worker KV
     await fetch(WORKER_URL, {
       method: 'POST',

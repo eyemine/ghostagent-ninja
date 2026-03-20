@@ -97,22 +97,16 @@ export async function POST(req: NextRequest) {
     };
 
     // ── Pin to IPFS via Lighthouse ──
-    let pin: { cid: string; url: string; gateway: string; pinnedAt: number };
-    let metadata: ReturnType<typeof buildBeaconMetadata>;
+    const result = await buildAndPin(params, LIGHTHOUSE_API_KEY);
+    const pin     = result.pin;
+    const metadata = result.metadata;
 
-    try {
-      const result = await buildAndPin(params, LIGHTHOUSE_API_KEY);
-      pin = result.pin;
-      metadata = result.metadata;
-    } catch (pinErr: any) {
-      // Pin failed — return metadata without CID rather than hard-failing the mint
-      console.error('[beacon] IPFS pin failed:', pinErr?.message);
-      metadata = buildBeaconMetadata(params);
+    if (!pin) {
       return NextResponse.json({
-        status: 'partial',
-        warning: `Beacon metadata generated but IPFS pin failed: ${pinErr?.message ?? 'Unknown error'}. Retry POST /api/beacon.`,
+        status:  'partial',
+        warning: 'Beacon metadata generated but IPFS pin failed (Lighthouse unavailable). Retry POST /api/beacon.',
         metadata,
-        pinned: false,
+        pinned:  false,
       }, { status: 207 });
     }
 

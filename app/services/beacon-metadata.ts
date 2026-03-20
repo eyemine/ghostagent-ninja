@@ -282,7 +282,7 @@ const IPFS_GATEWAY = 'https://gateway.lighthouse.storage/ipfs';
 export async function pinToIPFS(
   metadata: BeaconMetadata,
   apiKey?: string,
-): Promise<PinResult> {
+): Promise<PinResult | null> {
   const json = JSON.stringify(metadata, null, 2);
   const blob = new Blob([json], { type: 'application/json' });
 
@@ -294,29 +294,35 @@ export async function pinToIPFS(
     headers['Authorization'] = `Bearer ${apiKey}`;
   }
 
-  const res = await fetch(LIGHTHOUSE_UPLOAD_URL, {
-    method: 'POST',
-    headers,
-    body: form,
-  });
+  try {
+    const res = await fetch(LIGHTHOUSE_UPLOAD_URL, {
+      method: 'POST',
+      headers,
+      body: form,
+    });
 
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Lighthouse pin failed (${res.status}): ${text.slice(0, 200)}`);
+    if (!res.ok) {
+      console.warn(`[beacon-metadata] Lighthouse pin failed (${res.status}) — continuing without IPFS`);
+      return null;
+    }
+
+    const data = await res.json() as { Hash?: string; Name?: string };
+    const cid = data.Hash;
+    if (!cid) {
+      console.warn(`[beacon-metadata] Lighthouse response missing Hash — continuing without IPFS`);
+      return null;
+    }
+
+    return {
+      cid,
+      url: `${IPFS_GATEWAY}/${cid}`,
+      gateway: 'lighthouse.storage',
+      pinnedAt: Date.now(),
+    };
+  } catch (err) {
+    console.warn(`[beacon-metadata] Lighthouse pin threw — continuing without IPFS:`, err);
+    return null;
   }
-
-  const data = await res.json() as { Hash?: string; Name?: string };
-  const cid = data.Hash;
-  if (!cid) {
-    throw new Error(`Lighthouse response missing Hash: ${JSON.stringify(data)}`);
-  }
-
-  return {
-    cid,
-    url: `${IPFS_GATEWAY}/${cid}`,
-    gateway: 'lighthouse.storage',
-    pinnedAt: Date.now(),
-  };
 }
 
 /**
@@ -325,13 +331,15 @@ export async function pinToIPFS(
 export async function buildAndPin(
   params: BuildBeaconParams,
   lighthouseApiKey?: string,
-): Promise<{ metadata: BeaconMetadata; pin: PinResult }> {
+): Promise<{ metadata: BeaconMetadata; pin: PinResult | null }> {
   const metadata = buildBeaconMetadata(params);
   const pin = await pinToIPFS(metadata, lighthouseApiKey);
 
-  // Enrich with IPFS provenance
-  metadata.pinned_at = pin.pinnedAt;
-  metadata.ipfs_cid = pin.cid;
+  // Enrich with IPFS provenance if pin succeeded
+  if (pin) {
+    metadata.pinned_at = pin.pinnedAt;
+    metadata.ipfs_cid  = pin.cid;
+  }
 
   return { metadata, pin };
 }
