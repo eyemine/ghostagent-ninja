@@ -68,17 +68,105 @@ export interface Erc8004Registration {
   agentRegistry: string;  // "eip155:{chainId}:{registryAddress}"
 }
 
+export interface Erc8004McpServer {
+  name: string;
+  package: string;
+  description: string;
+  endpoint?: string;
+}
+
 export interface Erc8004RegistrationFile {
   type: 'https://eips.ethereum.org/EIPS/eip-8004#registration-v1';
   name: string;
   description: string;
   image: string;
   services: Erc8004Service[];
+  mcpServers: Erc8004McpServer[];
   x402Support: boolean;
   active: boolean;
   supportedTrust: string[];
   registrations: Erc8004Registration[];
 }
+
+// ─── Per-SLD MCP server capability sets ─────────────────────────────────────
+
+const MCP_CORE: Erc8004McpServer[] = [
+  {
+    name:        'GhostAgent Core',
+    package:     'ghostagent-protocol',
+    description: 'ERC-8004 identity, ERC-6551 TBA wallet, Gnosis Safe treasury, x402 payment rail',
+  },
+  {
+    name:        'x402 Payment',
+    package:     '@ghostagent/x402-mcp',
+    description: 'HTTP 402 pay-per-use payment protocol for agent-to-agent micropayments',
+  },
+  {
+    name:        'GhostWire A2A',
+    package:     '@ghostagent/a2a-mcp',
+    description: 'EIP-712 bilateral HandshakeCertificate negotiation and validation',
+  },
+];
+
+const MCP_BY_SLD: Record<SldKey, Erc8004McpServer[]> = {
+  molt: [
+    ...MCP_CORE,
+    {
+      name:        'Story Protocol',
+      package:     'piplabs/story-sdk-mcp',
+      description: 'IP asset registration, license attachment, royalty claims on Story Protocol',
+      endpoint:    'https://github.com/piplabs/story-sdk-mcp',
+    },
+    {
+      name:        'Lighthouse IPFS',
+      package:     '@lighthouse-web3/sdk',
+      description: 'Filecoin-backed IPFS pinning for genome metadata, agent cards, and attestations',
+    },
+  ],
+  vault: [
+    ...MCP_CORE,
+    {
+      name:        'Story Protocol',
+      package:     'piplabs/story-sdk-mcp',
+      description: 'IP asset registration, license attachment, royalty claims on Story Protocol',
+      endpoint:    'https://github.com/piplabs/story-sdk-mcp',
+    },
+    {
+      name:        'Lighthouse IPFS',
+      package:     '@lighthouse-web3/sdk',
+      description: 'Filecoin-backed IPFS pinning for genome metadata, agent cards, and attestations',
+    },
+  ],
+  nftmail: [
+    ...MCP_CORE,
+    {
+      name:        'NFTmail Inbox',
+      package:     '@ghostagent/nftmail-mcp',
+      description: 'NFT-gated encrypted agent inbox — send and receive agent-to-agent messages',
+      endpoint:    'https://nftmail.box',
+    },
+  ],
+  openclaw: [
+    ...MCP_CORE,
+    {
+      name:        'Reputation Oracle',
+      package:     '@ghostagent/reputation-mcp',
+      description: 'ERC-8004 reputation registry — read/write public agent reputation scores',
+    },
+  ],
+  picoclaw: [
+    ...MCP_CORE,
+  ],
+  agent: [
+    ...MCP_CORE,
+    {
+      name:        'Story Protocol',
+      package:     'piplabs/story-sdk-mcp',
+      description: 'IP asset registration, license attachment, royalty claims on Story Protocol',
+      endpoint:    'https://github.com/piplabs/story-sdk-mcp',
+    },
+  ],
+};
 
 // ─── Builder ─────────────────────────────────────────────────────────────────
 
@@ -146,6 +234,7 @@ export function buildErc8004RegistrationFile(params: {
     description: `${visual.label} AI Agent on GhostAgent Protocol. Sovereign identity: ${fullName}. ${visual.tagline}`,
     image: `${IPFS_GATEWAY}/${resolvedImageCid}`,
     services,
+    mcpServers: MCP_BY_SLD[sld] ?? MCP_CORE,
     x402Support: true,
     active: true,
     supportedTrust: ['reputation', 'validation', 'crypto-economic'],
