@@ -15,11 +15,7 @@ import { usePrivy, useWallets } from '@privy-io/react-auth';
 const WORKER_URL = 'https://nftmail-email-worker.richard-159.workers.dev';
 const GHOST_LOGO = '/ghost-logo.png';
 
-const KNOWN_AGENTS = [
-  { name: 'ghostagent', tld: 'molt.gno',    safe: '0xb7e493e3d226f8fE722CC9916fF164B793af13F4' },
-  { name: 'eyemine',    tld: 'agent.gno',   safe: '0xb7e493e3d226f8fE722CC9916fF164B793af13F4' },
-  { name: 'victor',     tld: 'openclaw.gno', safe: '0x316aC7032d1a2b00faAB8A72185f5Ef8b4c75E70' },
-];
+interface KnownAgent { name: string; tld: string; safe: string; }
 
 interface AgentProfile {
   description: string;
@@ -47,6 +43,8 @@ export default function AgentProfilePage() {
   const { wallets } = useWallets();
   const connectedWallet = wallets[0]?.address ?? null;
 
+  const [ownedAgents, setOwnedAgents] = useState<KnownAgent[]>([]);
+  const [agentsLoading, setAgentsLoading] = useState(false);
   const [selectedIdx, setSelectedIdx] = useState(0);
   const [profile, setProfile] = useState<AgentProfile>(EMPTY_PROFILE);
   const [loading, setLoading] = useState(false);
@@ -55,7 +53,30 @@ export default function AgentProfilePage() {
   const [error, setError] = useState('');
   const [liveCard, setLiveCard] = useState<Record<string, unknown> | null>(null);
 
-  const selected = KNOWN_AGENTS[selectedIdx];
+  const selected = ownedAgents[selectedIdx] ?? null;
+
+  // Load agents owned by the connected wallet
+  useEffect(() => {
+    if (!connectedWallet) { setOwnedAgents([]); return; }
+    setAgentsLoading(true);
+    setSelectedIdx(0);
+    fetch(WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'listAgents', safeAddress: connectedWallet }),
+    })
+      .then(r => r.json() as Promise<{ agents?: Array<{ name: string; tld: string; erc8004?: { gnosis?: { agentId: number } } }> }>)
+      .then(data => {
+        const agents: KnownAgent[] = (data.agents ?? []).map(a => ({
+          name: a.name,
+          tld:  a.tld,
+          safe: connectedWallet,
+        }));
+        setOwnedAgents(agents);
+      })
+      .catch(() => setOwnedAgents([]))
+      .finally(() => setAgentsLoading(false));
+  }, [connectedWallet]);
 
   const loadProfile = useCallback(async (agentName: string) => {
     setLoading(true);
@@ -89,8 +110,8 @@ export default function AgentProfilePage() {
   }, []);
 
   useEffect(() => {
-    loadProfile(selected.name);
-  }, [selected.name, loadProfile]);
+    if (selected) loadProfile(selected.name);
+  }, [selected, loadProfile]);
 
   async function handleSave() {
     setSaving(true);
@@ -177,28 +198,38 @@ export default function AgentProfilePage() {
           {/* Agent selector */}
           <div className="rounded-2xl border border-[rgba(176,128,92,0.25)] bg-[var(--card)] p-5 space-y-4">
             <div className="text-[10px] font-semibold tracking-widest text-[var(--muted)]">SELECT AGENT</div>
-            <div className="flex gap-2 flex-wrap">
-              {KNOWN_AGENTS.map((agent, i) => (
-                <button
-                  key={i}
-                  onClick={() => setSelectedIdx(i)}
-                  className={`flex flex-col gap-0.5 rounded-xl border px-4 py-2.5 text-left transition-all ${
-                    selectedIdx === i
-                      ? 'border-amber-500/40 bg-amber-500/8'
-                      : 'border-[rgba(176,128,92,0.15)] bg-transparent hover:border-[rgba(176,128,92,0.3)]'
-                  }`}
-                >
-                  <span className="text-xs font-semibold text-[#f2eee4]">{agent.name}</span>
-                  <span className="text-[10px] text-[var(--muted)]">{agent.tld}</span>
-                  <span className="font-mono text-[9px] text-zinc-500">{shortAddr(agent.safe)}</span>
-                </button>
-              ))}
-            </div>
+            {agentsLoading ? (
+              <div className="text-xs text-[var(--muted)] py-2">Loading your agents…</div>
+            ) : !authenticated ? (
+              <div className="text-xs text-[var(--muted)] py-2">Connect wallet to see your agents.</div>
+            ) : ownedAgents.length === 0 ? (
+              <div className="text-xs text-[var(--muted)] py-2">No agents found for this wallet.</div>
+            ) : (
+              <div className="flex gap-2 flex-wrap">
+                {ownedAgents.map((agent, i) => (
+                  <button
+                    key={agent.name}
+                    onClick={() => setSelectedIdx(i)}
+                    className={`flex flex-col gap-0.5 rounded-xl border px-4 py-2.5 text-left transition-all ${
+                      selectedIdx === i
+                        ? 'border-amber-500/40 bg-amber-500/8'
+                        : 'border-[rgba(176,128,92,0.15)] bg-transparent hover:border-[rgba(176,128,92,0.3)]'
+                    }`}
+                  >
+                    <span className="text-xs font-semibold text-[#f2eee4]">{agent.name}</span>
+                    <span className="text-[10px] text-[var(--muted)]">{agent.tld}</span>
+                    <span className="font-mono text-[9px] text-zinc-500">{shortAddr(agent.safe)}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
-          {!authenticated ? (
+          {!authenticated || !selected ? (
             <div className="rounded-xl border border-[rgba(176,128,92,0.2)] bg-[rgba(176,128,92,0.05)] px-6 py-10 text-center">
-              <p className="text-sm text-[var(--muted)]">Connect your wallet to edit agent profiles.</p>
+              <p className="text-sm text-[var(--muted)]">
+                {!authenticated ? 'Connect your wallet to edit agent profiles.' : 'Select an agent above.'}
+              </p>
             </div>
           ) : (
             <div className="rounded-2xl border border-[rgba(176,128,92,0.25)] bg-[var(--card)] p-5 space-y-5">
@@ -234,7 +265,7 @@ export default function AgentProfilePage() {
                       type="url"
                       value={profile.webUrl}
                       onChange={e => setProfile(p => ({ ...p, webUrl: e.target.value.slice(0, 200) }))}
-                      placeholder={`https://ghostagent.ninja/agent/${selected.name}`}
+                      placeholder={`https://ghostagent.ninja/agent/${selected?.name}`}
                       className="w-full rounded-xl border border-[rgba(176,128,92,0.2)] bg-black/30 px-4 py-2.5 text-xs text-[#f2eee4] placeholder-zinc-600 outline-none focus:border-amber-500/40 font-mono"
                     />
                   </div>
@@ -270,7 +301,7 @@ export default function AgentProfilePage() {
                       <span className="ml-2 font-normal normal-case text-zinc-500">on-chain · not editable here</span>
                     </div>
                     <div className="flex items-center gap-2 rounded-xl border border-zinc-800 bg-black/20 px-4 py-2.5">
-                      <span className="font-mono text-[11px] text-zinc-500 flex-1 truncate">{selected.safe}</span>
+                      <span className="font-mono text-[11px] text-zinc-500 flex-1 truncate">{selected?.safe}</span>
                       <span className="text-[9px] text-zinc-700 shrink-0">ERC-8004 agentWallet</span>
                     </div>
                   </div>
@@ -309,10 +340,10 @@ export default function AgentProfilePage() {
           <div className="rounded-2xl border border-[rgba(176,128,92,0.2)] bg-[var(--card)] p-4 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-semibold text-amber-300/80">
-                /api/agent-card?agent={selected.name}
+                /api/agent-card?agent={selected?.name}
               </span>
               <a
-                href={`/api/agent-card?agent=${selected.name}`}
+                href={`/api/agent-card?agent=${selected?.name}`}
                 target="_blank"
                 rel="noreferrer"
                 className="text-[10px] text-zinc-500 hover:text-zinc-300 transition"
