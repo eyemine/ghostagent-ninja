@@ -99,6 +99,11 @@ export async function GET(req: NextRequest) {
           regFile = { ...regFile, services: [...updatedServices, ...newServices] };
         }
       }
+      if (profile.staticCardCid && typeof profile.staticCardCid === 'string') {
+        const ext = regFile as unknown as Record<string, unknown>;
+        ext.staticCardCid = profile.staticCardCid;
+        ext.staticCardUrl = `https://gateway.lighthouse.storage/ipfs/${profile.staticCardCid}`;
+      }
     }
   } catch {
     // Non-fatal — serve base file without profile overrides
