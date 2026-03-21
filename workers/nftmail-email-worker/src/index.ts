@@ -231,6 +231,44 @@ function resolveOriginalRecipient(message: EmailMessage): string {
   return message.to.replace('@surge.nftmail.box', '@nftmail.box');
 }
 
+// Strip HTML to plain text — handles multiline tags, style/script blocks, CSS artifacts
+function stripHtmlToText(html: string): string {
+  return html
+    // Remove style and script blocks entirely (including content)
+    .replace(/<style[\s\S]*?<\/style>/gi, '')
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    // Collapse multiline tags to single line before stripping
+    .replace(/<[^>]*\n[^>]*>/g, ' ')
+    // Block-level tags → newlines
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/(?:p|div|li|tr|h[1-6]|blockquote)>/gi, '\n')
+    // Strip all remaining tags
+    .replace(/<[^>]+>/g, '')
+    // Decode entities
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#0*39;/g, "'")
+    // Normalise whitespace
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    // Drop lines that are pure CSS/style artifacts
+    .split('\n')
+    .filter(line => {
+      const t = line.trim();
+      if (!t) return false;
+      if (/[{}]/.test(t)) return false;
+      if (/^[.#][a-zA-Z0-9_-]/.test(t)) return false;
+      // Pure CSS property list: "prop: value; prop: value;"
+      if (/^([a-z-]+\s*:\s*[^;@<\n]+;\s*)+$/i.test(t)) return false;
+      return true;
+    })
+    .join('\n')
+    .trim();
+}
+
 // Extract plain text body from raw MIME content
 function extractBodyFromMime(rawMime: string): string {
   // Split headers from body at first blank line
@@ -268,8 +306,7 @@ function extractBodyFromMime(rawMime: string): string {
       }
       if (plainText) return plainText;
       if (htmlText) {
-        // Strip HTML tags for a rough text extraction
-        return htmlText.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+        return stripHtmlToText(htmlText);
       }
     }
   }
@@ -516,12 +553,17 @@ async function forwardToCatchAll(
   }
 }
 
-// --- Zoho: get inbox folder ID from message metadata (cached per request) ---
+// --- Zoho: get inbox folder ID — KV-cached to survive across worker instances ---
 let _cachedInboxFolderId: string | null = null;
 async function getZohoInboxFolderId(env: Env, accessToken: string): Promise<string | null> {
   if (_cachedInboxFolderId) return _cachedInboxFolderId;
+  // Check KV cache first (survives worker restarts, avoids extra API round-trip)
+  const kvCached = await env.INBOX_KV.get('zoho:inbox-folder-id');
+  if (kvCached) {
+    _cachedInboxFolderId = kvCached;
+    return _cachedInboxFolderId;
+  }
   try {
-    // Get folderId from the first message in the account (requires messages.READ, not folders.READ)
     const res = await fetch(
       `https://mail.zoho.com.au/api/accounts/${env.ZOHO_CATCHALL_ACCOUNT_ID}/messages/view?limit=1`,
       { headers: { 'Authorization': `Zoho-oauthtoken ${accessToken}` } }
@@ -530,7 +572,9 @@ async function getZohoInboxFolderId(env: Env, accessToken: string): Promise<stri
       const data = await res.json() as { data?: Array<{ folderId: string }> };
       if (data.data && data.data.length > 0 && data.data[0].folderId) {
         _cachedInboxFolderId = data.data[0].folderId;
-        console.log(`[zohoFolders] inbox folderId=${_cachedInboxFolderId} (from message metadata)`);
+        // Cache in KV with 30-day TTL — folderId is stable
+        await env.INBOX_KV.put('zoho:inbox-folder-id', _cachedInboxFolderId, { expirationTtl: 30 * 24 * 60 * 60 });
+        console.log(`[zohoFolders] inbox folderId=${_cachedInboxFolderId} (cached to KV)`);
         return _cachedInboxFolderId;
       }
     }
@@ -1389,6 +1433,40 @@ export default {
           }
         }
 
+        // List NFTMail addresses by controller wallet (traverses nftmailgno:* KV keys)
+        if (email.action === 'listNftmailByController') {
+          const controller = ((email as any).controller || '').toLowerCase().trim();
+          if (!controller) {
+            return corsify(Response.json({ error: 'Missing controller' }, { status: 400 }), request);
+          }
+          try {
+            const listed = await env.INBOX_KV.list({ prefix: 'nftmailgno:' });
+            const results: { name: string; email: string; gnoName: string; tld: string; tokenId: number | null }[] = [];
+            await Promise.all(listed.keys.map(async (k) => {
+              const name = k.name.replace(/^nftmailgno:/, '');
+              const raw = await env.INBOX_KV.get(k.name);
+              if (!raw) return;
+              try {
+                const g = JSON.parse(raw);
+                const c = (g.controller || '').toLowerCase();
+                if (c !== controller) return;
+                const tldRaw = await env.INBOX_KV.get(`tld:${name}`);
+                const tld = tldRaw || 'nftmail.gno';
+                results.push({
+                  name,
+                  email: `${name}@nftmail.box`,
+                  gnoName: `${name}.${tld}`,
+                  tld,
+                  tokenId: g.minted_tokenId || null,
+                });
+              } catch { /* skip malformed */ }
+            }));
+            return corsify(Response.json({ names: results, total: results.length }), request);
+          } catch (e: any) {
+            return corsify(Response.json({ error: e?.message ?? 'listNftmailByController failed' }, { status: 500 }), request);
+          }
+        }
+
         // Ghost-Calendar actions
         if (email.action === 'getCalendar') {
           const agent = email.localPart || email.email?.split('@')[0] || '';
@@ -1649,10 +1727,14 @@ export default {
 
         // Generic KV put (owner-accessible — used by swarm API route)
         if (email.action === 'kvPut') {
-          const key   = (email as any).key || '';
-          const value = (email as any).value ?? '';
-          const owner = ((email as any).ownerAddress || '').toLowerCase();
+          const key    = (email as any).key || '';
+          const value  = (email as any).value ?? '';
+          const owner  = ((email as any).ownerAddress || '').toLowerCase();
+          const secret = (email as any).webhookSecret || request.headers.get('x-webhook-secret') || '';
           if (!key || !owner) return corsify(Response.json({ error: 'Missing key or ownerAddress' }, { status: 400 }), request);
+          if (env.WEBHOOK_SECRET && secret !== env.WEBHOOK_SECRET) {
+            return corsify(Response.json({ error: 'Unauthorized' }, { status: 401 }), request);
+          }
           await env.INBOX_KV.put(key, typeof value === 'string' ? value : JSON.stringify(value));
           return corsify(Response.json({ status: 'ok', key }), request);
         }
@@ -2514,20 +2596,22 @@ export default {
               receivedAt: timestamp,
             };
 
-            await env.INBOX_KV.put(`blind:${agentName}:${blindId}`, JSON.stringify(envelope), { expirationTtl: 8 * 24 * 60 * 60 });
-            await updateBlindIndex(env, agentName, blindId);
-            await storage.storeEmail(localPart, { from: sender, to: recipient, subject, content: body, timestamp });
+            // Kick off Zoho delete in parallel with KV writes to minimise cleartext window
+            const EXEMPT_FROM_DELETE = ['admin'];
+            const deletePromise: Promise<boolean> = (!EXEMPT_FROM_DELETE.includes(agentName) && zohoMessageId)
+              ? getZohoAccessToken(env).then(tok =>
+                  tok ? zohoDeleteMessage(env, tok, zohoMessageId).then(r => {
+                    console.log(`[human] deleteResult=${r} for messageId=${zohoMessageId} agent=${agentName}`);
+                    return r;
+                  }) : Promise.resolve(false)
+                )
+              : Promise.resolve(false);
 
-            // Delete cleartext from Zoho (except ghostagent@ and admin@)
-            const EXEMPT_FROM_DELETE = ['ghostagent', 'admin'];
-            let humanCleartextDeleted = false;
-            if (!EXEMPT_FROM_DELETE.includes(agentName)) {
-              const humanAccessToken = await getZohoAccessToken(env);
-              if (zohoMessageId && humanAccessToken) {
-                humanCleartextDeleted = await zohoDeleteMessage(env, humanAccessToken, zohoMessageId);
-                console.log(`[human] deleteResult=${humanCleartextDeleted} for messageId=${zohoMessageId} agent=${agentName}`);
-              }
-            }
+            const [,, humanCleartextDeleted] = await Promise.all([
+              env.INBOX_KV.put(`blind:${agentName}:${blindId}`, JSON.stringify(envelope), { expirationTtl: 8 * 24 * 60 * 60 }),
+              Promise.all([updateBlindIndex(env, agentName, blindId), storage.storeEmail(localPart, { from: sender, to: recipient, subject, content: body, timestamp })]),
+              deletePromise,
+            ]);
 
             return corsify(Response.json({
               status: 'received',
@@ -3943,7 +4027,7 @@ export default {
       }
 
       const timestamp = Date.now();
-      const EXEMPT_FROM_DELETE = ['ghostagent', 'admin'];
+      const EXEMPT_FROM_DELETE = ['admin'];
 
       if (stream === 'human') {
         // Human stream: store cleartext in KV + delete from Zoho
