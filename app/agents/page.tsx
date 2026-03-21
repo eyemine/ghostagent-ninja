@@ -139,9 +139,23 @@ function RegistryTab() {
                       <div className="flex flex-wrap gap-1">
                         {chains.length === 0 ? (
                           <span className="text-zinc-600">—</span>
-                        ) : chains.map(c => (
-                          <span key={c} className="rounded bg-zinc-500/10 px-1.5 py-0.5 text-[9px] text-zinc-400">{c}</span>
-                        ))}
+                        ) : chains.map(c => {
+                          const chainColors: Record<string, string> = {
+                            gnosis:      'text-violet-300 bg-violet-500/10 ring-violet-500/20',
+                            base:        'text-blue-300 bg-blue-500/10 ring-blue-500/20',
+                            baseSepolia: 'text-zinc-400 bg-zinc-500/10 ring-zinc-500/20',
+                          };
+                          const clr = chainColors[c] ?? 'text-zinc-400 bg-zinc-500/10 ring-zinc-500/20';
+                          const aid = (a.erc8004 as Record<string, { agentId: number }>)[c]?.agentId;
+                          return (
+                            <a key={c}
+                              href={`https://notapaperclip.red/erc8004?agent=${encodeURIComponent(a.name)}`}
+                              target="_blank" rel="noopener noreferrer"
+                              className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-semibold ring-1 hover:brightness-125 ${clr}`}>
+                              {c}{aid ? ` #${aid}` : ''}
+                            </a>
+                          );
+                        })}
                       </div>
                     </td>
                     <td className="px-4 py-2.5 text-right">
@@ -396,7 +410,7 @@ function MintModal({ domain, onClose }: { domain: Domain; onClose: () => void })
 type PageTab = 'domains' | 'registry';
 
 export default function AgentsPage() {
-  const [pageTab, setPageTab]       = useState<PageTab>('domains');
+  const [pageTab, setPageTab]       = useState<PageTab>('registry');
   const [filterFee, setFilterFee]   = useState<FilterFee>('all');
   const [filterPrivacy, setFilterPrivacy] = useState<FilterPrivacy>('all');
   const [filterEvolve, setFilterEvolve]   = useState<FilterEvolve>('all');

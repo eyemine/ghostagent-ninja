@@ -86,6 +86,14 @@ export default function AgentPublicProfilePage() {
   const webService   = card?.services?.find(s => s.name === 'web');
   const imageUrl     = card?.image ?? null;
 
+  // Chain label display helpers
+  const CHAIN_LABELS: Record<string, string> = { gnosis: 'Gnosis', base: 'Base', baseSepolia: 'Base Sepolia' };
+  const CHAIN_COLORS: Record<string, string> = {
+    gnosis:      'text-violet-300 bg-violet-500/10 ring-violet-500/20',
+    base:        'text-blue-300 bg-blue-500/10 ring-blue-500/20',
+    baseSepolia: 'text-zinc-400 bg-zinc-500/10 ring-zinc-500/20',
+  };
+
   return (
     <div className="min-h-screen bg-[radial-gradient(1000px_circle_at_20%_-10%,rgba(176,128,92,0.10),transparent_45%),linear-gradient(180deg,var(--background),#03040a)]">
       <div className="mx-auto max-w-2xl px-4 py-12 md:px-6">
@@ -169,13 +177,27 @@ export default function AgentPublicProfilePage() {
               <div>
                 <h2 className="text-[10px] font-semibold tracking-[0.16em] text-[var(--muted)] mb-3">ENDPOINTS</h2>
                 <div className="space-y-1.5">
-                  {card.services.map((svc, i) => (
-                    <div key={i} className="flex items-center justify-between gap-3 rounded-lg border border-[rgba(176,128,92,0.12)] bg-black/20 px-3 py-2">
-                      <span className="text-[10px] font-semibold tracking-wider text-[var(--muted)] shrink-0 w-14">{svc.name.toUpperCase()}</span>
-                      <span className="font-mono text-[10px] text-zinc-400 truncate flex-1">{svc.endpoint}</span>
-                      {svc.version && <span className="text-[9px] text-zinc-600 shrink-0">v{svc.version}</span>}
-                    </div>
-                  ))}
+                  {card.services.map((svc, i) => {
+                    const isEmail = svc.name === 'email';
+                    const isA2A   = svc.name === 'A2A';
+                    const emailInbox = isEmail ? `https://nftmail.box/inbox/${name}_` : null;
+                    const a2aUrl    = isA2A   ? `https://ghostagent.ninja/.well-known/agent.json` : null;
+                    const href = emailInbox ?? a2aUrl ?? null;
+                    return (
+                      <div key={i} className="flex items-center justify-between gap-3 rounded-lg border border-[rgba(176,128,92,0.12)] bg-black/20 px-3 py-2">
+                        <span className="text-[10px] font-semibold tracking-wider text-[var(--muted)] shrink-0 w-14">{svc.name.toUpperCase()}</span>
+                        {href ? (
+                          <a href={href} target="_blank" rel="noopener noreferrer"
+                            className="font-mono text-[10px] text-[rgba(176,128,92,0.8)] truncate flex-1 hover:underline">
+                            {svc.endpoint}
+                          </a>
+                        ) : (
+                          <span className="font-mono text-[10px] text-zinc-400 truncate flex-1">{svc.endpoint}</span>
+                        )}
+                        {svc.version && <span className="text-[9px] text-zinc-600 shrink-0">v{svc.version}</span>}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -189,7 +211,6 @@ export default function AgentPublicProfilePage() {
                   { label: 'TBA',        value: shortAddr(identity?.tbaAddress ?? null), href: identity?.tbaAddress ? `https://gnosisscan.io/address/${identity.tbaAddress}` : null },
                   { label: 'Safe',       value: identity?.safe ? shortAddr(identity.safe) : '—', href: identity?.safe ? `https://app.safe.global/home?safe=gno:${identity.safe}` : null },
                   { label: 'Owner',      value: shortAddr(identity?.onChainOwner ?? null), href: identity?.onChainOwner ? `https://gnosisscan.io/address/${identity.onChainOwner}` : null },
-                  { label: 'ERC-8004 URI', value: `ghostagent.ninja/api/agent-card?agent=${name}`, href: `https://ghostagent.ninja/api/agent-card?agent=${name}` },
                 ].map((row) => (
                   <div key={row.label} className="flex items-center justify-between gap-4 text-[11px]">
                     <span className="text-[var(--muted)] shrink-0 w-24">{row.label}</span>
@@ -203,6 +224,31 @@ export default function AgentPublicProfilePage() {
                     )}
                   </div>
                 ))}
+
+                {/* ERC-8004 URI — one link per registered chain */}
+                <div className="flex items-start justify-between gap-4 text-[11px]">
+                  <span className="text-[var(--muted)] shrink-0 w-24">ERC-8004 URI</span>
+                  <div className="flex flex-wrap gap-1.5 justify-end">
+                    {(card?.registrations ?? []).length === 0 ? (
+                      <a href={`https://ghostagent.ninja/api/agent-card?agent=${name}`} target="_blank" rel="noopener noreferrer"
+                        className="font-mono text-[10px] text-[rgba(176,128,92,0.8)] hover:underline">
+                        agent-card ↗
+                      </a>
+                    ) : (card?.registrations ?? []).map((reg) => {
+                      const chainKey = reg.agentRegistry.includes(':100:') ? 'gnosis' : reg.agentRegistry.includes(':84532:') ? 'baseSepolia' : 'base';
+                      const clr = CHAIN_COLORS[chainKey] ?? CHAIN_COLORS['base'];
+                      const lbl = CHAIN_LABELS[chainKey] ?? chainKey;
+                      return (
+                        <a key={reg.agentId}
+                          href={`https://notapaperclip.red/erc8004?agent=${encodeURIComponent(name)}`}
+                          target="_blank" rel="noopener noreferrer"
+                          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-semibold ring-1 hover:brightness-125 ${clr}`}>
+                          {lbl} #{reg.agentId} ↗
+                        </a>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -213,7 +259,7 @@ export default function AgentPublicProfilePage() {
               <div className="text-[10px] text-[var(--muted)]">
                 {identity?.emailAddress && (
                   <a
-                    href={`https://notapaperclip.red/inbox?address=${encodeURIComponent(identity.emailAddress)}`}
+                    href={`https://nftmail.box/inbox/${name}_`}
                     target="_blank" rel="noopener noreferrer"
                     className="font-mono hover:text-white transition">
                     {identity.emailAddress}
@@ -221,16 +267,14 @@ export default function AgentPublicProfilePage() {
                 )}
               </div>
               <div className="flex gap-2">
-                {a2aService && (
-                  <a href={a2aService.endpoint} target="_blank" rel="noopener noreferrer"
-                    className="rounded-lg border border-[rgba(176,128,92,0.25)] bg-black/30 px-3 py-1.5 text-[11px] font-medium text-[var(--muted)] transition hover:text-white">
-                    A2A Card ↗
-                  </a>
-                )}
-                <a href={`https://notapaperclip.red/agent/${encodeURIComponent(name)}`} target="_blank" rel="noopener noreferrer"
+                <a href={`https://ghostagent.ninja/.well-known/agent.json`} target="_blank" rel="noopener noreferrer"
+                  className="rounded-lg border border-[rgba(176,128,92,0.25)] bg-black/30 px-3 py-1.5 text-[11px] font-medium text-[var(--muted)] transition hover:text-white">
+                  A2A Card ↗
+                </a>
+                <a href={`https://notapaperclip.red/erc8004?agent=${encodeURIComponent(name)}`} target="_blank" rel="noopener noreferrer"
                   className="rounded-lg border px-4 py-1.5 text-xs font-semibold transition"
                   style={{ color: 'rgb(176,128,92)', borderColor: 'rgba(176,128,92,0.4)', background: 'rgba(176,128,92,0.1)' }}>
-                  Profile ↗
+                  ERC-8004 ↗
                 </a>
               </div>
             </div>
