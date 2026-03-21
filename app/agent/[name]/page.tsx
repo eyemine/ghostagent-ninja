@@ -181,7 +181,7 @@ export default function AgentPublicProfilePage() {
                     const isEmail = svc.name === 'email';
                     const isA2A   = svc.name === 'A2A';
                     const emailInbox = isEmail ? `https://nftmail.box/inbox/${name}_` : null;
-                    const a2aUrl    = isA2A   ? `https://ghostagent.ninja/.well-known/agent.json` : null;
+                    const a2aUrl    = isA2A   ? `https://ghostagent.ninja/.well-known/agent-card.json` : null;
                     const href = emailInbox ?? a2aUrl ?? null;
                     return (
                       <div key={i} className="flex items-center justify-between gap-3 rounded-lg border border-[rgba(176,128,92,0.12)] bg-black/20 px-3 py-2">

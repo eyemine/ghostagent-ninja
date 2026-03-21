@@ -71,7 +71,7 @@ export async function GET(req: NextRequest) {
 
     const registry: AgentRegistry = {
       description:             'GhostAgent ERC-8004 on-chain agent registry. Each entry links to a sovereign AI agent with an NFTmail inbox, Gnosis Safe, and A2A-compatible agent card.',
-      platformA2ACard:         `${APP_URL}/.well-known/agent.json`,
+      platformA2ACard:         `${APP_URL}/.well-known/agent-card.json`,
       platformERC8004Registry: 'eip155:100:0x8004A169FB4a3325136EB29fA0ceB6D2e539a432',
       total:                   agents.length,
       agents,
