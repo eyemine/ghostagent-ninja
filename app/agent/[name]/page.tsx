@@ -238,9 +238,11 @@ export default function AgentPublicProfilePage() {
                       const chainKey = reg.agentRegistry.includes(':100:') ? 'gnosis' : reg.agentRegistry.includes(':84532:') ? 'baseSepolia' : 'base';
                       const clr = CHAIN_COLORS[chainKey] ?? CHAIN_COLORS['base'];
                       const lbl = CHAIN_LABELS[chainKey] ?? chainKey;
+                      const chainSlug = chainKey === 'gnosis' ? 'gnosis' : chainKey === 'baseSepolia' ? 'base-sepolia' : 'base';
+                      const metaHref = `https://8004agents.ai/${chainSlug}/agent/${reg.agentId}#metadata`;
                       return (
                         <a key={reg.agentId}
-                          href={`https://notapaperclip.red/erc8004?agent=${encodeURIComponent(name)}`}
+                          href={metaHref}
                           target="_blank" rel="noopener noreferrer"
                           className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-semibold ring-1 hover:brightness-125 ${clr}`}>
                           {lbl} #{reg.agentId} ↗
@@ -267,7 +269,7 @@ export default function AgentPublicProfilePage() {
                 )}
               </div>
               <div className="flex gap-2">
-                <a href={`https://ghostagent.ninja/.well-known/agent.json`} target="_blank" rel="noopener noreferrer"
+                <a href={`https://notapaperclip.red/a2a?agent=${encodeURIComponent(name)}`} target="_blank" rel="noopener noreferrer"
                   className="rounded-lg border border-[rgba(176,128,92,0.25)] bg-black/30 px-3 py-1.5 text-[11px] font-medium text-[var(--muted)] transition hover:text-white">
                   A2A Card ↗
                 </a>
