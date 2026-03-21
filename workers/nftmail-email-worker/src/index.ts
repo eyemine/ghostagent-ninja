@@ -1128,7 +1128,9 @@ export default {
 
         // Agent Registry: update acct-tier (safe, story_ip, tier) and/or nftmailgno (originNft, tokenId, TBA) for an agent
         if (email.action === 'setAgentRecord') {
-          const agentName = ((email as any).agentName || '').toLowerCase().replace(/_+$/, '').trim();
+          // Preserve trailing _ for agent inbox keys (ghostagent_ vs ghostagent)
+          const rawName = ((email as any).agentName || '').toLowerCase().trim();
+          const agentName = rawName.endsWith('_') ? rawName : rawName.replace(/_+$/, '');
           if (!agentName) {
             return corsify(Response.json({ error: 'Missing agentName' }, { status: 400 }), request);
           }
@@ -1441,7 +1443,7 @@ export default {
           }
           try {
             const listed = await env.INBOX_KV.list({ prefix: 'nftmailgno:' });
-            const results: { name: string; email: string; gnoName: string; tld: string; tokenId: number | null }[] = [];
+            const results: { name: string; email: string; gnoName: string; tld: string; tokenId: number | null; isAgent: boolean }[] = [];
             await Promise.all(listed.keys.map(async (k) => {
               const name = k.name.replace(/^nftmailgno:/, '');
               const raw = await env.INBOX_KV.get(k.name);
@@ -1449,7 +1451,10 @@ export default {
               try {
                 const g = JSON.parse(raw);
                 const c = (g.controller || '').toLowerCase();
-                if (c !== controller) return;
+                const s = (g.safe || '').toLowerCase();
+                // Match on controller field OR safe address
+                if (c !== controller && s !== controller) return;
+                const isAgent = name.endsWith('_');
                 const tldRaw = await env.INBOX_KV.get(`tld:${name}`);
                 const tld = tldRaw || 'nftmail.gno';
                 results.push({
@@ -1458,6 +1463,7 @@ export default {
                   gnoName: `${name}.${tld}`,
                   tld,
                   tokenId: g.minted_tokenId || null,
+                  isAgent,
                 });
               } catch { /* skip malformed */ }
             }));
