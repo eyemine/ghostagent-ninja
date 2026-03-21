@@ -49,7 +49,9 @@ export async function GET() {
     chainBinding: {
       standard: 'EIP-155',
       chains: [
-        { chainId: 100,      name: 'Gnosis Mainnet',  role: 'primary',  safe: '0xb7e493e3d226f8fE722CC9916fF164B793af13F4' },
+        { chainId: 100,      name: 'Gnosis Mainnet',  role: 'primary',  safe: '0xb7e493e3d226f8fE722CC9916fF164B793af13F4', agentId: 3199 },
+        { chainId: 8453,     name: 'Base Mainnet',    role: 'secondary', safe: '0xb7e493e3d226f8fE722CC9916fF164B793af13F4', agentId: 32756 },
+        { chainId: 84532,    name: 'Base Sepolia',    role: 'testnet',   safe: '0xb7e493e3d226f8fE722CC9916fF164B793af13F4', agentId: 1766 },
         { chainId: 11155111, name: 'Ethereum Sepolia', role: 'testnet',  safe: null },
       ],
       eip1271: true,
@@ -117,6 +119,42 @@ export async function GET() {
         inputModes: ['application/json'],
         outputModes: ['application/json'],
       },
+      {
+        id: 'erc8004-identity-verify',
+        name: 'ERC-8004 Identity Verifier',
+        description:
+          'Resolve any agent by name and return cross-chain ERC-8004 registrations, ' +
+          'Gnosis Safe address, spending module status, and A2A card URL. ' +
+          'Powered by notapaperclip.red — the independent compliance oracle.',
+        tags: ['erc8004', 'identity', 'audit', 'compliance', 'oracle'],
+        examples: [`${APP_URL}/api/agent-card?agent=ghostagent&chain=gnosis`],
+        inputModes: ['application/json'],
+        outputModes: ['application/json'],
+      },
+      {
+        id: 'a2a-card-validate',
+        name: 'A2A Agent Card Validator',
+        description:
+          'Fetch and validate any agent\'s /.well-known/agent-card.json against the Google A2A spec §8.2. ' +
+          'Returns compliance status, skill list, and endpoint reachability. ' +
+          'Live at notapaperclip.red/api/a2a/validate',
+        tags: ['a2a', 'validation', 'compliance', 'oracle', 'agent-card'],
+        examples: ['https://notapaperclip.red/api/a2a/validate?url=https://ghostagent.ninja'],
+        inputModes: ['application/json'],
+        outputModes: ['application/json'],
+      },
+      {
+        id: 'swarm-trust-score',
+        name: 'Multi-Agent Swarm Trust Scorer',
+        description:
+          'Run a trust evaluation across a named agent\'s swarm. Returns trust scores per agent, ' +
+          'flags bad actors (see: victor.openclaw.gno flagged red), and surfaces compliance issues. ' +
+          'Live demo at notapaperclip.red/?swarm=ghostagent',
+        tags: ['swarm', 'trust', 'audit', 'erc8004', 'oracle'],
+        examples: ['https://notapaperclip.red/api/swarm?agent=ghostagent'],
+        inputModes: ['application/json'],
+        outputModes: ['application/json'],
+      },
     ],
 
     // ERC-8004 extension — links this A2A card to on-chain identity
@@ -127,10 +165,16 @@ export async function GET() {
         description: 'ERC-8004 Trustless Agents — on-chain identity registry',
         required: false,
         params: {
-          agentId: 3199,
-          identityRegistry:   'eip155:100:0x8004A169FB4a3325136EB29fA0ceB6D2e539a432',
+          registrations: [
+            { chain: 'eip155:100',   agentId: 3199,  identityRegistry: '0x8004A169FB4a3325136EB29fA0ceB6D2e539a432', safe: '0xb7e493e3d226f8fE722CC9916fF164B793af13F4' },
+            { chain: 'eip155:8453',  agentId: 32756, identityRegistry: '0x8004A169FB4a3325136EB29fA0ceB6D2e539a432', safe: '0xb7e493e3d226f8fE722CC9916fF164B793af13F4' },
+            { chain: 'eip155:84532', agentId: 1766,  identityRegistry: '0x8004A169FB4a3325136EB29fA0ceB6D2e539a432', safe: '0xb7e493e3d226f8fE722CC9916fF164B793af13F4' },
+          ],
           reputationRegistry: 'eip155:100:0x8004BAa17C55a88189AE136b182e5fdA19dE9b63',
           registrationJson:   `${APP_URL}/api/agent-card?agent=ghostagent`,
+          complianceOracle:   'https://notapaperclip.red',
+          synthesisAgentId:   32130,
+          synthesisRegistry:  'eip155:8453:0x8004A169FB4a3325136EB29fA0ceB6D2e539a432',
         },
       },
       {
