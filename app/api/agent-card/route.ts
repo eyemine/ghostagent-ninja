@@ -12,11 +12,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
   buildErc8004RegistrationFile,
-  patchRegistrationWithAgentId,
   type Erc8004RegistrationFile,
+  type Erc8004Registration,
+  ERC8004_ADDRESSES,
 } from '../../services/erc8004-registration';
 import { type SldKey } from '../../services/genome-metadata';
 import { WORKER_URL } from '../../utils/config';
+
+const CHAIN_IDS: Record<string, number> = {
+  gnosis:      100,
+  base:        8453,
+  baseSepolia: 84532,
+};
 
 
 const VALID_SLDS: SldKey[] = ['agent', 'molt', 'vault', 'nftmail', 'picoclaw', 'openclaw'];
@@ -36,9 +43,9 @@ export async function GET(req: NextRequest) {
 
   // Resolve current SLD and agentId from KV — single worker call
   let sld: SldKey = sldFallback;
-  let agentId: number | null = null;
+  let allRegistrations: Erc8004Registration[] = [];
   try {
-    // resolveAddress returns tld, originNft, safe, onChainOwner AND erc8004AgentId in one call
+    // resolveAddress — get TLD
     const kvRes = await fetch(WORKER_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -46,23 +53,44 @@ export async function GET(req: NextRequest) {
     });
     if (kvRes.ok) {
       const kvData = await kvRes.json() as Record<string, unknown>;
-      // Prefer live TLD from KV (e.g. "molt.gno" → "molt")
       const kvTld = kvData?.tld as string | undefined;
       if (kvTld) {
         const kvSld = kvTld.split('.')[0] as SldKey;
         if (VALID_SLDS.includes(kvSld)) sld = kvSld;
       }
-      // erc8004AgentId is included directly in resolveAddress response
-      const kvAgentId = kvData?.erc8004AgentId;
-      if (typeof kvAgentId === 'number' && kvAgentId > 0) agentId = kvAgentId;
     }
-  } catch {
-    // Non-fatal — serve file with fallback sld, no agentId
-  }
+  } catch { /* Non-fatal */ }
+
+  try {
+    // getAgentIdentity — get all-chain registrations
+    const idRes = await fetch(WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'getAgentIdentity', agentName }),
+    });
+    if (idRes.ok) {
+      const idData = await idRes.json() as Record<string, unknown>;
+      const erc8004 = idData?.erc8004 as Record<string, { agentId?: number; chainId?: number }> | undefined;
+      if (erc8004) {
+        const registryMain = ERC8004_ADDRESSES.mainnet.identityRegistry;
+        const registryTest = ERC8004_ADDRESSES.testnet.identityRegistry;
+        for (const [chainKey, info] of Object.entries(erc8004)) {
+          const aid = info?.agentId;
+          if (!aid || aid <= 0) continue;
+          const cid = info?.chainId ?? CHAIN_IDS[chainKey];
+          if (!cid) continue;
+          const registryAddr = cid === 84532 ? registryTest : registryMain;
+          allRegistrations.push({ agentId: aid, agentRegistry: `eip155:${cid}:${registryAddr}` });
+        }
+      }
+    }
+  } catch { /* Non-fatal — serve with empty registrations */ }
 
   // Build base registration file
   let regFile: Erc8004RegistrationFile = buildErc8004RegistrationFile({ agentName, sld });
-  if (agentId != null) regFile = patchRegistrationWithAgentId(regFile, agentId);
+  if (allRegistrations.length > 0) {
+    regFile = { ...regFile, registrations: allRegistrations };
+  }
 
   // Merge per-agent KV profile overrides (description, webUrl, socialLinks)
   try {
