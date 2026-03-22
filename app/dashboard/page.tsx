@@ -1,8 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { WorkReceiptCard } from '../components/WorkReceiptCard';
+
+const WORKER_URL = process.env.NEXT_PUBLIC_WORKER_URL ?? 'https://nftmail-email-worker.richard-159.workers.dev';
 
 const GHOST_LOGO = '/ghost-logo.png';
 
@@ -259,9 +262,46 @@ const BRAIN_ACTIONS = [
 ];
 
 export default function DashboardHome() {
-  const [selectedAgent, setSelectedAgent] = useState<string>(DEMO_AGENTS[0].name);
+  const { authenticated } = usePrivy();
+  const { wallets } = useWallets();
+  const connectedWallet = wallets[0]?.address ?? null;
+
+  const [liveAgents, setLiveAgents]       = useState<DemoAgent[] | null>(null);
+  const [agentsLoading, setAgentsLoading] = useState(false);
+
+  const [selectedAgent, setSelectedAgent] = useState<string>('');
   const [selectedBody,  setSelectedBody]  = useState<string>(DEMO_BODIES[0].name);
   const [selectedBrain, setSelectedBrain] = useState<string>(DEMO_BRAINS[0].agent);
+
+  useEffect(() => {
+    if (!connectedWallet) { setLiveAgents(null); return; }
+    setAgentsLoading(true);
+    fetch(WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'listAgents', safeAddress: connectedWallet }),
+    })
+      .then(r => r.json() as Promise<{ agents?: Array<{ name: string; tld: string; erc8004?: Record<string, unknown> }> }>)
+      .then(data => {
+        const agents: DemoAgent[] = (data.agents ?? []).map(a => ({
+          name:      a.name,
+          namespace: a.tld,
+          tba:       connectedWallet,
+          tier:      'pro' as AgentTier,
+          hostScore: 0,
+          inbox:     0,
+          events:    0,
+          active:    true,
+        }));
+        setLiveAgents(agents);
+        if (agents.length > 0) setSelectedAgent(agents[0].name);
+      })
+      .catch(() => setLiveAgents([]))
+      .finally(() => setAgentsLoading(false));
+  }, [connectedWallet]);
+
+  const agents = liveAgents ?? DEMO_AGENTS;
+  const isDemo = liveAgents === null;
 
   return (
     <div className="space-y-8">
@@ -290,19 +330,42 @@ export default function DashboardHome() {
       </div>
 
       {/* Agent Cards — 3-col grid */}
-      <div className="grid gap-4 lg:grid-cols-3 md:grid-cols-2">
-        {DEMO_AGENTS.map((agent) => (
-          <AgentCard
-            key={agent.name}
-            agent={agent}
-            selected={selectedAgent === agent.name}
-            onSelect={() => setSelectedAgent(agent.name)}
-            onCycle={() => {}}
-          />
-        ))}
-      </div>
+      {!authenticated ? (
+        <div className="rounded-2xl border border-[rgba(176,128,92,0.2)] bg-[rgba(176,128,92,0.04)] px-6 py-12 text-center space-y-2">
+          <p className="text-sm text-[var(--muted)]">Connect your wallet to see your agents.</p>
+        </div>
+      ) : agentsLoading ? (
+        <div className="rounded-2xl border border-[rgba(176,128,92,0.15)] bg-[rgba(176,128,92,0.03)] px-6 py-12 text-center">
+          <p className="text-sm text-[var(--muted)] animate-pulse">Loading your agents…</p>
+        </div>
+      ) : agents.length === 0 ? (
+        <div className="rounded-2xl border border-zinc-700/30 bg-zinc-800/10 px-6 py-12 text-center space-y-2">
+          <p className="text-sm text-[var(--muted)]">No agents found for this wallet.</p>
+          <p className="text-xs text-zinc-600">Agents are keyed to your Safe address. Make sure your wallet is a Safe owner.</p>
+        </div>
+      ) : (
+        <>
+          {isDemo && (
+            <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-2 text-[11px] text-amber-300">
+              ⚠ Showing demo data — connect wallet to see your agents
+            </div>
+          )}
+          <div className="grid gap-4 lg:grid-cols-3 md:grid-cols-2">
+            {agents.map((agent) => (
+              <AgentCard
+                key={agent.name}
+                agent={agent}
+                selected={selectedAgent === agent.name}
+                onSelect={() => setSelectedAgent(agent.name)}
+                onCycle={() => {}}
+              />
+            ))}
+          </div>
+        </>
+      )}
 
       {/* ── Agent Action Bar ── */}
+      {selectedAgent && (
       <div className="rounded-2xl border border-[rgba(176,128,92,0.25)] bg-[var(--card)] px-5 py-4">
         <div className="mb-3 flex items-center gap-3">
           <span className="text-[10px] font-semibold tracking-widest text-[var(--muted)]">ACTIONS FOR</span>
@@ -323,6 +386,7 @@ export default function DashboardHome() {
           ))}
         </div>
       </div>
+      )}
 
       {/* MY BODIES separator */}
       <div className="flex items-center gap-4 py-2">
