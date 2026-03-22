@@ -1,13 +1,21 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
-import { usePrivy } from '@privy-io/react-auth';
+import { usePrivy, useWallets } from '@privy-io/react-auth';
 import HITLPanel from '../../components/HITLPanel';
+import HITLDeployPanel from '../../components/HITLDeployPanel';
 
 const GHOST_LOGO = '/ghost-logo.png';
 
+type Tab = 'deploy' | 'manage';
+
 export default function HITLPage() {
   const { authenticated } = usePrivy();
+  const { wallets } = useWallets();
+  const [tab, setTab] = useState<Tab>('deploy');
+
+  const connectedWallet = wallets[0]?.address ?? '';
 
   return (
     <div className="space-y-8">
@@ -23,16 +31,19 @@ export default function HITLPage() {
           />
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-2xl font-bold text-[#f2eee4]">Human-In-The-Loop</h1>
+              <h1 className="text-2xl font-bold text-[#f2eee4]">Human-In-The-Loop Gates</h1>
               <span className="rounded-full bg-red-500/10 px-2 py-0.5 text-[10px] font-bold text-red-300 ring-1 ring-red-500/20">
                 Safe Module
               </span>
               <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-300 ring-1 ring-amber-500/20">
                 Gnosis Chain
               </span>
+              <span className="rounded-full bg-violet-500/10 px-2 py-0.5 text-[10px] font-bold text-violet-300 ring-1 ring-violet-500/20">
+                Self-Service
+              </span>
             </div>
             <p className="mt-0.5 text-xs text-[var(--muted)]">
-              Spending gates for your agent Safe — high-value txs queue for human approval
+              Spending gates for any agent Safe — deploy your own module, set your own threshold
             </p>
           </div>
         </div>
@@ -50,21 +61,21 @@ export default function HITLPage() {
           {
             icon: '⚡',
             title: 'Below Threshold',
-            body: 'Transactions at or below the spending threshold (default 1 xDAI) execute immediately via the Safe module. No queuing, no delays.',
+            body: 'Transactions at or below the spending threshold execute immediately via the Safe module. No queuing, no delays.',
             color: 'border-emerald-500/20 bg-emerald-500/5',
             label: 'text-emerald-300',
           },
           {
             icon: '⏳',
             title: 'Above Threshold',
-            body: 'High-value transactions are queued and emit TransactionQueued on-chain. A Safe owner must approve via multi-sig within the TTL window (default 24h).',
+            body: 'High-value transactions are queued on-chain. A Safe owner must approve via multi-sig within the TTL window before the tx executes.',
             color: 'border-amber-500/20 bg-amber-500/5',
             label: 'text-amber-300',
           },
           {
             icon: '🚨',
             title: 'Emergency Pause',
-            body: 'Any Safe owner can instantly halt all execution. Unpausing requires the full Safe multi-sig — ensuring a single rogue signer cannot restart a compromised agent.',
+            body: 'Any Safe owner can instantly halt all execution. Unpausing requires the full Safe multi-sig — a single signer cannot restart a compromised agent.',
             color: 'border-red-500/20 bg-red-500/5',
             label: 'text-red-300',
           },
@@ -79,35 +90,71 @@ export default function HITLPage() {
         ))}
       </div>
 
-      {/* Setup notice if modules not yet enabled */}
-      <div className="rounded-xl border border-zinc-700/30 bg-zinc-800/20 p-4">
-        <div className="flex items-start gap-3">
-          <span className="text-lg mt-0.5">⚠️</span>
-          <div className="space-y-1">
-            <div className="text-xs font-semibold text-zinc-300">Module must be enabled on the Safe</div>
-            <p className="text-[10px] text-zinc-500 leading-relaxed">
-              The HumanInTheLoopModule is deployed but must be added as a Safe Module before it can queue or execute transactions.{' '}
-              <a
-                href="https://app.safe.global/settings/modules?safe=gno:0xb7e493e3d226f8fE722CC9916fF164B793af13F4"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-violet-400 hover:underline"
-              >
-                Enable it in Safe Settings → Modules ↗
-              </a>
-              {' '}→ Add Module → <code className="text-[#b0805c]">0x012A0571d0DFd7eF85d0706875FEc39555e99A96</code>
-            </p>
-          </div>
-        </div>
-      </div>
-
       {!authenticated ? (
         <div className="rounded-2xl border border-[rgba(176,128,92,0.2)] bg-[rgba(176,128,92,0.04)] px-6 py-12 text-center space-y-2">
-          <p className="text-sm text-[var(--muted)]">Connect your wallet to interact with the HITL module.</p>
-          <p className="text-xs text-zinc-600">Emergency pause requires a connected Safe owner wallet.</p>
+          <p className="text-sm text-[var(--muted)]">Connect your wallet to deploy or manage a HITL module.</p>
+          <p className="text-xs text-zinc-600">Your connected wallet must be a Safe owner.</p>
         </div>
       ) : (
-        <HITLPanel />
+        <div className="rounded-2xl border border-[rgba(176,128,92,0.25)] bg-[var(--card)] p-6 space-y-5">
+
+          {/* Tab bar */}
+          <div className="flex gap-1 rounded-xl border border-[rgba(176,128,92,0.15)] bg-black/20 p-1">
+            {([
+              { id: 'deploy' as Tab, label: '🚀 Deploy Module', desc: 'Self-service — any Safe' },
+              { id: 'manage' as Tab, label: '🎛️ Manage Module', desc: 'ghostagent reference instance' },
+            ]).map(t => (
+              <button
+                key={t.id}
+                onClick={() => setTab(t.id)}
+                className={`flex-1 rounded-lg py-2 text-[11px] font-semibold transition-all ${
+                  tab === t.id
+                    ? 'bg-[rgba(176,128,92,0.15)] text-[#f2eee4]'
+                    : 'text-[var(--muted)] hover:text-[#f2eee4]'
+                }`}
+              >
+                <div>{t.label}</div>
+                <div className="text-[9px] font-normal opacity-60 mt-0.5">{t.desc}</div>
+              </button>
+            ))}
+          </div>
+
+          {tab === 'deploy' ? (
+            <div className="space-y-4">
+              <div className="rounded-xl border border-violet-500/15 bg-violet-500/5 p-3">
+                <p className="text-[11px] text-[var(--muted)] leading-relaxed">
+                  Each Safe gets its own isolated module instance — deployed via the{' '}
+                  <span className="text-violet-300 font-medium">HITLModuleFactory</span>.
+                  Your Safe address is pre-filled from your connected wallet.
+                  After deployment, add the returned address as a module in your Safe settings.
+                </p>
+              </div>
+              {connectedWallet ? (
+                <div className="space-y-3">
+                  <div className="text-[10px] font-semibold tracking-widest text-[var(--muted)]">YOUR SAFE ADDRESS</div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      defaultValue={connectedWallet}
+                      id="safe-address-input"
+                      className="flex-1 rounded-lg border border-zinc-700/40 bg-zinc-800/30 px-3 py-1.5 font-mono text-[11px] text-zinc-200 focus:outline-none focus:border-[rgba(176,128,92,0.4)]"
+                      placeholder="0x… your Gnosis Safe address"
+                    />
+                  </div>
+                  <p className="text-[10px] text-zinc-600">
+                    If your Safe address differs from your connected wallet, paste it above.
+                  </p>
+                  <HITLDeployPanel safeAddress={connectedWallet} />
+                </div>
+              ) : (
+                <p className="text-xs text-zinc-500">Connect wallet to continue.</p>
+              )}
+            </div>
+          ) : (
+            <HITLPanel />
+          )}
+
+        </div>
       )}
 
     </div>
