@@ -1,11 +1,43 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useParams, useSearchParams } from 'next/navigation';
+import { createPublicClient, http, parseAbi, formatEther } from 'viem';
+import { gnosis } from 'viem/chains';
 import { TradeIntentPanel } from '../../../components/TradeIntentPanel';
 import SwarmConsensus from '../../../components/SwarmConsensus';
 import { GhostHandshakePanel } from '../../../components/GhostHandshakePanel';
+
+const WORKER_URL = process.env.NEXT_PUBLIC_WORKER_URL ?? 'https://nftmail-email-worker.richard-159.workers.dev';
+
+const HITL_ABI = parseAbi([
+  'function threshold() view returns (uint256)',
+  'function emergencyPaused() view returns (bool)',
+  'function getPendingCount() view returns (uint256)',
+]);
+
+const publicClient = createPublicClient({
+  chain: gnosis,
+  transport: http('https://rpc.gnosischain.com'),
+});
+
+interface AgentIdentity {
+  name: string;
+  tld: string;
+  safe?: string;
+  erc8004?: {
+    gnosis?: { agentId: number; agentURI?: string };
+    base?: { agentId: number };
+  };
+}
+
+interface HITLState {
+  threshold: string;
+  paused: boolean;
+  pending: number;
+  moduleAddr: string;
+}
 
 const VALID_SLDS = ['agent', 'openclaw', 'molt', 'picoclaw', 'vault', 'nftmail'] as const;
 type SldKey = typeof VALID_SLDS[number];
@@ -19,94 +51,7 @@ const SLD_COLOR: Record<SldKey, string> = {
   nftmail:  'text-cyan-300',
 };
 
-const SECTION_COMING = 'Data will be populated once connected to your agent\'s TBA and on-chain registry.';
-
-const STUB_SECTIONS = [
-  {
-    id: 'identity',
-    icon: '🪪',
-    title: 'Identity Graph',
-    color: 'border-amber-500/30 bg-amber-500/5',
-    labelColor: 'text-amber-300',
-    rows: [
-      { label: 'Agent Name',       value: '—' },
-      { label: 'Namespace',        value: '—' },
-      { label: 'TBA (Safe)',       value: '—' },
-      { label: 'ERC-8004 AgentID', value: '—' },
-      { label: 'Story IP Account', value: '—' },
-      { label: 'NFT Token ID',     value: '—' },
-      { label: 'Cycle Level',      value: '—' },
-    ],
-  },
-  {
-    id: 'safe',
-    icon: '🏦',
-    title: 'Safe & Modules',
-    color: 'border-emerald-500/30 bg-emerald-500/5',
-    labelColor: 'text-emerald-300',
-    rows: [
-      { label: 'Safe Address',            value: '—' },
-      { label: 'DailyBudget Cap',         value: '—' },
-      { label: 'HumanInTheLoop Threshold',value: '—' },
-      { label: 'Safe Balance',            value: '—' },
-      { label: 'Pending Approvals',       value: '—' },
-    ],
-  },
-  {
-    id: 'erc8004',
-    icon: '📡',
-    title: 'ERC-8004 Status',
-    color: 'border-violet-500/30 bg-violet-500/5',
-    labelColor: 'text-violet-300',
-    rows: [
-      { label: 'Registration Chain', value: '—' },
-      { label: 'Agent URI',          value: '—' },
-      { label: 'Reputation Score',   value: '—' },
-      { label: 'Feedback Count',     value: '—' },
-      { label: 'Last Feedback TX',   value: '—' },
-    ],
-  },
-  {
-    id: 'inbox',
-    icon: '📬',
-    title: 'Inbox Preview',
-    color: 'border-sky-500/30 bg-sky-500/5',
-    labelColor: 'text-sky-300',
-    rows: [
-      { label: 'Total Messages',  value: '—' },
-      { label: 'Unread',         value: '—' },
-      { label: 'Last Message',   value: '—' },
-      { label: 'A2A Threads',    value: '—' },
-    ],
-  },
-  {
-    id: 'ip',
-    icon: '🏛️',
-    title: 'IP & Arweave',
-    color: 'border-fuchsia-500/30 bg-fuchsia-500/5',
-    labelColor: 'text-fuchsia-300',
-    rows: [
-      { label: 'Story IP Domain',       value: '—' },
-      { label: 'IPA Metadata CID',      value: '—' },
-      { label: 'Glass Box Declaration', value: '—' },
-      { label: 'Arweave TX',            value: '—' },
-      { label: 'Legal Anchor CID',      value: '—' },
-    ],
-  },
-  {
-    id: 'telemetry',
-    icon: '📊',
-    title: 'On-Chain Telemetry',
-    color: 'border-rose-500/30 bg-rose-500/5',
-    labelColor: 'text-rose-300',
-    rows: [
-      { label: '$HOST Score',      value: '—' },
-      { label: 'Completed Tasks',  value: '—' },
-      { label: 'TBA Tx Count',     value: '—' },
-      { label: 'Last Activity',    value: '—' },
-    ],
-  },
-];
+const HITL_MODULE = '0x012A0571d0DFd7eF85d0706875FEc39555e99A96' as const;
 
 const TABS = [
   { id: 'overview',  label: '🪪 Overview'    },
@@ -117,6 +62,8 @@ const TABS = [
 ] as const;
 type TabId = typeof TABS[number]['id'];
 
+function shortAddr(a: string) { return `${a.slice(0,8)}…${a.slice(-6)}`; }
+
 export default function AgentDetailPage() {
   const { name } = useParams<{ name: string }>();
   const searchParams = useSearchParams();
@@ -124,6 +71,51 @@ export default function AgentDetailPage() {
   const sld: SldKey | null = VALID_SLDS.includes(rawSld as SldKey) ? (rawSld as SldKey) : null;
   const sldColor = sld ? SLD_COLOR[sld] : 'text-[var(--muted)]';
   const [activeTab, setActiveTab] = useState<TabId>('overview');
+
+  const [identity, setIdentity] = useState<AgentIdentity | null>(null);
+  const [hitl, setHitl]         = useState<HITLState | null>(null);
+  const [safeBalance, setSafeBalance] = useState<string | null>(null);
+  const [loading, setLoading]   = useState(true);
+
+  useEffect(() => {
+    if (!name) return;
+    setLoading(true);
+
+    // 1. Worker: getAgentIdentity
+    const identityP = fetch(WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'getAgentIdentity', agentName: name }),
+    })
+      .then(r => r.json() as Promise<{ identity?: AgentIdentity }>)
+      .then(d => d.identity ?? null)
+      .catch(() => null);
+
+    // 2. HITL module on-chain reads
+    const hitlP = Promise.all([
+      publicClient.readContract({ address: HITL_MODULE, abi: HITL_ABI, functionName: 'threshold' }),
+      publicClient.readContract({ address: HITL_MODULE, abi: HITL_ABI, functionName: 'emergencyPaused' }),
+      publicClient.readContract({ address: HITL_MODULE, abi: HITL_ABI, functionName: 'getPendingCount' }),
+    ]).then(([thr, paused, pending]) => ({
+      threshold: `${formatEther(thr)} xDAI`,
+      paused: paused as boolean,
+      pending: Number(pending),
+      moduleAddr: HITL_MODULE,
+    })).catch(() => null);
+
+    Promise.all([identityP, hitlP]).then(([id, h]) => {
+      setIdentity(id);
+      setHitl(h);
+
+      // 3. Safe xDAI balance
+      const safe = id?.safe;
+      if (safe) {
+        publicClient.getBalance({ address: safe as `0x${string}` })
+          .then(b => setSafeBalance(`${formatEther(b)} xDAI`))
+          .catch(() => setSafeBalance(null));
+      }
+    }).finally(() => setLoading(false));
+  }, [name]);
 
   return (
     <div className="space-y-8">
@@ -171,11 +163,11 @@ export default function AgentDetailPage() {
         </div>
       </div>
 
-      {/* Under construction banner */}
-      <div className="flex items-center gap-3 rounded-xl border border-amber-500/25 bg-amber-500/5 px-4 py-3">
-        <svg className="h-4 w-4 shrink-0 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-        <p className="text-[11px] text-amber-300/80">{SECTION_COMING}</p>
-      </div>
+      {loading && (
+        <div className="rounded-xl border border-[rgba(176,128,92,0.15)] bg-[rgba(176,128,92,0.03)] px-4 py-3 text-[11px] text-[var(--muted)] animate-pulse">
+          Loading agent data…
+        </div>
+      )}
 
       {/* Tab bar */}
       <div className="flex gap-1 rounded-xl border border-[rgba(176,128,92,0.15)] bg-[var(--card)] p-1">
@@ -197,27 +189,129 @@ export default function AgentDetailPage() {
       {/* ── Overview tab ── */}
       {activeTab === 'overview' && (
       <div className="grid gap-4 md:grid-cols-2">
-        {STUB_SECTIONS.map((section) => (
-          <div
-            key={section.id}
-            className={`rounded-2xl border p-5 ${section.color}`}
-          >
-            <div className="flex items-center gap-2 mb-4">
-              <span className="text-lg">{section.icon}</span>
-              <h2 className={`text-sm font-semibold ${section.labelColor}`}>{section.title}</h2>
+
+        {/* Identity */}
+        <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <span className="text-lg">🪪</span>
+            <h2 className="text-sm font-semibold text-amber-300">Identity Graph</h2>
+          </div>
+          <div className="space-y-2">
+            {([
+              { label: 'Agent Name',       value: identity?.name ?? name },
+              { label: 'Namespace',        value: identity?.tld  ?? (sld ? `${sld}.gno` : '—') },
+              { label: 'Safe Address',     value: identity?.safe ? shortAddr(identity.safe) : '—', href: identity?.safe ? `https://app.safe.global/home?safe=gno:${identity.safe}` : undefined, full: identity?.safe },
+              { label: 'ERC-8004 (Gnosis)',value: identity?.erc8004?.gnosis ? `#${identity.erc8004.gnosis.agentId}` : '—' },
+              { label: 'ERC-8004 (Base)',  value: identity?.erc8004?.base   ? `#${identity.erc8004.base.agentId}`   : '—' },
+              { label: 'Agent URI',        value: identity?.erc8004?.gnosis?.agentURI ? '✓ set' : '—' },
+            ] as Array<{ label: string; value: string; href?: string; full?: string }>).map(row => (
+              <div key={row.label} className="flex items-center justify-between gap-4 text-[11px]">
+                <span className="text-[var(--muted)] shrink-0">{row.label}</span>
+                {row.href ? (
+                  <a href={row.href} target="_blank" rel="noopener noreferrer"
+                    className="font-mono text-[#b0805c] hover:underline truncate max-w-[160px]" title={row.full}>
+                    {row.value} ↗
+                  </a>
+                ) : (
+                  <span className="font-mono text-zinc-300 truncate max-w-[160px]">{row.value}</span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Safe & HITL */}
+        <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <span className="text-lg">🏦</span>
+            <h2 className="text-sm font-semibold text-emerald-300">Safe &amp; HITL Module</h2>
+          </div>
+          <div className="space-y-2">
+            {([
+              { label: 'Safe Balance',      value: safeBalance ?? '…' },
+              { label: 'HITL Threshold',    value: hitl?.threshold ?? '…' },
+              { label: 'HITL Status',       value: hitl ? (hitl.paused ? '🔴 PAUSED' : '🟢 Active') : '…',
+                                            color: hitl?.paused ? 'text-red-300' : 'text-emerald-300' },
+              { label: 'Pending Approvals', value: hitl ? String(hitl.pending) : '…',
+                                            color: hitl?.pending ? 'text-orange-300' : undefined },
+              { label: 'HITL Module',       value: shortAddr(HITL_MODULE),
+                                            href: `https://gnosisscan.io/address/${HITL_MODULE}` },
+            ] as Array<{ label: string; value: string; color?: string; href?: string }>).map(row => (
+              <div key={row.label} className="flex items-center justify-between gap-4 text-[11px]">
+                <span className="text-[var(--muted)] shrink-0">{row.label}</span>
+                {row.href ? (
+                  <a href={row.href} target="_blank" rel="noopener noreferrer"
+                    className="font-mono text-[#b0805c] hover:underline">
+                    {row.value} ↗
+                  </a>
+                ) : (
+                  <span className={`font-mono truncate ${row.color ?? 'text-zinc-300'}`}>{row.value}</span>
+                )}
+              </div>
+            ))}
+          </div>
+          <div className="mt-4 pt-3 border-t border-emerald-500/10">
+            <Link href="/dashboard/hitl"
+              className="text-[10px] text-emerald-400 hover:underline">
+              → Manage HITL gates
+            </Link>
+          </div>
+        </div>
+
+        {/* ERC-8004 */}
+        <div className="rounded-2xl border border-violet-500/30 bg-violet-500/5 p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <span className="text-lg">📡</span>
+            <h2 className="text-sm font-semibold text-violet-300">ERC-8004 Status</h2>
+          </div>
+          <div className="space-y-2">
+            {([
+              { label: 'Gnosis agentId', value: identity?.erc8004?.gnosis ? `#${identity.erc8004.gnosis.agentId}` : '—' },
+              { label: 'Base agentId',   value: identity?.erc8004?.base   ? `#${identity.erc8004.base.agentId}`   : '—' },
+              { label: 'Agent Card',     value: 'View ↗', href: `/api/agent-card?agent=${name}` },
+              { label: 'Public Profile', value: 'View ↗', href: `/agent/${name}` },
+            ] as Array<{ label: string; value: string; href?: string }>).map(row => (
+              <div key={row.label} className="flex items-center justify-between gap-4 text-[11px]">
+                <span className="text-[var(--muted)] shrink-0">{row.label}</span>
+                {row.href ? (
+                  <a href={row.href} target="_blank" rel="noopener noreferrer"
+                    className="font-mono text-violet-400 hover:underline">
+                    {row.value}
+                  </a>
+                ) : (
+                  <span className="font-mono text-zinc-300">{row.value}</span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Inbox stub + IP stub — still placeholder, data sources TBD */}
+        <div className="rounded-2xl border border-sky-500/30 bg-sky-500/5 p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <span className="text-lg">📬</span>
+            <h2 className="text-sm font-semibold text-sky-300">Inbox &amp; IP</h2>
+          </div>
+          <div className="space-y-2 text-[11px]">
+            <div className="flex justify-between">
+              <span className="text-[var(--muted)]">NFTMail inbox</span>
+              <a href={`https://nftmail.box/inbox/${name}`} target="_blank" rel="noopener noreferrer"
+                className="text-sky-400 hover:underline">Open ↗</a>
             </div>
-            <div className="space-y-2">
-              {section.rows.map((row) => (
-                <div key={row.label} className="flex items-center justify-between gap-4 text-[11px]">
-                  <span className="text-[var(--muted)] shrink-0">{row.label}</span>
-                  <span className="font-mono text-zinc-500 truncate">{row.value}</span>
-                </div>
-              ))}
+            <div className="flex justify-between">
+              <span className="text-[var(--muted)]">Agent profile</span>
+              <a href={`/agent/${name}`} target="_blank" rel="noopener noreferrer"
+                className="text-sky-400 hover:underline">Open ↗</a>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-[var(--muted)]">Edit profile</span>
+              <Link href={`/dashboard/agent-profile?agent=${name}`}
+                className="text-amber-400 hover:underline">Edit ↗</Link>
             </div>
           </div>
-        ))}
-      </div>
+        </div>
 
+      </div>
       )}
 
       {/* ── TradeIntent tab ── */}
