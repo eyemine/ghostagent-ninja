@@ -31,8 +31,7 @@ import "forge-std/Script.sol";
 //
 // ─────────────────────────────────────────────────────────────────────────────
 
-// NOTE: Uncomment this import once HITLModuleFactory.sol exists in src/
-// import "../src/HITLModuleFactory.sol";
+import "../src/HITLModuleFactory.sol";
 
 /**
  * DeployHITLFactory
@@ -55,9 +54,10 @@ import "forge-std/Script.sol";
 contract DeployHITLFactory is Script {
     function run() external {
         vm.startBroadcast();
-        // HITLModuleFactory factory = new HITLModuleFactory();
-        // console.log("HITLModuleFactory deployed at:", address(factory));
-        // console.log("Set env: NEXT_PUBLIC_HITL_FACTORY_ADDRESS=", address(factory));
+        HITLModuleFactory factory = new HITLModuleFactory();
         vm.stopBroadcast();
+
+        console.log("HITLModuleFactory deployed at:", address(factory));
+        console.log("Set env: NEXT_PUBLIC_HITL_FACTORY_ADDRESS=", address(factory));
     }
 }
