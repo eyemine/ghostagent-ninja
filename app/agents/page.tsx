@@ -1,93 +1,10 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import Link from 'next/link';
 import { useWallets } from '@privy-io/react-auth';
-import { createPublicClient, http, parseAbi, namehash, labelhash } from 'viem';
-import { gnosis, mainnet } from 'viem/chains';
 import { DomainCard, Domain } from '../components/DomainCard';
-
-// GNS registry on Gnosis mainnet — owner(bytes32) returns address
-const GNS_REGISTRY = '0x00cEBf9E1E81D3CC17fbA0a49306fA77e3dBe823' as const;
-// ENS BaseRegistrar on ETH mainnet — ownerOf(uint256 tokenId)
-const ENS_BASE_REGISTRAR = '0x57f1887a8BF19b14fC0dF6Fd9B2acc9Af147eA85' as const;
-
-const gnosisClient = createPublicClient({ chain: gnosis,  transport: http('https://rpc.gnosischain.com') });
-const ethClient   = createPublicClient({ chain: mainnet, transport: http('https://cloudflare-eth.com') });
-
-const GNS_ABI  = parseAbi(['function owner(bytes32 node) view returns (address)']);
-const ENS_ABI  = parseAbi(['function ownerOf(uint256 tokenId) view returns (address)']);
-
-type NameStatus =
-  | { state: 'idle' }
-  | { state: 'checking' }
-  | { state: 'available' }
-  | { state: 'taken';    gnsOwner: string }
-  | { state: 'reserved'; ensOwner: string }  // ENS exists, not your wallet
-  | { state: 'yours';    ensOwner: string }  // ENS exists and you own it
-  | { state: 'error';    message: string };
-
-function useNameCheck(name: string, tld: string, connectedWallet: string): NameStatus {
-  const [status, setStatus] = useState<NameStatus>({ state: 'idle' });
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    if (!name || name.length < 3) { setStatus({ state: 'idle' }); return; }
-
-    setStatus({ state: 'checking' });
-    if (timerRef.current) clearTimeout(timerRef.current);
-
-    timerRef.current = setTimeout(async () => {
-      try {
-        const fullName = `${name}.${tld}`;
-        const node = namehash(fullName);
-
-        // 1. GNS registry: is the name already minted?
-        const gnsOwner = await gnosisClient.readContract({
-          address: GNS_REGISTRY, abi: GNS_ABI, functionName: 'owner', args: [node],
-        }) as string;
-
-        if (gnsOwner && gnsOwner !== '0x0000000000000000000000000000000000000000') {
-          setStatus({ state: 'taken', gnsOwner });
-          return;
-        }
-
-        // 2. ENS reservation: does name.eth exist on mainnet?
-        // labelhash(name) = keccak256(label) as 0x-prefixed hex — same as ENS tokenId
-        const tokenId = BigInt(labelhash(name));
-
-        let ensOwner: string | null = null;
-        try {
-          ensOwner = await ethClient.readContract({
-            address: ENS_BASE_REGISTRAR, abi: ENS_ABI, functionName: 'ownerOf', args: [tokenId],
-          }) as string;
-        } catch {
-          // ownerOf reverts if token doesn't exist — name.eth is unregistered, no reservation
-          ensOwner = null;
-        }
-
-        if (ensOwner && ensOwner !== '0x0000000000000000000000000000000000000000') {
-          const walletLower = connectedWallet.toLowerCase();
-          const ownerLower  = ensOwner.toLowerCase();
-          if (walletLower && walletLower === ownerLower) {
-            setStatus({ state: 'yours', ensOwner });
-          } else {
-            setStatus({ state: 'reserved', ensOwner });
-          }
-          return;
-        }
-
-        setStatus({ state: 'available' });
-      } catch (e) {
-        setStatus({ state: 'error', message: (e as Error).message ?? 'Check failed' });
-      }
-    }, 600);
-
-    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
-  }, [name, tld, connectedWallet]);
-
-  return status;
-}
+import { useNameCheck, NameStatusBadge } from '../utils/ensCheck';
 
 const GHOST_LOGO = '/ghost-logo.png';
 const PAGE_SIZE = 20;
@@ -404,7 +321,6 @@ function MintModal({ domain, onClose }: { domain: Domain; onClose: () => void })
   const connectedWallet = wallets[0]?.address ?? '';
   const mintLabel = domain.mintFee === 'free' ? 'Free' : `${domain.mintFee} xDAI`;
   const nameStatus = useNameCheck(name, domain.tld, connectedWallet);
-
   const canMint = name.length >= 3 &&
     (nameStatus.state === 'available' || nameStatus.state === 'yours');
 
@@ -465,45 +381,7 @@ function MintModal({ domain, onClose }: { domain: Domain; onClose: () => void })
         </div>
 
         {/* Availability status */}
-        {name.length >= 3 && (
-          <div className="mt-2">
-            {nameStatus.state === 'checking' && (
-              <div className="flex items-center gap-1.5 text-[10px] text-zinc-500">
-                <span className="inline-block h-2.5 w-2.5 animate-spin rounded-full border border-zinc-600 border-t-zinc-300" />
-                Checking availability…
-              </div>
-            )}
-            {nameStatus.state === 'available' && (
-              <p className="text-[10px] font-semibold text-emerald-400">
-                ✓ Available — <span className="font-normal text-[var(--muted)]">{name}.{domain.tld} is free to mint</span>
-              </p>
-            )}
-            {nameStatus.state === 'yours' && (
-              <p className="text-[10px] font-semibold text-emerald-400">
-                ✓ ENS reserved for you — <span className="font-normal text-[var(--muted)]">{name}.eth holder confirmed</span>
-              </p>
-            )}
-            {nameStatus.state === 'taken' && (
-              <p className="text-[10px] font-semibold text-rose-400">
-                ✗ Already minted — <span className="font-normal text-[var(--muted)]">{name}.{domain.tld} is taken</span>
-              </p>
-            )}
-            {nameStatus.state === 'reserved' && (
-              <div className="mt-1 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2">
-                <p className="text-[10px] font-semibold text-amber-400">
-                  ⚠ ENS Reserved — {name}.eth is registered
-                </p>
-                <p className="mt-0.5 text-[10px] text-zinc-500">
-                  Only the holder of <span className="text-zinc-300">{name}.eth</span> can mint this subname.
-                  Connect that wallet to proceed.
-                </p>
-              </div>
-            )}
-            {nameStatus.state === 'error' && (
-              <p className="text-[10px] text-zinc-600">Could not check availability. Proceed with caution.</p>
-            )}
-          </div>
-        )}
+        <NameStatusBadge status={nameStatus} label={name} tld={domain.tld} />
 
         {/* Privacy notice */}
         <div className="mt-4 flex items-start gap-2 rounded-lg border border-[var(--border)] bg-black/20 px-3 py-2">
