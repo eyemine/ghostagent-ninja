@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { usePrivy } from '@privy-io/react-auth';
 
 const SLD_META: Record<string, { label: string; color: string; bg: string; ring: string }> = {
   molt:     { label: 'Molt',     color: 'text-fuchsia-300', bg: 'bg-fuchsia-500/10', ring: 'ring-fuchsia-500/20' },
@@ -59,6 +60,7 @@ function shortAddr(addr: string | null) {
 
 export default function AgentPublicProfilePage() {
   const { name } = useParams<{ name: string }>();
+  const { authenticated } = usePrivy();
   const [card, setCard]       = useState<AgentCard | null>(null);
   const [identity, setIdent]  = useState<AgentIdentity | null>(null);
   const [loading, setLoading] = useState(true);
@@ -98,10 +100,25 @@ export default function AgentPublicProfilePage() {
     <div className="min-h-screen bg-[radial-gradient(1000px_circle_at_20%_-10%,rgba(176,128,92,0.10),transparent_45%),linear-gradient(180deg,var(--background),#03040a)]">
       <div className="mx-auto max-w-2xl px-4 py-12 md:px-6">
 
-        <div className="mb-8">
+        <div className="mb-8 flex items-center justify-between">
           <Link href="/agents" className="text-[11px] text-[var(--muted)] transition hover:text-white">
             ← Agent Registry
           </Link>
+          {authenticated ? (
+            <Link
+              href={`/dashboard/agent/${name}?sld=${card?.name?.split('.')?.[1] ?? ''}`}
+              className="rounded-lg border border-[rgba(176,128,92,0.35)] bg-[rgba(176,128,92,0.08)] px-3 py-1.5 text-[11px] font-semibold text-[#d4a96a] transition hover:bg-[rgba(176,128,92,0.15)]"
+            >
+              Owner View →
+            </Link>
+          ) : (
+            <span
+              title="Connect wallet to access owner view"
+              className="cursor-not-allowed rounded-lg border border-zinc-700/40 bg-zinc-800/20 px-3 py-1.5 text-[11px] font-semibold text-zinc-600 select-none"
+            >
+              Owner View (connect wallet)
+            </span>
+          )}
         </div>
 
         {loading ? (

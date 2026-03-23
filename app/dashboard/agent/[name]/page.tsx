@@ -24,12 +24,15 @@ const publicClient = createPublicClient({
 
 interface AgentIdentity {
   name: string;
-  tld: string;
+  email?: string;
+  identityNft?: { name: string; tokenId: number; owner: string; tld: string };
   safe?: string;
   erc8004?: {
-    gnosis?: { agentId: number; agentURI?: string };
-    base?: { agentId: number };
+    gnosis?: { agentId: number; agentURI?: string; chainId?: number };
+    base?: { agentId: number; chainId?: number };
+    baseSepolia?: { agentId: number };
   };
+  links?: { profile?: string; agentCard?: string };
 }
 
 interface HITLState {
@@ -81,14 +84,14 @@ export default function AgentDetailPage() {
     if (!name) return;
     setLoading(true);
 
-    // 1. Worker: getAgentIdentity
+    // 1. Worker: getAgentIdentity (response is top-level, not wrapped)
     const identityP = fetch(WORKER_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'getAgentIdentity', agentName: name }),
     })
-      .then(r => r.json() as Promise<{ identity?: AgentIdentity }>)
-      .then(d => d.identity ?? null)
+      .then(r => r.json() as Promise<AgentIdentity & { error?: string }>)
+      .then(d => d.error ? null : d)
       .catch(() => null);
 
     // 2. HITL module on-chain reads
@@ -198,12 +201,14 @@ export default function AgentDetailPage() {
           </div>
           <div className="space-y-2">
             {([
-              { label: 'Agent Name',       value: identity?.name ?? name },
-              { label: 'Namespace',        value: identity?.tld  ?? (sld ? `${sld}.gno` : '—') },
+              { label: 'Agent Name',       value: identity?.name ?? String(name) },
+              { label: 'Namespace',        value: identity?.identityNft?.tld ?? (sld ? `${sld}.gno` : '—') },
+              { label: 'NFT',              value: identity?.identityNft?.name ?? '—' },
               { label: 'Safe Address',     value: identity?.safe ? shortAddr(identity.safe) : '—', href: identity?.safe ? `https://app.safe.global/home?safe=gno:${identity.safe}` : undefined, full: identity?.safe },
               { label: 'ERC-8004 (Gnosis)',value: identity?.erc8004?.gnosis ? `#${identity.erc8004.gnosis.agentId}` : '—' },
               { label: 'ERC-8004 (Base)',  value: identity?.erc8004?.base   ? `#${identity.erc8004.base.agentId}`   : '—' },
               { label: 'Agent URI',        value: identity?.erc8004?.gnosis?.agentURI ? '✓ set' : '—' },
+              { label: 'NFTMail',          value: identity?.email ?? '—' },
             ] as Array<{ label: string; value: string; href?: string; full?: string }>).map(row => (
               <div key={row.label} className="flex items-center justify-between gap-4 text-[11px]">
                 <span className="text-[var(--muted)] shrink-0">{row.label}</span>
@@ -258,35 +263,36 @@ export default function AgentDetailPage() {
           </div>
         </div>
 
-        {/* ERC-8004 */}
+        {/* ERC-8004 & Links */}
         <div className="rounded-2xl border border-violet-500/30 bg-violet-500/5 p-5">
           <div className="flex items-center gap-2 mb-4">
             <span className="text-lg">📡</span>
-            <h2 className="text-sm font-semibold text-violet-300">ERC-8004 Status</h2>
+            <h2 className="text-sm font-semibold text-violet-300">ERC-8004 &amp; Links</h2>
           </div>
           <div className="space-y-2">
             {([
-              { label: 'Gnosis agentId', value: identity?.erc8004?.gnosis ? `#${identity.erc8004.gnosis.agentId}` : '—' },
-              { label: 'Base agentId',   value: identity?.erc8004?.base   ? `#${identity.erc8004.base.agentId}`   : '—' },
-              { label: 'Agent Card',     value: 'View ↗', href: `/api/agent-card?agent=${name}` },
-              { label: 'Public Profile', value: 'View ↗', href: `/agent/${name}` },
-            ] as Array<{ label: string; value: string; href?: string }>).map(row => (
+              { label: 'Agent Card (JSON)',  value: 'View ↗', href: `/api/agent-card?agent=${name}` },
+              { label: 'Public Profile',     value: 'View ↗', href: `/agent/${name}` },
+              { label: 'ERC-8004 Registry',  value: 'notapaperclip.red ↗', href: `https://notapaperclip.red/?agent=${name}#erc8004` },
+              { label: 'Edit Profile',       value: 'Edit ↗', href: `/dashboard/agent-profile?agent=${String(name)}`, internal: true },
+              { label: 'NFTMail Inbox',      value: 'Open ↗', href: `https://nftmail.box/inbox/${name}` },
+            ] as Array<{ label: string; value: string; href: string; internal?: boolean }>).map(row => (
               <div key={row.label} className="flex items-center justify-between gap-4 text-[11px]">
                 <span className="text-[var(--muted)] shrink-0">{row.label}</span>
-                {row.href ? (
+                {row.internal ? (
+                  <Link href={row.href} className="font-mono text-amber-400 hover:underline">{row.value}</Link>
+                ) : (
                   <a href={row.href} target="_blank" rel="noopener noreferrer"
                     className="font-mono text-violet-400 hover:underline">
                     {row.value}
                   </a>
-                ) : (
-                  <span className="font-mono text-zinc-300">{row.value}</span>
                 )}
               </div>
             ))}
           </div>
         </div>
 
-        {/* Inbox stub + IP stub — still placeholder, data sources TBD */}
+        {/* Inbox & IP */}
         <div className="rounded-2xl border border-sky-500/30 bg-sky-500/5 p-5">
           <div className="flex items-center gap-2 mb-4">
             <span className="text-lg">📬</span>
@@ -294,19 +300,24 @@ export default function AgentDetailPage() {
           </div>
           <div className="space-y-2 text-[11px]">
             <div className="flex justify-between">
-              <span className="text-[var(--muted)]">NFTMail inbox</span>
-              <a href={`https://nftmail.box/inbox/${name}`} target="_blank" rel="noopener noreferrer"
-                className="text-sky-400 hover:underline">Open ↗</a>
+              <span className="text-[var(--muted)]">NFT token ID</span>
+              <span className="font-mono text-zinc-300">{identity?.identityNft?.tokenId ?? '—'}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-[var(--muted)]">Agent profile</span>
-              <a href={`/agent/${name}`} target="_blank" rel="noopener noreferrer"
-                className="text-sky-400 hover:underline">Open ↗</a>
+              <span className="text-[var(--muted)]">NFT owner</span>
+              <span className="font-mono text-zinc-400 text-[10px]" title={identity?.identityNft?.owner}>
+                {identity?.identityNft?.owner ? shortAddr(identity.identityNft.owner) : '—'}
+              </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-[var(--muted)]">Edit profile</span>
-              <Link href={`/dashboard/agent-profile?agent=${name}`}
-                className="text-amber-400 hover:underline">Edit ↗</Link>
+              <span className="text-[var(--muted)]">Story IP</span>
+              <span className="font-mono text-zinc-500">not registered</span>
+            </div>
+            <div className="flex justify-between pt-1 border-t border-sky-500/10">
+              <span className="text-[var(--muted)]">Safe Modules</span>
+              <a href={`https://app.safe.global/settings/modules?safe=gno:${identity?.safe ?? ''}`}
+                target="_blank" rel="noopener noreferrer"
+                className="text-sky-400 hover:underline">Configure ↗</a>
             </div>
           </div>
         </div>
