@@ -2,10 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
+
 import HITLPanel from '../../components/HITLPanel';
 import HITLDeployPanel from '../../components/HITLDeployPanel';
 
+const WORKER_URL = process.env.NEXT_PUBLIC_WORKER_URL ?? 'https://nftmail-email-worker.richard-159.workers.dev';
 const GHOST_LOGO = '/ghost-logo.png';
 
 type Tab = 'deploy' | 'manage';
@@ -13,15 +16,37 @@ type Tab = 'deploy' | 'manage';
 export default function HITLPage() {
   const { authenticated } = usePrivy();
   const { wallets } = useWallets();
+  const searchParams = useSearchParams();
   const [tab, setTab] = useState<Tab>('deploy');
   const [safeInput, setSafeInput] = useState('');
 
   const connectedWallet = wallets[0]?.address ?? '';
 
+  // Priority: ?safe param > worker lookup via ?agent param > connected wallet
   useEffect(() => {
+    const safeParam  = searchParams.get('safe');
+    const agentParam = searchParams.get('agent');
+
+    if (safeParam && safeParam.startsWith('0x')) {
+      setSafeInput(safeParam);
+      return;
+    }
+
+    if (agentParam) {
+      fetch(WORKER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'getAgentIdentity', agentName: agentParam }),
+      })
+        .then(r => r.json() as Promise<{ safe?: string }>)
+        .then(d => { if (d.safe) setSafeInput(d.safe); })
+        .catch(() => {});
+      return;
+    }
+
     if (connectedWallet && !safeInput) setSafeInput(connectedWallet);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [connectedWallet]);
+  }, [connectedWallet, searchParams]);
 
   return (
     <div className="space-y-8">

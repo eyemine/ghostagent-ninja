@@ -279,7 +279,8 @@ export default function AgentDetailPage() {
             ))}
           </div>
           <div className="mt-4 pt-3 border-t border-emerald-500/10">
-            <Link href="/dashboard/hitl"
+            <Link
+              href={`/dashboard/hitl?safe=${identity?.safe ?? ''}&agent=${String(name)}`}
               className="text-[10px] text-emerald-400 hover:underline">
               → Manage HITL gates
             </Link>
