@@ -51,7 +51,7 @@ export function DomainCard({ domain, onMint }: DomainCardProps) {
             </span>
             {domain.canEvolve ? (
               <span className="inline-flex items-center rounded-full bg-violet-500/10 px-2 py-0.5 text-[9px] font-semibold text-violet-300 ring-1 ring-violet-500/20">
-                ↑ Can Evolve
+                ↑ Can Cycle
               </span>
             ) : (
               <span className="inline-flex items-center rounded-full bg-zinc-500/10 px-2 py-0.5 text-[9px] font-medium text-zinc-500 ring-1 ring-zinc-500/20">
@@ -80,13 +80,13 @@ export function DomainCard({ domain, onMint }: DomainCardProps) {
             </div>
           </div>
           <div className="rounded-lg border border-[var(--border)] bg-black/20 px-3 py-2">
-            <div className="text-[9px] font-semibold tracking-wider text-[var(--muted)]">DECAY</div>
+            <div className="text-[9px] font-semibold tracking-wider text-[var(--muted)]">HISTORY</div>
             <div className="mt-0.5 text-sm font-semibold text-[#f2eee4]">
-              {domain.decayDays ? `${domain.decayDays}d` : 'None'}
+              {domain.decayDays ? `${domain.decayDays}d` : 'Persistent'}
             </div>
           </div>
           <div className="rounded-lg border border-[var(--border)] bg-black/20 px-3 py-2">
-            <div className="text-[9px] font-semibold tracking-wider text-[var(--muted)]">EVOLVE TO</div>
+            <div className="text-[9px] font-semibold tracking-wider text-[var(--muted)]">CYCLE TO</div>
             <div className={`mt-0.5 text-sm font-semibold ${domain.evolvePath ? domain.accentText : 'text-zinc-600'}`}>
               {domain.evolvePath ?? '—'}
             </div>

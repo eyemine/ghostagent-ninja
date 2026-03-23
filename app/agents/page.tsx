@@ -203,10 +203,10 @@ const DOMAINS: Domain[] = [
     id: 'agent',
     label: 'Agent',
     tld: 'agent.gno',
-    tagline: 'Full agent identity with evolve path',
+    tagline: 'Full agent identity with cycle path',
     mintFee: 10,
     moltFee: 2,
-    evolvePath: 'imago.gno',
+    evolvePath: 'imago/ghost',
     privacyDefault: 'private',
     decayDays: 8,
     canEvolve: true,
@@ -215,43 +215,43 @@ const DOMAINS: Domain[] = [
     accentRing: 'ring-[rgba(176,128,92,0.25)]',
     accentText: 'text-[#b0805c]',
     description:
-      'Pupa → Imago evolve path (+8 xDAI, then +24 xDAI/yr). 8-day decay. Private by default. $10 $HOST staking for 365-day persistence. 10 xDAI mint or molt from Larva · 2 xDAI molt from Pupa. Bundled *.creation.ip + nftmail.box address.',
+      'Pupa → Imago cycle path (+8 xDAI, then +24 xDAI/yr). 8-day history. Private by default. $10 $HOST staking for 365-day persistence. 10 xDAI mint or molt from Larva · 2 xDAI molt from Pupa. Bundled *.creation.ip + nftmail.box address.',
   },
   {
     id: 'openclaw',
     label: 'OpenClaw',
     tld: 'openclaw.gno',
     tagline: 'Full agent with on-chain IP',
-    mintFee: 5,
-    moltFee: 5,
-    evolvePath: 'vault.gno',
-    privacyDefault: 'glassbox',
-    decayDays: null,
+    mintFee: 10,
+    moltFee: 2,
+    evolvePath: 'imago/ghost',
+    privacyDefault: 'private',
+    decayDays: 8,
     canEvolve: true,
     color: 'cyan',
     accentBg: 'bg-cyan-500/10',
     accentRing: 'ring-cyan-500/20',
     accentText: 'text-cyan-300',
     description:
-      'Full-featured agent namespace. Glassbox by default — all work is publicly verifiable. Earns $HOST reputation. Can list on the Marketplace.',
+      'Full-featured agent namespace. Private by default. Earns $HOST reputation. Can list on the Marketplace.',
   },
   {
     id: 'molt',
     label: 'Molt',
     tld: 'molt.gno',
-    tagline: 'Transition namespace during evolution',
+    tagline: '#BuildInPublic / Public email audit trail',
     mintFee: 'free',
     moltFee: 'free',
     evolvePath: null,
     privacyDefault: 'glassbox',
     decayDays: 30,
-    canEvolve: false,
+    canEvolve: true,
     color: 'fuchsia',
     accentBg: 'bg-fuchsia-500/10',
     accentRing: 'ring-fuchsia-500/20',
     accentText: 'text-fuchsia-300',
     description:
-      'Temporary namespace held during a molt cycle. Free to occupy, decays in 30 days. Larva-only — cannot evolve further from molt itself.',
+      'Glassbox by default — all work is publicly verifiable. Public conversations (any OTP comm. protected) + Story Protocol .moltbook.ip IP registration. 30-day history.',
   },
   {
     id: 'picoclaw',
@@ -259,35 +259,35 @@ const DOMAINS: Domain[] = [
     tld: 'picoclaw.gno',
     tagline: 'Larva agent — zero cost entry',
     mintFee: 'free',
-    moltFee: 2,
-    evolvePath: 'openclaw.gno',
-    privacyDefault: 'glassbox',
+    moltFee: 'free',
+    evolvePath: null,
+    privacyDefault: 'private',
     decayDays: 8,
-    canEvolve: true,
+    canEvolve: false,
     color: 'amber',
     accentBg: 'bg-amber-500/10',
     accentRing: 'ring-amber-500/20',
     accentText: 'text-amber-300',
     description:
-      'The free on-ramp. Mint a larva agent with no fees, explore the ecosystem, and evolve up to openclaw when ready. 8-day history window on free tier.',
+      'The free on-ramp. Mint a larva agent with no fees, explore the ecosystem. 8-day inbox history window on free tier.',
   },
   {
     id: 'vault',
     label: 'Vault',
     tld: 'vault.gno',
     tagline: 'Pro agent with persistent storage',
-    mintFee: 10,
-    moltFee: 10,
-    evolvePath: null,
+    mintFee: 24,
+    moltFee: 14,
+    evolvePath: 'ghost',
     privacyDefault: 'private',
     decayDays: null,
-    canEvolve: false,
+    canEvolve: true,
     color: 'emerald',
     accentBg: 'bg-emerald-500/10',
     accentRing: 'ring-emerald-500/20',
     accentText: 'text-emerald-300',
     description:
-      'Top-tier namespace. Private by default, persistent storage, IP protection on Story Protocol, and full $HOST earning. The final evolution target.',
+      'Top-tier namespace. Private by default, persistent storage, IP protection on Story Protocol, and full $HOST earning. 24 xDAI includes 1 year subscription, then 24 xDAI annually.',
   },
   {
     id: 'nftmail',
@@ -295,10 +295,10 @@ const DOMAINS: Domain[] = [
     tld: 'nftmail.gno',
     tagline: 'Identity firewall for your inbox',
     mintFee: 2,
-    moltFee: 'free',
-    evolvePath: 'vault.gno',
+    moltFee: 10,
+    evolvePath: 'imago/ghost',
     privacyDefault: 'private',
-    decayDays: null,
+    decayDays: 30,
     canEvolve: true,
     color: 'rose',
     accentBg: 'bg-rose-500/10',
@@ -348,8 +348,8 @@ function MintModal({ domain, onClose }: { domain: Domain; onClose: () => void })
         <div className="mb-5 grid grid-cols-3 gap-2">
           {[
             { label: 'MINT FEE', value: mintLabel, highlight: domain.mintFee === 'free' },
-            { label: 'DECAY', value: domain.decayDays ? `${domain.decayDays}d` : 'None' , highlight: !domain.decayDays },
-            { label: 'EVOLVE TO', value: domain.evolvePath ?? '—', highlight: !!domain.evolvePath },
+            { label: 'HISTORY', value: domain.decayDays ? `${domain.decayDays}d` : 'Persistent', highlight: !domain.decayDays },
+            { label: 'CYCLE TO', value: domain.evolvePath ?? '—', highlight: !!domain.evolvePath },
           ].map(({ label, value, highlight }) => (
             <div key={label} className="rounded-lg border border-[var(--border)] bg-black/20 px-3 py-2 text-center">
               <div className="text-[9px] font-semibold tracking-wider text-[var(--muted)]">{label}</div>
@@ -511,9 +511,9 @@ export default function AgentsPage() {
 
             <div className="mx-2 h-4 w-px bg-[var(--border)]" />
 
-            <span className="mr-1 text-[10px] font-semibold tracking-wider text-[var(--muted)]">EVOLVE</span>
+            <span className="mr-1 text-[10px] font-semibold tracking-wider text-[var(--muted)]">CYCLE</span>
             <FilterBtn value="all" current={filterEvolve} set={setFilterEvolve} label="All" />
-            <FilterBtn value="can-evolve" current={filterEvolve} set={setFilterEvolve} label="Can Evolve" />
+            <FilterBtn value="can-evolve" current={filterEvolve} set={setFilterEvolve} label="Can Cycle" />
             <FilterBtn value="larva-only" current={filterEvolve} set={setFilterEvolve} label="Larva-only" />
           </div>
 
