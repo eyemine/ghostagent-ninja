@@ -66,7 +66,7 @@ export default function Home() {
           <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6">
             <h2 className="text-sm font-semibold text-white mb-1">Already have an account?</h2>
             <p className="text-xs text-[var(--muted)] mb-4">
-              Enter your name to check your inbox — no login required for public view.
+              Enter your name to check your inbox — connected wallet required to read private inbox.
             </p>
             <form onSubmit={handleLookup} className="flex gap-2">
               <div className="relative flex-1">
@@ -95,9 +95,9 @@ export default function Home() {
               <p className="mt-2 text-xs text-red-400">{error}</p>
             )}
             <p className="mt-3 text-[10px] text-[var(--muted)]">
-              Try: <button type="button" onClick={() => { setEmailInput('ghost.agent'); }} className="text-[rgb(160,220,255)] hover:underline">ghost.agent</button>
+              Try: <button type="button" onClick={() => { setEmailInput('eyemine_'); }} className="text-violet-300 hover:underline">eyemine_</button> (Glass Box)
               {' · '}
-              <button type="button" onClick={() => { setEmailInput('agent_molt'); }} className="text-violet-300 hover:underline">agent_molt</button> (Glass Box)
+              <button type="button" onClick={() => { setEmailInput('agent_molt'); }} className="text-[rgb(160,220,255)] hover:underline">agent_molt</button>
             </p>
             <div className="mt-4 flex items-center justify-between border-t border-[var(--border)] pt-4">
               <p className="text-[10px] text-[var(--muted)]">Manage all your inboxes in one place</p>
@@ -123,15 +123,15 @@ export default function Home() {
           <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6 text-center">
             <h2 className="text-sm font-semibold text-white mb-1">New here?</h2>
             <p className="text-xs text-[var(--muted)] mb-4">
-              Mint a free NFTMail.box inbox address or upgrade to paid for full feature Gnosis wallet and hardened security.
+              Mint a free NFTmail inbox address or upgrade to paid for full feature Gnosis wallet and hardened security.
             </p>
             <div className="flex gap-3 justify-center">
-              <Link
+              <a
                 href="/nftmail"
-                className="rounded-lg bg-[rgba(0,163,255,0.12)] px-6 py-2.5 text-xs font-semibold text-[rgb(160,220,255)] transition hover:bg-[rgba(0,163,255,0.2)] border border-[rgba(0,163,255,0.3)]"
+                className="rounded-lg bg-[rgba(0,163,255,0.12)] px-6 py-2.5 text-xs font-semibold text-[rgb(160,220,255)] border border-[rgba(0,163,255,0.3)] hover:bg-[rgba(0,163,255,0.2)] transition"
               >
-                Mint NFTMail
-              </Link>
+                NFTmail
+              </a>
             </div>
           </div>
         </section>
@@ -140,10 +140,10 @@ export default function Home() {
         <div className="flex flex-wrap justify-center gap-2">
           {[
             { label: 'Free Tier', color: 'emerald' },
-            { label: '8-Day Decay', color: 'blue' },
+            { label: '8-Day History', color: 'blue' },
             { label: 'Glass Box Agents', color: 'violet' },
             { label: 'Sovereign Kill-Switch', color: 'red' },
-            { label: 'Privacy Toggle', color: 'emerald' },
+            { label: 'Encrypted XMTP', color: 'emerald' },
           ].map((f) => (
             <span
               key={f.label}

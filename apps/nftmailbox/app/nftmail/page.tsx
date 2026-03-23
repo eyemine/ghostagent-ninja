@@ -90,8 +90,7 @@ function UpgradeTierPanel({ label, defaultTier }: { label: string; defaultTier: 
         <div className="h-2 w-2 rounded-full bg-amber-400 animate-pulse" />
         <div>
           <p className="text-sm font-semibold text-white">You are a Larva.</p>
-          <p className="text-[11px] text-[var(--muted)]">{label}@nftmail.box · Your shell is temporary (8-day decay). Choose your next stage of metamorphosis.</p>
-          {/* Note: basic=8-day decay, pupa=30-day cycle */}
+          <p className="text-[11px] text-[var(--muted)]">{label}@nftmail.box · Your shell is temporary (8-day history). Cycle to next stage of metamorphosis.</p>
         </div>
         <span className="ml-auto rounded-full px-2 py-0.5 text-[9px] font-semibold ring-1 bg-amber-500/10 text-amber-300 ring-amber-500/20 whitespace-nowrap">LARVA</span>
       </div>
@@ -104,7 +103,7 @@ function UpgradeTierPanel({ label, defaultTier }: { label: string; defaultTier: 
         >
           <div className="flex items-center justify-between mb-2">
             <div>
-              <p className="text-sm font-semibold text-white">Molt to Pupa</p>
+              <p className="text-sm font-semibold text-white">Cycle to Pupa</p>
               <p className="text-[10px] text-[var(--muted)]">Lite tier</p>
             </div>
             <span className="text-lg font-bold text-amber-300">10 xDAI</span>
@@ -129,7 +128,7 @@ function UpgradeTierPanel({ label, defaultTier }: { label: string; defaultTier: 
           </div>
           <ul className="space-y-1 text-[11px] text-[var(--muted)]">
             <li className="flex items-center gap-1.5"><span className="text-emerald-400">✓</span> Everything in Pupa</li>
-            <li className="flex items-center gap-1.5"><span className="text-emerald-400">✓</span> Infinite retention — no 8-day decay</li>
+            <li className="flex items-center gap-1.5"><span className="text-emerald-400">✓</span> Infinite retention — no 8-day history window</li>
             <li className="flex items-center gap-1.5"><span className="text-emerald-400">✓</span> Encrypted KV storage — you own your keys</li>
             <li className="flex items-center gap-1.5"><span className="text-emerald-400">✓</span> Enter GhostAgent molting stream</li>
           </ul>
@@ -261,7 +260,7 @@ function UpgradeTierPanel({ label, defaultTier }: { label: string; defaultTier: 
               <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
               Verifying payment on-chain...
             </span>
-          ) : `Verify & ${selectedTier === 'pro' ? 'Emerge as Imago' : 'Molt to Pupa'} →`}
+          ) : `Verify & ${selectedTier === 'pro' ? 'Emerge as Imago' : 'Cycle to Pupa'} →`}
         </button>
         <p className="text-center text-[10px] text-[var(--muted)]">Payment verified on-chain — no trust required</p>
       </div>
@@ -300,7 +299,7 @@ export default function NftmailPage() {
           <section className="text-center">
             <h1 className="text-3xl font-bold tracking-tight">You are a <span className="text-amber-300">Larva</span>.</h1>
             <p className="mx-auto mt-2 max-w-lg text-sm text-[var(--muted)]">
-              Your shell is temporary (8-day decay). Choose your next stage of metamorphosis.
+              Your shell is temporary (8-day history). Cycle to next stage of metamorphosis.
             </p>
           </section>
 
@@ -430,10 +429,10 @@ export default function NftmailPage() {
                 >
                   {tier !== 'none' ? '✓' : '2'}
                 </div>
-                <h2 className="text-lg font-semibold text-white">Mint NFTMail</h2>
+                <h2 className="text-lg font-semibold text-white">Mint NFTmail</h2>
                 <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-300 ring-1 ring-emerald-500/20">FREE</span>
               </div>
-              <p className="mt-1 ml-8 text-xs text-[var(--muted)]">Mint [name1]-[name2].nftmail.gno → get [name1]-[name2]@nftmail.box. Free — you are born a Larva. 8-day inbox, receive only. Molt to Pupa for a 30-day cycle.</p>
+              <p className="mt-1 ml-8 text-xs text-[var(--muted)]">Mint [name1]-[name2].nftmail.gno → get [name1]-[name2]@nftmail.box. Free — you are born a Larva. 8-day history, receive only. Cycle to Pupa for a 30-day window.</p>
             </div>
             <div className="ml-8">
               {tier !== 'none' ? (
@@ -544,53 +543,58 @@ function MintNFTMailWithCallback({ onMinted, initialName }: { onMinted: (name: s
     : /^[a-z0-9][a-z0-9.-]+$/.test(manualName);      // standard human name
 
   return (
-    <div className="space-y-3">
-      <MintNFTMail initialName={initialName} />
-      {!showManual ? (
+    <div className="space-y-4">
+      {/* Human / Agent tab selector */}
+      <div className="flex rounded-lg border border-[var(--border)] overflow-hidden text-[10px] font-semibold">
         <button
-          onClick={() => setShowManual(true)}
-          className="w-full rounded-lg border border-[var(--border)] bg-black/20 px-4 py-2 text-xs text-[var(--muted)] transition hover:text-white"
+          onClick={() => { setNameType('human'); setManualName(''); }}
+          className={`flex-1 px-3 py-2 transition ${nameType === 'human' ? 'bg-[rgba(0,163,255,0.15)] text-[rgb(160,220,255)]' : 'bg-black/20 text-[var(--muted)] hover:text-white'}`}
         >
-          Already minted? Enter details →
+          Human
         </button>
+        <button
+          onClick={() => { setNameType('agent'); setManualName(''); }}
+          className={`flex-1 px-3 py-2 transition ${nameType === 'agent' ? 'bg-amber-500/15 text-amber-300' : 'bg-black/20 text-[var(--muted)] hover:text-white'}`}
+        >
+          Agent (NFTmail.gno)
+        </button>
+      </div>
+
+      {nameType === 'human' ? (
+        <MintNFTMail initialName={initialName} />
       ) : (
-        <div className="space-y-3 rounded-xl border border-[var(--border)] bg-black/20 p-4">
-          <div className="flex items-center justify-between">
-            <div className="text-[10px] font-semibold tracking-wider text-[var(--muted)]">ALREADY MINTED</div>
-            {/* Human / Agent toggle */}
-            <div className="flex rounded-lg border border-[var(--border)] overflow-hidden text-[10px] font-semibold">
+        <>
+          <MintNFTMail initialName={initialName} />
+          {!showManual ? (
+            <button
+              onClick={() => setShowManual(true)}
+              className="w-full rounded-lg border border-[var(--border)] bg-black/20 px-4 py-2 text-xs text-[var(--muted)] transition hover:text-white"
+            >
+              Already minted? Enter details →
+            </button>
+          ) : (
+            <div className="space-y-3 rounded-xl border border-[var(--border)] bg-black/20 p-4">
+              <div className="text-[10px] font-semibold tracking-wider text-[var(--muted)]">ALREADY MINTED — AGENT</div>
+              <input
+                type="text"
+                value={manualName}
+                onChange={(e) => handleNameChange(e.target.value)}
+                placeholder="Agent name (e.g. ghostbot_)"
+                className="w-full rounded-lg border border-[var(--border)] bg-black/40 px-3 py-2 text-sm text-white placeholder-zinc-600 outline-none focus:border-[rgba(0,163,255,0.5)]"
+              />
+              {manualName && !isValid && (
+                <p className="text-[10px] text-amber-400">Agent names must end with an underscore, e.g. <code>ghostbot_</code></p>
+              )}
               <button
-                onClick={() => { setNameType('human'); setManualName(''); }}
-                className={`px-3 py-1 transition ${nameType === 'human' ? 'bg-[rgba(0,163,255,0.15)] text-[rgb(160,220,255)]' : 'bg-black/20 text-[var(--muted)] hover:text-white'}`}
+                onClick={() => { if (isValid) onMinted(manualName, ''); }}
+                disabled={!isValid}
+                className="w-full rounded-lg bg-[rgba(0,163,255,0.12)] px-4 py-2 text-xs font-semibold text-[rgb(160,220,255)] transition hover:bg-[rgba(0,163,255,0.2)] disabled:opacity-40"
               >
-                Human
-              </button>
-              <button
-                onClick={() => { setNameType('agent'); setManualName(''); }}
-                className={`px-3 py-1 transition ${nameType === 'agent' ? 'bg-amber-500/15 text-amber-300' : 'bg-black/20 text-[var(--muted)] hover:text-white'}`}
-              >
-                Agent
+                Confirm → Evolve to Imago
               </button>
             </div>
-          </div>
-          <input
-            type="text"
-            value={manualName}
-            onChange={(e) => handleNameChange(e.target.value)}
-            placeholder={nameType === 'agent' ? 'Agent name (e.g. ghostbot_)' : 'Name (e.g. alice.ops)'}
-            className="w-full rounded-lg border border-[var(--border)] bg-black/40 px-3 py-2 text-sm text-white placeholder-zinc-600 outline-none focus:border-[rgba(0,163,255,0.5)]"
-          />
-          {nameType === 'agent' && manualName && !isValid && (
-            <p className="text-[10px] text-amber-400">Agent names must end with an underscore, e.g. <code>ghostbot_</code></p>
           )}
-          <button
-            onClick={() => { if (isValid) onMinted(manualName, ''); }}
-            disabled={!isValid}
-            className="w-full rounded-lg bg-[rgba(0,163,255,0.12)] px-4 py-2 text-xs font-semibold text-[rgb(160,220,255)] transition hover:bg-[rgba(0,163,255,0.2)] disabled:opacity-40"
-          >
-            Confirm → Evolve to Imago
-          </button>
-        </div>
+        </>
       )}
     </div>
   );
