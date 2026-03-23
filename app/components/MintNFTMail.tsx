@@ -28,7 +28,7 @@ interface MintResult {
   txHash: string;
 }
 
-export function MintNFTMail({ onMinted }: { onMinted?: (name: string, tba: string) => void } = {}) {
+export function MintNFTMail({ onMinted }: { onMinted?: (name: string, tba: string) => void }) {
   const { authenticated } = usePrivy();
   const { wallets } = useWallets();
   const [name1, setName1] = useState('');
