@@ -523,7 +523,7 @@ function MintModal({ domain, onClose }: { domain: Domain; onClose: () => void })
             Cancel
           </button>
           <button
-            disabled={!canMint || nameStatus.state === 'reserved' || nameStatus.state === 'taken'}
+            disabled={!canMint}
             className={`flex-1 rounded-xl py-2.5 text-sm font-semibold transition disabled:opacity-40 ${domain.accentBg} ${domain.accentText} ring-1 ${domain.accentRing} hover:brightness-125`}
           >
             {nameStatus.state === 'checking' ? 'Checking…' : domain.mintFee === 'free' ? 'Mint Free' : `Mint for ${domain.mintFee} xDAI`}
