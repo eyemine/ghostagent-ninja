@@ -14,7 +14,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useWallets } from '@privy-io/react-auth';
-import { createPublicClient, http, parseAbi, parseEther, formatEther, encodeAbiParameters, parseAbiParameters } from 'viem';
+import { createPublicClient, http, parseAbi, parseEther, formatEther, encodeFunctionData } from 'viem';
 import { gnosis } from 'viem/chains';
 
 const FACTORY_ADDRESS = (
@@ -112,13 +112,11 @@ export default function HITLDeployPanel({ safeAddress }: Props) {
       const threshStr = customThreshold || thresholdXdai;
       const threshWei = parseEther(threshStr);
 
-      const calldata = encodeAbiParameters(
-        parseAbiParameters('address safeAddress, uint256 thresholdWei, uint256 approvalTtlSecs'),
-        [safeAddress as `0x${string}`, threshWei, BigInt(ttlSecs)]
-      );
-      const selector = '0x...'; // createModule(address,uint256,uint256)
-      // selector for createModule(address,uint256,uint256) = 0x3b5e2f0e
-      const data = ('0x3b5e2f0e' + calldata.slice(2)) as `0x${string}`;
+      const data = encodeFunctionData({
+        abi: FACTORY_ABI,
+        functionName: 'createModule',
+        args: [safeAddress as `0x${string}`, threshWei, BigInt(ttlSecs)],
+      });
 
       const wallet = wallets[0];
       const provider = await wallet.getEthereumProvider();
