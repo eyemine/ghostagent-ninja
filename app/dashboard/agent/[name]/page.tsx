@@ -17,6 +17,16 @@ const HITL_ABI = parseAbi([
   'function getPendingCount() view returns (uint256)',
 ]);
 
+const FACTORY_ABI = parseAbi([
+  'function getModule(address safeAddress) view returns (address)',
+]);
+
+const FACTORY_ADDRESS = (
+  process.env.NEXT_PUBLIC_HITL_FACTORY_ADDRESS ?? '0xB2Ad4C8368c8C02976124a5f75F951Fd24C5631D'
+) as `0x${string}`;
+
+const ZERO_ADDR = '0x0000000000000000000000000000000000000000';
+
 const publicClient = createPublicClient({
   chain: gnosis,
   transport: http('https://rpc.gnosischain.com'),
@@ -54,7 +64,6 @@ const SLD_COLOR: Record<SldKey, string> = {
   nftmail:  'text-cyan-300',
 };
 
-const HITL_MODULE = '0x012A0571d0DFd7eF85d0706875FEc39555e99A96' as const;
 
 const TABS = [
   { id: 'overview',  label: '🪪 Overview'    },
@@ -94,19 +103,33 @@ export default function AgentDetailPage() {
       .then(d => d.error ? null : d)
       .catch(() => null);
 
-    // 2. HITL module on-chain reads
-    const hitlP = Promise.all([
-      publicClient.readContract({ address: HITL_MODULE, abi: HITL_ABI, functionName: 'threshold' }),
-      publicClient.readContract({ address: HITL_MODULE, abi: HITL_ABI, functionName: 'emergencyPaused' }),
-      publicClient.readContract({ address: HITL_MODULE, abi: HITL_ABI, functionName: 'getPendingCount' }),
-    ]).then(([thr, paused, pending]) => ({
-      threshold: `${formatEther(thr)} xDAI`,
-      paused: paused as boolean,
-      pending: Number(pending),
-      moduleAddr: HITL_MODULE,
-    })).catch(() => null);
+    // 2. HITL module: look up via factory for this agent's Safe, then read state
+    const hitlP = identityP.then(async id => {
+      const safe = id?.safe;
+      if (!safe) return null;
+      try {
+        const moduleAddr = await publicClient.readContract({
+          address: FACTORY_ADDRESS,
+          abi: FACTORY_ABI,
+          functionName: 'getModule',
+          args: [safe as `0x${string}`],
+        }) as string;
+        if (!moduleAddr || moduleAddr === ZERO_ADDR) return null;
+        const [thr, paused, pending] = await Promise.all([
+          publicClient.readContract({ address: moduleAddr as `0x${string}`, abi: HITL_ABI, functionName: 'threshold' }),
+          publicClient.readContract({ address: moduleAddr as `0x${string}`, abi: HITL_ABI, functionName: 'emergencyPaused' }),
+          publicClient.readContract({ address: moduleAddr as `0x${string}`, abi: HITL_ABI, functionName: 'getPendingCount' }),
+        ]);
+        return {
+          threshold: `${formatEther(thr as bigint)} xDAI`,
+          paused: paused as boolean,
+          pending: Number(pending),
+          moduleAddr,
+        };
+      } catch { return null; }
+    });
 
-    Promise.all([identityP, hitlP]).then(([id, h]) => {
+    Promise.all([identityP, hitlP]).then(([id, h]: [AgentIdentity | null, HITLState | null]) => {
       setIdentity(id);
       setHitl(h);
 
@@ -239,8 +262,8 @@ export default function AgentDetailPage() {
                                             color: hitl?.paused ? 'text-red-300' : 'text-emerald-300' },
               { label: 'Pending Approvals', value: hitl ? String(hitl.pending) : '…',
                                             color: hitl?.pending ? 'text-orange-300' : undefined },
-              { label: 'HITL Module',       value: shortAddr(HITL_MODULE),
-                                            href: `https://gnosisscan.io/address/${HITL_MODULE}` },
+              { label: 'HITL Module',       value: hitl?.moduleAddr ? shortAddr(hitl.moduleAddr) : 'none deployed',
+                                            href: hitl?.moduleAddr ? `https://gnosisscan.io/address/${hitl.moduleAddr}` : undefined },
             ] as Array<{ label: string; value: string; color?: string; href?: string }>).map(row => (
               <div key={row.label} className="flex items-center justify-between gap-4 text-[11px]">
                 <span className="text-[var(--muted)] shrink-0">{row.label}</span>

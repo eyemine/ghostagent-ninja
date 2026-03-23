@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
 import HITLPanel from '../../components/HITLPanel';
@@ -14,8 +14,14 @@ export default function HITLPage() {
   const { authenticated } = usePrivy();
   const { wallets } = useWallets();
   const [tab, setTab] = useState<Tab>('deploy');
+  const [safeInput, setSafeInput] = useState('');
 
   const connectedWallet = wallets[0]?.address ?? '';
+
+  useEffect(() => {
+    if (connectedWallet && !safeInput) setSafeInput(connectedWallet);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connectedWallet]);
 
   return (
     <div className="space-y-8">
@@ -135,8 +141,8 @@ export default function HITLPage() {
                   <div className="flex items-center gap-2">
                     <input
                       type="text"
-                      defaultValue={connectedWallet}
-                      id="safe-address-input"
+                      value={safeInput}
+                      onChange={e => setSafeInput(e.target.value)}
                       className="flex-1 rounded-lg border border-zinc-700/40 bg-zinc-800/30 px-3 py-1.5 font-mono text-[11px] text-zinc-200 focus:outline-none focus:border-[rgba(176,128,92,0.4)]"
                       placeholder="0x… your Gnosis Safe address"
                     />
@@ -144,7 +150,7 @@ export default function HITLPage() {
                   <p className="text-[10px] text-zinc-600">
                     If your Safe address differs from your connected wallet, paste it above.
                   </p>
-                  <HITLDeployPanel safeAddress={connectedWallet} />
+                  <HITLDeployPanel safeAddress={safeInput} />
                 </div>
               ) : (
                 <p className="text-xs text-zinc-500">Connect wallet to continue.</p>
