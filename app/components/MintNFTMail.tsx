@@ -28,7 +28,7 @@ interface MintResult {
   txHash: string;
 }
 
-export function MintNFTMail() {
+export function MintNFTMail({ onMinted }: { onMinted?: (name: string, tba: string) => void } = {}) {
   const { authenticated } = usePrivy();
   const { wallets } = useWallets();
   const [name1, setName1] = useState('');
@@ -137,6 +137,7 @@ export function MintNFTMail() {
       });
       setStep('done');
       setShowModal(true);
+      onMinted?.(label, tbaAddress);
     } catch (err: any) {
       setError(err?.shortMessage || err?.message || 'Minting failed');
       setStep('error');
