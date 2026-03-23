@@ -31,7 +31,7 @@ interface MintResult {
   gasless?: boolean;
 }
 
-export function MintNFTMail({ initialName }: { initialName?: string } = {}) {
+export function MintNFTMail({ initialName }: { initialName?: string }) {
   const { authenticated } = usePrivy();
   const { wallets } = useWallets();
 
