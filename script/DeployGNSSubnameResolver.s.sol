@@ -27,7 +27,7 @@ contract DeployGNSSubnameResolver is Script {
     // ─── Gnosis mainnet addresses ─────────────────────────────────────────────
 
     /// Our GNSRegistry — records subnode → owner at mint time
-    address constant GNS_REGISTRY = 0x0000000000000000000000000000000000000000; // TODO: fill in deployed address
+    address constant GNS_REGISTRY = 0xA505e447474bd1774977510e7a7C9459DA79c4b9;
 
     /// SpaceID SidRegistry on Gnosis mainnet
     address constant SID_REGISTRY = 0x5dC881dDA4e4a8d312be3544AD13118D1a04Cb17;
