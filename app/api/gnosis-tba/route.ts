@@ -45,11 +45,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const saltHex = salt
+      ? (`0x${BigInt(salt).toString(16).padStart(64, '0')}` as `0x${string}`)
+      : (`0x${'00'.repeat(32)}` as `0x${string}`);
+
     const nft = {
       sourceChainId,
       contractAddress: contractAddress as Address,
       tokenId:         BigInt(tokenId),
-      salt:            salt ? BigInt(salt) : 0n,
+      salt:            saltHex,
     };
 
     // If just computing address (no deploy), skip ownership check and wallet
