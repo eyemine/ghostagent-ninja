@@ -30,14 +30,16 @@ export async function POST(req: NextRequest) {
       primaryName?: string;
       tokenId?: string;
       ownerWallet?: string;
+      safeAddress?: string;
       paymentTxHash?: string;
     };
 
-    const { collectionId, primaryName, tokenId, ownerWallet, paymentTxHash } = body;
+    const { collectionId, primaryName, tokenId, ownerWallet, safeAddress, paymentTxHash } = body;
 
     if (!collectionId) return NextResponse.json({ error: 'Missing collectionId' }, { status: 400 });
     if (!primaryName)  return NextResponse.json({ error: 'Missing primaryName' }, { status: 400 });
     if (!ownerWallet || !/^0x[0-9a-fA-F]{40}$/.test(ownerWallet)) return NextResponse.json({ error: 'Missing or invalid ownerWallet' }, { status: 400 });
+    if (!safeAddress || !/^0x[0-9a-fA-F]{40}$/.test(safeAddress)) return NextResponse.json({ error: 'Missing or invalid safeAddress' }, { status: 400 });
 
     // Tier gate — check before any payment is requested
     try {
@@ -70,6 +72,7 @@ export async function POST(req: NextRequest) {
       primaryName,
       tokenId,
       ownerWallet,
+      safeAddress,
       paymentTxHash,
       webhookSecret,
       appUrl: APP_URL,
