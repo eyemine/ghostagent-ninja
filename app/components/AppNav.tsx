@@ -29,8 +29,10 @@ export function AppNav() {
       <header className="hidden md:grid fixed top-0 left-0 right-0 z-40 h-14 border-b border-[var(--border)] bg-[#0f0703]/[0.66] backdrop-blur-md px-8" style={{ gridTemplateColumns: '1fr auto 1fr' }}>
         {/* Logo — left */}
         <div className="flex items-center">
-          <Link href="/" className="tracking-[0.18em] whitespace-nowrap" style={{ fontFamily: 'Ayuthaya, "Courier New", Courier, monospace', fontSize: '0.75rem', color: '#b0805c' }}>
+          <Link href="/" className="flex items-center gap-1.5 tracking-[0.18em] whitespace-nowrap" style={{ fontFamily: 'Ayuthaya, "Courier New", Courier, monospace', fontSize: '0.75rem', color: '#b0805c' }}>
             GHOSTAGENT.NINJA
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="https://gateway.lighthouse.storage/ipfs/bafkreihrbcstovmanpu3fgcpgxregh4krxj2jyvil3vapo2xz4giojulki" alt="beta" style={{ height: '0.45rem', width: 'auto', opacity: 0.85 }} />
           </Link>
         </div>
         {/* Nav — center */}
@@ -61,8 +63,10 @@ export function AppNav() {
       {/* ── Mobile: hamburger dropdown ── */}
       <header className="md:hidden fixed top-0 left-0 right-0 z-40 border-b border-[var(--border)] bg-[#0f0703]/[0.66] backdrop-blur-md">
         <div className="flex h-14 items-center justify-between px-5">
-          <Link href="/" className="tracking-[0.18em]" style={{ fontFamily: 'Ayuthaya, "Courier New", Courier, monospace', fontSize: '0.75rem', color: '#b0805c' }} onClick={() => setMobileOpen(false)}>
+          <Link href="/" className="flex items-center gap-1.5 tracking-[0.18em]" style={{ fontFamily: 'Ayuthaya, "Courier New", Courier, monospace', fontSize: '0.75rem', color: '#b0805c' }} onClick={() => setMobileOpen(false)}>
             GHOSTAGENT.NINJA
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="https://gateway.lighthouse.storage/ipfs/bafkreihrbcstovmanpu3fgcpgxregh4krxj2jyvil3vapo2xz4giojulki" alt="beta" style={{ height: '0.45rem', width: 'auto', opacity: 0.85 }} />
           </Link>
           <div className="flex items-center gap-2">
             <div id="nav-connect-slot-mobile" />

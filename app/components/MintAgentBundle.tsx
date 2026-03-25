@@ -24,7 +24,11 @@ interface MintAgentBundleProps {
   safeAddress: `0x${string}`;
   namespace?: string;
   disabled?: boolean;
+  ensProof?: { name: string };  // if set, qualifies for free agent.gno mint
 }
+
+// Namespaces where treasury pays gas — user signs nothing
+const GASLESS_NAMESPACES = ['picoclaw'] as const;
 
 type Step = 'idle' | 'gnosis' | 'story' | 'email' | 'done' | 'error';
 
@@ -40,8 +44,10 @@ interface BundleResult {
   email?: string;
 }
 
-export function MintAgentBundle({ agentName, safeAddress, namespace = 'agent', disabled = false }: MintAgentBundleProps) {
+export function MintAgentBundle({ agentName, safeAddress, namespace = 'agent', disabled = false, ensProof }: MintAgentBundleProps) {
   const isSelfContained = (SELF_CONTAINED_NAMESPACES as readonly string[]).includes(namespace);
+  const isGasless = (GASLESS_NAMESPACES as readonly string[]).includes(namespace)
+    || (namespace === 'agent' && !!ensProof);
   const { authenticated } = usePrivy();
   const { wallets } = useWallets();
   const [step, setStep] = useState<Step>('idle');
@@ -59,9 +65,44 @@ export function MintAgentBundle({ agentName, safeAddress, namespace = 'agent', d
     setError(null);
     setResult({});
 
+    const wallet = wallets[0];
+
     try {
-      // ── Step 1: Mint [name].agent.gno on Gnosis ──
-      const wallet = wallets[0];
+      // ── GASLESS PATH: treasury pays gas (picoclaw.gno free tier / ENS-holder agent.gno) ──
+      if (isGasless) {
+        const gaslessRes = await fetch('/api/gasless-mint', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            label: agentName,
+            owner: wallet.address,
+            namespace,
+            ...(ensProof ? { ensProof } : {}),
+          }),
+        });
+        const gaslessData = await gaslessRes.json() as {
+          success?: boolean;
+          txHash?: string;
+          tbaAddress?: string;
+          fullName?: string;
+          email?: string;
+          error?: string;
+        };
+        if (!gaslessData.success || gaslessData.error) {
+          throw new Error(gaslessData.error || 'Gasless mint failed');
+        }
+        setResult({
+          tbaAddress: gaslessData.tbaAddress,
+          gnosisTxHash: gaslessData.txHash,
+          fullDomain: gaslessData.fullName,
+          email: gaslessData.email,
+        });
+        setStep('done');
+        setShowModal(true);
+        return;
+      }
+
+      // ── STANDARD PATH: user signs + pays gas ──────────────────────────────
       await wallet.switchChain(gnosis.id);
       const provider = await wallet.getEthereumProvider();
 
@@ -178,7 +219,7 @@ export function MintAgentBundle({ agentName, safeAddress, namespace = 'agent', d
       setError(err?.shortMessage || err?.message || 'Minting failed');
       setStep('error');
     }
-  }, [authenticated, wallets, agentName, safeAddress]);
+  }, [authenticated, wallets, agentName, safeAddress, isGasless, namespace, ensProof, isSelfContained]);
 
   if (!authenticated) return null;
 
@@ -242,7 +283,7 @@ export function MintAgentBundle({ agentName, safeAddress, namespace = 'agent', d
               <path d="M17 12h.01" />
               <path d="M7 12h.01" />
             </svg>
-            Mint Agent Bundle
+            {isGasless ? 'Free Mint — No Gas Required' : 'Mint Agent Bundle'}
           </>
         ) : step === 'done' ? (
           <>
