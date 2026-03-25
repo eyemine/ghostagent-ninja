@@ -8,19 +8,26 @@
  * Flow:
  *   1. Verify caller owns tokenId on the collection's chain
  *   2. Verify 2 xDAI fee payment on Gnosis
- *   3. Mint beacon NFT: {prefix}.{tokenId}.nftmail.gno
- *   4. Register alias: {PREFIX}_{tokenId}_@nftmail.box → primaryName
+ *   3. Deploy Gnosis-side ERC-6551 TBA for the legacy NFT (deterministic, idempotent)
+ *   4. Mint beacon NFT: {prefix}.{tokenId}.nftmail.gno — owned by the Gnosis TBA
  *   5. Record molt + upgrade tier larva→pupa if needed
+ *
+ * Ownership chain (transfer-safe):
+ *   Legacy NFT (any chain) → Gnosis TBA → owns beacon NFT → beacon TBA → Safe signer
+ *   Transfer legacy NFT → new owner controls TBA → controls Safe → inherits everything
  */
 
 import {
   getCollection,
   verifyNFTOwnership,
-  moltEmailLocalPart,
   moltBeaconLabel,
   type CollectionConfig,
 } from './collection-registry';
 import { verifyFeePayment } from './chonk-molt';
+import { prepareMolt, type LegacyNft } from './gnosis-tba';
+import { createWalletClient, http, type Address } from 'viem';
+import { gnosis } from 'viem/chains';
+import { privateKeyToAccount } from 'viem/accounts';
 
 const NFTMAIL_WORKER_URL =
   process.env.NFTMAIL_WORKER_URL ||
@@ -32,7 +39,8 @@ export interface CollectionMoltParams {
   collectionId: string;     // e.g. 'chonk' | 'pownft' | 'punks' | 'normies'
   primaryName: string;      // bare agent name, no _
   tokenId: string;          // NFT token ID
-  ownerWallet: string;      // caller's EVM address
+  ownerWallet: string;      // caller's EVM address (used for fee verification only)
+  safeAddress: string;      // agent's Gnosis Safe — TBA will be added as signer here
   paymentTxHash: string;    // Gnosis tx hash proving 2 xDAI fee
   webhookSecret: string;
   appUrl: string;
@@ -41,29 +49,53 @@ export interface CollectionMoltParams {
 export interface CollectionMoltResult {
   status: 'ok';
   collection: string;
-  primaryEmail: string;
-  aliasEmail: string;
+  tbaAddress: string;       // Gnosis TBA deployed for the legacy NFT
   beaconNft: string;
   beaconTxHash: string;
   beaconTokenId: number | null;
-  displayEmail: 'alias';
+  safeAddress: string;      // Safe that TBA signs for
   message: string;
 }
 
 export interface CollectionMoltError {
   status: 'error';
   error: string;
-  step: 'collection' | 'ownership' | 'fee' | 'beacon-mint' | 'alias' | 'worker';
+  step: 'collection' | 'ownership' | 'fee' | 'tba-deploy' | 'beacon-mint' | 'worker';
 }
 
 export type CollectionMoltOutcome = CollectionMoltResult | CollectionMoltError;
 
-// ─── Mint beacon NFT via gnosis-mint API ─────────────────────────────────────
+// ─── Deploy Gnosis TBA for legacy NFT ────────────────────────────────────────
+
+async function deployTba(
+  collection: CollectionConfig,
+  tokenId: string,
+  ownerWallet: string,
+): Promise<{ success: boolean; tbaAddress?: string; error?: string }> {
+  const rawKey = process.env.PRIVATE_KEY || process.env.TREASURY_PRIVATE_KEY;
+  if (!rawKey) return { success: false, error: 'Treasury key not configured' };
+  const normalizedKey = rawKey.startsWith('0x') ? rawKey as `0x${string}` : `0x${rawKey}` as `0x${string}`;
+  const account      = privateKeyToAccount(normalizedKey);
+  const walletClient = createWalletClient({ chain: gnosis, transport: http(), account });
+
+  const nft: LegacyNft = {
+    sourceChainId:   collection.chainId,
+    contractAddress: collection.contract as Address,
+    tokenId:         BigInt(tokenId),
+  };
+
+  const result = await prepareMolt({ nft, claimedOwner: ownerWallet as Address, walletClient });
+  if (!result.verified) return { success: false, error: result.error };
+  if (!result.tbaAddress) return { success: false, error: result.error ?? 'TBA deployment failed' };
+  return { success: true, tbaAddress: result.tbaAddress };
+}
+
+// ─── Mint beacon NFT to Gnosis TBA (not EOA) ─────────────────────────────────
 
 async function mintBeacon(
   collection: CollectionConfig,
   tokenId: string,
-  ownerWallet: string,
+  tbaAddress: string,   // beacon NFT minted to the Gnosis TBA, not the user's EOA
   appUrl: string,
 ): Promise<{ success: boolean; txHash?: string; tokenId?: number | null; beaconNft?: string; error?: string }> {
   const label = moltBeaconLabel(collection, tokenId);
@@ -73,57 +105,23 @@ async function mintBeacon(
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         label,
-        ownerWallet,
+        ownerWallet: tbaAddress,   // TBA owns the beacon NFT — transfers with legacy NFT
         legacyIdentity: label,
         privacyTier: 'private',
       }),
     });
-    const data = await res.json() as any;
+    const data = await res.json() as unknown as Record<string, unknown>;
     if (!res.ok || !data.success) {
-      return { success: false, error: data.error ?? 'Beacon mint failed' };
+      return { success: false, error: (data.error as string) ?? 'Beacon mint failed' };
     }
     return {
       success: true,
-      txHash: data.txHash,
-      tokenId: data.tokenId ?? null,
+      txHash: data.txHash as string,
+      tokenId: (data.tokenId as number) ?? null,
       beaconNft: `${label}.nftmail.gno`,
     };
-  } catch (err: any) {
-    return { success: false, error: err?.message ?? 'Beacon mint failed' };
-  }
-}
-
-// ─── Register alias in worker KV ─────────────────────────────────────────────
-
-async function registerAlias(
-  collection: CollectionConfig,
-  primaryName: string,
-  tokenId: string,
-  ownerWallet: string,
-): Promise<{ success: boolean; aliasEmail: string; error?: string }> {
-  const aliasLocalPart = moltEmailLocalPart(collection, tokenId);
-  const aliasEmail = `${aliasLocalPart}@nftmail.box`;
-  try {
-    const res = await fetch(NFTMAIL_WORKER_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: 'createAlias',
-        primaryName,
-        aliasLocalPart,
-        collectionName: collection.id,
-        tokenId,
-        ownerAddress: ownerWallet.toLowerCase(),
-        displayEmail: 'alias',
-      }),
-    });
-    const data = await res.json() as any;
-    if (!res.ok) {
-      return { success: false, aliasEmail, error: data.error ?? 'Alias registration failed' };
-    }
-    return { success: true, aliasEmail };
-  } catch (err: any) {
-    return { success: false, aliasEmail, error: err?.message ?? 'Alias registration failed' };
+  } catch (err: unknown) {
+    return { success: false, error: err instanceof Error ? err.message : 'Beacon mint failed' };
   }
 }
 
@@ -134,6 +132,8 @@ async function recordMolt(
   primaryName: string,
   tokenId: string,
   ownerWallet: string,
+  tbaAddress: string,
+  safeAddress: string,
   beaconNft: string,
   beaconTxHash: string,
   webhookSecret: string,
@@ -150,6 +150,8 @@ async function recordMolt(
         collectionName: collection.id,
         tokenId,
         ownerAddress: ownerWallet.toLowerCase(),
+        tbaAddress,
+        safeAddress,
         beaconNft,
         beaconTxHash,
         moltedAt: Date.now(),
@@ -174,7 +176,7 @@ async function recordMolt(
 export async function runCollectionMolt(
   params: CollectionMoltParams,
 ): Promise<CollectionMoltOutcome> {
-  const { collectionId, primaryName, tokenId, ownerWallet, paymentTxHash, webhookSecret, appUrl } = params;
+  const { collectionId, primaryName, tokenId, ownerWallet, safeAddress, paymentTxHash, webhookSecret, appUrl } = params;
 
   // 0. Resolve collection from registry
   const collection = getCollection(collectionId);
@@ -204,31 +206,36 @@ export async function runCollectionMolt(
     return { status: 'error', step: 'fee', error: fee.error ?? 'Fee verification failed' };
   }
 
-  // 3. Mint beacon NFT
-  const beacon = await mintBeacon(collection, tokenId, ownerWallet, appUrl);
+  // 3. Deploy Gnosis-side ERC-6551 TBA for the legacy NFT (idempotent)
+  //    Beacon NFT will be minted to this TBA — ownership chain is:
+  //    legacy NFT holder (EOA) → controls TBA → owns beacon NFT → Safe signer
+  const tba = await deployTba(collection, tokenId, ownerWallet);
+  if (!tba.success || !tba.tbaAddress) {
+    return { status: 'error', step: 'tba-deploy', error: tba.error ?? 'TBA deployment failed' };
+  }
+
+  // 4. Mint beacon NFT — owner = Gnosis TBA (not user EOA)
+  const beacon = await mintBeacon(collection, tokenId, tba.tbaAddress, appUrl);
   if (!beacon.success) {
     return { status: 'error', step: 'beacon-mint', error: beacon.error ?? 'Beacon mint failed' };
   }
 
-  // 4. Register alias
-  const alias = await registerAlias(collection, primaryName, tokenId, ownerWallet);
-  if (!alias.success) {
-    return { status: 'error', step: 'alias', error: alias.error ?? 'Alias registration failed' };
-  }
-
   // 5. Record molt + upgrade tier (non-fatal)
-  await recordMolt(collection, primaryName, tokenId, ownerWallet, beacon.beaconNft!, beacon.txHash!, webhookSecret);
+  await recordMolt(
+    collection, primaryName, tokenId, ownerWallet,
+    tba.tbaAddress, safeAddress,
+    beacon.beaconNft!, beacon.txHash!,
+    webhookSecret,
+  );
 
-  const aliasLocalPart2 = moltEmailLocalPart(collection, tokenId);
   return {
     status: 'ok',
     collection: collection.name,
-    primaryEmail: `${primaryName}_@nftmail.box`,
-    aliasEmail: `${aliasLocalPart2}@nftmail.box`,
+    tbaAddress: tba.tbaAddress,
     beaconNft: beacon.beaconNft!,
     beaconTxHash: beacon.txHash!,
     beaconTokenId: beacon.tokenId ?? null,
-    displayEmail: 'alias',
-    message: `${collection.name} Molt Complete: Now ${aliasLocalPart2}@nftmail.box`,
+    safeAddress,
+    message: `${collection.name} Molt Complete: ${collection.name} #${tokenId} TBA is now a key to your Safe`,
   };
 }
