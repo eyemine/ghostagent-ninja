@@ -18,6 +18,8 @@ import {
   createWalletClient,
   http,
   decodeEventLog,
+  keccak256,
+  encodePacked,
   type Address,
   type Chain,
 } from 'viem';
@@ -40,6 +42,32 @@ const VIEM_CHAINS: Record<string, Chain> = {
 
 const LIGHTHOUSE_UPLOAD = 'https://node.lighthouse.storage/api/v0/add';
 const IPFS_GATEWAY      = 'https://gateway.lighthouse.storage/ipfs';
+
+// GNSSubnameResolver v2 — records Safe address for each agent subname at registration time
+const GNS_SUBNAME_RESOLVER = '0xc97c7166b7445a6997e22f022d58af7984be5508' as Address;
+
+// Registrar parentNode per agent SLD (Gnosis mainnet) — used to compute subnode key
+// matching what BaseRegistrar.mintSubname() stores in GNSRegistry
+const SLD_REGISTRAR_PARENT: Record<string, `0x${string}`> = {
+  molt:     '0x2c3f063f5a65d02d86b6f32a82c28f1056e75cdb3e115b85db43641f5615a070',
+  openclaw: '0xe984888fc91846ebd28e3c10ec974046b42f874e0e99a74f4b6d0ffc4b2282e8',
+  agent:    '0x35823db1c5b5d48f4fc11264564abf99cdc2b964c459fa7e4cbc1bff9ce8b0a8',
+  picoclaw: '0xc6775facefea31912c74e717ff29394ef9eff5731ef7debc377f2c5e24d3f418',
+  vault:    '0xca63a47ebf42451e19c747fe7674898aac15e2b132dd9545ebe97f472bb5c0b2',
+};
+
+const ResolverABI = [
+  {
+    name: 'setSafe',
+    type: 'function',
+    inputs: [
+      { name: 'subnodeKey', type: 'bytes32' },
+      { name: 'safe',       type: 'address' },
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+] as const;
 
 const IdentityRegistryABI = [
   {
@@ -202,6 +230,25 @@ export async function POST(req: NextRequest) {
         kvStored = kvRes.ok;
       } catch {
         // Non-fatal
+      }
+    }
+
+    // ─── Step 7: Record Safe in GNSSubnameResolver (Gnosis agent SLDs only) ───
+    // Non-fatal. Enables subname.[sld].gno → Safe ENS resolution stable across molts.
+    if (chainConfig.chainId === 100 && SLD_REGISTRAR_PARENT[sld] && ownerWallet) {
+      try {
+        const parentNode = SLD_REGISTRAR_PARENT[sld];
+        const labelHash  = keccak256(encodePacked(['string'], [agentName]));
+        const subnodeKey = keccak256(encodePacked(['bytes32', 'bytes32'], [parentNode, labelHash]));
+        const gnosisWallet = createWalletClient({ chain: gnosis, transport: http(), account });
+        await gnosisWallet.writeContract({
+          address:      GNS_SUBNAME_RESOLVER,
+          abi:          ResolverABI,
+          functionName: 'setSafe',
+          args:         [subnodeKey, ownerWallet as Address],
+        });
+      } catch {
+        // Non-fatal — resolver Safe record is best-effort
       }
     }
 
