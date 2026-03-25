@@ -304,10 +304,17 @@ function extractBodyFromMime(rawMime: string): string {
           htmlText = partBody;
         }
       }
-      if (plainText) return plainText;
+      // Only use text/plain if it has meaningful content — Google Calendar
+      // and some mailers emit a near-empty text/plain with only injected CSS
+      // class names (e.g. "div.zm_230163964513614591") while the actual
+      // meeting details live in text/html. Fall through to HTML strip if
+      // the plaintext part is suspiciously short.
+      const plainTextTrimmed = plainText.replace(/\s+/g, ' ').trim();
+      if (plainTextTrimmed.length > 50) return plainText;
       if (htmlText) {
         return stripHtmlToText(htmlText);
       }
+      if (plainText) return plainText;
     }
   }
 
@@ -2603,7 +2610,7 @@ export default {
             };
 
             // Kick off Zoho delete in parallel with KV writes to minimise cleartext window
-            const EXEMPT_FROM_DELETE = ['admin'];
+            const EXEMPT_FROM_DELETE = ['admin', 'ghostagent'];
             const deletePromise: Promise<boolean> = (!EXEMPT_FROM_DELETE.includes(agentName) && zohoMessageId)
               ? getZohoAccessToken(env).then(tok =>
                   tok ? zohoDeleteMessage(env, tok, zohoMessageId).then(r => {
@@ -2801,6 +2808,62 @@ export default {
           }
 
           return corsify(Response.json({ error: 'Unclassified stream' }, { status: 400 }), request);
+        }
+
+        // --- Mailgun Inbound Webhook ---
+        // Mailgun receives *@nftmail.box (MX → Mailgun) → POST multipart/form-data here.
+        // We verify the Mailgun webhook HMAC, normalise the payload to match the ghostRoute
+        // data shape, then run the same classify → encrypt → KV path.
+        // No Zoho involved — zero cleartext retention window.
+        if (email.action === 'mailgunInbound') {
+          // Mailgun sends multipart/form-data — we receive it pre-parsed as JSON from
+          // a thin Netlify function that converts it, OR directly if the worker parses it.
+          // Expected fields (after normalisation by caller):
+          //   recipient, sender, subject, bodyPlain, bodyHtml, timestamp, token, signature
+          const mgTimestamp  = String((email as any).timestamp || '');
+          const mgToken      = String((email as any).token || '');
+          const mgSignature  = String((email as any).signature || '');
+          const mgApiKey     = env.MAILGUN_API_KEY || '';
+
+          // Verify Mailgun HMAC-SHA256 signature
+          if (mgApiKey && mgTimestamp && mgToken && mgSignature) {
+            const signingKey = new TextEncoder().encode(mgApiKey);
+            const message    = new TextEncoder().encode(mgTimestamp + mgToken);
+            const cryptoKey  = await crypto.subtle.importKey('raw', signingKey, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+            const mac        = await crypto.subtle.sign('HMAC', cryptoKey, message);
+            const expected   = Array.from(new Uint8Array(mac)).map(b => b.toString(16).padStart(2, '0')).join('');
+            if (expected !== mgSignature) {
+              return corsify(Response.json({ error: 'Invalid Mailgun signature' }, { status: 401 }), request);
+            }
+          }
+
+          // Normalise to ghostRoute shape and re-dispatch internally
+          const normalisedPayload = {
+            action:    'ghostRoute',
+            recipient: (email as any).recipient || (email as any).to || '',
+            from:      (email as any).sender    || (email as any).from || '',
+            subject:   (email as any).subject   || '',
+            // Prefer stripped-text > body-plain > html-stripped
+            content:   (email as any).strippedText
+                       || (email as any).bodyPlain
+                       || (email as any).bodyHtml
+                       || '',
+            // Mailgun doesn't have a Zoho messageId — use a deterministic ID
+            zohoMessageId: null,
+            // Pass through so ghostRoute skips Zoho delete (no Zoho message to delete)
+            skipZohoDelete: true,
+            // Preserve webhook secret passthrough
+            webhookSecret: env.ZOHO_WEBHOOK_SECRET,
+          };
+
+          // Re-invoke ghostRoute logic by mutating the parsed payload and falling through.
+          // We do this by creating a synthetic request pointing at the same worker.
+          const syntheticReq = new Request(request.url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(normalisedPayload),
+          });
+          return fetch(syntheticReq);
         }
 
         // --- Molt Upgrade: Register a Zoho Seat for a human ---
@@ -4033,7 +4096,7 @@ export default {
       }
 
       const timestamp = Date.now();
-      const EXEMPT_FROM_DELETE = ['admin'];
+      const EXEMPT_FROM_DELETE = ['admin', 'ghostagent'];
 
       if (stream === 'human') {
         // Human stream: store cleartext in KV + delete from Zoho
