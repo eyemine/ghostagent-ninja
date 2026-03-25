@@ -67,6 +67,28 @@ const ResolverABI = [
     outputs: [],
     stateMutability: 'nonpayable',
   },
+  {
+    name: 'setText',
+    type: 'function',
+    inputs: [
+      { name: 'node',  type: 'bytes32' },
+      { name: 'key',   type: 'string'  },
+      { name: 'value', type: 'string'  },
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    name: 'bulkSetText',
+    type: 'function',
+    inputs: [
+      { name: 'nodes',  type: 'bytes32[]' },
+      { name: 'keys',   type: 'string[]'  },
+      { name: 'values', type: 'string[]'  },
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
 ] as const;
 
 const IdentityRegistryABI = [
@@ -143,11 +165,13 @@ export async function POST(req: NextRequest) {
       agentName?: string;
       sld?: string;
       ownerWallet?: string;
+      safeAddress?: string;   // Gnosis Safe — stored in resolver; falls back to ownerWallet
       imageCid?: string;
+      genomeCid?: string;     // Lighthouse CID of pinned GenomeMetadata JSON
       network?: string;
     };
 
-    const { agentName, sld: sldParam, ownerWallet, imageCid, network } = body;
+    const { agentName, sld: sldParam, ownerWallet, safeAddress, imageCid, genomeCid, network } = body;
     const chainKey: Erc8004ChainKey = (network === 'base' || network === 'baseSepolia') ? network : 'gnosis';
     const chainCfg  = ERC8004_CHAIN_CONFIG[chainKey];
     const viemChain = VIEM_CHAINS[chainKey] ?? gnosis;
@@ -233,22 +257,55 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // ─── Step 7: Record Safe in GNSSubnameResolver (Gnosis agent SLDs only) ───
-    // Non-fatal. Enables subname.[sld].gno → Safe ENS resolution stable across molts.
+    // ─── Step 7: Record Safe + genome CID as on-chain text records ─────────────
+    // Non-fatal. Enables:
+    //   subname.[sld].gno → Safe address (addr() resolution)
+    //   text(node, "genome")   → Lighthouse IPFS CID of GenomeMetadata JSON
+    //   text(node, "agentURI") → ERC-8004 agent-card URL
+    //   text(node, "url")      → ghostagent.ninja agent page
+    // On NFT sale, the Safe + genome pointer survive on-chain. KV is cache-only.
     if (chainConfig.chainId === 100 && SLD_REGISTRAR_PARENT[sld] && ownerWallet) {
       try {
-        const parentNode = SLD_REGISTRAR_PARENT[sld];
-        const labelHash  = keccak256(encodePacked(['string'], [agentName]));
-        const subnodeKey = keccak256(encodePacked(['bytes32', 'bytes32'], [parentNode, labelHash]));
+        const parentNode   = SLD_REGISTRAR_PARENT[sld];
+        const labelHash    = keccak256(encodePacked(['string'], [agentName]));
+        const subnodeKey   = keccak256(encodePacked(['bytes32', 'bytes32'], [parentNode, labelHash]));
+        const resolvedSafe = (safeAddress ?? ownerWallet) as Address;
         const gnosisWallet = createWalletClient({ chain: gnosis, transport: http(), account });
+
+        // setSafe — addr() resolution → Safe
         await gnosisWallet.writeContract({
           address:      GNS_SUBNAME_RESOLVER,
           abi:          ResolverABI,
           functionName: 'setSafe',
-          args:         [subnodeKey, ownerWallet as Address],
+          args:         [subnodeKey, resolvedSafe],
+        });
+
+        // bulkSetText — store genome CID + agentURI + url on-chain (owner = treasury, authorised)
+        const textKeys: string[]   = ['agentURI', 'url'];
+        const textVals: string[]   = [
+          agentURI,
+          `https://ghostagent.ninja/agent/${agentName}`,
+        ];
+        if (genomeCid) {
+          textKeys.push('genome');
+          textVals.push(`ipfs://${genomeCid}`);
+        }
+        if (imageCid) {
+          textKeys.push('avatar');
+          textVals.push(`ipfs://${imageCid}`);
+        }
+        await gnosisWallet.writeContract({
+          address:      GNS_SUBNAME_RESOLVER,
+          abi:          ResolverABI,
+          functionName: 'bulkSetText',
+          args:         [
+            Array(textKeys.length).fill(subnodeKey) as `0x${string}`[],
+            textKeys,
+            textVals,
+          ],
         });
       } catch {
-        // Non-fatal — resolver Safe record is best-effort
+        // Non-fatal — resolver text records are best-effort
       }
     }
 
