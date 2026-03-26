@@ -31,8 +31,7 @@ export function AppNav() {
         <div className="flex items-center">
           <Link href="/" className="flex items-center gap-1.5 tracking-[0.18em] whitespace-nowrap" style={{ fontFamily: 'Ayuthaya, "Courier New", Courier, monospace', fontSize: '0.75rem', color: '#b0805c' }}>
             GHOSTAGENT.NINJA
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="https://gateway.lighthouse.storage/ipfs/bafkreihrbcstovmanpu3fgcpgxregh4krxj2jyvil3vapo2xz4giojulki" alt="beta" style={{ height: '0.45rem', width: 'auto', opacity: 0.85 }} />
+            <span style={{ fontSize: '0.55rem', letterSpacing: '0.12em', color: '#b0805c', border: '1px solid #b0805c', borderRadius: '3px', padding: '0px 4px', opacity: 0.75, fontFamily: 'monospace', lineHeight: 1 }}>BETA</span>
           </Link>
         </div>
         {/* Nav — center */}
@@ -65,8 +64,7 @@ export function AppNav() {
         <div className="flex h-14 items-center justify-between px-5">
           <Link href="/" className="flex items-center gap-1.5 tracking-[0.18em]" style={{ fontFamily: 'Ayuthaya, "Courier New", Courier, monospace', fontSize: '0.75rem', color: '#b0805c' }} onClick={() => setMobileOpen(false)}>
             GHOSTAGENT.NINJA
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="https://gateway.lighthouse.storage/ipfs/bafkreihrbcstovmanpu3fgcpgxregh4krxj2jyvil3vapo2xz4giojulki" alt="beta" style={{ height: '0.45rem', width: 'auto', opacity: 0.85 }} />
+            <span style={{ fontSize: '0.55rem', letterSpacing: '0.12em', color: '#b0805c', border: '1px solid #b0805c', borderRadius: '3px', padding: '0px 4px', opacity: 0.75, fontFamily: 'monospace', lineHeight: 1 }}>BETA</span>
           </Link>
           <div className="flex items-center gap-2">
             <div id="nav-connect-slot-mobile" />
