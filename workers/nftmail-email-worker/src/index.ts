@@ -850,7 +850,97 @@ function corsify(response: Response, request: Request): Response {
   });
 }
 
-const exportedHandler = {
+async function handleMailgunPayload(
+  mgEmail: Record<string, unknown>,
+  env: Env,
+  request: Request,
+): Promise<Response> {
+  const timestamp = Date.now();
+  const rawRecipient = String(mgEmail['recipient'] || mgEmail['to'] || '');
+  const recipientLocal = rawRecipient.split('@')[0] || '';
+  const normalisedRecipient = (recipientLocal && !recipientLocal.includes('.') && !recipientLocal.endsWith('_'))
+    ? `${recipientLocal}_@nftmail.box`
+    : rawRecipient;
+
+  let recipient = normalisedRecipient.replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+  recipient = recipient.replace(/.*</, '').replace(/>.*/, '').trim();
+
+  const classified = classifyRecipient(recipient);
+  const { stream, localPart, agentName, collectionName, tokenId, collection } = classified;
+
+  if (stream === 'unknown' || !localPart) {
+    return corsify(Response.json({ error: 'Invalid recipient format', recipient }, { status: 400 }), request);
+  }
+
+  const sender = String(mgEmail['sender'] || mgEmail['from'] || '');
+  const subject = String(mgEmail['subject'] || '');
+  const body = String(mgEmail['strippedText'] || mgEmail['bodyPlain'] || mgEmail['bodyHtml'] || '');
+
+  console.log(`[mailgunInbound] recipient=${recipient} agentName=${agentName} stream=${stream}`);
+
+  if (stream === 'human') {
+    let ownerAddress: string | null = null;
+    if (collection && tokenId) {
+      ownerAddress = await verifyNFTOwner(collection, tokenId);
+      if (!ownerAddress) {
+        return corsify(Response.json({
+          error: `Token #${tokenId} not found in ${collection.displayName}`,
+          stream: 'human', tokenId,
+        }, { status: 404 }), request);
+      }
+    }
+    const blindId = `blind-${timestamp}-${crypto.randomUUID().slice(0, 8)}`;
+    const plaintextPayload = JSON.stringify({ from: sender, to: recipient, subject, body, timestamp });
+    const plaintextHash = await sha256Hex(plaintextPayload);
+    const envelope = {
+      type: 'human-cleartext', encrypted: false,
+      payload: JSON.parse(plaintextPayload), plaintextHash,
+      recipient: agentName, receivedAt: timestamp,
+    };
+    await env.INBOX_KV.put(`blind:${agentName}:${blindId}`, JSON.stringify(envelope), { expirationTtl: 8 * 24 * 60 * 60 });
+    await updateBlindIndex(env, agentName, blindId);
+    return corsify(Response.json({ status: 'received', stream: 'human', blindId, plaintextHash, recipient: agentName }), request);
+  }
+
+  if (stream === 'agent') {
+    const isGlassbox = await isPublicAgent(agentName, env);
+    if (isGlassbox) {
+      const blindId = `blind-${timestamp}-${crypto.randomUUID().slice(0, 8)}`;
+      const plaintextPayload = JSON.stringify({ from: sender, to: recipient, subject, body, timestamp });
+      const plaintextHash = await sha256Hex(plaintextPayload);
+      const envelope = { type: 'agent-glassbox-cleartext', encrypted: false, payload: JSON.parse(plaintextPayload), plaintextHash, recipient: agentName, receivedAt: timestamp };
+      await env.INBOX_KV.put(`blind:${agentName}:${blindId}`, JSON.stringify(envelope), { expirationTtl: 8 * 24 * 60 * 60 });
+      await updateBlindIndex(env, agentName, blindId);
+      return corsify(Response.json({ status: 'received', stream: 'agent', agentType: 'glassbox', blindId, plaintextHash, recipient: agentName }), request);
+    }
+
+    const pubKeyHex = await env.INBOX_KV.get(`ecies-pubkey:${agentName}`);
+    if (!pubKeyHex) {
+      const blindId = `blind-${timestamp}-${crypto.randomUUID().slice(0, 8)}`;
+      const plaintextPayload = JSON.stringify({ from: sender, to: recipient, subject, body, timestamp });
+      const plaintextHash = await sha256Hex(plaintextPayload);
+      const envelope = { type: 'agent-cleartext-warning', encrypted: false, warning: 'No ECIES key registered.', payload: JSON.parse(plaintextPayload), plaintextHash, recipient: agentName, receivedAt: timestamp };
+      await env.INBOX_KV.put(`blind:${agentName}:${blindId}`, JSON.stringify(envelope), { expirationTtl: 8 * 24 * 60 * 60 });
+      await updateBlindIndex(env, agentName, blindId);
+      return corsify(Response.json({ status: 'received', stream: 'agent', agentType: 'blackbox', encrypted: false, blindId, plaintextHash, warning: 'No ECIES key — stored unencrypted.' }), request);
+    }
+
+    const plaintextPayload = JSON.stringify({ from: sender, to: recipient, subject, body, timestamp });
+    const plaintextHash = await sha256Hex(plaintextPayload);
+    const encEnvelope = await eciesEncrypt(plaintextPayload, pubKeyHex);
+    let recoveryEnvelope: EncryptedEnvelope | null = null;
+    if (env.MASTER_SAFE_PUBKEY) { try { recoveryEnvelope = await eciesEncrypt(plaintextPayload, env.MASTER_SAFE_PUBKEY); } catch {} }
+    const blindId = `blind-${timestamp}-${crypto.randomUUID().slice(0, 8)}`;
+    const blindEnvelope = { type: 'agent-ecies-blind', encrypted: true, envelope: encEnvelope, recoveryEnvelope: recoveryEnvelope || undefined, plaintextHash, recipient: agentName, receivedAt: timestamp };
+    await env.INBOX_KV.put(`blind:${agentName}:${blindId}`, JSON.stringify(blindEnvelope), { expirationTtl: 8 * 24 * 60 * 60 });
+    await updateBlindIndex(env, agentName, blindId);
+    return corsify(Response.json({ status: 'received', stream: 'agent', agentType: 'blackbox', encrypted: true, blindId, plaintextHash, hasRecoveryKey: !!recoveryEnvelope, recipient: agentName }), request);
+  }
+
+  return corsify(Response.json({ error: 'Unclassified stream' }, { status: 400 }), request);
+}
+
+export default {
   async email(message: EmailMessage, env: Env, ctx: ExecutionContext) {
     const storage = new MailStorageAdapter({
       backend: env.BACKEND,
@@ -1021,13 +1111,8 @@ const exportedHandler = {
             }
             if (mgEmail['body-plain'])  mgEmail['bodyPlain'] = mgEmail['body-plain'];
             if (mgEmail['body-html'])   mgEmail['bodyHtml']  = mgEmail['body-html'];
-            console.log(`[multipart] parsed action=mailgunInbound recipient=${mgEmail['recipient']} sender=${mgEmail['sender']} subject=${String(mgEmail['subject']).slice(0,50)}`);
-            const fakeRequest = new Request(request.url, {
-              method: 'POST',
-              headers: { 'content-type': 'application/json', 'origin': request.headers.get('origin') || '' },
-              body: JSON.stringify(mgEmail),
-            });
-            return await exportedHandler.fetch(fakeRequest, env, ctx);
+            console.log(`[multipart] parsed recipient=${mgEmail['recipient']} sender=${mgEmail['sender']} subject=${String(mgEmail['subject']).slice(0,50)}`);
+            return await handleMailgunPayload(mgEmail, env, request);
           } catch (multipartErr: unknown) {
             const msg = multipartErr instanceof Error ? multipartErr.message : String(multipartErr);
             console.error(`[multipart] ERROR: ${msg}`);
@@ -1041,7 +1126,52 @@ const exportedHandler = {
         const msgIdMatch = rawBody.match(/"zohoMessageId"\s*:\s*"?(\d+)"?/);
         if (msgIdMatch) _rawZohoMessageId = msgIdMatch[1];
 
-        const email = JSON.parse(rawBody) as HttpEmailPayload;
+        let email: HttpEmailPayload;
+        try {
+          email = JSON.parse(rawBody) as HttpEmailPayload;
+        } catch (parseErr) {
+          // Mailgun may forward non-JSON payloads (urlencoded, RFC822, raw MIME).
+          // Log what we got for debugging, then handle gracefully.
+          const bodyTrimmed = rawBody.trim();
+          console.log(`[non-json] contentType="${contentType}" bodyStart="${bodyTrimmed.slice(0, 120).replace(/\r\n/g, '\\r\\n').replace(/\n/g, '\\n')}"`);
+
+          if (contentType.includes('application/x-www-form-urlencoded')) {
+            const params = new URLSearchParams(rawBody);
+            const mgEmail: Record<string, unknown> = { action: 'mailgunInbound' };
+            for (const [key, value] of params.entries()) mgEmail[key] = value;
+            if (mgEmail['body-plain']) mgEmail['bodyPlain'] = mgEmail['body-plain'];
+            if (mgEmail['body-html'])  mgEmail['bodyHtml']  = mgEmail['body-html'];
+            console.log(`[urlencoded] recipient=${mgEmail['recipient']} sender=${mgEmail['sender']}`);
+            return await handleMailgunPayload(mgEmail, env, request);
+          }
+
+          // Any non-JSON body that isn't clearly our app's JSON shape is a Mailgun raw email.
+          if (!bodyTrimmed.startsWith('{') && !bodyTrimmed.startsWith('[')) {
+            const chunks = bodyTrimmed.split(/\r?\n\r?\n/);
+            const headerText = chunks[0] || '';
+            const bodyText = chunks.slice(1).join('\n\n');
+            const headerValue = (name: string): string => {
+              const m = new RegExp(`(?:^|\\n)${name}:\\s*([^\\r\\n]+)`, 'i').exec(headerText);
+              return m ? m[1].trim() : '';
+            };
+            const toRaw = headerValue('To') || headerValue('Delivered-To');
+            const fromRaw = headerValue('From') || headerValue('Return-Path');
+            const subject = headerValue('Subject');
+            const toMatch = toRaw.match(/<?([^<>\s]+@[^<>\s]+)>?/);
+            const fromMatch = fromRaw.match(/<?([^<>\s]+@[^<>\s]+)>?/);
+            const mgEmail: Record<string, unknown> = {
+              action: 'mailgunInbound',
+              recipient: toMatch ? toMatch[1] : toRaw,
+              sender: fromMatch ? fromMatch[1] : fromRaw,
+              subject,
+              strippedText: bodyText,
+            };
+            console.log(`[rfc822] recipient=${mgEmail['recipient']} sender=${mgEmail['sender']} subject="${String(mgEmail['subject']).slice(0, 50)}"`);
+            return await handleMailgunPayload(mgEmail, env, request);
+          }
+
+          throw parseErr;
+        }
         let result: Response;
 
         if (email.action === 'getInbox') {
@@ -2770,11 +2900,10 @@ const exportedHandler = {
         // data shape, then run the same classify → encrypt → KV path.
         // No Zoho involved — zero cleartext retention window.
         if (email.action === 'mailgunInbound') {
-          const mgTimestamp  = String((email as any).timestamp || '');
-          const mgToken      = String((email as any).token || '');
-          const mgSignature  = String((email as any).signature || '');
-          const mgApiKey     = env.MAILGUN_API_KEY || '';
-          console.log(`[mailgunInbound] recipient=${(email as any).recipient} ts=${mgTimestamp} hasKey=${!!mgApiKey} sigMatch=pending`);
+          const mgTimestamp = String((email as any).timestamp || '');
+          const mgToken     = String((email as any).token || '');
+          const mgSignature = String((email as any).signature || '');
+          const mgApiKey    = env.MAILGUN_API_KEY || '';
 
           // Verify Mailgun HMAC-SHA256 signature
           if (mgApiKey && mgTimestamp && mgToken && mgSignature) {
@@ -2788,34 +2917,7 @@ const exportedHandler = {
             }
           }
 
-          // Normalise to ghostRoute shape — flat names (victor) → agent stream (victor_)
-          const rawRecipient = ((email as any).recipient || (email as any).to || '') as string;
-          const recipientLocal = rawRecipient.split('@')[0] || '';
-          const normalisedRecipient = (recipientLocal && !recipientLocal.includes('.') && !recipientLocal.endsWith('_'))
-            ? `${recipientLocal}_@nftmail.box`
-            : rawRecipient;
-          const normalisedPayload = {
-            action:    'ghostRoute',
-            recipient: normalisedRecipient,
-            from:      (email as any).sender    || (email as any).from || '',
-            subject:   (email as any).subject   || '',
-            content:   (email as any).strippedText
-                       || (email as any).bodyPlain
-                       || (email as any).bodyHtml
-                       || '',
-            zohoMessageId: null,
-            skipZohoDelete: true,
-            _mailgunVerified: true,
-          };
-
-          // Re-invoke ghostRoute logic by mutating the parsed payload and falling through.
-          // We do this by creating a synthetic request pointing at the same worker.
-          const syntheticReq = new Request(request.url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(normalisedPayload),
-          });
-          return exportedHandler.fetch(syntheticReq, env, ctx);
+          return await handleMailgunPayload(email as unknown as Record<string, unknown>, env, request);
         }
 
         // --- Molt Upgrade: Register a Zoho Seat for a human ---
@@ -4058,6 +4160,7 @@ const exportedHandler = {
       }
       return corsify(new Response('Method not allowed', { status: 405 }), request);
     } catch (err: any) {
+      console.error(`[fetch-crash] ${err?.message || String(err)} | stack: ${err?.stack?.split('\n').slice(0,3).join(' | ')}`);
       return corsify(
         Response.json(
           { error: err?.message || String(err), stack: err?.stack?.split('\n').slice(0, 5) },
@@ -4225,4 +4328,3 @@ const exportedHandler = {
 
 };
 
-export default exportedHandler;
