@@ -205,20 +205,29 @@ Both `/post` and `/reply` now cross-post to Farcaster.
 - `nftmailbox-netlify` — public-facing nftmail.box (current source of truth)
 - Keep in sync until post-Synthesis; when editing shared code: edit ghostagent_ninja/apps/nftmailbox (temporarily un-gitignore apps/), then cp to nftmailbox-netlify
 
-### Email architecture (FINAL — 2026-03-26)
+### Email architecture (TARGET — 2026-03-26)
 
-**Inbound split-MX:**
-- `@` MX → Zoho (`mx.zoho.com.au` priority 0) — receives all `*@nftmail.box`
-- imap-poll worker picks up from Zoho catchall (`ghostagent@nftmail.box`), stores in KV, deletes from Zoho (1-second cleartext window — unavoidable with this split, acceptable for non-Imago)
-- `mg` MX → Mailgun (`mg.nftmail.box`) — for **sending only**, nobody sends to this subdomain
-- Mailgun inbound webhook (`mailgunInbound` action) is wired and ready; worker auto-detects `multipart/form-data`; not active for inbound because Mailgun doesn't receive `@nftmail.box`
-- **Imago users:** Zoho direct seat, email delivered natively, no KV hop
+**Inbound (all users):**
+- `@` MX → Mailgun only (`mxa.eu.mailgun.org` / `mxb.eu.mailgun.org`) — zero cleartext window
+- Mailgun route (catch-all) → POST multipart/form-data → worker `mailgunInbound` → HMAC verify → classify → ECIES encrypt → KV
+- Worker auto-detects `multipart/form-data` and routes to `mailgunInbound` handler ✅ (deployed 2026-03-26)
+- `mg` MX (`mg.nftmail.box`) — for **sending/DKIM only**, stays as-is
 
 **Outbound:**
-- Mailgun API via `mg.nftmail.box`, `From: label@nftmail.box` (all tiers except Imago)
-- Imago: Zoho direct send (unchanged)
+- Mailgun API via `mg.nftmail.box`, `From: label@nftmail.box` (all tiers)
 
-**Exempt from Zoho delete:** `EXEMPT_FROM_DELETE = ['admin', 'ghostagent']` (line ~2613 of index.ts)
+**Imago/premium (future — zero users currently):**
+- Completely separate from Mailgun inbound path
+- When provisioning: call Mailgun Routes API to add per-address forward rule → Zoho seat
+- `specificuser@nftmail.box` → Mailgun route → forward to `specificuser@nftmail-imago.zoho.com`
+- No DNS changes needed per user — Mailgun routing handles it
+- NOT YET BUILT — design only
+
+**DNS:** `@` MX → `mxa.eu.mailgun.org` / `mxb.eu.mailgun.org` (priority 10) ✅ LIVE 2026-03-26
+
+**imap-poll worker:** cron disabled 2026-03-26 (`wrangler.toml` triggers commented out, redeployed). Zoho IMAP no longer polled.
+
+**Remaining Zoho code:** `nftmail-email-worker` still contains `zohoDeleteMessage` / `getZohoAccessToken` — dormant for Mailgun-inbound path (`skipZohoDelete: true`). Safe to leave; remove when Imago provisioning is built.
 
 ### Farcaster (Neynar) — 2026-03-26
 - Replaced hand-rolled Ed25519 protobuf → **Neynar REST API** `POST /v2/farcaster/cast`

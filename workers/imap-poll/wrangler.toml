@@ -3,8 +3,9 @@ main = "index.ts"
 compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
 
-[triggers]
-crons = ["* * * * *"]
+# [triggers]
+# crons = ["* * * * *"]
+# Disabled 2026-03-26: Mailgun MX cutover complete — inbound no longer goes via Zoho IMAP
 
 [[kv_namespaces]]
 binding = "INBOX_KV"
