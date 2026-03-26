@@ -3327,6 +3327,105 @@ export default {
           }
         }
 
+        // ── Episodic Memory ───────────────────────────────────────────────────
+        // Rolling per-agent buffer of memory entries.
+        // KV key: memory:{agentName}  →  JSON array, newest-last, capped at 200
+        // Each entry shape: { id, ts, role, content, tags?, sessionId?, [extra] }
+        //
+        // Cross-agent coordination via shared namespaces:
+        // KV key: shared-ctx:{namespace}  →  { data, writer, updatedAt }
+        // Any agent can read; namespaces prefixed 'secure:' require WEBHOOK_SECRET.
+        // listSharedContext: enumerate all shared-ctx keys (prefix scan).
+
+        if (email.action === 'setMemory') {
+          const agentName = ((email as any).agentName || '').toLowerCase().trim();
+          if (!agentName) {
+            return corsify(Response.json({ error: 'Missing agentName' }, { status: 400 }), request);
+          }
+          const incoming = (email as any).entry ?? (email as any).entries;
+          if (incoming === undefined || incoming === null) {
+            return corsify(Response.json({ error: 'Missing entry or entries' }, { status: 400 }), request);
+          }
+          const newEntries: any[] = Array.isArray(incoming) ? incoming : [incoming];
+          const maxEntries = parseInt(String((env as any).MEMORY_MAX_ENTRIES ?? '200'), 10);
+          const memKey = `memory:${agentName}`;
+          let existing: any[] = [];
+          try {
+            const raw = await env.INBOX_KV.get(memKey);
+            if (raw) existing = JSON.parse(raw);
+          } catch {}
+          const ts = Date.now();
+          const appended = [
+            ...existing,
+            ...newEntries.map((e: any, i: number) => ({ id: `${ts}-${i}`, ts, ...e })),
+          ].slice(-maxEntries);
+          await env.INBOX_KV.put(memKey, JSON.stringify(appended));
+          return corsify(Response.json({ status: 'stored', agentName, total: appended.length, appended: newEntries.length }), request);
+        }
+
+        if (email.action === 'getRecentMemory') {
+          const agentName = ((email as any).agentName || '').toLowerCase().trim();
+          if (!agentName) {
+            return corsify(Response.json({ error: 'Missing agentName' }, { status: 400 }), request);
+          }
+          const limit = Math.min(parseInt(String((email as any).limit ?? '50'), 10), 200);
+          const filterTag: string | null = (email as any).tag || null;
+          const filterSession: string | null = (email as any).sessionId || null;
+          const raw = await env.INBOX_KV.get(`memory:${agentName}`);
+          let entries: any[] = [];
+          try { if (raw) entries = JSON.parse(raw); } catch {}
+          if (filterTag) entries = entries.filter((e: any) => Array.isArray(e.tags) && e.tags.includes(filterTag));
+          if (filterSession) entries = entries.filter((e: any) => e.sessionId === filterSession);
+          const window = entries.slice(-limit);
+          return corsify(Response.json({ agentName, entries: window, total: entries.length, returned: window.length }), request);
+        }
+
+        // ── Cross-Agent Shared Context ────────────────────────────────────────
+        if (email.action === 'setSharedContext') {
+          const namespace = ((email as any).namespace || '').toLowerCase().trim();
+          if (!namespace) {
+            return corsify(Response.json({ error: 'Missing namespace' }, { status: 400 }), request);
+          }
+          if (namespace.startsWith('secure:')) {
+            const secret = (email as any).secret || '';
+            if (env.WEBHOOK_SECRET && secret !== env.WEBHOOK_SECRET) {
+              return corsify(Response.json({ error: 'Invalid secret for secure namespace' }, { status: 401 }), request);
+            }
+          }
+          const data = (email as any).data;
+          if (data === undefined) {
+            return corsify(Response.json({ error: 'Missing data' }, { status: 400 }), request);
+          }
+          const writer = ((email as any).agentName || 'unknown').toLowerCase().trim();
+          await env.INBOX_KV.put(`shared-ctx:${namespace}`, JSON.stringify({ data, writer, updatedAt: Date.now() }));
+          return corsify(Response.json({ status: 'stored', namespace, writer }), request);
+        }
+
+        if (email.action === 'getSharedContext') {
+          const namespace = ((email as any).namespace || '').toLowerCase().trim();
+          if (!namespace) {
+            return corsify(Response.json({ error: 'Missing namespace' }, { status: 400 }), request);
+          }
+          const raw = await env.INBOX_KV.get(`shared-ctx:${namespace}`);
+          if (!raw) {
+            return corsify(Response.json({ exists: false, namespace }, { status: 404 }), request);
+          }
+          try {
+            const ctx = JSON.parse(raw);
+            return corsify(Response.json({ exists: true, namespace, ...ctx }), request);
+          } catch {
+            return corsify(Response.json({ exists: false, namespace }), request);
+          }
+        }
+
+        if (email.action === 'listSharedContext') {
+          const prefix = ((email as any).prefix || '').toLowerCase().trim();
+          const kvPrefix = prefix ? `shared-ctx:${prefix}` : 'shared-ctx:';
+          const listed = await env.INBOX_KV.list({ prefix: kvPrefix });
+          const namespaces = listed.keys.map((k: { name: string }) => k.name.replace(/^shared-ctx:/, ''));
+          return corsify(Response.json({ namespaces, count: namespaces.length }), request);
+        }
+
         // --- Alias Actions ---
         // getAlias | createAlias | setAliasDisplay | deleteAlias
         if (
