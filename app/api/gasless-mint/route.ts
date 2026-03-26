@@ -232,7 +232,7 @@ export async function POST(req: NextRequest) {
       try {
         const decoded = decodeEventLog({ abi: NamespaceRegistrarABI, data: log.data, topics: log.topics });
         if (decoded.eventName === 'TokenboundAccountCreated') {
-          tbaAddress = (decoded.args as Record<string, string>).account ?? '';
+          tbaAddress = (decoded.args as unknown as Record<string, string>).account ?? '';
         }
       } catch { /* not our event */ }
     }
