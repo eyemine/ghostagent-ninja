@@ -173,6 +173,7 @@ export interface Env {
   GHOST_CALENDAR: KVNamespace;
   ZOHO_WEBHOOK_SECRET?: string;
   WEBHOOK_SECRET?: string;
+  MAILGUN_API_KEY?: string;
   IPFS_GATEWAY?: string;
   // Zoho API for forwarding encrypted blobs to catch-all
   ZOHO_REFRESH_TOKEN?: string;
@@ -849,7 +850,7 @@ function corsify(response: Response, request: Request): Response {
   });
 }
 
-export default {
+const exportedHandler = {
   async email(message: EmailMessage, env: Env, ctx: ExecutionContext) {
     const storage = new MailStorageAdapter({
       backend: env.BACKEND,
@@ -993,7 +994,7 @@ export default {
     });
   },
 
-  async fetch(request: Request, env: Env, ctx: ExecutionContext) {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     // CORS preflight
     if (request.method === 'OPTIONS') {
       return new Response(null, { headers: corsHeaders(request) });
@@ -1009,6 +1010,24 @@ export default {
       });
 
       if (request.method === 'POST') {
+        // Detect Mailgun inbound webhook (multipart/form-data) and convert to our JSON shape
+        const contentType = request.headers.get('content-type') || '';
+        if (contentType.includes('multipart/form-data')) {
+          const formData = await request.formData();
+          const mgEmail: Record<string, unknown> = { action: 'mailgunInbound' };
+          for (const [key, value] of formData.entries()) {
+            mgEmail[key] = (typeof value === 'object' && value !== null && 'text' in value) ? await (value as Blob).text() : value;
+          }
+          if (mgEmail['body-plain'])  mgEmail['bodyPlain'] = mgEmail['body-plain'];
+          if (mgEmail['body-html'])   mgEmail['bodyHtml']  = mgEmail['body-html'];
+          const fakeRequest = new Request(request.url, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json', 'origin': request.headers.get('origin') || '' },
+            body: JSON.stringify(mgEmail),
+          });
+          return await exportedHandler.fetch(fakeRequest, env, ctx);
+        }
+
         // Extract zohoMessageId from raw body BEFORE JSON.parse to preserve 19-digit precision
         const rawBody = await request.text();
         let _rawZohoMessageId = '';
@@ -2532,10 +2551,11 @@ export default {
         //   Agent (_@): ECIES encrypt → blind KV + blind Zoho + IPFS
         //   Human (@):  Check Zoho seat → forward normally or store in KV
         if (email.action === 'ghostRoute') {
-          // Verify webhook secret
-          if (env.ZOHO_WEBHOOK_SECRET) {
+          // Verify webhook secret — accept ZOHO_WEBHOOK_SECRET or WEBHOOK_SECRET
+          const expectedSecret = env.ZOHO_WEBHOOK_SECRET || env.WEBHOOK_SECRET;
+          if (expectedSecret) {
             const authHeader = request.headers.get('X-Zoho-Webhook-Secret') || (email as any).webhookSecret || '';
-            if (authHeader !== env.ZOHO_WEBHOOK_SECRET) {
+            if (authHeader !== env.ZOHO_WEBHOOK_SECRET && authHeader !== env.WEBHOOK_SECRET) {
               return corsify(Response.json({ error: 'Invalid webhook secret' }, { status: 401 }), request);
             }
           }
@@ -2816,14 +2836,11 @@ export default {
         // data shape, then run the same classify → encrypt → KV path.
         // No Zoho involved — zero cleartext retention window.
         if (email.action === 'mailgunInbound') {
-          // Mailgun sends multipart/form-data — we receive it pre-parsed as JSON from
-          // a thin Netlify function that converts it, OR directly if the worker parses it.
-          // Expected fields (after normalisation by caller):
-          //   recipient, sender, subject, bodyPlain, bodyHtml, timestamp, token, signature
           const mgTimestamp  = String((email as any).timestamp || '');
           const mgToken      = String((email as any).token || '');
           const mgSignature  = String((email as any).signature || '');
           const mgApiKey     = env.MAILGUN_API_KEY || '';
+          console.log(`[mailgunInbound] recipient=${(email as any).recipient} ts=${mgTimestamp} hasKey=${!!mgApiKey} sigMatch=pending`);
 
           // Verify Mailgun HMAC-SHA256 signature
           if (mgApiKey && mgTimestamp && mgToken && mgSignature) {
@@ -2837,10 +2854,15 @@ export default {
             }
           }
 
-          // Normalise to ghostRoute shape and re-dispatch internally
+          // Normalise to ghostRoute shape — flat names (victor) → agent stream (victor_)
+          const rawRecipient = ((email as any).recipient || (email as any).to || '') as string;
+          const recipientLocal = rawRecipient.split('@')[0] || '';
+          const normalisedRecipient = (recipientLocal && !recipientLocal.includes('.') && !recipientLocal.endsWith('_'))
+            ? `${recipientLocal}_@nftmail.box`
+            : rawRecipient;
           const normalisedPayload = {
             action:    'ghostRoute',
-            recipient: (email as any).recipient || (email as any).to || '',
+            recipient: normalisedRecipient,
             from:      (email as any).sender    || (email as any).from || '',
             subject:   (email as any).subject   || '',
             // Prefer stripped-text > body-plain > html-stripped
@@ -2852,8 +2874,8 @@ export default {
             zohoMessageId: null,
             // Pass through so ghostRoute skips Zoho delete (no Zoho message to delete)
             skipZohoDelete: true,
-            // Preserve webhook secret passthrough
-            webhookSecret: env.ZOHO_WEBHOOK_SECRET,
+            // Use WEBHOOK_SECRET (always set) since ZOHO_WEBHOOK_SECRET may not be present
+            webhookSecret: env.WEBHOOK_SECRET || env.ZOHO_WEBHOOK_SECRET,
           };
 
           // Re-invoke ghostRoute logic by mutating the parsed payload and falling through.
@@ -2863,7 +2885,7 @@ export default {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(normalisedPayload),
           });
-          return fetch(syntheticReq);
+          return exportedHandler.fetch(syntheticReq, env, ctx);
         }
 
         // --- Molt Upgrade: Register a Zoho Seat for a human ---
@@ -4272,3 +4294,5 @@ export default {
   },
 
 };
+
+export default exportedHandler;
