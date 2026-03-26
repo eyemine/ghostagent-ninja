@@ -167,13 +167,19 @@ Telegram bot → Moltbook bridge. Key commands:
 - `/reply postId | content`
 - `/verify code | answer`
 
+**Farcaster:** switched from hand-rolled protobuf → **Neynar REST API** (`/v2/farcaster/cast`) ← FIXED 2026-03-26  
+**Account:** `@ghostagent-ninja` (FID created via Neynar Agents UI, Starter plan $9/mo)  
+Secrets set: `NEYNAR_API_KEY` + `NEYNAR_SIGNER_UUID` ✅ LIVE 2026-03-26  
+Both `/post` and `/reply` now cross-post to Farcaster.
+
+**X (Twitter):** `⚠️ X post failed: PAYWALL` is expected — X API free tier is read-only. Requires Basic plan ($100/mo) at developer.x.com to enable write access.
+
 ---
 
 ## Pending tasks (priority order)
 
 ### High
-1. **mailgun-dns-setup** — Add DNS records for `mg.nftmail.box`, set worker env vars (see above)
-2. **mailgun-mx-cutover** — Swap `@` MX from Zoho → Mailgun after DNS verifies
+1. **mailgun-mx-cutover** — DNS records confirmed set up. Swap `@` MX from Zoho → Mailgun after DNS verifies in Mailgun dashboard
 
 ### Medium
 3. **hitl-factory** — Enable HITL module on Victor Safe (`app.safe.global` → Settings → Modules → `0x012A0571...`)
@@ -199,8 +205,24 @@ Telegram bot → Moltbook bridge. Key commands:
 - `nftmailbox-netlify` — public-facing nftmail.box (current source of truth)
 - Keep in sync until post-Synthesis; when editing shared code: edit ghostagent_ninja/apps/nftmailbox (temporarily un-gitignore apps/), then cp to nftmailbox-netlify
 
-### Email architecture
-- **Inbound:** Mailgun webhook → worker `mailgunInbound` → HMAC verify → `ghostRoute` classify/store
-- **Outbound:** Mailgun API, `From: label@nftmail.box` (all tiers except Imago)
-- **Imago:** Zoho direct seat, unaffected
-- **Zoho:** Retained only for Imago premium seats and legacy backward compat
+### Email architecture (FINAL — 2026-03-26)
+
+**Inbound split-MX:**
+- `@` MX → Zoho (`mx.zoho.com.au` priority 0) — receives all `*@nftmail.box`
+- imap-poll worker picks up from Zoho catchall (`ghostagent@nftmail.box`), stores in KV, deletes from Zoho (1-second cleartext window — unavoidable with this split, acceptable for non-Imago)
+- `mg` MX → Mailgun (`mg.nftmail.box`) — for **sending only**, nobody sends to this subdomain
+- Mailgun inbound webhook (`mailgunInbound` action) is wired and ready; worker auto-detects `multipart/form-data`; not active for inbound because Mailgun doesn't receive `@nftmail.box`
+- **Imago users:** Zoho direct seat, email delivered natively, no KV hop
+
+**Outbound:**
+- Mailgun API via `mg.nftmail.box`, `From: label@nftmail.box` (all tiers except Imago)
+- Imago: Zoho direct send (unchanged)
+
+**Exempt from Zoho delete:** `EXEMPT_FROM_DELETE = ['admin', 'ghostagent']` (line ~2613 of index.ts)
+
+### Farcaster (Neynar) — 2026-03-26
+- Replaced hand-rolled Ed25519 protobuf → **Neynar REST API** `POST /v2/farcaster/cast`
+- Env vars: `NEYNAR_API_KEY` + `NEYNAR_SIGNER_UUID` (set in ghostagent-proxy Cloudflare Worker)
+- Account: `@ghostagent-ninja` on Farcaster (Neynar Agents UI, Starter plan $9/mo)
+- Both `/post` and `/reply` Telegram commands cross-post to Farcaster ✅
+- **X (Twitter):** `⚠️ X post failed: PAYWALL` is expected — free tier is read-only; Basic plan ($100/mo) required for write access
