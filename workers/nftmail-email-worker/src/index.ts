@@ -1013,19 +1013,26 @@ const exportedHandler = {
         // Detect Mailgun inbound webhook (multipart/form-data) and convert to our JSON shape
         const contentType = request.headers.get('content-type') || '';
         if (contentType.includes('multipart/form-data')) {
-          const formData = await request.formData();
-          const mgEmail: Record<string, unknown> = { action: 'mailgunInbound' };
-          for (const [key, value] of formData.entries()) {
-            mgEmail[key] = (typeof value === 'object' && value !== null && 'text' in value) ? await (value as Blob).text() : value;
+          try {
+            const formData = await request.formData();
+            const mgEmail: Record<string, unknown> = { action: 'mailgunInbound' };
+            for (const [key, value] of formData.entries()) {
+              mgEmail[key] = (typeof value === 'object' && value !== null && 'text' in value) ? await (value as Blob).text() : value;
+            }
+            if (mgEmail['body-plain'])  mgEmail['bodyPlain'] = mgEmail['body-plain'];
+            if (mgEmail['body-html'])   mgEmail['bodyHtml']  = mgEmail['body-html'];
+            console.log(`[multipart] parsed action=mailgunInbound recipient=${mgEmail['recipient']} sender=${mgEmail['sender']} subject=${String(mgEmail['subject']).slice(0,50)}`);
+            const fakeRequest = new Request(request.url, {
+              method: 'POST',
+              headers: { 'content-type': 'application/json', 'origin': request.headers.get('origin') || '' },
+              body: JSON.stringify(mgEmail),
+            });
+            return await exportedHandler.fetch(fakeRequest, env, ctx);
+          } catch (multipartErr: unknown) {
+            const msg = multipartErr instanceof Error ? multipartErr.message : String(multipartErr);
+            console.error(`[multipart] ERROR: ${msg}`);
+            return corsify(Response.json({ error: 'multipart parse failed', detail: msg }, { status: 500 }), request);
           }
-          if (mgEmail['body-plain'])  mgEmail['bodyPlain'] = mgEmail['body-plain'];
-          if (mgEmail['body-html'])   mgEmail['bodyHtml']  = mgEmail['body-html'];
-          const fakeRequest = new Request(request.url, {
-            method: 'POST',
-            headers: { 'content-type': 'application/json', 'origin': request.headers.get('origin') || '' },
-            body: JSON.stringify(mgEmail),
-          });
-          return await exportedHandler.fetch(fakeRequest, env, ctx);
         }
 
         // Extract zohoMessageId from raw body BEFORE JSON.parse to preserve 19-digit precision
@@ -2551,12 +2558,14 @@ const exportedHandler = {
         //   Agent (_@): ECIES encrypt → blind KV + blind Zoho + IPFS
         //   Human (@):  Check Zoho seat → forward normally or store in KV
         if (email.action === 'ghostRoute') {
-          // Verify webhook secret — accept ZOHO_WEBHOOK_SECRET or WEBHOOK_SECRET
-          const expectedSecret = env.ZOHO_WEBHOOK_SECRET || env.WEBHOOK_SECRET;
-          if (expectedSecret) {
-            const authHeader = request.headers.get('X-Zoho-Webhook-Secret') || (email as any).webhookSecret || '';
-            if (authHeader !== env.ZOHO_WEBHOOK_SECRET && authHeader !== env.WEBHOOK_SECRET) {
-              return corsify(Response.json({ error: 'Invalid webhook secret' }, { status: 401 }), request);
+          // Skip secret check for Mailgun-sourced calls (already HMAC-verified upstream)
+          if (!(email as any)._mailgunVerified) {
+            const expectedSecret = env.ZOHO_WEBHOOK_SECRET || env.WEBHOOK_SECRET;
+            if (expectedSecret) {
+              const authHeader = request.headers.get('X-Zoho-Webhook-Secret') || (email as any).webhookSecret || '';
+              if (authHeader !== env.ZOHO_WEBHOOK_SECRET && authHeader !== env.WEBHOOK_SECRET) {
+                return corsify(Response.json({ error: 'Invalid webhook secret' }, { status: 401 }), request);
+              }
             }
           }
 
@@ -2580,21 +2589,8 @@ const exportedHandler = {
           // Zoho Deluge passes messageId — use raw string extraction to preserve 19-digit precision
           const zohoMessageId = _rawZohoMessageId || String((email as any).zohoMessageId || '');
 
-          // --- HUMAN STREAM: cleartext KV + Zoho delete ---
-          // Covers: name@ (ENS), name.name@ (Privy/wallet), name.digits@ (NFT collection)
+          // --- HUMAN STREAM: cleartext KV (pure Mailgun/KV path, no Zoho) ---
           if (stream === 'human') {
-            // Check if this human has a dedicated Zoho seat (premium tier)
-            const hasZohoSeat = await env.INBOX_KV.get(`zoho-seat:${localPart}`);
-            if (hasZohoSeat) {
-              return corsify(Response.json({
-                status: 'delivered',
-                stream: 'human',
-                encrypted: false,
-                recipient: localPart,
-                note: 'Delivered to dedicated Zoho mailbox via standard TLS.',
-              }), request);
-            }
-
             // NFT collection sub-type: verify ownership (informational, not blocking)
             let ownerAddress: string | null = null;
             if (collection && tokenId) {
@@ -2609,7 +2605,6 @@ const exportedHandler = {
               }
             }
 
-            // Store cleartext in KV
             const blindId = `blind-${timestamp}-${crypto.randomUUID().slice(0, 8)}`;
             const plaintextPayload = JSON.stringify({
               from: sender, to: recipient, subject, body, timestamp,
@@ -2629,22 +2624,8 @@ const exportedHandler = {
               receivedAt: timestamp,
             };
 
-            // Kick off Zoho delete in parallel with KV writes to minimise cleartext window
-            const EXEMPT_FROM_DELETE = ['admin', 'ghostagent'];
-            const deletePromise: Promise<boolean> = (!EXEMPT_FROM_DELETE.includes(agentName) && zohoMessageId)
-              ? getZohoAccessToken(env).then(tok =>
-                  tok ? zohoDeleteMessage(env, tok, zohoMessageId).then(r => {
-                    console.log(`[human] deleteResult=${r} for messageId=${zohoMessageId} agent=${agentName}`);
-                    return r;
-                  }) : Promise.resolve(false)
-                )
-              : Promise.resolve(false);
-
-            const [,, humanCleartextDeleted] = await Promise.all([
-              env.INBOX_KV.put(`blind:${agentName}:${blindId}`, JSON.stringify(envelope), { expirationTtl: 8 * 24 * 60 * 60 }),
-              Promise.all([updateBlindIndex(env, agentName, blindId), storage.storeEmail(localPart, { from: sender, to: recipient, subject, content: body, timestamp })]),
-              deletePromise,
-            ]);
+            await env.INBOX_KV.put(`blind:${agentName}:${blindId}`, JSON.stringify(envelope), { expirationTtl: 8 * 24 * 60 * 60 });
+            await updateBlindIndex(env, agentName, blindId);
 
             return corsify(Response.json({
               status: 'received',
@@ -2652,22 +2633,17 @@ const exportedHandler = {
               encrypted: false,
               blindId,
               plaintextHash,
-              cleartextDeleted: humanCleartextDeleted,
-              zohoMessageIdReceived: zohoMessageId || '(empty)',
               recipient: agentName,
               ...(collection ? { collection: collection.displayName, tokenId, owner: ownerAddress } : {}),
             }), request);
           }
 
           if (stream === 'agent') {
-            // --- AGENT STREAM ---
-            // molt.gno (glassbox): cleartext KV + audit log + Zoho delete
-            // blackbox: ECIES encrypt + Zoho delete
+            // --- AGENT STREAM: pure KV path (Mailgun inbound, no Zoho) ---
             const isGlassbox = await isPublicAgent(agentName, env);
-            const accessToken = await getZohoAccessToken(env);
 
             if (isGlassbox) {
-              // --- GLASSBOX AGENT (molt.gno): store cleartext, public audit ---
+              // GLASSBOX: store cleartext + audit log
               const blindId = `blind-${timestamp}-${crypto.randomUUID().slice(0, 8)}`;
               const plaintextPayload = JSON.stringify({ from: sender, to: recipient, subject, body, timestamp });
               const plaintextHash = await sha256Hex(plaintextPayload);
@@ -2683,9 +2659,7 @@ const exportedHandler = {
 
               await env.INBOX_KV.put(`blind:${agentName}:${blindId}`, JSON.stringify(envelope), { expirationTtl: 8 * 24 * 60 * 60 });
               await updateBlindIndex(env, agentName, blindId);
-              await storage.storeEmail(localPart, { from: sender, to: recipient, subject, content: body, timestamp });
 
-              // Glass Box audit log with sensitive content redaction
               const sensitivity = isSensitiveContent(sender, subject, body);
               const entry: AuditEntry = {
                 id: blindId,
@@ -2704,12 +2678,6 @@ const exportedHandler = {
               auditLog.push(entry);
               await env.INBOX_KV.put(`audit:${agentName}`, JSON.stringify(auditLog));
 
-              // Delete cleartext from Zoho
-              let agentCleartextDeleted = false;
-              if (zohoMessageId && accessToken) {
-                agentCleartextDeleted = await zohoDeleteMessage(env, accessToken, zohoMessageId);
-              }
-
               return corsify(Response.json({
                 status: 'received',
                 stream: 'agent',
@@ -2717,16 +2685,15 @@ const exportedHandler = {
                 encrypted: false,
                 blindId,
                 plaintextHash,
-                cleartextDeleted: agentCleartextDeleted,
                 recipient: agentName,
               }), request);
             }
 
-            // --- BLACKBOX AGENT: ECIES Encryption-at-the-Edge ---
+            // BLACKBOX: ECIES encrypt or cleartext-with-warning
             const pubKeyHex = await env.INBOX_KV.get(`ecies-pubkey:${agentName}`);
 
             if (!pubKeyHex) {
-              // No ECIES key — store cleartext with warning + Zoho delete
+              // No ECIES key — store cleartext with warning
               const blindId = `blind-${timestamp}-${crypto.randomUUID().slice(0, 8)}`;
               const plaintextPayload = JSON.stringify({ from: sender, to: recipient, subject, body, timestamp });
               const plaintextHash = await sha256Hex(plaintextPayload);
@@ -2743,12 +2710,6 @@ const exportedHandler = {
 
               await env.INBOX_KV.put(`blind:${agentName}:${blindId}`, JSON.stringify(envelope), { expirationTtl: 8 * 24 * 60 * 60 });
               await updateBlindIndex(env, agentName, blindId);
-              await storage.storeEmail(localPart, { from: sender, to: recipient, subject, content: body, timestamp });
-
-              let agentCleartextDeleted = false;
-              if (zohoMessageId && accessToken) {
-                agentCleartextDeleted = await zohoDeleteMessage(env, accessToken, zohoMessageId);
-              }
 
               return corsify(Response.json({
                 status: 'received',
@@ -2757,12 +2718,11 @@ const exportedHandler = {
                 encrypted: false,
                 blindId,
                 plaintextHash,
-                cleartextDeleted: agentCleartextDeleted,
                 warning: 'No ECIES key — message stored unencrypted. Register key via registerEciesKey.',
               }), request);
             }
 
-            // ECIES encrypt the FULL payload (subject + body + metadata)
+            // ECIES encrypt
             const plaintextPayload = JSON.stringify({
               from: sender, to: recipient, subject, body, timestamp,
               headers: (email as any).headers || {},
@@ -2789,30 +2749,6 @@ const exportedHandler = {
             await env.INBOX_KV.put(`blind:${agentName}:${blindId}`, JSON.stringify(blindEnvelope), { expirationTtl: 8 * 24 * 60 * 60 });
             await updateBlindIndex(env, agentName, blindId);
 
-            // Pin to IPFS (best-effort)
-            let ipfsCid = '';
-            try {
-              const ipfsRes = await fetch('https://api.web3.storage/upload', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  ...(env.IPFS_GATEWAY ? { 'Authorization': `Bearer ${env.IPFS_GATEWAY}` } : {}),
-                },
-                body: JSON.stringify(blindEnvelope),
-              });
-              if (ipfsRes.ok) {
-                const ipfsData = await ipfsRes.json() as { cid?: string };
-                ipfsCid = ipfsData.cid || '';
-                if (ipfsCid) await env.INBOX_KV.put(`ipfs:${agentName}:${blindId}`, ipfsCid);
-              }
-            } catch {}
-
-            // Purge cleartext from Zoho after successful encryption
-            let agentCleartextDeleted = false;
-            if (zohoMessageId && accessToken) {
-              agentCleartextDeleted = await zohoDeleteMessage(env, accessToken, zohoMessageId);
-            }
-
             return corsify(Response.json({
               status: 'received',
               stream: 'agent',
@@ -2820,9 +2756,7 @@ const exportedHandler = {
               encrypted: true,
               blindId,
               plaintextHash,
-              ipfsCid: ipfsCid || undefined,
               hasRecoveryKey: !!recoveryEnvelope,
-              cleartextDeleted: agentCleartextDeleted,
               recipient: agentName,
             }), request);
           }
@@ -2865,17 +2799,13 @@ const exportedHandler = {
             recipient: normalisedRecipient,
             from:      (email as any).sender    || (email as any).from || '',
             subject:   (email as any).subject   || '',
-            // Prefer stripped-text > body-plain > html-stripped
             content:   (email as any).strippedText
                        || (email as any).bodyPlain
                        || (email as any).bodyHtml
                        || '',
-            // Mailgun doesn't have a Zoho messageId — use a deterministic ID
             zohoMessageId: null,
-            // Pass through so ghostRoute skips Zoho delete (no Zoho message to delete)
             skipZohoDelete: true,
-            // Use WEBHOOK_SECRET (always set) since ZOHO_WEBHOOK_SECRET may not be present
-            webhookSecret: env.WEBHOOK_SECRET || env.ZOHO_WEBHOOK_SECRET,
+            _mailgunVerified: true,
           };
 
           // Re-invoke ghostRoute logic by mutating the parsed payload and falling through.
