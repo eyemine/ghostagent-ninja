@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { TermsCheckbox } from '../../components/TermsCheckbox';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { MintAgentBundle } from '../../components/MintAgentBundle';
@@ -184,6 +185,7 @@ export default function MintBodyPage() {
   const { wallets } = useWallets();
   const connectedWallet = wallets[0]?.address ?? null;
 
+  const searchParams = useSearchParams();
   const [selected, setSelected] = useState<Namespace>('agent');
   const [vaultPath, setVaultPath] = useState<VaultPath>('imago');
   const [agentName, setAgentName] = useState('');
@@ -191,6 +193,25 @@ export default function MintBodyPage() {
   const [checkResult, setCheckResult] = useState<CheckResult | null>(null);
   const [genomeMeta, setGenomeMeta] = useState<GenomeMetadata | null>(null);
   const [termsAgreed, setTermsAgreed] = useState(false);
+  const [couponCode, setCouponCode]   = useState<string | null>(null);
+  const [couponValid, setCouponValid] = useState(false);
+
+  // Pre-fill from URL params (namespace, name, coupon)
+  useEffect(() => {
+    const ns   = searchParams.get('namespace') as Namespace | null;
+    const name = searchParams.get('name') ?? '';
+    const cpn  = searchParams.get('coupon') ?? '';
+    if (ns && NAMESPACES.find(n => n.key === ns)) setSelected(ns);
+    if (name) { setAgentName(name.toLowerCase().replace(/[^a-z0-9-]/g, '')); }
+    if (cpn) {
+      setCouponCode(cpn.toUpperCase());
+      fetch('/api/coupons/validate', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ code: cpn.toUpperCase(), tld: ns ?? 'nftmail.gno' }),
+      }).then(r => r.json()).then((d: { valid: boolean }) => setCouponValid(d.valid)).catch(() => {});
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const checkAvailability = useCallback(async () => {
     if (!agentName || agentName.length < 2) return;
@@ -525,12 +546,25 @@ export default function MintBodyPage() {
       {/* ── Mint panel ── */}
       <div className="rounded-xl border border-[rgba(176,128,92,0.35)] bg-[var(--card)] px-6 py-5">
         {agentName.length >= 2 ? (
-          <MintAgentBundle
-            agentName={agentName}
-            safeAddress={(connectedWallet ?? '0x0000000000000000000000000000000000000000') as `0x${string}`}
-            namespace={selected}
-            disabled={!termsAgreed}
-          />
+          <>
+            {couponCode && (
+              <div className={`mb-3 flex items-center gap-2 rounded-lg border px-3 py-2 text-xs ${
+                couponValid
+                  ? 'border-emerald-500/30 bg-emerald-500/8 text-emerald-300'
+                  : 'border-rose-500/30 bg-rose-500/8 text-rose-300'
+              }`}>
+                <span>{couponValid ? '✓' : '✗'}</span>
+                <span>Coupon <code className="font-mono">{couponCode}</code>{couponValid ? ' — free mint applied' : ' — invalid or already used'}</span>
+              </div>
+            )}
+            <MintAgentBundle
+              agentName={agentName}
+              safeAddress={(connectedWallet ?? '0x0000000000000000000000000000000000000000') as `0x${string}`}
+              namespace={selected}
+              disabled={!termsAgreed}
+              couponCode={couponValid ? couponCode ?? undefined : undefined}
+            />
+          </>
         ) : (
           <p className="text-sm text-[var(--muted)]">Enter an agent name above to continue.</p>
         )}

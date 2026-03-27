@@ -365,13 +365,41 @@ type FilterPrivacy = 'all' | 'glassbox' | 'private';
 type FilterEvolve = 'all' | 'can-evolve' | 'larva-only';
 
 function MintModal({ domain, onClose }: { domain: Domain; onClose: () => void }) {
-  const [name, setName] = useState('');
+  const [name, setName]       = useState('');
+  const [coupon, setCoupon]   = useState('');
+  const [couponState, setCouponState] = useState<'idle' | 'checking' | 'valid' | 'invalid'>('idle');
   const { wallets } = useWallets();
   const connectedWallet = wallets[0]?.address ?? '';
   const mintLabel = domain.mintFee === 'free' ? 'Free' : `${domain.mintFee} xDAI`;
   const nameStatus = useNameCheck(name, domain.tld, connectedWallet);
   const canMint = name.length >= 3 &&
     (nameStatus.state === 'available' || nameStatus.state === 'yours');
+  const isFree = domain.mintFee === 'free' || couponState === 'valid';
+
+  async function checkCoupon(code: string) {
+    if (!code.trim()) { setCouponState('idle'); return; }
+    setCouponState('checking');
+    try {
+      const res = await fetch('/api/coupons/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: code.trim().toUpperCase(), tld: domain.tld }),
+      });
+      const data = await res.json() as { valid: boolean };
+      setCouponState(data.valid ? 'valid' : 'invalid');
+    } catch {
+      setCouponState('invalid');
+    }
+  }
+
+  function handleMint() {
+    const params = new URLSearchParams({
+      namespace: domain.id,
+      name,
+      ...(couponState === 'valid' ? { coupon: coupon.trim().toUpperCase() } : {}),
+    });
+    window.location.href = `/dashboard/mint-body?${params.toString()}`;
+  }
 
   return (
     <div
@@ -432,6 +460,38 @@ function MintModal({ domain, onClose }: { domain: Domain; onClose: () => void })
         {/* Availability status */}
         <NameStatusBadge status={nameStatus} label={name} tld={domain.tld} />
 
+        {/* Coupon code */}
+        {domain.mintFee !== 'free' && (
+          <div className="mt-4">
+            <label className="mb-1.5 block text-xs font-semibold text-[var(--muted)]">
+              COUPON CODE <span className="font-normal opacity-50">(optional)</span>
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={coupon}
+                onChange={e => { setCoupon(e.target.value.toUpperCase()); setCouponState('idle'); }}
+                onBlur={() => checkCoupon(coupon)}
+                placeholder="e.g. NFTFREE-XXXX"
+                className="flex-1 rounded-xl border border-[var(--border)] bg-black/30 px-3 py-2 text-sm font-mono text-[#f2eee4] outline-none placeholder:text-zinc-600 focus:border-[rgba(255,255,255,0.2)]"
+              />
+              <button
+                type="button"
+                onClick={() => checkCoupon(coupon)}
+                className="shrink-0 rounded-xl border border-[var(--border)] bg-black/20 px-3 py-2 text-xs font-semibold text-[var(--muted)] transition hover:text-white"
+              >
+                {couponState === 'checking' ? '…' : 'Apply'}
+              </button>
+            </div>
+            {couponState === 'valid' && (
+              <p className="mt-1 text-xs text-emerald-400">✓ Coupon valid — free mint applied</p>
+            )}
+            {couponState === 'invalid' && (
+              <p className="mt-1 text-xs text-rose-400">Invalid or already used coupon</p>
+            )}
+          </div>
+        )}
+
         {/* Privacy notice */}
         <div className="mt-4 flex items-start gap-2 rounded-lg border border-[var(--border)] bg-black/20 px-3 py-2">
           <svg className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--muted)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
@@ -451,9 +511,14 @@ function MintModal({ domain, onClose }: { domain: Domain; onClose: () => void })
           </button>
           <button
             disabled={!canMint}
+            onClick={handleMint}
             className={`flex-1 rounded-xl py-2.5 text-sm font-semibold transition disabled:opacity-40 ${domain.accentBg} ${domain.accentText} ring-1 ${domain.accentRing} hover:brightness-125`}
           >
-            {nameStatus.state === 'checking' ? 'Checking…' : domain.mintFee === 'free' ? 'Mint Free' : `Mint for ${domain.mintFee} xDAI`}
+            {nameStatus.state === 'checking'
+              ? 'Checking…'
+              : isFree
+              ? 'Mint Free →'
+              : `Mint for ${domain.mintFee} xDAI →`}
           </button>
         </div>
       </div>

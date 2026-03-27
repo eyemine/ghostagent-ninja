@@ -25,6 +25,7 @@ interface MintAgentBundleProps {
   namespace?: string;
   disabled?: boolean;
   ensProof?: { name: string };  // if set, qualifies for free agent.gno mint
+  couponCode?: string;          // if set + valid, triggers gasless mint
 }
 
 // Namespaces where treasury pays gas — user signs nothing
@@ -44,10 +45,11 @@ interface BundleResult {
   email?: string;
 }
 
-export function MintAgentBundle({ agentName, safeAddress, namespace = 'agent', disabled = false, ensProof }: MintAgentBundleProps) {
+export function MintAgentBundle({ agentName, safeAddress, namespace = 'agent', disabled = false, ensProof, couponCode }: MintAgentBundleProps) {
   const isSelfContained = (SELF_CONTAINED_NAMESPACES as readonly string[]).includes(namespace);
   const isGasless = (GASLESS_NAMESPACES as readonly string[]).includes(namespace)
-    || (namespace === 'agent' && !!ensProof);
+    || (namespace === 'agent' && !!ensProof)
+    || !!couponCode;
   const { authenticated } = usePrivy();
   const { wallets } = useWallets();
   const [step, setStep] = useState<Step>('idle');
@@ -77,7 +79,8 @@ export function MintAgentBundle({ agentName, safeAddress, namespace = 'agent', d
             label: agentName,
             owner: wallet.address,
             namespace,
-            ...(ensProof ? { ensProof } : {}),
+            ...(ensProof   ? { ensProof }   : {}),
+            ...(couponCode ? { couponCode }  : {}),
           }),
         });
         const gaslessData = await gaslessRes.json() as {

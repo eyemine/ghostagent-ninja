@@ -54,8 +54,10 @@ const ENS_ABI = [{
   outputs: [{ name: '', type: 'address' }],
 }] as const;
 
-// Namespaces eligible for gasless treasury-sponsored minting
-const GASLESS_NAMESPACES = ['picoclaw', 'agent'] as const;
+const WORKER_URL = process.env.NEXT_PUBLIC_WORKER_URL ?? 'https://nftmail-email-worker.richard-159.workers.dev';
+
+// Namespaces eligible for gasless treasury-sponsored minting (coupon extends this to all)
+const GASLESS_NAMESPACES = ['picoclaw', 'agent', 'nftmail', 'molt', 'openclaw', 'vault'] as const;
 type GaslessNamespace = typeof GASLESS_NAMESPACES[number];
 
 // Daily rate-limit (resets at midnight UTC, in-memory — resets on cold start)
@@ -87,17 +89,38 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Gasless minting is temporarily paused' }, { status: 503 });
   }
 
-  let body: { label?: string; owner?: string; namespace?: string; ensProof?: { name: string } };
+  let body: { label?: string; owner?: string; namespace?: string; ensProof?: { name: string }; couponCode?: string };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
 
-  const { label, owner, namespace: rawNs = 'picoclaw', ensProof } = body;
+  const { label, owner, namespace: rawNs = 'picoclaw', ensProof, couponCode } = body;
   const namespace = (GASLESS_NAMESPACES as readonly string[]).includes(rawNs ?? '')
     ? rawNs as GaslessNamespace
     : 'picoclaw';
+
+  // ── Coupon path: validate coupon before anything else ─────────────────────
+  const isCouponMint = !!couponCode?.trim();
+  if (isCouponMint) {
+    try {
+      const vRes  = await fetch(WORKER_URL, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ action: 'validateCoupon', code: couponCode!.trim().toUpperCase(), tld: `${namespace}.gno` }),
+        signal:  AbortSignal.timeout(8000),
+      });
+      const vData = await vRes.json() as { valid: boolean; reason?: string };
+      if (!vData.valid) {
+        return NextResponse.json({ error: `Coupon invalid: ${vData.reason ?? 'unknown'}` }, { status: 400 });
+      }
+    } catch {
+      return NextResponse.json({ error: 'Could not validate coupon — try again' }, { status: 502 });
+    }
+  } else if (!['picoclaw', 'agent'].includes(namespace)) {
+    return NextResponse.json({ error: `Namespace ${namespace} requires a coupon for gasless mint` }, { status: 400 });
+  }
 
   if (!label || typeof label !== 'string' || !/^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]{1}$/.test(label) || label.length < 3) {
     return NextResponse.json({ error: 'Invalid label — min 3 chars, lowercase alphanumeric + hyphens' }, { status: 400 });
@@ -150,8 +173,8 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // ── Rate limit ────────────────────────────────────────────────────────────
-  if (!checkAndIncrementRateLimit()) {
+  // ── Rate limit (skip for coupon mints) ───────────────────────────────────
+  if (!isCouponMint && !checkAndIncrementRateLimit()) {
     return NextResponse.json(
       { error: 'Daily gasless mint limit reached. Try again tomorrow or mint with your own wallet.' },
       { status: 429 },
@@ -243,6 +266,15 @@ export async function POST(req: NextRequest) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ agentName: label, tbaAddress, sld: namespace, ownerWallet: owner }),
     }).catch(() => {});
+
+    // ── Redeem coupon after successful mint (non-fatal) ───────────────────────
+    if (isCouponMint) {
+      fetch(WORKER_URL, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ action: 'redeemCoupon', code: couponCode!.trim().toUpperCase(), tld: `${namespace}.gno`, redeemedBy: owner }),
+      }).catch(() => {});
+    }
 
     return NextResponse.json({
       success: true,

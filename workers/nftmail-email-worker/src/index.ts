@@ -1598,6 +1598,54 @@ export default {
           }
         }
 
+        // ── Coupon: issue a single-use free-mint code (admin only) ────────────
+        if (email.action === 'issueCoupon') {
+          const secret = request.headers.get('X-Webhook-Secret') ?? (email as any).secret ?? '';
+          if (secret !== env.WEBHOOK_SECRET) {
+            return corsify(Response.json({ error: 'Forbidden' }, { status: 403 }), request);
+          }
+          const tld      = ((email as any).tld ?? 'nftmail.gno').trim();
+          const maxUses  = Number((email as any).maxUses ?? 1);
+          const note     = ((email as any).note ?? '').trim();
+          const prefix   = 'NFTFREE';
+          const rand     = Math.random().toString(36).slice(2, 6).toUpperCase();
+          const code     = `${prefix}-${rand}`;
+          const payload  = JSON.stringify({ tld, maxUses, usedCount: 0, note, issuedAt: Date.now() });
+          await env.INBOX_KV.put(`coupon:${code}`, payload);
+          return corsify(Response.json({ code, tld, maxUses, note }), request);
+        }
+
+        // ── Coupon: validate (read-only check, does not consume) ─────────────
+        if (email.action === 'validateCoupon') {
+          const code = ((email as any).code ?? '').trim().toUpperCase();
+          const tld  = ((email as any).tld  ?? '').trim();
+          if (!code) return corsify(Response.json({ valid: false, reason: 'Missing code' }), request);
+          const raw = await env.INBOX_KV.get(`coupon:${code}`);
+          if (!raw) return corsify(Response.json({ valid: false, reason: 'Not found' }), request);
+          const c = JSON.parse(raw) as { tld: string; maxUses: number; usedCount: number };
+          if (tld && c.tld !== tld) return corsify(Response.json({ valid: false, reason: 'Wrong namespace' }), request);
+          if (c.usedCount >= c.maxUses) return corsify(Response.json({ valid: false, reason: 'Already used' }), request);
+          return corsify(Response.json({ valid: true, tld: c.tld }), request);
+        }
+
+        // ── Coupon: redeem (atomic use — call only at mint time) ─────────────
+        if (email.action === 'redeemCoupon') {
+          const code      = ((email as any).code       ?? '').trim().toUpperCase();
+          const tld       = ((email as any).tld        ?? '').trim();
+          const redeemedBy = ((email as any).redeemedBy ?? '').trim();
+          if (!code) return corsify(Response.json({ ok: false, error: 'Missing code' }, { status: 400 }), request);
+          const raw = await env.INBOX_KV.get(`coupon:${code}`);
+          if (!raw) return corsify(Response.json({ ok: false, error: 'Not found' }, { status: 404 }), request);
+          const c = JSON.parse(raw) as { tld: string; maxUses: number; usedCount: number; note?: string; issuedAt: number };
+          if (tld && c.tld !== tld) return corsify(Response.json({ ok: false, error: 'Wrong namespace' }, { status: 400 }), request);
+          if (c.usedCount >= c.maxUses) return corsify(Response.json({ ok: false, error: 'Already used' }, { status: 409 }), request);
+          c.usedCount += 1;
+          (c as any).lastRedeemedBy = redeemedBy;
+          (c as any).lastRedeemedAt = Date.now();
+          await env.INBOX_KV.put(`coupon:${code}`, JSON.stringify(c));
+          return corsify(Response.json({ ok: true, tld: c.tld }), request);
+        }
+
         // List NFTMail addresses by controller wallet (traverses nftmailgno:* KV keys)
         if (email.action === 'listNftmailByController') {
           const controller = ((email as any).controller || '').toLowerCase().trim();
