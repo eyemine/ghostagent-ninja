@@ -30,6 +30,43 @@ interface RegistryEntry {
   };
 }
 
+const COMPANY_REPO = 'eyemine/ghostagent-ninja';
+const AGENTS_MD_BASE = `https://github.com/${COMPANY_REPO}/blob/main/agents`;
+
+function InstallBanner() {
+  const [copied, setCopied] = useState(false);
+  const cmd = `npx companies.sh add ${COMPANY_REPO}`;
+  function copy() {
+    navigator.clipboard.writeText(cmd).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); });
+  }
+  return (
+    <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-[rgba(176,128,92,0.2)] bg-[rgba(176,128,92,0.06)] px-4 py-3 text-xs">
+      <span className="shrink-0 rounded-full bg-[rgba(176,128,92,0.15)] px-2 py-0.5 text-[9px] font-bold tracking-wider text-[#b0805c] ring-1 ring-[rgba(176,128,92,0.25)]">
+        COMPANIES.SH
+      </span>
+      <span className="text-[var(--muted)]">Agent Companies package — importable by any runtime</span>
+      <div className="ml-auto flex items-center gap-2">
+        <code className="rounded-md border border-[rgba(176,128,92,0.2)] bg-black/30 px-2.5 py-1 font-mono text-[10px] text-[#f2eee4]">
+          {cmd}
+        </code>
+        <button
+          onClick={copy}
+          className="shrink-0 rounded-lg border border-[rgba(176,128,92,0.25)] bg-[rgba(176,128,92,0.1)] px-2.5 py-1 text-[10px] font-semibold text-[#b0805c] transition hover:bg-[rgba(176,128,92,0.18)]"
+        >
+          {copied ? 'Copied!' : 'Copy'}
+        </button>
+        <a
+          href={`https://github.com/${COMPANY_REPO}/blob/main/COMPANY.md`}
+          target="_blank" rel="noopener noreferrer"
+          className="shrink-0 rounded-lg border border-[rgba(176,128,92,0.25)] bg-[rgba(176,128,92,0.1)] px-2.5 py-1 text-[10px] font-semibold text-[#b0805c] transition hover:bg-[rgba(176,128,92,0.18)]"
+        >
+          COMPANY.md ↗
+        </a>
+      </div>
+    </div>
+  );
+}
+
 function RegistryTab() {
   const [agents, setAgents]     = useState<RegistryEntry[]>([]);
   const [loading, setLoading]   = useState(true);
@@ -68,6 +105,8 @@ function RegistryTab() {
 
   return (
     <div className="space-y-4">
+      <InstallBanner />
+
       {/* Search + filter bar */}
       <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-[var(--border)] bg-[var(--card)] px-4 py-3">
         <input
@@ -161,12 +200,22 @@ function RegistryTab() {
                       </div>
                     </td>
                     <td className="px-4 py-2.5 text-right">
-                      <Link
-                        href={`/agent/${a.name}`}
-                        className="rounded-lg border border-[rgba(176,128,92,0.25)] bg-black/20 px-2.5 py-1 text-[10px] font-medium text-[var(--muted)] transition hover:text-white"
-                      >
-                        View →
-                      </Link>
+                      <div className="flex items-center justify-end gap-1.5">
+                        <a
+                          href={`${AGENTS_MD_BASE}/${a.name}/AGENTS.md`}
+                          target="_blank" rel="noopener noreferrer"
+                          className="rounded-lg border border-[rgba(176,128,92,0.15)] bg-black/10 px-2 py-1 text-[9px] font-medium text-[var(--muted)] transition hover:text-[#b0805c]"
+                          title="View AGENTS.md spec"
+                        >
+                          AGENTS.md
+                        </a>
+                        <Link
+                          href={`/agent/${a.name}`}
+                          className="rounded-lg border border-[rgba(176,128,92,0.25)] bg-black/20 px-2.5 py-1 text-[10px] font-medium text-[var(--muted)] transition hover:text-white"
+                        >
+                          View →
+                        </Link>
+                      </div>
                     </td>
                   </tr>
                 );
