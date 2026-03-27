@@ -2,13 +2,36 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { usePrivy, useWallets } from '@privy-io/react-auth';
-import { motion, AnimatePresence } from 'framer-motion';
+import { usePrivy } from '@privy-io/react-auth';
 import Link from 'next/link';
 import Image from 'next/image';
 import { WarrantCanary } from '../components/WarrantCanary';
-import { TogglePrivacy } from '../components/TogglePrivacy';
 import { MoltToPrivate } from '../components/MoltToPrivate';
+import { TogglePrivacy } from '../components/TogglePrivacy';
+
+function stripHtml(html: string): string {
+  const s = html
+    .replace(/<style[\s\S]*?<\/style>/gi, '')
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/<br[\s\S]*?\/>/gi, ' ')
+    .replace(/<br>/gi, ' ')
+    .replace(/<\/(?:p|div|li|tr|h[1-6]|blockquote)>/gi, ' ')
+    .replace(/<[\s\S]*?>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/\s+/g, ' ')
+    .trim();
+  // Drop CSS/style artifact tokens
+  return s.split(' ').filter(t => {
+    if (!t) return false;
+    if (/[{}]/.test(t)) return false;
+    if (/^[.#][a-zA-Z0-9_-]/.test(t)) return false;
+    return true;
+  }).join(' ').trim();
+}
 
 interface NftMailName {
   tokenId: number;
@@ -24,6 +47,9 @@ interface InboxMessage {
   fromAddress: string;
   receivedTime: string;
   summary: string;
+  body: string;
+  bodyHtml?: string;
+  encrypted: boolean;
   isRead: boolean;
   hasAttachment: boolean;
   decayPct: number;
@@ -31,11 +57,12 @@ interface InboxMessage {
 }
 
 type Tab = 'inbox' | 'compose' | 'killswitch';
+type ViewMode = 'text' | 'headers' | 'source';
+
+const WORKER_URL = 'https://nftmail-email-worker.richard-159.workers.dev';
 
 export default function DashboardPage() {
-  const { authenticated, login, logout, ready } = usePrivy();
-  const { wallets } = useWallets();
-
+  const { authenticated, login, logout, ready, user } = usePrivy();
   const [names, setNames] = useState<NftMailName[]>([]);
   const [selectedName, setSelectedName] = useState<NftMailName | null>(null);
   const [messages, setMessages] = useState<InboxMessage[]>([]);
@@ -45,6 +72,11 @@ export default function DashboardPage() {
   const [loadingInbox, setLoadingInbox] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>('inbox');
+
+  // Reading pane state
+  const [selectedMessage, setSelectedMessage] = useState<InboxMessage | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>('text');
+  const [readIds, setReadIds] = useState<Set<string>>(new Set());
 
   // Compose state
   const [composeTo, setComposeTo] = useState('');
@@ -59,11 +91,46 @@ export default function DashboardPage() {
 
   // Privacy toggle state
   const [privacyEnabled, setPrivacyEnabled] = useState(false);
+  const [privacyTier, setPrivacyTier] = useState<string>('exposed');
 
   const searchParams = useSearchParams();
   const emailParam = searchParams?.get('email') || null;
 
-  const preferredWallet = wallets.find((w: any) => w?.walletClientType === 'injected') || wallets[0];
+  // Derive wallet address safely from Privy session (avoids useWallets() crash)
+  const walletAddress = user?.wallet?.address ||
+    (user?.linkedAccounts as any[])?.find((a: any) => a?.address)?.address || null;
+  const preferredWallet = walletAddress ? { address: walletAddress, getEthereumProvider: async () => (window as any).ethereum } : null;
+
+  // Load persisted read IDs from localStorage
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('nftmail:readIds');
+      if (stored) setReadIds(new Set(JSON.parse(stored) as string[]));
+    } catch {}
+  }, []);
+
+  const markRead = useCallback((messageId: string) => {
+    setReadIds(prev => {
+      const next = new Set(prev);
+      next.add(messageId);
+      try { localStorage.setItem('nftmail:readIds', JSON.stringify([...next])); } catch {}
+      return next;
+    });
+  }, []);
+
+  const handleDelete = useCallback(async (messageId: string) => {
+    if (!selectedName?.email) return;
+    const label = selectedName.email.replace('@nftmail.box', '');
+    try {
+      await fetch(WORKER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'deleteMessage', localPart: label, messageId }),
+      });
+      setMessages(prev => prev.filter(m => m.messageId !== messageId));
+      if (selectedMessage?.messageId === messageId) setSelectedMessage(null);
+    } catch {}
+  }, [selectedName, selectedMessage]);
 
   // Resolve NFTMail names for connected wallet
   const resolveNames = useCallback(async () => {
@@ -93,12 +160,21 @@ export default function DashboardPage() {
     if (!selectedName) return;
     setLoadingInbox(true);
     try {
-      const res = await fetch(`/api/inbox?email=${encodeURIComponent(selectedName.email)}`);
-      const data = await res.json() as { error?: string; messages?: any[]; tier?: string; note?: string };
-      if (!res.ok) throw new Error(data.error || 'Failed to fetch inbox');
+      const [inboxRes, resolveRes] = await Promise.all([
+        fetch(`/api/inbox?email=${encodeURIComponent(selectedName.email)}`),
+        fetch(WORKER_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'resolveAddress', name: selectedName.label }),
+        }),
+      ]);
+      const data = await inboxRes.json() as { error?: string; messages?: any[]; tier?: string; note?: string };
+      if (!inboxRes.ok) throw new Error(data.error || 'Failed to fetch inbox');
       setMessages(data.messages || []);
-      setInboxTier(data.tier || '');
       setInboxNote(data.note || '');
+      // Get account tier from resolveAddress — inbox API always returns 'free'
+      const resolveData = await resolveRes.json() as { accountTier?: string };
+      setInboxTier(resolveData.accountTier || data.tier || '');
     } catch (err: any) {
       setError(err?.message || 'Failed to fetch inbox');
     } finally {
@@ -115,6 +191,7 @@ export default function DashboardPage() {
   useEffect(() => {
     if (selectedName) {
       fetchInbox();
+      setSelectedMessage(null);
     }
   }, [selectedName, fetchInbox]);
 
@@ -161,9 +238,7 @@ export default function DashboardPage() {
         params: [message, preferredWallet.address],
       });
 
-      // Call Worker purgeInbox
-      const workerUrl = process.env.NEXT_PUBLIC_WORKER_URL || 'https://nftmail-email-worker.richard-159.workers.dev';
-      const res = await fetch(workerUrl, {
+      const res = await fetch(WORKER_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -176,6 +251,7 @@ export default function DashboardPage() {
       if (!res.ok) throw new Error(data.error || 'Burn failed');
       setBurnResult(`Purged ${data.messagesDeleted} messages. Sovereign burn complete.`);
       setMessages([]);
+      setSelectedMessage(null);
     } catch (err: any) {
       if (err?.code === 4001) {
         setBurnResult('Signature rejected — burn cancelled.');
@@ -188,7 +264,10 @@ export default function DashboardPage() {
   };
 
   const formatTimeAgo = (ts: string) => {
-    const ms = Date.now() - (parseInt(ts, 10) || Date.parse(ts) || Date.now());
+    const raw = parseInt(ts, 10);
+    // Unix seconds if < 1e11 (year ~5138), else treat as ms or ISO string
+    const epoch = !isNaN(raw) ? (raw < 1e11 ? raw * 1000 : raw) : (Date.parse(ts) || Date.now());
+    const ms = Date.now() - epoch;
     const mins = Math.floor(ms / 60000);
     if (mins < 60) return `${mins}m ago`;
     const hrs = Math.floor(mins / 60);
@@ -197,24 +276,20 @@ export default function DashboardPage() {
     return `${days}d ago`;
   };
 
-  const decayColor = (pct: number) => {
-    if (pct < 50) return 'text-emerald-400';
-    if (pct < 75) return 'text-amber-400';
-    return 'text-red-400';
-  };
-
   const decayBarColor = (pct: number) => {
     if (pct < 50) return 'bg-emerald-500';
     if (pct < 75) return 'bg-amber-500';
     return 'bg-red-500';
   };
 
+  const canSend = inboxTier === 'premium' || inboxTier === 'ghost' || inboxTier === 'lite';
+  const isImago = inboxTier === 'premium' || inboxTier === 'ghost';
+
   if (!ready) return null;
 
   return (
     <div className="min-h-screen bg-[radial-gradient(1200px_circle_at_20%_-10%,rgba(0,163,255,0.16),transparent_45%),radial-gradient(900px_circle_at_90%_10%,rgba(124,77,255,0.14),transparent_40%),linear-gradient(180deg,var(--background),#03040a)]">
-      <div className="mx-auto flex min-h-screen max-w-4xl flex-col gap-6 px-4 py-8 md:px-6">
-        {/* Warrant Canary */}
+      <div className="mx-auto flex min-h-screen max-w-5xl flex-col gap-6 px-4 py-8 md:px-6">
         <WarrantCanary />
 
         {/* Header */}
@@ -225,48 +300,27 @@ export default function DashboardPage() {
           </Link>
           <div className="flex items-center gap-3">
             {authenticated && preferredWallet && (
-              <span className="text-xs text-[var(--muted)]">
-                {preferredWallet.address.slice(0, 6)}...{preferredWallet.address.slice(-4)}
-              </span>
+              <span className="text-xs text-[var(--muted)]">{preferredWallet.address.slice(0, 6)}...{preferredWallet.address.slice(-4)}</span>
             )}
             {authenticated ? (
-              <button
-                onClick={logout}
-                className="rounded-lg border border-[var(--border)] bg-black/20 px-3 py-1.5 text-xs text-[var(--muted)] transition hover:border-red-500/30 hover:text-red-400"
-              >
-                Disconnect
-              </button>
+              <button onClick={logout} className="rounded-lg border border-[var(--border)] bg-black/20 px-3 py-1.5 text-xs text-[var(--muted)] transition hover:border-red-500/30 hover:text-red-400">Disconnect</button>
             ) : (
-              <button
-                onClick={login}
-                className="rounded-lg border border-[rgba(0,163,255,0.35)] bg-[rgba(0,163,255,0.08)] px-4 py-2 text-xs font-semibold text-[rgb(160,220,255)] transition hover:bg-[rgba(0,163,255,0.16)]"
-              >
-                Connect Wallet
-              </button>
+              <button onClick={login} className="rounded-lg border border-[rgba(0,163,255,0.35)] bg-[rgba(0,163,255,0.08)] px-4 py-2 text-xs font-semibold text-[rgb(160,220,255)] transition hover:bg-[rgba(0,163,255,0.16)]">Connect Wallet</button>
             )}
           </div>
         </header>
 
-        {/* Not authenticated */}
         {!authenticated && (
           <div className="flex flex-1 flex-col items-center justify-center gap-6">
             <div className="text-center">
               <h1 className="text-3xl font-bold">NFTMail Dashboard</h1>
               <p className="mt-2 text-sm text-[var(--muted)]">Connect your wallet to access your NFTMail inbox</p>
             </div>
-            <button
-              onClick={login}
-              className="rounded-xl border border-[rgba(0,163,255,0.35)] bg-[rgba(0,163,255,0.08)] px-8 py-4 text-sm font-semibold text-[rgb(160,220,255)] transition-all hover:bg-[rgba(0,163,255,0.16)] hover:shadow-[0_0_32px_rgba(0,163,255,0.12)]"
-            >
-              Connect Wallet
-            </button>
-            <p className="text-[10px] text-[var(--muted)]">
-              Supports Privy email login, MetaMask, Rabby, or any injected wallet holding NFTMail.gno
-            </p>
+            <button onClick={login} className="rounded-xl border border-[rgba(0,163,255,0.35)] bg-[rgba(0,163,255,0.08)] px-8 py-4 text-sm font-semibold text-[rgb(160,220,255)] transition-all hover:bg-[rgba(0,163,255,0.16)] hover:shadow-[0_0_32px_rgba(0,163,255,0.12)]">Connect Wallet</button>
+            <p className="text-[10px] text-[var(--muted)]">Supports Privy email login, MetaMask, Rabby, or any injected wallet holding NFTMail.gno</p>
           </div>
         )}
 
-        {/* Authenticated but loading */}
         {authenticated && loading && (
           <div className="flex flex-1 items-center justify-center">
             <div className="flex items-center gap-3">
@@ -276,29 +330,21 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* No names found */}
         {authenticated && !loading && names.length === 0 && (
           <div className="flex flex-1 flex-col items-center justify-center gap-4">
             <div className="text-center">
               <h2 className="text-xl font-semibold">No NFTMail names found</h2>
-              <p className="mt-2 text-sm text-[var(--muted)]">
-                This wallet doesn't hold any NFTMail.gno NFTs.
-              </p>
+              <p className="mt-2 text-sm text-[var(--muted)]">This wallet doesn&apos;t hold any NFTMail.gno NFTs.</p>
             </div>
-            <Link
-              href="/nftmail"
-              className="rounded-xl border border-emerald-500/35 bg-emerald-500/8 px-6 py-3 text-sm font-semibold text-emerald-300 transition hover:bg-emerald-500/16"
-            >
-              Mint NFTMail Address
-            </Link>
+            <Link href="/nftmail" className="rounded-xl border border-emerald-500/35 bg-emerald-500/8 px-6 py-3 text-sm font-semibold text-emerald-300 transition hover:bg-emerald-500/16">Mint NFTMail Address</Link>
           </div>
         )}
 
-        {/* Dashboard with names */}
+        {/* ── Dashboard ── */}
         {authenticated && !loading && names.length > 0 && (
           <>
-            {/* Name selector */}
-            <div className="flex items-center gap-3">
+            {/* Account selector + tier badge */}
+            <div className="flex flex-wrap items-center gap-3">
               <div className="flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/8 px-4 py-2.5">
                 <div className="h-2 w-2 rounded-full bg-emerald-400" />
                 {names.length === 1 ? (
@@ -306,333 +352,310 @@ export default function DashboardPage() {
                 ) : (
                   <select
                     value={selectedName?.label || ''}
-                    onChange={(e) => {
-                      const n = names.find((n) => n.label === e.target.value);
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
+                      const n = names.find((n: NftMailName) => n.label === e.target.value);
                       if (n) setSelectedName(n);
                     }}
                     className="bg-transparent text-sm font-medium text-emerald-300 outline-none"
                   >
-                    {names.map((n) => (
-                      <option key={n.tokenId} value={n.label} className="bg-black text-white">
-                        {n.email}
-                      </option>
+                    {names.map((n: NftMailName) => (
+                      <option key={n.tokenId} value={n.label} className="bg-black text-white">{n.email}</option>
                     ))}
                   </select>
                 )}
               </div>
               <span className="text-[10px] text-[var(--muted)]">{selectedName?.gnoName}</span>
+              {inboxTier && (
+                <span className={`rounded-full px-2 py-0.5 text-[9px] font-semibold ring-1 ${
+                  isImago ? 'bg-violet-500/10 text-violet-300 ring-violet-500/20'
+                    : canSend ? 'bg-amber-500/10 text-amber-300 ring-amber-500/20'
+                    : 'bg-zinc-500/10 text-zinc-400 ring-zinc-500/20'
+                }`}>
+                  {isImago ? 'IMAGO' : canSend ? 'PUPA' : 'LARVA'}
+                </span>
+              )}
             </div>
 
-            {/* Privacy Toggle */}
+            {/* Privacy toggle — all accounts */}
             {selectedName && preferredWallet && (
               <TogglePrivacy
                 name={selectedName.label}
                 walletAddress={preferredWallet.address}
-                onPrivacyChange={setPrivacyEnabled}
+                onPrivacyChange={(enabled: boolean) => { setPrivacyEnabled(enabled); setPrivacyTier(enabled ? 'private' : 'exposed'); }}
               />
             )}
-
-            {/* Open Agency: Molt to Private (only for molt.gno agents) */}
             {selectedName && preferredWallet && (
-              <MoltToPrivate
-                name={selectedName.label}
-                walletAddress={preferredWallet.address}
-                onMolted={() => setPrivacyEnabled(true)}
-              />
+              <MoltToPrivate name={selectedName.label} walletAddress={preferredWallet.address} onMolted={() => setPrivacyEnabled(true)} />
             )}
 
             {/* Tabs */}
             <div className="flex gap-1 rounded-lg border border-[var(--border)] bg-black/20 p-1">
               <button
                 onClick={() => setTab('inbox')}
-                className={`flex-1 rounded-md px-4 py-2 text-xs font-semibold transition ${
-                  tab === 'inbox'
-                    ? 'bg-[rgba(0,163,255,0.12)] text-[rgb(160,220,255)]'
-                    : 'text-[var(--muted)] hover:text-white/60'
-                }`}
+                className={`flex-1 rounded-md px-4 py-2 text-xs font-semibold transition ${tab === 'inbox' ? 'bg-[rgba(0,163,255,0.12)] text-[rgb(160,220,255)]' : 'text-[var(--muted)] hover:text-white/60'}`}
               >
-                Inbox {messages.length > 0 && `(${messages.length})`}
+                Inbox{messages.length > 0 ? ` (${messages.length})` : ''}
               </button>
               <button
-                onClick={() => setTab('compose')}
-                className={`flex-1 rounded-md px-4 py-2 text-xs font-semibold transition ${
-                  tab === 'compose'
-                    ? 'bg-violet-500/12 text-violet-300'
-                    : 'text-[var(--muted)] hover:text-white/60'
-                }`}
+                onClick={() => canSend && setTab('compose')}
+                title={!canSend ? 'Upgrade to PUPA or IMAGO to send' : undefined}
+                className={`flex-1 rounded-md px-4 py-2 text-xs font-semibold transition ${tab === 'compose' ? 'bg-violet-500/12 text-violet-300' : canSend ? 'text-[var(--muted)] hover:text-white/60' : 'cursor-not-allowed opacity-40 text-[var(--muted)]'}`}
               >
-                Compose
-                <span className="ml-1 rounded-full bg-violet-500/10 px-1.5 py-0.5 text-[9px] text-violet-300 ring-1 ring-violet-500/20">
-                  EVOLVED
-                </span>
+                Compose <span className={`ml-1 rounded-full px-1.5 py-0.5 text-[9px] ring-1 ${isImago ? 'bg-violet-500/10 text-violet-300 ring-violet-500/20' : 'bg-zinc-500/10 text-zinc-400 ring-zinc-500/20'}`}>{isImago ? 'IMAGO' : 'PUPA+'}</span>
               </button>
               <button
                 onClick={() => setTab('killswitch')}
-                className={`flex-1 rounded-md px-4 py-2 text-xs font-semibold transition ${
-                  tab === 'killswitch'
-                    ? 'bg-red-500/12 text-red-300'
-                    : 'text-[var(--muted)] hover:text-white/60'
-                }`}
+                className={`flex-1 rounded-md px-4 py-2 text-xs font-semibold transition ${tab === 'killswitch' ? 'bg-red-500/12 text-red-300' : 'text-[var(--muted)] hover:text-white/60'}`}
               >
                 Burn
               </button>
             </div>
 
-            {/* Inbox tab */}
+            {/* ── INBOX TAB ── */}
             {tab === 'inbox' && (
-              <div className="space-y-3">
-                {/* 8-day decay legend */}
-                <div className="flex items-center justify-between rounded-lg border border-[var(--border)] bg-black/20 px-4 py-2">
+              <div className="rounded-xl border border-[var(--border)] overflow-hidden">
+                {/* Toolbar */}
+                <div className="flex items-center justify-between border-b border-[var(--border)] bg-black/20 px-4 py-2">
                   <div className="flex items-center gap-4">
-                    <span className="text-[10px] font-semibold tracking-wider text-[var(--muted)]">8-DAY DECAY INBOX</span>
-                    <div className="flex items-center gap-2">
-                      <div className="flex items-center gap-1">
-                        <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                        <span className="text-[9px] text-[var(--muted)]">Fresh</span>
+                    <span className="text-[10px] font-semibold tracking-wider text-[var(--muted)]">INBOX{messages.length > 0 ? ` (${messages.length})` : ''}</span>
+                    {!isImago && messages.length > 0 && (
+                      <div className="hidden sm:flex items-center gap-3">
+                        {[['bg-emerald-500','Fresh'],['bg-amber-500','Aging'],['bg-red-500','Expiring']].map(([c,l]) => (
+                          <div key={l} className="flex items-center gap-1"><div className={`h-1.5 w-1.5 rounded-full ${c}`} /><span className="text-[9px] text-[var(--muted)]">{l}</span></div>
+                        ))}
                       </div>
-                      <div className="flex items-center gap-1">
-                        <div className="h-1.5 w-1.5 rounded-full bg-amber-500" />
-                        <span className="text-[9px] text-[var(--muted)]">Aging</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <div className="h-1.5 w-1.5 rounded-full bg-red-500" />
-                        <span className="text-[9px] text-[var(--muted)]">Expiring</span>
-                      </div>
-                    </div>
+                    )}
                   </div>
                   <button
                     onClick={fetchInbox}
                     disabled={loadingInbox}
-                    className="text-[10px] text-[rgb(160,220,255)] hover:text-white transition disabled:opacity-40"
+                    className="flex items-center gap-1.5 text-[10px] text-[rgb(160,220,255)] hover:text-white transition disabled:opacity-40"
+                    title="Refresh inbox"
                   >
+                    <svg className={`h-3 w-3 ${loadingInbox ? 'animate-spin' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M23 4v6h-6M1 20v-6h6" /><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" />
+                    </svg>
                     {loadingInbox ? 'Loading...' : 'Refresh'}
                   </button>
                 </div>
 
                 {inboxNote && (
-                  <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-4 py-3">
+                  <div className="border-b border-[var(--border)] bg-amber-500/5 px-4 py-2">
                     <p className="text-xs text-amber-300">{inboxNote}</p>
-                    <p className="mt-1 text-[10px] text-[var(--muted)]">
-                      Free tier: receive-only via Cloudflare Worker email routing. Evolve to Pupa or Imago to enable sending.
-                    </p>
                   </div>
                 )}
 
-                {loadingInbox && messages.length === 0 && (
-                  <div className="flex items-center justify-center py-12">
-                    <div className="flex items-center gap-3">
-                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-[rgba(0,163,255,0.4)] border-t-transparent" />
-                      <span className="text-sm text-[var(--muted)]">Loading inbox...</span>
-                    </div>
-                  </div>
-                )}
-
-                {!loadingInbox && messages.length === 0 && !inboxNote && (
-                  <div className="flex flex-col items-center justify-center py-16 gap-3">
-                    <svg className="h-12 w-12 text-[var(--muted)] opacity-30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                      <rect x="2" y="6" width="20" height="12" rx="2" />
-                      <path d="M22 8l-10 5L2 8" />
-                    </svg>
-                    <p className="text-sm text-[var(--muted)]">Inbox empty</p>
-                    <p className="text-[10px] text-[var(--muted)]">
-                      Send a test email to <span className="text-emerald-300">{selectedName?.email}</span>
-                    </p>
-                  </div>
-                )}
-
-                <AnimatePresence>
-                  {messages.map((msg, i) => (
-                    <motion.div
-                      key={msg.messageId}
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -8 }}
-                      transition={{ delay: i * 0.03 }}
-                      className={`group rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 transition hover:border-[rgba(0,163,255,0.25)] ${privacyEnabled ? '' : ''}`}
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            {!msg.isRead && (
-                              <div className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-[rgb(0,163,255)]" />
-                            )}
-                            <span className="truncate text-sm font-medium text-white">
-                              {msg.subject}
-                            </span>
-                            {msg.hasAttachment && (
-                              <svg className="h-3 w-3 flex-shrink-0 text-[var(--muted)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" />
-                              </svg>
-                            )}
-                          </div>
-                          <p className="mt-0.5 text-xs text-[var(--muted)]">{msg.sender}</p>
-                          {msg.summary && (
-                            <p className="mt-1 truncate text-xs text-[var(--muted)] opacity-60">{msg.summary}</p>
-                          )}
+                {/* Split pane */}
+                <div className="flex" style={{ minHeight: '460px' }}>
+                  {/* Left: message list */}
+                  <div className={`flex flex-col border-r border-[var(--border)] ${selectedMessage ? 'hidden md:flex md:w-2/5' : 'flex w-full md:w-2/5'}`}>
+                    {loadingInbox && messages.length === 0 ? (
+                      <div className="flex flex-1 items-center justify-center py-12">
+                        <div className="flex items-center gap-3">
+                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-[rgba(0,163,255,0.4)] border-t-transparent" />
+                          <span className="text-sm text-[var(--muted)]">Loading...</span>
                         </div>
-                        <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-                          <span className="text-[10px] text-[var(--muted)]">{formatTimeAgo(msg.receivedTime)}</span>
-                          {/* Decay bar */}
-                          <div className="flex items-center gap-1.5">
-                            <span className={`text-[9px] font-mono ${decayColor(msg.decayPct)}`}>
-                              {8 - Math.floor(msg.decayPct / 12.5)}d left
-                            </span>
-                            <div className="h-1 w-12 overflow-hidden rounded-full bg-white/5">
-                              <div
-                                className={`h-full rounded-full transition-all ${decayBarColor(msg.decayPct)}`}
-                                style={{ width: `${100 - msg.decayPct}%` }}
-                              />
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Link
-                              href={`/inbox/${encodeURIComponent(selectedName?.email?.replace('@nftmail.box', '') || '')}`}
-                              className="text-[9px] text-[rgba(0,163,255,0.6)] hover:text-[rgb(160,220,255)] transition"
-                            >
-                              Open inbox →
-                            </Link>
+                      </div>
+                    ) : messages.length === 0 ? (
+                      <div className="flex flex-col flex-1 items-center justify-center py-12 gap-3">
+                        <svg className="h-10 w-10 text-[var(--muted)] opacity-30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                          <rect x="2" y="6" width="20" height="12" rx="2" /><path d="M22 8l-10 5L2 8" />
+                        </svg>
+                        <p className="text-sm text-[var(--muted)]">Inbox empty</p>
+                        <p className="text-[10px] text-[var(--muted)] text-center">Send a test email to <span className="text-emerald-300">{selectedName?.email}</span></p>
+                      </div>
+                    ) : (
+                      <div className="divide-y divide-[var(--border)] overflow-y-auto" style={{ maxHeight: '560px' }}>
+                        {messages.map((msg: InboxMessage) => {
+                          const isRead = readIds.has(msg.messageId) || msg.isRead;
+                          const isSelected = selectedMessage?.messageId === msg.messageId;
+                          return (
                             <button
-                              onClick={async () => {
-                                if (!selectedName?.email) return;
-                                const label = selectedName.email.replace('@nftmail.box', '');
-                                try {
-                                  await fetch('https://nftmail-email-worker.richard-159.workers.dev', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ action: 'deleteMessage', localPart: label, messageId: msg.messageId }),
-                                  });
-                                  fetchInbox();
-                                } catch {}
-                              }}
-                              className="text-[9px] text-red-400/60 hover:text-red-400 transition"
-                              title="Delete message"
+                              key={msg.messageId}
+                              onClick={() => { setSelectedMessage(msg); markRead(msg.messageId); setViewMode('text'); }}
+                              className={`w-full text-left px-4 py-3 transition hover:bg-white/5 ${isSelected ? 'bg-[rgba(0,163,255,0.08)] border-l-2 border-[rgb(0,163,255)]' : 'border-l-2 border-transparent'}`}
                             >
-                              ✕
+                              <div className="flex items-start gap-2">
+                                <div className={`mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full ${!isRead ? 'bg-[rgb(0,163,255)]' : 'bg-transparent'}`} />
+                                <div className="flex-1 min-w-0">
+                                  <p className={`truncate text-xs ${!isRead ? 'font-semibold text-white' : 'text-zinc-300'}`}>{msg.subject || '(no subject)'}</p>
+                                  <p className="truncate text-[10px] text-[var(--muted)] mt-0.5">{msg.sender}</p>
+                                  {msg.summary && <p className="truncate text-[10px] text-[var(--muted)] opacity-50 mt-0.5">{stripHtml(msg.summary)}</p>}
+                                  <div className="flex items-center justify-between mt-1.5">
+                                    <span className="text-[9px] text-[var(--muted)]">{formatTimeAgo(msg.receivedTime)}</span>
+                                    {!isImago && (
+                                      <div className="h-0.5 w-8 overflow-hidden rounded-full bg-white/5">
+                                        <div className={`h-full rounded-full ${decayBarColor(msg.decayPct)}`} style={{ width: `${100 - msg.decayPct}%` }} />
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Right: reading pane */}
+                  <div className={`flex-1 flex flex-col ${selectedMessage ? 'flex' : 'hidden md:flex'}`}>
+                    {selectedMessage ? (
+                      <>
+                        {/* Mobile back button */}
+                        <button onClick={() => setSelectedMessage(null)} className="flex items-center gap-1.5 border-b border-[var(--border)] px-4 py-2 text-[10px] text-[var(--muted)] hover:text-white transition md:hidden">
+                          ← Back to inbox
+                        </button>
+
+                        {/* Message header */}
+                        <div className="border-b border-[var(--border)] bg-black/20 px-5 py-4 space-y-1">
+                          <p className="text-sm font-semibold text-white">{selectedMessage.subject || '(no subject)'}</p>
+                          <p className="text-[11px] text-[var(--muted)]"><span className="text-zinc-500 w-10 inline-block">From</span> {selectedMessage.sender}</p>
+                          <p className="text-[11px] text-[var(--muted)]"><span className="text-zinc-500 w-10 inline-block">To</span> {selectedName?.email}</p>
+                          <p className="text-[11px] text-[var(--muted)]"><span className="text-zinc-500 w-10 inline-block">Date</span> {formatTimeAgo(selectedMessage.receivedTime)}</p>
+                        </div>
+
+                        {/* View mode bar + action buttons */}
+                        <div className="flex items-center justify-between border-b border-[var(--border)] bg-black/10 px-3 py-1.5">
+                          <div className="flex items-center gap-0.5">
+                            {(['text','headers','source'] as ViewMode[]).map(m => (
+                              <button key={m} onClick={() => setViewMode(m)} className={`rounded px-2.5 py-1 text-[10px] font-medium transition capitalize ${viewMode === m ? 'bg-white/10 text-white' : 'text-[var(--muted)] hover:text-white'}`}>{m}</button>
+                            ))}
+                          </div>
+                          <div className="flex items-center gap-0.5">
+                            {/* Reply */}
+                            <button
+                              disabled={!canSend}
+                              title={!canSend ? 'PUPA+ required to reply' : 'Reply'}
+                              onClick={() => { if (!canSend) return; setComposeTo(selectedMessage.fromAddress || selectedMessage.sender); setComposeSubject(`Re: ${selectedMessage.subject}`); setTab('compose'); }}
+                              className="rounded p-1.5 text-[var(--muted)] transition hover:text-white disabled:opacity-30"
+                            >
+                              <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 17 4 12 9 7" /><path d="M20 18v-2a4 4 0 00-4-4H4" /></svg>
+                            </button>
+                            {/* Forward */}
+                            <button
+                              disabled={!canSend}
+                              title={!canSend ? 'PUPA+ required to forward' : 'Forward'}
+                              onClick={() => { if (!canSend) return; setComposeSubject(`Fwd: ${selectedMessage.subject}`); setComposeBody(`\n\n-------- Forwarded Message --------\nFrom: ${selectedMessage.sender}\nSubject: ${selectedMessage.subject}\n\n${selectedMessage.body || selectedMessage.summary}`); setTab('compose'); }}
+                              className="rounded p-1.5 text-[var(--muted)] transition hover:text-white disabled:opacity-30"
+                            >
+                              <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 17 20 12 15 7" /><path d="M4 18v-2a4 4 0 014-4h12" /></svg>
+                            </button>
+                            {/* Download */}
+                            <button
+                              title="Download as .txt"
+                              onClick={() => {
+                                const content = `From: ${selectedMessage.sender}\nTo: ${selectedName?.email}\nSubject: ${selectedMessage.subject}\nDate: ${selectedMessage.receivedTime}\n\n${selectedMessage.body || selectedMessage.summary}`;
+                                const blob = new Blob([content], { type: 'text/plain' });
+                                const url = URL.createObjectURL(blob);
+                                const a = document.createElement('a'); a.href = url; a.download = `${selectedMessage.messageId}.txt`; a.click();
+                                URL.revokeObjectURL(url);
+                              }}
+                              className="rounded p-1.5 text-[var(--muted)] transition hover:text-white"
+                            >
+                              <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
+                            </button>
+                            {/* Delete */}
+                            <button
+                              title="Delete message"
+                              onClick={() => handleDelete(selectedMessage.messageId)}
+                              className="rounded p-1.5 text-red-400/50 transition hover:text-red-400"
+                            >
+                              <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" /><path d="M10 11v6M14 11v6" /><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2" /></svg>
                             </button>
                           </div>
                         </div>
+
+                        {/* Message body */}
+                        <div className="flex-1 overflow-y-auto px-5 py-4" style={{ maxHeight: '380px' }}>
+                          {selectedMessage.encrypted ? (
+                            <div className="flex flex-col items-center gap-3 py-8">
+                              <svg className="h-8 w-8 text-violet-400 opacity-60" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0110 0v4" />
+                              </svg>
+                              <p className="text-sm text-violet-300">End-to-end encrypted</p>
+                              <p className="text-[11px] text-[var(--muted)] text-center">This message is encrypted with your ECIES public key.</p>
+                            </div>
+                          ) : viewMode === 'text' ? (
+                            <pre className="whitespace-pre-wrap font-sans text-xs text-zinc-200 leading-relaxed">{selectedMessage.body || selectedMessage.summary || '(empty)'}</pre>
+                          ) : viewMode === 'headers' ? (
+                            <div className="space-y-1.5 font-mono text-[11px]">
+                              {[['Message-ID', selectedMessage.messageId],['From', selectedMessage.sender],['To', selectedName?.email || ''],['Subject', selectedMessage.subject],['Date', selectedMessage.receivedTime],['Decay', `${selectedMessage.decayPct}%`],['Expires', selectedMessage.expiresAt || 'never']].map(([k,v]) => (
+                                <div key={k} className="flex gap-2"><span className="text-zinc-500 w-24 flex-shrink-0">{k}</span><span className="text-zinc-300 break-all">{v}</span></div>
+                              ))}
+                            </div>
+                          ) : (
+                            <pre className="whitespace-pre-wrap font-mono text-[10px] text-zinc-400 leading-relaxed">{JSON.stringify(selectedMessage, null, 2)}</pre>
+                          )}
+                        </div>
+                      </>
+                    ) : (
+                      <div className="flex flex-col flex-1 items-center justify-center gap-2 text-center py-12 px-6">
+                        <svg className="h-8 w-8 text-[var(--muted)] opacity-20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                          <rect x="2" y="6" width="20" height="12" rx="2" /><path d="M22 8l-10 5L2 8" />
+                        </svg>
+                        <p className="text-sm text-[var(--muted)]">Select a message to read</p>
+                        <Link href={`/inbox/${encodeURIComponent(selectedName?.email?.replace('@nftmail.box', '') || '')}`} className="mt-1 text-[10px] text-[rgba(0,163,255,0.6)] hover:text-[rgb(160,220,255)] transition">Open full inbox →</Link>
                       </div>
-                    </motion.div>
-                  ))}
-                </AnimatePresence>
-              </div>
-            )}
-
-            {/* Compose tab */}
-            {tab === 'compose' && (
-              <div className="space-y-4">
-                {inboxTier !== 'premium' && (
-                  <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 px-5 py-4">
-                    <div className="flex items-center gap-2">
-                      <span className="rounded-full bg-violet-500/10 px-2 py-0.5 text-[10px] font-semibold text-violet-300 ring-1 ring-violet-500/20">
-                        EVOLVED
-                      </span>
-                      <span className="text-sm text-violet-300">Compose & Send requires a PUPA or IMAGO mailbox</span>
-                    </div>
-                    <p className="mt-2 text-xs text-[var(--muted)]">
-                      Evolve your inbox on the{' '}
-                      <Link href="/nftmail" className="text-violet-300 hover:underline">
-                        mint page
-                      </Link>{' '}
-                      to unlock sending, compose, and your Mirror Body Safe.
-                    </p>
+                    )}
                   </div>
-                )}
-
-                <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-5 space-y-4">
-                  <div>
-                    <label className="text-[10px] font-semibold tracking-wider text-[var(--muted)]">FROM</label>
-                    <div className="mt-1 rounded-lg border border-[var(--border)] bg-black/20 px-3 py-2 text-sm text-emerald-300">
-                      {selectedName?.email}
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-semibold tracking-wider text-[var(--muted)]">TO</label>
-                    <input
-                      type="email"
-                      value={composeTo}
-                      onChange={(e) => setComposeTo(e.target.value)}
-                      placeholder="recipient@example.com"
-                      className="mt-1 w-full rounded-lg border border-[var(--border)] bg-black/40 px-3 py-2 text-sm text-white placeholder-zinc-600 outline-none transition focus:border-[rgba(0,163,255,0.5)]"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-semibold tracking-wider text-[var(--muted)]">SUBJECT</label>
-                    <input
-                      type="text"
-                      value={composeSubject}
-                      onChange={(e) => setComposeSubject(e.target.value)}
-                      placeholder="Subject"
-                      className="mt-1 w-full rounded-lg border border-[var(--border)] bg-black/40 px-3 py-2 text-sm text-white placeholder-zinc-600 outline-none transition focus:border-[rgba(0,163,255,0.5)]"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-semibold tracking-wider text-[var(--muted)]">MESSAGE</label>
-                    <textarea
-                      value={composeBody}
-                      onChange={(e) => setComposeBody(e.target.value)}
-                      placeholder="Write your message..."
-                      rows={6}
-                      className="mt-1 w-full resize-none rounded-lg border border-[var(--border)] bg-black/40 px-3 py-2 text-sm text-white placeholder-zinc-600 outline-none transition focus:border-[rgba(0,163,255,0.5)]"
-                    />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <p className="text-[10px] text-[var(--muted)]">Attachments coming soon (size-limited)</p>
-                    <button
-                      onClick={handleSend}
-                      disabled={sending || !composeTo || inboxTier !== 'premium'}
-                      className="rounded-lg border border-violet-500/35 bg-violet-500/8 px-5 py-2 text-xs font-semibold text-violet-300 transition hover:bg-violet-500/16 disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                      {sending ? 'Sending...' : 'Send'}
-                    </button>
-                  </div>
-                  {sendResult && (
-                    <p className={`text-xs ${sendResult.startsWith('Sent') ? 'text-emerald-400' : 'text-red-400'}`}>
-                      {sendResult}
-                    </p>
-                  )}
                 </div>
               </div>
             )}
-            {/* Kill-Switch tab */}
+
+            {/* ── COMPOSE TAB ── */}
+            {tab === 'compose' && (
+              <div className="space-y-4">
+                {!canSend && (
+                  <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 px-5 py-4">
+                    <div className="flex items-center gap-2">
+                      <span className="rounded-full bg-violet-500/10 px-2 py-0.5 text-[10px] font-semibold text-violet-300 ring-1 ring-violet-500/20">UPCYCLED</span>
+                      <span className="text-sm text-violet-300">Compose &amp; Send requires a PUPA or IMAGO mailbox</span>
+                    </div>
+                    <p className="mt-2 text-xs text-[var(--muted)]">Cycle your inbox on the <Link href="/nftmail" className="text-violet-300 hover:underline">mint page</Link> to unlock sending.</p>
+                  </div>
+                )}
+                <div className={`rounded-xl border border-[var(--border)] bg-[var(--card)] p-5 space-y-4 ${!canSend ? 'opacity-50 pointer-events-none' : ''}`}>
+                  <div>
+                    <label className="text-[10px] font-semibold tracking-wider text-[var(--muted)]">FROM</label>
+                    <div className="mt-1 rounded-lg border border-[var(--border)] bg-black/20 px-3 py-2 text-sm text-emerald-300">{selectedName?.email}</div>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-semibold tracking-wider text-[var(--muted)]">TO</label>
+                    <input type="email" value={composeTo} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setComposeTo(e.target.value)} placeholder="recipient@example.com" className="mt-1 w-full rounded-lg border border-[var(--border)] bg-black/40 px-3 py-2 text-sm text-white placeholder-zinc-600 outline-none transition focus:border-[rgba(0,163,255,0.5)]" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-semibold tracking-wider text-[var(--muted)]">SUBJECT</label>
+                    <input type="text" value={composeSubject} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setComposeSubject(e.target.value)} placeholder="Subject" className="mt-1 w-full rounded-lg border border-[var(--border)] bg-black/40 px-3 py-2 text-sm text-white placeholder-zinc-600 outline-none transition focus:border-[rgba(0,163,255,0.5)]" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-semibold tracking-wider text-[var(--muted)]">MESSAGE</label>
+                    <textarea value={composeBody} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setComposeBody(e.target.value)} placeholder="Write your message..." rows={8} className="mt-1 w-full resize-none rounded-lg border border-[var(--border)] bg-black/40 px-3 py-2 text-sm text-white placeholder-zinc-600 outline-none transition focus:border-[rgba(0,163,255,0.5)]" />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <p className="text-[10px] text-[var(--muted)]">Attachments coming soon</p>
+                    <button onClick={handleSend} disabled={sending || !composeTo} className="rounded-lg border border-violet-500/35 bg-violet-500/8 px-5 py-2 text-xs font-semibold text-violet-300 transition hover:bg-violet-500/16 disabled:cursor-not-allowed disabled:opacity-40">{sending ? 'Sending...' : 'Send'}</button>
+                  </div>
+                  {sendResult && <p className={`text-xs ${sendResult.startsWith('Sent') ? 'text-emerald-400' : 'text-red-400'}`}>{sendResult}</p>}
+                </div>
+              </div>
+            )}
+
+            {/* ── BURN TAB ── */}
             {tab === 'killswitch' && (
               <div className="space-y-4">
                 <div className="rounded-xl border border-red-500/20 bg-red-500/5 px-5 py-5">
                   <div className="flex items-center gap-2 mb-3">
                     <svg className="h-5 w-5 text-red-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                      <line x1="9" y1="9" x2="15" y2="15" />
-                      <line x1="15" y1="9" x2="9" y2="15" />
+                      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /><line x1="9" y1="9" x2="15" y2="15" /><line x1="15" y1="9" x2="9" y2="15" />
                     </svg>
                     <h3 className="text-sm font-semibold text-red-300">Sovereign Kill-Switch</h3>
                   </div>
-                  <p className="text-xs text-[var(--muted)] mb-4">
-                    Permanently burn all encrypted inbox history from relay servers with a single Gnosis Safe signature.
-                    This action is <strong className="text-red-400">irreversible</strong>. All messages for{' '}
-                    <span className="text-emerald-300">{selectedName?.email}</span> will be deleted from KV storage.
-                  </p>
-                  <div className="rounded-lg border border-red-500/15 bg-black/20 px-4 py-3 mb-4">
-                    <div className="text-[10px] font-semibold tracking-wider text-[var(--muted)] mb-2">ARCHITECTURE</div>
-                    <p className="text-[11px] text-[var(--muted)] leading-relaxed">
-                      Zero-Knowledge Architecture + Waku Metadata Privacy + 7-Day Governance Timelocks
-                      <br />
-                      <span className="text-red-300">If you don't hold the keys, you can't open the door.</span>
-                    </p>
-                  </div>
-                  <button
-                    onClick={handleBurn}
-                    disabled={burning}
-                    className="w-full rounded-lg border border-red-500/35 bg-red-500/8 px-5 py-3 text-xs font-semibold text-red-300 transition hover:bg-red-500/16 hover:shadow-[0_0_24px_rgba(239,68,68,0.12)] disabled:cursor-not-allowed disabled:opacity-40"
-                  >
+                  <p className="text-xs text-[var(--muted)] mb-4">Permanently burn all encrypted inbox history. This action is <strong className="text-red-400">irreversible</strong>. All messages for <span className="text-emerald-300">{selectedName?.email}</span> will be deleted.</p>
+                  <button onClick={handleBurn} disabled={burning} className="w-full rounded-lg border border-red-500/35 bg-red-500/8 px-5 py-3 text-xs font-semibold text-red-300 transition hover:bg-red-500/16 hover:shadow-[0_0_24px_rgba(239,68,68,0.12)] disabled:cursor-not-allowed disabled:opacity-40">
                     {burning ? 'Signing & Burning...' : 'Sign & Burn All Messages'}
                   </button>
-                  {burnResult && (
-                    <p className={`mt-3 text-xs ${
-                      burnResult.includes('complete') ? 'text-emerald-400' : 'text-red-400'
-                    }`}>
-                      {burnResult}
-                    </p>
-                  )}
+                  {burnResult && <p className={`mt-3 text-xs ${burnResult.includes('complete') ? 'text-emerald-400' : 'text-red-400'}`}>{burnResult}</p>}
                 </div>
               </div>
             )}
@@ -646,12 +669,9 @@ export default function DashboardPage() {
         )}
 
         <footer className="mt-auto flex items-center justify-center gap-3 text-xs text-[var(--muted)]">
-          <span>nftmail.box dashboard — 8-day decay inbox — self-contained identity</span>
-          <Link
-            href="/nftmail"
-            className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-[10px] font-semibold text-amber-300 hover:bg-amber-500/20 transition whitespace-nowrap"
-          >
-            Evolve to Imago →
+          <span>nftmail.box dashboard — privacy-first email</span>
+          <Link href="/nftmail" className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-[10px] font-semibold text-amber-300 hover:bg-amber-500/20 transition whitespace-nowrap">
+            Upcycle to Imago →
           </Link>
         </footer>
       </div>

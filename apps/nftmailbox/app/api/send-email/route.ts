@@ -1,20 +1,57 @@
 /// POST /api/send-email
 /// Send email on behalf of a label@nftmail.box address.
 ///
-/// Auth: Privy JWT in Authorization header (Bearer <token>)
-///       OR ownerWallet in body (fallback for Privy embedded wallets)
+/// Auth: ownerWallet in body (verified against KV-registered controller)
 ///
-/// Tier gate: acct-tier KV must be 'lite' or 'premium'. Basic = receive-only.
+/// Tier gate: basic = receive-only. lite/premium/ghost = send via Mailgun.
 ///
 /// Send strategy:
-///   - lite/premium with Zoho provisioned seat → send from label@nftmail.box directly
-///   - lite without dedicated seat → relay via ghostagent@nftmail.box with Reply-To: label@nftmail.box
-///     (Zoho alias send — all nftmail.box inbound routes through ghostagent catch-all anyway)
+///   - All tiers (lite, premium, ghost): Mailgun API, From: label@nftmail.box
+///     True per-address sending — no relay, no ghostagent@nftmail.box in the envelope.
+///   - Imago (Zoho provisioned seat): send via Zoho directly (calendar/webmail users).
+///     Detected by zoho-seat KV flag set during upgrade provisioning.
 
 import { NextRequest, NextResponse } from 'next/server';
 
 const WORKER_URL = process.env.NFTMAIL_WORKER_URL || 'https://nftmail-email-worker.richard-159.workers.dev';
 const ZOHO_MAIL_API = 'https://mail.zoho.com.au/api';
+const MAILGUN_API_BASE = process.env.MAILGUN_API_BASE || 'https://api.eu.mailgun.net/v3';
+const MAILGUN_DOMAIN = process.env.MAILGUN_DOMAIN || 'mg.nftmail.box';
+
+async function sendViaMailgun(params: {
+  from: string;
+  to: string;
+  subject: string;
+  html: string;
+  text: string;
+}): Promise<{ messageId: string }> {
+  const apiKey = process.env.MAILGUN_API_KEY;
+  if (!apiKey) throw new Error('MAILGUN_API_KEY not configured');
+
+  const form = new URLSearchParams();
+  form.set('from', params.from);
+  form.set('to', params.to);
+  form.set('subject', params.subject);
+  form.set('html', params.html);
+  form.set('text', params.text);
+
+  const res = await fetch(`${MAILGUN_API_BASE}/${MAILGUN_DOMAIN}/messages`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Basic ${btoa(`api:${apiKey}`)}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: form.toString(),
+  });
+
+  if (!res.ok) {
+    const err = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    throw new Error(String(err.message || `Mailgun error ${res.status}`));
+  }
+
+  const data = (await res.json()) as Record<string, unknown>;
+  return { messageId: String(data.id || 'sent') };
+}
 
 async function getZohoAccessToken(): Promise<string | null> {
   const existing = process.env.ZOHO_OAUTH_TOKEN;
@@ -34,7 +71,7 @@ async function getZohoAccessToken(): Promise<string | null> {
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
     body: form.toString(),
   });
-  const data = (await res.json().catch(() => ({}))) as Record<string, any>;
+  const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
   if (!res.ok) return null;
   return (data.access_token as string) || null;
 }
@@ -42,11 +79,11 @@ async function getZohoAccessToken(): Promise<string | null> {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json() as {
-      label?: string;         // sender label (e.g. "mac.slave")
-      ownerWallet?: string;   // Privy wallet address for auth
-      to?: string;            // recipient address
+      label?: string;
+      ownerWallet?: string;
+      to?: string;
       subject?: string;
-      body?: string;          // markdown body
+      body?: string;
       replyToMessageId?: string;
     };
 
@@ -66,129 +103,103 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Subject or body required' }, { status: 400 });
     }
 
-    // ── Tier gate: verify sender owns this label and has send permissions ──
+    // ── Resolve address + verify ownership ──────────────────────────────────
     const resolveRes = await fetch(WORKER_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'resolveAddress', name: label }),
     });
-    const resolved = await resolveRes.json() as any;
+    const resolved = (await resolveRes.json()) as Record<string, unknown>;
 
     if (!resolved?.exists) {
       return NextResponse.json({ error: 'This address does not exist' }, { status: 404 });
     }
 
-    // Verify wallet matches the registered controller
-    const controller = resolved?.onChainOwner?.toLowerCase();
+    const controller = (resolved.onChainOwner as string | undefined)?.toLowerCase();
     if (controller && controller !== ownerWallet.toLowerCase()) {
-      return NextResponse.json({ error: 'Wallet does not match the registered owner of this address' }, { status: 403 });
+      return NextResponse.json({ error: 'Wallet does not match the registered owner' }, { status: 403 });
     }
 
-    const accountTier = resolved?.accountTier || 'basic';
+    const accountTier = (resolved.accountTier as string | undefined) || 'basic';
     if (accountTier === 'basic') {
       return NextResponse.json({
-        error: 'Basic tier is receive-only. Upgrade to Lite ($10 xDAI) to enable sending.',
-        upgradeUrl: `/nftmail?upgrade=lite&label=${label}`,
+        error: 'Basic tier is receive-only. Upgrade to Standard to enable sending.',
+        upgradeUrl: `/nftmail?upgrade=standard&label=${label}`,
         tier: 'basic',
       }, { status: 402 });
     }
 
-    if (!['lite', 'premium', 'ghost'].includes(accountTier)) {
-      return NextResponse.json({ error: `Unknown tier: ${accountTier}` }, { status: 403 });
-    }
-
-    const zohoOrgId = process.env.ZOHO_ORG_ID;
-    const token = await getZohoAccessToken();
-
-    if (!token || !zohoOrgId) {
-      return NextResponse.json({ error: 'Mail server not configured' }, { status: 503 });
-    }
-
-    // ── Find the Zoho account to send from ──
-    // Premium: dedicated label@nftmail.box seat. Lite: relay via ghostagent@nftmail.box.
     const fromEmail = `${label}@nftmail.box`;
-    const relayEmail = `ghostagent@nftmail.box`;
-
-    const accountsRes = await fetch(
-      `${ZOHO_MAIL_API}/organization/${zohoOrgId}/accounts`,
-      { headers: { Authorization: `Zoho-oauthtoken ${token}` } }
-    );
-
-    if (!accountsRes.ok) {
-      return NextResponse.json({ error: `Zoho accounts API error: ${accountsRes.status}` }, { status: 502 });
-    }
-
-    const accountsData = (await accountsRes.json()) as Record<string, any>;
-    const accounts: any[] = accountsData?.data || [];
-
-    // Try exact match first (premium seat), fall back to relay account
-    let sendAccount = accounts.find(
-      (a: any) =>
-        a.primaryEmailAddress?.toLowerCase() === fromEmail.toLowerCase() ||
-        a.mailboxAddress?.toLowerCase() === fromEmail.toLowerCase()
-    );
-    const useAlias = !sendAccount;
-    if (useAlias) {
-      sendAccount = accounts.find(
-        (a: any) =>
-          a.primaryEmailAddress?.toLowerCase() === relayEmail.toLowerCase() ||
-          a.mailboxAddress?.toLowerCase() === relayEmail.toLowerCase()
-      );
-    }
-
-    if (!sendAccount) {
-      return NextResponse.json({ error: 'No Zoho mailbox available for sending. Contact support.' }, { status: 503 });
-    }
-
-    const accountId = sendAccount.accountId || sendAccount.zuid;
-
-    // Convert markdown to simple HTML for better email client rendering
     const htmlBody = markdownToHtml(mailBody);
+    const textBody = mailBody;
 
-    const sendPayload: Record<string, any> = {
-      fromAddress: useAlias ? relayEmail : fromEmail,
-      toAddress: to,
-      subject: subject || '(no subject)',
-      content: htmlBody,
-      mailFormat: 'html',
-    };
-
-    // For alias relay: set Reply-To so replies come back to label@nftmail.box
-    if (useAlias) {
-      sendPayload.replyTo = fromEmail;
-      sendPayload.displayName = `${label} via NFTMail`;
-    }
-
-    const sendRes = await fetch(
-      `${ZOHO_MAIL_API}/accounts/${accountId}/messages`,
-      {
-        method: 'POST',
-        headers: { Authorization: `Zoho-oauthtoken ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify(sendPayload),
+    // ── Imago path: dedicated Zoho seat (opt-in, calendar/webmail users) ────
+    const hasZohoSeat = (resolved.zohoSeat as boolean | undefined) ?? false;
+    if (hasZohoSeat) {
+      const zohoOrgId = process.env.ZOHO_ORG_ID;
+      const token = await getZohoAccessToken();
+      if (token && zohoOrgId) {
+        const accountsRes = await fetch(
+          `${ZOHO_MAIL_API}/organization/${zohoOrgId}/accounts`,
+          { headers: { Authorization: `Zoho-oauthtoken ${token}` } },
+        );
+        if (accountsRes.ok) {
+          const accountsData = (await accountsRes.json()) as Record<string, unknown>;
+          const accounts = (accountsData.data as Record<string, unknown>[]) || [];
+          const seat = accounts.find(
+            (a) =>
+              (a.primaryEmailAddress as string)?.toLowerCase() === fromEmail.toLowerCase() ||
+              (a.mailboxAddress as string)?.toLowerCase() === fromEmail.toLowerCase(),
+          );
+          if (seat) {
+            const accountId = (seat.accountId || seat.zuid) as string;
+            const sendRes = await fetch(`${ZOHO_MAIL_API}/accounts/${accountId}/messages`, {
+              method: 'POST',
+              headers: { Authorization: `Zoho-oauthtoken ${token}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                fromAddress: fromEmail,
+                toAddress: to,
+                subject: subject || '(no subject)',
+                content: htmlBody,
+                mailFormat: 'html',
+              }),
+            });
+            if (sendRes.ok) {
+              const sendData = (await sendRes.json()) as Record<string, unknown>;
+              return NextResponse.json({
+                success: true,
+                messageId: (sendData.data as Record<string, unknown>)?.messageId || 'sent',
+                from: fromEmail,
+                to,
+                via: 'zoho',
+              });
+            }
+          }
+        }
+        // Zoho seat lookup failed — fall through to Mailgun
       }
-    );
-
-    if (!sendRes.ok) {
-      const errData = (await sendRes.json().catch(() => ({}))) as Record<string, any>;
-      return NextResponse.json(
-        { error: errData?.data?.message || `Zoho send failed: ${sendRes.status}` },
-        { status: 502 }
-      );
     }
 
-    const sendData = (await sendRes.json()) as Record<string, any>;
+    // ── Standard path: Mailgun (all lite/premium/ghost tiers) ───────────────
+    const { messageId } = await sendViaMailgun({
+      from: `${label} <${fromEmail}>`,
+      to,
+      subject: subject || '(no subject)',
+      html: htmlBody,
+      text: textBody,
+    });
 
     return NextResponse.json({
       success: true,
-      messageId: sendData?.data?.messageId || 'sent',
+      messageId,
       from: fromEmail,
       to,
-      subject: subject || '(no subject)',
-      relayed: useAlias,
+      via: 'mailgun',
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Send failed';
     console.error('[send-email]', err);
-    return NextResponse.json({ error: err?.message || 'Send failed' }, { status: 500 });
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
 
