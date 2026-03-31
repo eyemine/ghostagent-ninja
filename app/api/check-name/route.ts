@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createPublicClient, http, namehash, keccak256, encodePacked } from 'viem';
+import { createPublicClient, http, namehash } from 'viem';
 import { mainnet, gnosis } from 'viem/chains';
 import { getAllCollections } from '../../services/collection-registry';
 import { WORKER_URL } from '../../utils/config';
@@ -80,17 +80,16 @@ export async function GET(req: NextRequest) {
 
   // ── 1. On-chain GNS Registry: is this subname already minted? ─────────────
   // This is the authoritative check — queries the Gnosis chain registry directly.
-  const sld = tld.replace('.gno', '');
   try {
-    const parentNode = namehash(tld);
-    const labelHash  = keccak256(encodePacked(['string'], [name]));
-    const subnode    = keccak256(encodePacked(['bytes32', 'bytes32'], [parentNode, labelHash]));
+    const node = namehash(`${name}.${tld}`);
+    console.log(`[check-name] GNS lookup: ${name}.${tld} → node ${node}`);
     const existingOwner = await gnosisClient.readContract({
       address: GNS_REGISTRY,
       abi: GNS_REGISTRY_ABI,
       functionName: 'owner',
-      args: [subnode],
+      args: [node],
     });
+    console.log(`[check-name] GNS owner for ${name}.${tld}: ${existingOwner}`);
     if (existingOwner && existingOwner !== '0x0000000000000000000000000000000000000000') {
       return NextResponse.json({
         available: false,
@@ -98,8 +97,8 @@ export async function GET(req: NextRequest) {
         message: `${name}.${tld} is already minted on Gnosis Chain.`,
       });
     }
-  } catch {
-    // On-chain check non-fatal — RPC may be unreachable
+  } catch (err) {
+    console.error(`[check-name] GNS Registry check failed for ${name}.${tld}:`, err);
   }
 
   // ── 1b. Worker KV fallback: check acct-tier + tld keys ────────────────────

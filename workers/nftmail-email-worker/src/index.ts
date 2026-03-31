@@ -1605,39 +1605,46 @@ export default {
             return corsify(Response.json({ error: 'Forbidden' }, { status: 403 }), request);
           }
           const tld      = ((email as any).tld ?? 'nftmail.gno').trim();
+          const path     = ((email as any).path ?? '').trim();          // 'ghost' for Ghost Path coupons
           const maxUses  = Number((email as any).maxUses ?? 1);
           const note     = ((email as any).note ?? '').trim();
-          const prefix   = 'NFTFREE';
+          const prefix   = path === 'ghost' ? 'GHOST' : 'NFTFREE';
           const rand     = Math.random().toString(36).slice(2, 6).toUpperCase();
           const code     = `${prefix}-${rand}`;
-          const payload  = JSON.stringify({ tld, maxUses, usedCount: 0, note, issuedAt: Date.now() });
+          const payload  = JSON.stringify({ tld, maxUses, usedCount: 0, note, issuedAt: Date.now(), ...(path ? { path } : {}) });
           await env.INBOX_KV.put(`coupon:${code}`, payload);
-          return corsify(Response.json({ code, tld, maxUses, note }), request);
+          return corsify(Response.json({ code, tld, maxUses, note, ...(path ? { path } : {}) }), request);
         }
 
         // ── Coupon: validate (read-only check, does not consume) ─────────────
         if (email.action === 'validateCoupon') {
           const code = ((email as any).code ?? '').trim().toUpperCase();
           const tld  = ((email as any).tld  ?? '').trim();
+          const path = ((email as any).path ?? '').trim();
           if (!code) return corsify(Response.json({ valid: false, reason: 'Missing code' }), request);
           const raw = await env.INBOX_KV.get(`coupon:${code}`);
           if (!raw) return corsify(Response.json({ valid: false, reason: 'Not found' }), request);
-          const c = JSON.parse(raw) as { tld: string; maxUses: number; usedCount: number };
+          const c = JSON.parse(raw) as { tld: string; maxUses: number; usedCount: number; path?: string };
           if (tld && c.tld !== tld) return corsify(Response.json({ valid: false, reason: 'Wrong namespace' }), request);
+          // Ghost path coupons must match: request path='ghost' ↔ coupon path='ghost'
+          if (path && (c.path ?? '') !== path) return corsify(Response.json({ valid: false, reason: 'Wrong path' }), request);
+          if (!path && c.path) return corsify(Response.json({ valid: false, reason: 'Ghost path coupon — use Ghost Path input' }), request);
           if (c.usedCount >= c.maxUses) return corsify(Response.json({ valid: false, reason: 'Already used' }), request);
-          return corsify(Response.json({ valid: true, tld: c.tld }), request);
+          return corsify(Response.json({ valid: true, tld: c.tld, path: c.path ?? null }), request);
         }
 
         // ── Coupon: redeem (atomic use — call only at mint time) ─────────────
         if (email.action === 'redeemCoupon') {
           const code      = ((email as any).code       ?? '').trim().toUpperCase();
           const tld       = ((email as any).tld        ?? '').trim();
+          const path      = ((email as any).path       ?? '').trim();
           const redeemedBy = ((email as any).redeemedBy ?? '').trim();
           if (!code) return corsify(Response.json({ ok: false, error: 'Missing code' }, { status: 400 }), request);
           const raw = await env.INBOX_KV.get(`coupon:${code}`);
           if (!raw) return corsify(Response.json({ ok: false, error: 'Not found' }, { status: 404 }), request);
-          const c = JSON.parse(raw) as { tld: string; maxUses: number; usedCount: number; note?: string; issuedAt: number };
+          const c = JSON.parse(raw) as { tld: string; maxUses: number; usedCount: number; note?: string; issuedAt: number; path?: string };
           if (tld && c.tld !== tld) return corsify(Response.json({ ok: false, error: 'Wrong namespace' }, { status: 400 }), request);
+          if (path && (c.path ?? '') !== path) return corsify(Response.json({ ok: false, error: 'Wrong path' }, { status: 400 }), request);
           if (c.usedCount >= c.maxUses) return corsify(Response.json({ ok: false, error: 'Already used' }, { status: 409 }), request);
           c.usedCount += 1;
           (c as any).lastRedeemedBy = redeemedBy;

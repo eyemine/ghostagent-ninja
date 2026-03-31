@@ -160,12 +160,13 @@ export default function OgNftMoltPage() {
           <div>
             <label className="block text-[10px] font-semibold tracking-wider text-[var(--muted)] mb-2">NFT TYPE</label>
             <div className="grid grid-cols-3 gap-2">
-              {([{k:'ens',l:'ENS Name',i:'🔷'},{k:'chonk',l:'Chonk',i:'🦀'},{k:'other',l:'Other ERC-721',i:'🖼️'}] as {k:NftType;l:string;i:string}[]).map(opt => (
+              {([{k:'ens' as NftType,l:'ENS Name',img:'https://gateway.lighthouse.storage/ipfs/bafkreifv35abvqlhdtc4g2i4xelnmxnhaac7exyu6r24o3fbgthwcmupwy'},{k:'chonk' as NftType,l:'Chonk',img:'https://gateway.lighthouse.storage/ipfs/bafkreiczeqhex35dvj4ewbzn2gyqnbgqb22np5zgp223vnbfhaod6sv4sq'},{k:'other' as NftType,l:'Other ERC-721',img:'https://gateway.lighthouse.storage/ipfs/bafkreid7jamriw5jneuarcq2q6lrbfsqe76eebv6r2rworrnhyj2rpsuem'}]).map(opt => (
                 <button key={opt.k} onClick={() => { setNftType(opt.k); reset(); }}
                   className={`rounded-lg border px-2 py-2 text-xs font-semibold transition text-center ${
                     nftType === opt.k ? 'border-fuchsia-500/50 bg-fuchsia-500/10 text-fuchsia-300' : 'border-[rgba(176,128,92,0.2)] bg-black/20 text-[var(--muted)] hover:text-[#f2eee4]'
                   }`}>
-                  <div>{opt.i}</div><div className="mt-0.5">{opt.l}</div>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <div className="flex justify-center"><img src={opt.img} alt={opt.l} className="h-8 w-8 rounded object-contain" /></div><div className="mt-0.5">{opt.l}</div>
                 </button>
               ))}
             </div>
@@ -223,8 +224,9 @@ export default function OgNftMoltPage() {
                     <Image src={nftPreview.imageUrl} alt={nftPreview.name} fill unoptimized className="object-cover" />
                   </div>
                 ) : (
-                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg border border-emerald-500/20 bg-emerald-500/8 text-2xl">
-                    {nftPreview.type==='ens' ? '🔷' : nftPreview.type==='chonk' ? '🦀' : '🖼️'}
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg border border-emerald-500/20 bg-emerald-500/8 overflow-hidden">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={nftPreview.type==='ens' ? 'https://gateway.lighthouse.storage/ipfs/bafkreifv35abvqlhdtc4g2i4xelnmxnhaac7exyu6r24o3fbgthwcmupwy' : nftPreview.type==='chonk' ? 'https://gateway.lighthouse.storage/ipfs/bafkreiczeqhex35dvj4ewbzn2gyqnbgqb22np5zgp223vnbfhaod6sv4sq' : 'https://gateway.lighthouse.storage/ipfs/bafkreid7jamriw5jneuarcq2q6lrbfsqe76eebv6r2rworrnhyj2rpsuem'} alt={nftPreview.type} className="h-10 w-10 rounded object-contain" />
                   </div>
                 )}
                 <div>

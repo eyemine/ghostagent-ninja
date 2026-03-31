@@ -19,9 +19,9 @@ const GHOST_LOGO = '/ghost-logo.png';
 const DEMO_VAULTS = [
   {
     name:        'ghostagent',
-    tld:         'vault.gno',
+    tld:         'molt.gno',
     safeAddress: '0xb7e493e3d226f8fE722CC9916fF164B793af13F4',
-    agentId:     3184,
+    agentId:     3199,
     ghostId:     '0xC70',
     memberCount: 3,
     xmtpEnabled: false,

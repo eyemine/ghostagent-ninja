@@ -3,11 +3,11 @@ import { NextRequest, NextResponse } from 'next/server';
 const WORKER_URL = process.env.NEXT_PUBLIC_WORKER_URL ?? 'https://nftmail-email-worker.richard-159.workers.dev';
 
 export async function POST(req: NextRequest) {
-  let body: { code?: string; tld?: string };
+  let body: { code?: string; tld?: string; path?: string };
   try { body = await req.json(); }
   catch { return NextResponse.json({ valid: false, reason: 'Invalid JSON' }, { status: 400 }); }
 
-  const { code, tld } = body;
+  const { code, tld, path } = body;
   if (!code?.trim()) {
     return NextResponse.json({ valid: false, reason: 'Missing code' }, { status: 400 });
   }
@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
     const res  = await fetch(WORKER_URL, {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ action: 'validateCoupon', code: code.trim().toUpperCase(), tld: tld ?? '' }),
+      body:    JSON.stringify({ action: 'validateCoupon', code: code.trim().toUpperCase(), tld: tld ?? '', ...(path ? { path } : {}) }),
       signal:  AbortSignal.timeout(8000),
     });
     const data = await res.json();

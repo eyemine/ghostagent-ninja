@@ -176,6 +176,8 @@ export default function MintTab() {
   const [termsAgreed, setTermsAgreed] = useState(false);
   const [couponCode, setCouponCode]   = useState('');
   const [couponState, setCouponState] = useState<'idle' | 'checking' | 'valid' | 'invalid'>('idle');
+  const [ghostCouponCode, setGhostCouponCode]   = useState('');
+  const [ghostCouponState, setGhostCouponState] = useState<'idle' | 'checking' | 'valid' | 'invalid'>('idle');
 
   // Pre-fill from URL params (namespace, name, coupon)
   useEffect(() => {
@@ -246,8 +248,26 @@ export default function MintTab() {
     }
   }
 
+  async function checkGhostCoupon(code: string) {
+    if (!code.trim()) { setGhostCouponState('idle'); return; }
+    setGhostCouponState('checking');
+    try {
+      const res = await fetch('/api/coupons/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: code.trim().toUpperCase(), tld: 'vault.gno', path: 'ghost' }),
+      });
+      const data = await res.json() as { valid: boolean };
+      setGhostCouponState(data.valid ? 'valid' : 'invalid');
+    } catch {
+      setGhostCouponState('invalid');
+    }
+  }
+
   const fullName = agentName ? `${agentName}.${ns.domain}` : '';
-  const isFree = ns.mintFee === 'free' || couponState === 'valid';
+  const isGhostPath = selected === 'vault' && vaultPath === 'ghost';
+  const effectiveFee: number | 'free' = isGhostPath ? 50 : ns.mintFee;
+  const isFree = effectiveFee === 'free' || couponState === 'valid' || (isGhostPath && ghostCouponState === 'valid');
 
   return (
     <div className="space-y-6">
@@ -489,7 +509,7 @@ export default function MintTab() {
                   <img src={LIFECYCLE_ICONS.ghost} alt="Ghost" className="h-5 w-5 object-contain" />
                   Option B — Ghost Path
                 </span>
-                <span className="rounded-full bg-fuchsia-500/10 px-2 py-0.5 text-[10px] font-semibold text-fuchsia-300 ring-1 ring-fuchsia-500/20">200 xDAI lifetime</span>
+                <span className="rounded-full bg-fuchsia-500/10 px-2 py-0.5 text-[10px] font-semibold text-fuchsia-300 ring-1 ring-fuchsia-500/20">50 xDAI lifetime</span>
               </div>
               <p className="text-xs text-[var(--muted)] leading-relaxed">
                 Drop the <span className="text-[#f2eee4] font-medium">Eternal Anchor</span>. You host the brain locally via Ollama or LM Studio. Soulbound token — permanently bound to your wallet.
@@ -509,6 +529,38 @@ export default function MintTab() {
                 <span className="font-semibold">⚠ Ghost Path requires local compute.</span>{' '}
                 Your agent will be a gateway to hardware you own and maintain. If your local LLM goes offline, your agent goes offline.
               </p>
+            </div>
+          )}
+
+          {/* ── Ghost Path coupon ── */}
+          {vaultPath === 'ghost' && agentName.length >= 2 && (
+            <div className="space-y-2">
+              <div className="text-xs font-semibold tracking-[0.18em] text-fuchsia-300/70">
+                GHOST PATH COUPON <span className="font-normal opacity-50">(optional)</span>
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={ghostCouponCode}
+                  onChange={e => { setGhostCouponCode(e.target.value.toUpperCase()); setGhostCouponState('idle'); }}
+                  onBlur={() => checkGhostCoupon(ghostCouponCode)}
+                  placeholder="e.g. GHOST-XXXX"
+                  className="flex-1 rounded-xl border border-fuchsia-500/20 bg-fuchsia-500/5 px-3 py-2 text-sm font-mono text-[#f2eee4] outline-none placeholder:text-zinc-600 focus:border-fuchsia-400/40"
+                />
+                <button
+                  type="button"
+                  onClick={() => checkGhostCoupon(ghostCouponCode)}
+                  className="shrink-0 rounded-xl border border-fuchsia-500/20 bg-fuchsia-500/5 px-3 py-2 text-xs font-semibold text-fuchsia-300/70 transition hover:text-fuchsia-200"
+                >
+                  {ghostCouponState === 'checking' ? '…' : 'Apply'}
+                </button>
+              </div>
+              {ghostCouponState === 'valid' && (
+                <p className="text-xs text-emerald-400">✓ Ghost Path coupon valid — free mint applied</p>
+              )}
+              {ghostCouponState === 'invalid' && (
+                <p className="text-xs text-rose-400">Invalid or already used Ghost Path coupon</p>
+              )}
             </div>
           )}
         </div>
@@ -576,13 +628,23 @@ export default function MintTab() {
                 <span>Coupon <code className="font-mono">{couponCode}</code> — free mint applied</span>
               </div>
             )}
+            {isGhostPath && ghostCouponState === 'valid' && (
+              <div className="mb-3 flex items-center gap-2 rounded-lg border border-fuchsia-500/30 bg-fuchsia-500/8 px-3 py-2 text-xs text-fuchsia-300">
+                <span>✓</span>
+                <span>Ghost coupon <code className="font-mono">{ghostCouponCode}</code> — free mint applied</span>
+              </div>
+            )}
             <MintAgentBundle
               agentName={agentName}
               safeAddress={(connectedWallet ?? '0x0000000000000000000000000000000000000000') as `0x${string}`}
               namespace={selected}
               disabled={!termsAgreed}
-              couponCode={couponState === 'valid' ? couponCode || undefined : undefined}
-              mintFeeLabel={isFree ? undefined : feeLabel(ns.mintFee)}
+              couponCode={
+                couponState === 'valid' ? couponCode || undefined
+                : (isGhostPath && ghostCouponState === 'valid') ? ghostCouponCode || undefined
+                : undefined
+              }
+              mintFeeLabel={isFree ? undefined : feeLabel(effectiveFee)}
             />
           </>
         ) : (
