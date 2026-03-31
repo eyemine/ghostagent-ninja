@@ -114,7 +114,7 @@ export default function OgNftMoltPage() {
       addLog('Minting beacon NFT…');
       addLog('Registering alias email…');
       addLog('Recording molt + upgrading agent tier…');
-      addLog('✓ OG NFT Molt Complete');
+      addLog('✓ BYO NFT Molt Complete');
       setResult(data as MoltResult); setStep('done');
     } catch (err: any) { setError(err?.message ?? 'Molt failed'); setStep('error'); }
   }
@@ -126,13 +126,12 @@ export default function OgNftMoltPage() {
 
       {/* Header */}
       <div>
-        <div className="flex items-center gap-3 mb-1">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-fuchsia-500/40 bg-fuchsia-500/10">
-            <span className="text-lg">�</span>
-          </div>
+        <div className="flex items-center gap-4 mb-1">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="https://gateway.lighthouse.storage/ipfs/bafkreiejmu35lnu34e6dm754c6tad34nogywf2oslbql6lzcdpz4acxjue" alt="BYO NFT Molt" className="h-20 w-20 shrink-0 rounded-xl object-contain" />
           <div>
-            <h1 className="text-2xl font-bold text-[#f2eee4]">OG NFT Molt</h1>
-            <p className="text-xs text-[var(--muted)]">Overlay any NFT you own — ENS, Chonk, or any ERC-721 — onto your GhostAgent identity</p>
+            <h1 className="text-2xl font-bold text-[#f2eee4]">BYO NFT Molt</h1>
+            <p className="text-xs text-[var(--muted)]">Overlay any NFT you own — ENS, Chonk, or Verified Collection — onto your GhostAgent identity</p>
           </div>
         </div>
         <div className="mt-4 rounded-xl border border-violet-500/20 bg-violet-500/5 px-4 py-3 text-xs text-[var(--muted)]">
@@ -142,7 +141,7 @@ export default function OgNftMoltPage() {
         <div className="mt-3 rounded-xl border border-[rgba(176,128,92,0.2)] bg-black/20 px-4 py-3 space-y-1 text-xs text-[var(--muted)]">
           <p className="text-[#f2eee4] font-semibold">What happens</p>
           <p>✓ Primary email <span className="font-mono text-[#f2eee4]">{primaryName ? `${primaryName}_@nftmail.box` : 'agent_@nftmail.box'}</span> preserved</p>
-          <p>✓ Alias for NFT identity created — both route to same inbox</p>
+          <p>✓ Alias for NFT identity created — human and agent, same login</p>
           <p>✓ Beacon NFT minted on Gnosis · Zero lock-in</p>
         </div>
         <div className="mt-3 flex items-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2">
@@ -246,7 +245,7 @@ export default function OgNftMoltPage() {
               {error && <p className="text-xs text-red-400">{error}</p>}
               <button onClick={handleMolt} disabled={!paymentTxHash}
                 className="w-full rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 py-2.5 text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-40">
-                � Execute OG NFT Molt
+                🦋 Execute BYO NFT Molt
               </button>
             </div>
           )}
@@ -276,7 +275,7 @@ export default function OgNftMoltPage() {
               ) : <span className="text-2xl">�</span>}
               <div>
                 <p className="text-lg font-bold text-emerald-300">{result.message}</p>
-                <p className="text-xs text-[var(--muted)]">OG NFT identity overlay active</p>
+                <p className="text-xs text-[var(--muted)]">BYO NFT identity overlay active</p>
               </div>
             </div>
             <div className="grid gap-2">

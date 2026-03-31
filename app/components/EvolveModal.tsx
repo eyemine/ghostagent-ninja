@@ -14,6 +14,7 @@ import {
 import { TransakButton } from './TransakWidget';
 import { MercuryoButton } from './MercuryoWidget';
 import { FEATURES } from '../constants/features';
+import { fmtHost, tierColor, type StakeTier } from '../services/host-staking';
 
 interface EvolveModalProps {
   agentName: string;
@@ -41,15 +42,24 @@ export default function EvolveModal({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [storyIp, setStoryIp] = useState<string | null>(null);
   const [confirmDowngrade, setConfirmDowngrade] = useState(false);
+  const [stakedHost, setStakedHost] = useState(0);
+  const [stakeTier, setStakeTier] = useState<StakeTier>('none');
+  const [stakeBusy, setStakeBusy] = useState(false);
+  const [stakeMsg, setStakeMsg] = useState<string | null>(null);
 
   useEffect(() => {
     if (!agentName || !walletAddress) return;
     setLoading(true);
-    fetch(`/api/evolve?name=${encodeURIComponent(agentName)}&tld=${encodeURIComponent(tld)}`)
-      .then(r => r.json() as Promise<LevelRecord>)
-      .then(d => setRecord(d))
-      .catch(() => setRecord(null))
-      .finally(() => setLoading(false));
+    Promise.all([
+      fetch(`/api/evolve?name=${encodeURIComponent(agentName)}&tld=${encodeURIComponent(tld)}`)
+        .then(r => r.json() as Promise<LevelRecord>)
+        .then(d => setRecord(d))
+        .catch(() => setRecord(null)),
+      fetch(`/api/stake?name=${encodeURIComponent(agentName)}&tld=${encodeURIComponent(tld)}`)
+        .then(r => r.json() as Promise<{ stakedHost?: number; activeTier?: StakeTier }>)
+        .then(d => { setStakedHost(d.stakedHost ?? 0); setStakeTier(d.activeTier ?? 'none'); })
+        .catch(() => {}),
+    ]).finally(() => setLoading(false));
   }, [agentName, tld, walletAddress]);
 
   async function executeAction(action: 'upgrade' | 'downgrade') {
@@ -105,6 +115,60 @@ export default function EvolveModal({
       setErrorMsg(err?.message ?? 'Unknown error');
     } finally {
       setBusy(false);
+    }
+  }
+
+  // $HOST staking thresholds for tier upgrades
+  const IMAGO_HOST_REQ = 1000;   // 1,000 $HOST to unlock Imago-equivalent
+  const GHOST_HOST_REQ = 5000;   // 5,000 $HOST to unlock Ghost-equivalent
+  const imagoHostNeeded = Math.max(0, IMAGO_HOST_REQ - stakedHost);
+  const ghostHostNeeded = Math.max(0, GHOST_HOST_REQ - stakedHost);
+
+  async function stakeForUpgrade(targetTier: 'imago' | 'ghost') {
+    if (stakeBusy || busy) return;
+    setStakeBusy(true);
+    setStakeMsg(null);
+    setErrorMsg(null);
+
+    const needed = targetTier === 'ghost' ? ghostHostNeeded : imagoHostNeeded;
+    if (needed <= 0) {
+      // Already staked enough — just trigger the upgrade
+      await executeAction('upgrade');
+      setStakeBusy(false);
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/stake', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'stake',
+          name: agentName,
+          tld,
+          hostAmount: needed,
+          walletAddress,
+        }),
+      });
+      const data = await res.json() as {
+        status?: string;
+        stakedHost?: number;
+        activeTier?: StakeTier;
+        message?: string;
+        error?: string;
+      };
+      if (!res.ok) throw new Error(data.error ?? 'Stake failed');
+
+      setStakedHost(data.stakedHost ?? stakedHost + needed);
+      setStakeTier(data.activeTier ?? stakeTier);
+      setStakeMsg(data.message ?? `Staked ${fmtHost(needed)} ✓`);
+
+      // Now trigger the tier upgrade
+      await executeAction('upgrade');
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : 'Staking failed');
+    } finally {
+      setStakeBusy(false);
     }
   }
 
@@ -230,6 +294,35 @@ export default function EvolveModal({
                       )}
                     </button>
 
+                    {/* OR: $HOST staking alternative */}
+                    <div className="flex items-center gap-2 my-1">
+                      <div className="flex-1 h-px bg-[var(--border)]" />
+                      <span className="text-[9px] text-[var(--muted)]">or stake $HOST</span>
+                      <div className="flex-1 h-px bg-[var(--border)]" />
+                    </div>
+                    <button
+                      disabled={stakeBusy || busy}
+                      onClick={() => stakeForUpgrade('imago')}
+                      className="w-full rounded-xl border border-[rgba(176,128,92,0.3)] bg-[rgba(176,128,92,0.08)] py-3 text-sm font-bold text-[#b0805c] transition hover:bg-[rgba(176,128,92,0.15)] disabled:opacity-50"
+                    >
+                      {stakeBusy ? (
+                        <span className="flex items-center justify-center gap-2">
+                          <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v4m0 12v4m-7.07-3.93 2.83-2.83m8.48-8.48 2.83-2.83M2 12h4m12 0h4M4.93 4.93l2.83 2.83m8.48 8.48 2.83 2.83" /></svg>
+                          Staking…
+                        </span>
+                      ) : imagoHostNeeded > 0 ? (
+                        `Stake ${fmtHost(imagoHostNeeded)} to Molt`
+                      ) : (
+                        'Molt via $HOST stake ✓'
+                      )}
+                    </button>
+                    {stakedHost > 0 && (
+                      <div className="text-center text-[9px] text-[var(--muted)]">
+                        Currently staked: <span className={`font-semibold ${tierColor(stakeTier)}`}>{fmtHost(stakedHost)}</span>
+                        {imagoHostNeeded > 0 && ` · need ${fmtHost(imagoHostNeeded)} more`}
+                      </div>
+                    )}
+
                     {/* Transak fiat on-ramp — suppressed until FEATURES.transakOnRamp = true */}
                     {FEATURES.transakOnRamp && (
                       <TransakButton
@@ -310,6 +403,35 @@ export default function EvolveModal({
                         'Drop the Eternal Anchor — 200 xDAI'
                       )}
                     </button>
+                    {/* OR: $HOST staking alternative for Ghost */}
+                    <div className="flex items-center gap-2 my-1">
+                      <div className="flex-1 h-px bg-fuchsia-500/15" />
+                      <span className="text-[9px] text-fuchsia-300/50">or stake $HOST</span>
+                      <div className="flex-1 h-px bg-fuchsia-500/15" />
+                    </div>
+                    <button
+                      disabled={stakeBusy || busy}
+                      onClick={() => stakeForUpgrade('ghost')}
+                      className="w-full rounded-xl border border-fuchsia-500/25 bg-fuchsia-500/5 py-3 text-sm font-bold text-fuchsia-300 transition hover:bg-fuchsia-500/10 disabled:opacity-50"
+                    >
+                      {stakeBusy ? (
+                        <span className="flex items-center justify-center gap-2">
+                          <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v4m0 12v4m-7.07-3.93 2.83-2.83m8.48-8.48 2.83-2.83M2 12h4m12 0h4M4.93 4.93l2.83 2.83m8.48 8.48 2.83 2.83" /></svg>
+                          Staking…
+                        </span>
+                      ) : ghostHostNeeded > 0 ? (
+                        `Stake ${fmtHost(ghostHostNeeded)} to become Ghost`
+                      ) : (
+                        'Become Ghost via $HOST stake ✓'
+                      )}
+                    </button>
+                    {stakedHost > 0 && (
+                      <div className="text-center text-[9px] text-fuchsia-300/50">
+                        Currently staked: <span className={`font-semibold ${tierColor(stakeTier)}`}>{fmtHost(stakedHost)}</span>
+                        {ghostHostNeeded > 0 && ` · need ${fmtHost(ghostHostNeeded)} more`}
+                      </div>
+                    )}
+
                     <p className="text-center text-[9px] text-[var(--muted)]">
                       Irreversible · ERC-5192 Soulbound · no marketplace listing
                     </p>

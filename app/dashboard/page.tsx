@@ -247,6 +247,7 @@ const AGENT_ACTIONS = [
   { key: 'trade',         label: 'Trade Intent',  href: (n: string) => `/dashboard/trade?agent=${n}`,         color: 'border-violet-500/30 bg-violet-500/10 text-violet-300 hover:bg-violet-500/20' },
   { key: 'hitl',          label: 'HITL Gates',    href: (n: string) => `/dashboard/hitl?agent=${n}`,          color: 'border-red-500/30 bg-red-500/10 text-red-300 hover:bg-red-500/20' },
   { key: 'ip-portal',     label: 'IP Portal',     href: (n: string) => `/ip-portal?agent=${n}`,               color: 'border-[#7c4dff]/30 bg-[#7c4dff]/10 text-[#a78bfa] hover:bg-[#7c4dff]/20' },
+  { key: 'stake-host',   label: 'Stake $HOST',   href: (n: string) => `/host?agent=${n}`,                    color: 'border-[rgba(176,128,92,0.3)] bg-[rgba(176,128,92,0.08)] text-[#b0805c] hover:bg-[rgba(176,128,92,0.15)]' },
 ];
 
 const BODY_ACTIONS = [
