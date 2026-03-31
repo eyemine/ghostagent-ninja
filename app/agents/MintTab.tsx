@@ -23,102 +23,116 @@ interface NsConfig {
   domain: string;
   shortDesc: string;
   mintFee: number | 'free';
-  moltFee: number | 'free';
+  moltToFee: number | null;              // cost to molt TO this namespace (null = N/A)
+  moltToFeeFromNftmail: number | null;   // cost when molting FROM nftmail.gno
   privacyDefault: 'private' | 'glassbox';
   decayDays: number | null;
   ipDomain: string;
-  evolveDesc: string;
+  moltPath: string | null;               // e.g. 'imago/ghost', 'ghost', null
   fullDesc: string;
   staking?: string;
   badges: string[];
   tier: 'larva' | 'pupa' | 'imago';
+  tierLabel: string;                     // 'Can Molt', 'Can Cycle', 'Larva-only', 'Imago-only'
 }
 
 const NAMESPACES: NsConfig[] = [
   {
     key: 'agent',
     domain: 'agent.gno',
-    shortDesc: 'Full agent identity with cycle path',
+    shortDesc: 'Full agent identity with on-chain IP and molt path',
     mintFee: 10,
-    moltFee: 2,
+    moltToFee: 2,
+    moltToFeeFromNftmail: 10,
     privacyDefault: 'private',
     decayDays: 8,
     ipDomain: '*.creation.ip',
-    evolveDesc: 'Pupa → Imago (+8 xDAI), then +24 xDAI/yr',
-    fullDesc: 'Pupa → Imago cycle path (+8 xDAI, then +24 xDAI/yr). 8-day history. Private by default. $10 $HOST staking for 365-day persistence.\n10 xDAI mint or molt from Larva · 2 xDAI molt from Pupa. Bundled *.creation.ip + nftmail.box address.',
+    moltPath: 'imago/ghost',
+    fullDesc: 'Full agent identity with on-chain IP and molt path. 8-day history. Private by default.\n10 xDAI mint · 2 xDAI molt-to (10 xDAI from nftmail.gno). Bundled *.creation.ip + nftmail.box address.',
     staking: '$10 $HOST staking for 365-day persistence',
     badges: ['Gnosis Safe', '*.creation.ip', 'Private default', '8-day history'],
     tier: 'pupa',
+    tierLabel: 'Can Molt',
   },
   {
     key: 'openclaw',
     domain: 'openclaw.gno',
-    shortDesc: 'Full agent with on-chain IP',
+    shortDesc: 'Full agent identity with on-chain IP and molt path',
     mintFee: 10,
-    moltFee: 2,
+    moltToFee: 2,
+    moltToFeeFromNftmail: 10,
     privacyDefault: 'private',
     decayDays: 8,
-    ipDomain: '*.openclaw.ip',
-    evolveDesc: 'Can cycle to vault.gno',
-    fullDesc: 'Full-featured agent namespace. Private by default. Earns $HOST reputation.\nCan list on the Marketplace. IP protection via Story Protocol — *.openclaw.ip.',
-    badges: ['Gnosis Safe', '*.openclaw.ip', 'Private default', '8-day history'],
+    ipDomain: '*.creation.ip',
+    moltPath: 'imago/ghost',
+    fullDesc: 'Full agent identity with on-chain IP and molt path. 8-day history. Private by default.\n10 xDAI mint · 2 xDAI molt-to (10 xDAI from nftmail.gno). Bundled *.creation.ip + nftmail.box address.',
+    badges: ['Gnosis Safe', '*.creation.ip', 'Private default', '8-day history'],
     tier: 'pupa',
+    tierLabel: 'Can Molt',
   },
   {
     key: 'molt',
     domain: 'molt.gno',
-    shortDesc: '#BuildInPublic / Public email audit trail',
-    mintFee: 'free',
-    moltFee: 'free',
+    shortDesc: '#BuildInPublic / Public email audit trail (any OTP comms protected)',
+    mintFee: 10,
+    moltToFee: 2,
+    moltToFeeFromNftmail: 10,
     privacyDefault: 'glassbox',
     decayDays: 30,
     ipDomain: '*.moltbook.ip',
-    evolveDesc: 'Pupa → Imago (+8 xDAI), then +24 xDAI/yr',
-    fullDesc: 'Glassbox by default — all work is publicly verifiable. Public conversations + Story Protocol .moltbook.ip IP registration. 30-day history.',
+    moltPath: 'imago/ghost',
+    fullDesc: 'Glassbox by default — all work is publicly verifiable. Public conversations (any OTP comms protected) + Story Protocol .moltbook.ip IP registration. 30-day history.\n10 xDAI mint · 2 xDAI molt-to (10 xDAI from nftmail.gno).',
     badges: ['Gnosis Safe', '*.moltbook.ip', 'Glassbox', '30-day history'],
     tier: 'pupa',
+    tierLabel: 'Can Cycle',
   },
   {
     key: 'picoclaw',
     domain: 'picoclaw.gno',
     shortDesc: 'Larva agent — zero cost entry',
     mintFee: 'free',
-    moltFee: 'free',
+    moltToFee: null,
+    moltToFeeFromNftmail: null,
     privacyDefault: 'private',
     decayDays: 8,
     ipDomain: '*.picoclaw.ip',
-    evolveDesc: 'Can cycle to openclaw.gno',
-    fullDesc: 'The free on-ramp. Mint a larva agent with no fees, explore the ecosystem. 8-day inbox history window on free tier.',
+    moltPath: null,
+    fullDesc: 'The free on-ramp. Mint a larva agent with no fees, explore the ecosystem. 8-day inbox history window on free tier.\nNo molt path — larva-only namespace.',
     badges: ['Gnosis Safe', 'Private default', '8-day history'],
     tier: 'larva',
+    tierLabel: 'Larva-only',
   },
   {
     key: 'vault',
     domain: 'vault.gno',
-    shortDesc: 'Pro agent with persistent storage',
+    shortDesc: 'Top-tier Imago namespace with persistent storage',
     mintFee: 24,
-    moltFee: 14,
+    moltToFee: 14,
+    moltToFeeFromNftmail: 22,
     privacyDefault: 'private',
     decayDays: null,
-    ipDomain: '*.vault.ip',
-    evolveDesc: 'Top tier — final cycle target',
-    fullDesc: 'Top-tier namespace. Private by default, persistent storage, IP protection on Story Protocol, and full $HOST earning.\n24 xDAI includes 1 year subscription, then 24 xDAI annually.',
+    ipDomain: '*.creation.ip',
+    moltPath: 'ghost',
+    fullDesc: 'Top-tier Imago namespace. Private by default, persistent storage, IP protection on Story Protocol, and full $HOST earning.\n24 xDAI includes 1 year subscription, then 24 xDAI annually (or downgrade to Pupa 30-day history).\n14 xDAI molt-to (22 xDAI from nftmail.gno).',
     badges: ['Gnosis Safe', '*.creation.ip', 'Private default', 'Persistent'],
     tier: 'imago',
+    tierLabel: 'Imago-only',
   },
   {
     key: 'nftmail',
     domain: 'nftmail.gno',
     shortDesc: 'Identity firewall for your inbox',
     mintFee: 2,
-    moltFee: 10,
+    moltToFee: 2,
+    moltToFeeFromNftmail: null,
     privacyDefault: 'private',
     decayDays: 30,
-    ipDomain: '*.nftmail.ip',
-    evolveDesc: 'Can cycle to vault.gno',
-    fullDesc: 'NFT-gated encrypted inbox. Your NFT is your key — transfer it to transfer access. No custodian, no middleman. Pairs with nftmail.box addresses.',
-    badges: ['Gnosis Safe', 'Private default', '30-day history'],
+    ipDomain: '*.creation.ip',
+    moltPath: 'imago/ghost',
+    fullDesc: 'NFT-gated encrypted inbox. Your NFT is your key — transfer it to transfer access. No custodian, no middleman. Pairs with nftmail.box addresses.\n2 xDAI mint · 2 xDAI molt-to.',
+    badges: ['Gnosis Safe', '*.creation.ip', 'Private default', '30-day history'],
     tier: 'pupa',
+    tierLabel: 'Can Cycle',
   },
 ];
 
@@ -232,6 +246,55 @@ export default function MintTab() {
   return (
     <div className="space-y-6">
 
+      {/* ── FREE ENTRY PATHS ── */}
+      <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 space-y-3">
+        <div className="text-xs font-semibold tracking-[0.18em] text-[var(--muted)]">FREE ENTRY PATHS</div>
+        <div className="grid gap-3 sm:grid-cols-3">
+          {/* ENS holders */}
+          <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 p-3 space-y-1.5">
+            <div className="flex items-center gap-1.5">
+              <span className="text-sm">🔷</span>
+              <span className="text-xs font-semibold text-blue-300">ENS Holders</span>
+            </div>
+            <p className="text-[10px] text-[var(--muted)] leading-relaxed">
+              Free <span className="text-[#f2eee4] font-medium">Larva</span> human email + reserved agent email _@nftmail.box (anti-spoof). 8-day history, no Safe or IP.
+            </p>
+            <p className="text-[10px] text-[var(--muted)] leading-relaxed">
+              Upgrade to <span className="text-violet-300 font-medium">Pupa</span> to install a brain → gains Gnosis Safe governed by ENS NFT (ERC-6551) + activated <span className="text-[#f2eee4]">[name]_@[SLD].gno</span> address.
+            </p>
+          </div>
+          {/* Collection NFT */}
+          <div className="rounded-lg border border-rose-500/20 bg-rose-500/5 p-3 space-y-1.5">
+            <div className="flex items-center gap-1.5">
+              <span className="text-sm">🖼️</span>
+              <span className="text-xs font-semibold text-rose-300">Verified Collection NFT</span>
+            </div>
+            <p className="text-[10px] text-[var(--muted)] leading-relaxed">
+              Free <span className="text-[#f2eee4] font-medium">Larva</span> email <span className="text-[#f2eee4]">[Collection].[tokenID]@nftmail.box</span> + reserved agent email. 8-day history, no Safe or IP.
+            </p>
+            <p className="text-[10px] text-[var(--muted)] leading-relaxed">
+              Upgrade to <span className="text-violet-300 font-medium">Pupa</span> → Gnosis Safe governed by the NFT (ERC-6551) + activated <span className="text-[#f2eee4]">[Collection].[tokenID]_@[SLD].gno</span>.
+            </p>
+          </div>
+          {/* Social Login */}
+          <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 space-y-1.5">
+            <div className="flex items-center gap-1.5">
+              <span className="text-sm">👤</span>
+              <span className="text-xs font-semibold text-amber-300">Social Login</span>
+            </div>
+            <p className="text-[10px] text-[var(--muted)] leading-relaxed">
+              Free <span className="text-[#f2eee4] font-medium">Larva</span> email <span className="text-[#f2eee4]">[name1].[name2]@nftmail.box</span>. 8-day history, no Safe or IP.
+            </p>
+            <p className="text-[10px] text-[var(--muted)] leading-relaxed">
+              Upgrade to <span className="text-violet-300 font-medium">Pupa/Imago</span> @nftmail.box for Gnosis Safe, .ip, Send (Pupa) and Persistent (Imago) email.
+            </p>
+          </div>
+        </div>
+        <p className="text-[10px] text-[var(--muted)]">
+          Use <span className="font-semibold text-[#f4b55a]">$HOST</span> to add features or increase capacity — extend email history, unlock marketplace listing, boost agent reputation.
+        </p>
+      </div>
+
       {/* ── SELECT NAMESPACE ── */}
       <div className="space-y-3">
         <div className="text-xs font-semibold tracking-[0.18em] text-[var(--muted)]">SELECT NAMESPACE</div>
@@ -256,12 +319,25 @@ export default function MintTab() {
                     {n.domain}
                   </span>
                   <div className="flex items-center gap-1.5 shrink-0">
+                    {/* Privacy icon */}
+                    <span className="text-[10px]">
+                      {n.privacyDefault === 'private' ? '🔒' : '⬜'}
+                    </span>
                     {/* Lifecycle tier badge with icon */}
                     <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[9px] font-semibold text-amber-300 ring-1 ring-amber-500/20">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={tierIcon} alt={n.tier} className="h-3.5 w-3.5 object-contain" />
                       {n.tier.charAt(0).toUpperCase() + n.tier.slice(1)}
                     </span>
+                    {/* Tier label (Can Molt / Larva-only / etc.) */}
+                    <span className={`rounded-full px-2 py-0.5 text-[9px] font-semibold ring-1 ${
+                      n.tierLabel.includes('Molt') || n.tierLabel.includes('Cycle')
+                        ? 'bg-violet-500/10 text-violet-300 ring-violet-500/20'
+                        : 'bg-zinc-500/10 text-zinc-400 ring-zinc-500/20'
+                    }`}>
+                      {(n.tierLabel.includes('Molt') || n.tierLabel.includes('Cycle')) ? '↑ ' : ''}{n.tierLabel}
+                    </span>
+                    {/* Mint fee */}
                     <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
                       n.mintFee === 'free'
                         ? 'bg-emerald-500/10 text-emerald-300 ring-1 ring-emerald-500/20'
@@ -274,6 +350,14 @@ export default function MintTab() {
 
                 {/* One-liner description */}
                 <span className="text-xs text-[var(--muted)]">{n.shortDesc}</span>
+
+                {/* Molt-to fee line */}
+                <span className="text-[10px] text-[var(--muted)]">
+                  {n.moltToFee !== null
+                    ? <>Molt-to: <span className="font-semibold text-[#f2eee4]">{n.moltToFee} xDAI</span>{n.moltToFeeFromNftmail ? <> ({n.moltToFeeFromNftmail} xDAI from nftmail.gno)</> : null} · Molt path: <span className="font-semibold text-violet-300">{n.moltPath ?? '—'}</span></>
+                    : <>Molt: <span className="font-semibold text-zinc-500">N/A</span> · History: <span className="font-semibold text-amber-300">{n.decayDays}d</span></>
+                  }
+                </span>
 
                 {/* Badges row */}
                 <div className="mt-1.5 flex flex-wrap gap-1">
@@ -388,7 +472,8 @@ export default function MintTab() {
                 Mint: <span className={ns.mintFee === 'free' ? 'text-emerald-300 font-semibold' : 'text-[#f2eee4] font-semibold'}>{feeLabel(ns.mintFee)}</span>
               </span>
               <span className="text-[10px] text-[var(--muted)]">
-                Molt: <span className="font-semibold text-[#f2eee4]">{feeLabel(ns.moltFee)}</span>
+                Molt-to: <span className="font-semibold text-[#f2eee4]">{ns.moltToFee !== null ? `${ns.moltToFee} xDAI` : 'N/A'}</span>
+                {ns.moltToFeeFromNftmail ? <> <span className="text-zinc-500">({ns.moltToFeeFromNftmail} xDAI from nftmail.gno)</span></> : null}
               </span>
               {ns.decayDays && (
                 <span className="text-[10px] text-[var(--muted)]">
@@ -399,7 +484,7 @@ export default function MintTab() {
                 Privacy: <span className="font-semibold text-[#f2eee4]">{ns.privacyDefault === 'private' ? 'Private' : 'Glassbox'}</span>
               </span>
               <span className="text-[10px] text-[var(--muted)]">
-                Cycle: <span className="font-semibold text-violet-300">{ns.evolveDesc}</span>
+                Molt path: <span className="font-semibold text-violet-300">{ns.moltPath ?? '—'}</span>
               </span>
             </div>
           </div>
