@@ -146,32 +146,14 @@ export default function AgentProfilePage() {
   return (
     <div className="space-y-8">
 
-      {/* ── Header with agent identity ── */}
+      {/* ── Header ── */}
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-4">
-          {agentLoading ? (
-            <div className="h-16 w-16 rounded-xl bg-black/30 animate-pulse" />
-          ) : agent ? (
-            <>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={`/api/genome-image?sld=${(agent.tld || 'agent.gno').replace('.gno', '')}&name=${encodeURIComponent(agent.name)}`}
-                alt={agent.name}
-                className="h-16 w-16 rounded-xl border border-[rgba(176,128,92,0.3)] object-cover shadow-[0_0_18px_rgba(184,134,97,0.15)]"
-              />
-            </>
-          ) : (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={GHOST_LOGO} alt="GhostAgent" className="h-14 w-14 object-contain drop-shadow-[0_0_14px_rgba(184,134,97,0.4)]" />
-          )}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={GHOST_LOGO} alt="GhostAgent" className="h-14 w-14 object-contain drop-shadow-[0_0_14px_rgba(184,134,97,0.4)]" />
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-2xl font-bold text-[#f2eee4]">
-                {agent ? agent.name : 'Agent Profile'}
-              </h1>
-              {agent && (
-                <span className="text-sm text-[var(--muted)]">.{agent.tld || 'agent.gno'}</span>
-              )}
+              <h1 className="text-2xl font-bold text-[#f2eee4]">Agent Profile</h1>
               <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-300 ring-1 ring-amber-500/20">
                 ERC-8004
               </span>
@@ -180,10 +162,7 @@ export default function AgentProfilePage() {
               </span>
             </div>
             <p className="mt-0.5 text-xs text-[var(--muted)]">
-              {agent
-                ? <>Edit description, website, and social links. Changes reflect in the live ERC-8004 card immediately.{agent.safe && <> · Safe <span className="font-mono text-zinc-500">{shortAddr(agent.safe)}</span></>}</>
-                : 'Select an agent from the dashboard to edit its profile.'
-              }
+              Edit your agent&apos;s description, website, and social links. Changes reflect in the live ERC-8004 card immediately.
             </p>
           </div>
         </div>
@@ -194,6 +173,46 @@ export default function AgentProfilePage() {
           ← Dashboard
         </Link>
       </div>
+
+      {/* ── Agent identity banner ── */}
+      {agentLoading ? (
+        <div className="flex items-center gap-5 rounded-2xl border border-[rgba(176,128,92,0.2)] bg-[var(--card)] p-5">
+          <div className="h-32 w-32 rounded-xl bg-black/30 animate-pulse shrink-0" />
+          <div className="space-y-2 flex-1">
+            <div className="h-5 w-40 rounded bg-black/30 animate-pulse" />
+            <div className="h-3 w-24 rounded bg-black/20 animate-pulse" />
+          </div>
+        </div>
+      ) : agent ? (
+        <div className="flex items-center gap-5 rounded-2xl border border-[rgba(176,128,92,0.2)] bg-[var(--card)] p-5">
+          <div className="h-32 w-32 shrink-0 rounded-xl border border-[rgba(176,128,92,0.3)] overflow-hidden bg-black/30">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={`/sld-images/${(agent.tld || 'agent.gno').replace('.gno', '')}.png`}
+              alt={`${agent.name}.${agent.tld || 'agent.gno'}`}
+              className="h-full w-full object-cover"
+              onError={(e) => {
+                const el = e.target as HTMLImageElement;
+                el.style.display = 'none';
+                el.parentElement!.innerHTML = `<span class="flex h-full w-full items-center justify-center text-[11px] font-bold tracking-widest opacity-30 uppercase">${(agent.tld || 'agent.gno').replace('.gno', '')}</span>`;
+              }}
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xl font-bold text-[#f2eee4]">{agent.name}</span>
+              <span className="text-sm text-[var(--muted)]">.{agent.tld || 'agent.gno'}</span>
+            </div>
+            {agent.safe && (
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-zinc-500">Safe</span>
+                <span className="font-mono text-[11px] text-zinc-400">{agent.safe}</span>
+              </div>
+            )}
+            <span className="text-[10px] text-zinc-600">{agent.name}_@nftmail.box</span>
+          </div>
+        </div>
+      ) : null}
 
       {/* ── Info banner ── */}
       <div className="rounded-xl border border-[rgba(176,128,92,0.2)] bg-[rgba(176,128,92,0.04)] p-4 space-y-1.5">
