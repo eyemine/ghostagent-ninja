@@ -10,12 +10,12 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { usePrivy, useWallets } from '@privy-io/react-auth';
+import { useSearchParams } from 'next/navigation';
 
 const WORKER_URL = 'https://nftmail-email-worker.richard-159.workers.dev';
 const GHOST_LOGO = '/ghost-logo.png';
 
-interface KnownAgent { name: string; tld: string; safe: string; }
+interface AgentIdentity { name: string; tld: string; safe: string; }
 
 interface AgentProfile {
   description: string;
@@ -39,13 +39,11 @@ function shortAddr(addr: string) {
 }
 
 export default function AgentProfilePage() {
-  const { authenticated } = usePrivy();
-  const { wallets } = useWallets();
-  const connectedWallet = wallets[0]?.address ?? null;
+  const searchParams = useSearchParams();
+  const agentName = searchParams.get('agent')?.toLowerCase().trim() ?? null;
 
-  const [ownedAgents, setOwnedAgents] = useState<KnownAgent[]>([]);
-  const [agentsLoading, setAgentsLoading] = useState(false);
-  const [selectedIdx, setSelectedIdx] = useState(0);
+  const [agent, setAgent] = useState<AgentIdentity | null>(null);
+  const [agentLoading, setAgentLoading] = useState(false);
   const [profile, setProfile] = useState<AgentProfile>(EMPTY_PROFILE);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -53,30 +51,26 @@ export default function AgentProfilePage() {
   const [error, setError] = useState('');
   const [liveCard, setLiveCard] = useState<Record<string, unknown> | null>(null);
 
-  const selected = ownedAgents[selectedIdx] ?? null;
-
-  // Load agents owned by the connected wallet
+  // Load agent identity from ?agent= query param
   useEffect(() => {
-    if (!connectedWallet) { setOwnedAgents([]); return; }
-    setAgentsLoading(true);
-    setSelectedIdx(0);
+    if (!agentName) { setAgent(null); return; }
+    setAgentLoading(true);
     fetch(WORKER_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'listAgents', safeAddress: connectedWallet }),
+      body: JSON.stringify({ action: 'getAgentIdentity', agentName }),
     })
-      .then(r => r.json() as Promise<{ agents?: Array<{ name: string; tld: string; erc8004?: { gnosis?: { agentId: number } } }> }>)
+      .then(r => r.json() as Promise<{ name: string; safe?: string | null; identityNft?: { tld?: string | null } | null }>)
       .then(data => {
-        const agents: KnownAgent[] = (data.agents ?? []).map(a => ({
-          name: a.name,
-          tld:  a.tld,
-          safe: connectedWallet,
-        }));
-        setOwnedAgents(agents);
+        setAgent({
+          name: data.name,
+          tld:  data.identityNft?.tld ?? 'agent.gno',
+          safe: data.safe ?? '',
+        });
       })
-      .catch(() => setOwnedAgents([]))
-      .finally(() => setAgentsLoading(false));
-  }, [connectedWallet]);
+      .catch(() => setAgent(null))
+      .finally(() => setAgentLoading(false));
+  }, [agentName]);
 
   const loadProfile = useCallback(async (agentName: string) => {
     setLoading(true);
@@ -110,10 +104,11 @@ export default function AgentProfilePage() {
   }, []);
 
   useEffect(() => {
-    if (selected) loadProfile(selected.name);
-  }, [selected, loadProfile]);
+    if (agent) loadProfile(agent.name);
+  }, [agent, loadProfile]);
 
   async function handleSave() {
+    if (!agent) return;
     setSaving(true);
     setSaved(false);
     setError('');
@@ -123,7 +118,7 @@ export default function AgentProfilePage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action:      'setAgentProfile',
-          agentName:   selected.name,
+          agentName:   agent.name,
           description: profile.description || undefined,
           webUrl:      profile.webUrl       || undefined,
           socialLinks: Object.fromEntries(
@@ -134,7 +129,7 @@ export default function AgentProfilePage() {
       if (!res.ok) throw new Error('Save failed');
       setSaved(true);
       // Reload live card to show merged result
-      const cardRes = await fetch(`/api/agent-card?agent=${selected.name}`);
+      const cardRes = await fetch(`/api/agent-card?agent=${agent.name}`);
       if (cardRes.ok) setLiveCard(await cardRes.json());
       setTimeout(() => setSaved(false), 3000);
     } catch {
@@ -151,14 +146,32 @@ export default function AgentProfilePage() {
   return (
     <div className="space-y-8">
 
-      {/* ── Header ── */}
+      {/* ── Header with agent identity ── */}
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-4">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={GHOST_LOGO} alt="GhostAgent" className="h-14 w-14 object-contain drop-shadow-[0_0_14px_rgba(184,134,97,0.4)]" />
+          {agentLoading ? (
+            <div className="h-16 w-16 rounded-xl bg-black/30 animate-pulse" />
+          ) : agent ? (
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={`/api/genome-image?sld=${(agent.tld || 'agent.gno').replace('.gno', '')}&name=${encodeURIComponent(agent.name)}`}
+                alt={agent.name}
+                className="h-16 w-16 rounded-xl border border-[rgba(176,128,92,0.3)] object-cover shadow-[0_0_18px_rgba(184,134,97,0.15)]"
+              />
+            </>
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={GHOST_LOGO} alt="GhostAgent" className="h-14 w-14 object-contain drop-shadow-[0_0_14px_rgba(184,134,97,0.4)]" />
+          )}
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-2xl font-bold text-[#f2eee4]">Agent Profile</h1>
+              <h1 className="text-2xl font-bold text-[#f2eee4]">
+                {agent ? agent.name : 'Agent Profile'}
+              </h1>
+              {agent && (
+                <span className="text-sm text-[var(--muted)]">.{agent.tld || 'agent.gno'}</span>
+              )}
               <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-300 ring-1 ring-amber-500/20">
                 ERC-8004
               </span>
@@ -167,7 +180,10 @@ export default function AgentProfilePage() {
               </span>
             </div>
             <p className="mt-0.5 text-xs text-[var(--muted)]">
-              Edit your agent&apos;s description, website, and social links. Changes reflect in the live ERC-8004 card immediately.
+              {agent
+                ? <>Edit description, website, and social links. Changes reflect in the live ERC-8004 card immediately.{agent.safe && <> · Safe <span className="font-mono text-zinc-500">{shortAddr(agent.safe)}</span></>}</>
+                : 'Select an agent from the dashboard to edit its profile.'
+              }
             </p>
           </div>
         </div>
@@ -195,52 +211,14 @@ export default function AgentProfilePage() {
         {/* ── Left: editor ── */}
         <div className="space-y-5">
 
-          {/* Agent selector */}
-          <div className="rounded-2xl border border-[rgba(176,128,92,0.25)] bg-[var(--card)] p-5 space-y-4">
-            <div className="text-[10px] font-semibold tracking-widest text-[var(--muted)]">SELECT AGENT</div>
-            {agentsLoading ? (
-              <div className="text-xs text-[var(--muted)] py-2">Loading your agents…</div>
-            ) : !authenticated ? (
-              <div className="text-xs text-[var(--muted)] py-2">Connect wallet to see your agents.</div>
-            ) : ownedAgents.length === 0 ? (
-              <div className="text-xs text-[var(--muted)] py-2">No agents found for this wallet.</div>
-            ) : (
-              <div className="flex gap-3 flex-wrap">
-                {ownedAgents.map((agent, i) => {
-                  const sld = (agent.tld || 'agent.gno').replace('.gno', '');
-                  return (
-                    <button
-                      key={agent.name}
-                      onClick={() => setSelectedIdx(i)}
-                      className={`flex items-center gap-3 rounded-xl border px-4 py-3 text-left transition-all ${
-                        selectedIdx === i
-                          ? 'border-amber-500/40 bg-amber-500/8'
-                          : 'border-[rgba(176,128,92,0.15)] bg-transparent hover:border-[rgba(176,128,92,0.3)]'
-                      }`}
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={`/api/genome-image?sld=${sld}&name=${encodeURIComponent(agent.name)}`}
-                        alt={agent.name}
-                        className="h-16 w-16 rounded-lg border border-[rgba(176,128,92,0.2)] object-cover"
-                      />
-                      <div className="flex flex-col gap-0.5">
-                        <span className="text-sm font-semibold text-[#f2eee4]">{agent.name}</span>
-                        <span className="text-[11px] text-[var(--muted)]">{agent.tld || 'unknown'}</span>
-                        <span className="font-mono text-[10px] text-zinc-500">{shortAddr(agent.safe)}</span>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          {!authenticated || !selected ? (
+          {!agent ? (
             <div className="rounded-xl border border-[rgba(176,128,92,0.2)] bg-[rgba(176,128,92,0.05)] px-6 py-10 text-center">
               <p className="text-sm text-[var(--muted)]">
-                {!authenticated ? 'Connect your wallet to edit agent profiles.' : 'Select an agent above.'}
+                {agentLoading ? 'Loading agent…' : 'No agent specified. Go back to the dashboard and select an agent.'}
               </p>
+              <Link href="/dashboard" className="mt-3 inline-block rounded-lg bg-amber-600/80 px-4 py-2 text-xs font-semibold text-white hover:bg-amber-600 transition">
+                Go to Dashboard
+              </Link>
             </div>
           ) : (
             <div className="rounded-2xl border border-[rgba(176,128,92,0.25)] bg-[var(--card)] p-5 space-y-5">
@@ -276,7 +254,7 @@ export default function AgentProfilePage() {
                       type="url"
                       value={profile.webUrl}
                       onChange={e => setProfile(p => ({ ...p, webUrl: e.target.value.slice(0, 200) }))}
-                      placeholder={`https://ghostagent.ninja/agent/${selected?.name}`}
+                      placeholder={`https://ghostagent.ninja/agent/${agent?.name}`}
                       className="w-full rounded-xl border border-[rgba(176,128,92,0.2)] bg-black/30 px-4 py-2.5 text-xs text-[#f2eee4] placeholder-zinc-600 outline-none focus:border-amber-500/40 font-mono"
                     />
                   </div>
@@ -306,16 +284,18 @@ export default function AgentProfilePage() {
                   </div>
 
                   {/* Safe (read-only) */}
-                  <div className="space-y-1.5">
-                    <div className="text-[10px] font-semibold tracking-widest text-[var(--muted)]">
-                      PAYMENT WALLET (SAFE)
-                      <span className="ml-2 font-normal normal-case text-zinc-500">on-chain · not editable here</span>
+                  {agent.safe && (
+                    <div className="space-y-1.5">
+                      <div className="text-[10px] font-semibold tracking-widest text-[var(--muted)]">
+                        PAYMENT WALLET (SAFE)
+                        <span className="ml-2 font-normal normal-case text-zinc-500">on-chain · not editable here</span>
+                      </div>
+                      <div className="flex items-center gap-2 rounded-xl border border-zinc-800 bg-black/20 px-4 py-2.5">
+                        <span className="font-mono text-[11px] text-zinc-500 flex-1 truncate">{agent.safe}</span>
+                        <span className="text-[9px] text-zinc-700 shrink-0">ERC-8004 agentWallet</span>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2 rounded-xl border border-zinc-800 bg-black/20 px-4 py-2.5">
-                      <span className="font-mono text-[11px] text-zinc-500 flex-1 truncate">{selected?.safe}</span>
-                      <span className="text-[9px] text-zinc-700 shrink-0">ERC-8004 agentWallet</span>
-                    </div>
-                  </div>
+                  )}
 
                   {/* Error */}
                   {error && (
@@ -351,10 +331,10 @@ export default function AgentProfilePage() {
           <div className="rounded-2xl border border-[rgba(176,128,92,0.2)] bg-[var(--card)] p-4 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-semibold text-amber-300/80">
-                /api/agent-card?agent={selected?.name}
+                /api/agent-card?agent={agent?.name}
               </span>
               <a
-                href={`/api/agent-card?agent=${selected?.name}`}
+                href={`/api/agent-card?agent=${agent?.name}`}
                 target="_blank"
                 rel="noreferrer"
                 className="text-[10px] text-zinc-500 hover:text-zinc-300 transition"
