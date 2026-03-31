@@ -205,14 +205,14 @@ export default function AgentProfilePage() {
             ) : ownedAgents.length === 0 ? (
               <div className="text-xs text-[var(--muted)] py-2">No agents found for this wallet.</div>
             ) : (
-              <div className="flex gap-2 flex-wrap">
+              <div className="flex gap-3 flex-wrap">
                 {ownedAgents.map((agent, i) => {
-                  const sld = agent.tld.replace('.gno', '');
+                  const sld = (agent.tld || 'agent.gno').replace('.gno', '');
                   return (
                     <button
                       key={agent.name}
                       onClick={() => setSelectedIdx(i)}
-                      className={`flex items-center gap-3 rounded-xl border px-4 py-2.5 text-left transition-all ${
+                      className={`flex items-center gap-3 rounded-xl border px-4 py-3 text-left transition-all ${
                         selectedIdx === i
                           ? 'border-amber-500/40 bg-amber-500/8'
                           : 'border-[rgba(176,128,92,0.15)] bg-transparent hover:border-[rgba(176,128,92,0.3)]'
@@ -222,12 +222,12 @@ export default function AgentProfilePage() {
                       <img
                         src={`/api/genome-image?sld=${sld}&name=${encodeURIComponent(agent.name)}`}
                         alt={agent.name}
-                        className="h-10 w-10 rounded-lg border border-[rgba(176,128,92,0.2)] object-cover"
+                        className="h-16 w-16 rounded-lg border border-[rgba(176,128,92,0.2)] object-cover"
                       />
                       <div className="flex flex-col gap-0.5">
-                        <span className="text-xs font-semibold text-[#f2eee4]">{agent.name}</span>
-                        <span className="text-[10px] text-[var(--muted)]">{agent.tld}</span>
-                        <span className="font-mono text-[9px] text-zinc-500">{shortAddr(agent.safe)}</span>
+                        <span className="text-sm font-semibold text-[#f2eee4]">{agent.name}</span>
+                        <span className="text-[11px] text-[var(--muted)]">{agent.tld || 'unknown'}</span>
+                        <span className="font-mono text-[10px] text-zinc-500">{shortAddr(agent.safe)}</span>
                       </div>
                     </button>
                   );

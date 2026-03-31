@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createPublicClient, http, namehash } from 'viem';
-import { mainnet } from 'viem/chains';
+import { createPublicClient, http, namehash, keccak256, encodePacked } from 'viem';
+import { mainnet, gnosis } from 'viem/chains';
 import { getAllCollections } from '../../services/collection-registry';
 import { WORKER_URL } from '../../utils/config';
 
@@ -24,6 +24,21 @@ const ENS_REGISTRY_ABI = [{
 const ethClient = createPublicClient({
   chain: mainnet,
   transport: http(process.env.ETH_RPC_URL || 'https://ethereum.publicnode.com'),
+});
+
+// GNS Registry on Gnosis mainnet — authoritative on-chain subname ownership
+const GNS_REGISTRY = '0xA505e447474bd1774977510e7a7C9459DA79c4b9' as const;
+const GNS_REGISTRY_ABI = [{
+  name: 'owner',
+  type: 'function',
+  stateMutability: 'view',
+  inputs: [{ name: 'node', type: 'bytes32' }],
+  outputs: [{ name: '', type: 'address' }],
+}] as const;
+
+const gnosisClient = createPublicClient({
+  chain: gnosis,
+  transport: http(process.env.NEXT_PUBLIC_GNOSIS_RPC || 'https://rpc.gnosischain.com'),
 });
 
 /**
@@ -63,32 +78,62 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  // ── 1. Worker KV: is this agent name already provisioned? ───────────────────
-  // getAcctTier returns { tier, ... } only if the acct-tier KV entry exists.
-  // Unregistered agents have no entry → returns { tier: null } or { error }.
-  let agentTaken = false;
+  // ── 1. On-chain GNS Registry: is this subname already minted? ─────────────
+  // This is the authoritative check — queries the Gnosis chain registry directly.
+  const sld = tld.replace('.gno', '');
   try {
-    const workerRes = await fetch(WORKER_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'getAcctTier', localPart: name }),
+    const parentNode = namehash(tld);
+    const labelHash  = keccak256(encodePacked(['string'], [name]));
+    const subnode    = keccak256(encodePacked(['bytes32', 'bytes32'], [parentNode, labelHash]));
+    const existingOwner = await gnosisClient.readContract({
+      address: GNS_REGISTRY,
+      abi: GNS_REGISTRY_ABI,
+      functionName: 'owner',
+      args: [subnode],
     });
-    if (workerRes.ok) {
-      const data = await workerRes.json() as { tier?: string | null; raw?: string | null; error?: string };
-      // raw is null when no acct-tier KV entry exists → name is free
-      // raw is a non-null string only when an entry was actually written (provisioned agent)
-      agentTaken = !!(data.raw && !data.error);
+    if (existingOwner && existingOwner !== '0x0000000000000000000000000000000000000000') {
+      return NextResponse.json({
+        available: false,
+        reason: 'taken',
+        message: `${name}.${tld} is already minted on Gnosis Chain.`,
+      });
+    }
+  } catch {
+    // On-chain check non-fatal — RPC may be unreachable
+  }
+
+  // ── 1b. Worker KV fallback: check acct-tier + tld keys ────────────────────
+  try {
+    const [acctRes, tldRes] = await Promise.all([
+      fetch(WORKER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'getAcctTier', localPart: name }),
+      }),
+      fetch(WORKER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'getAgentTLD', localPart: name, parentTld: '' }),
+      }),
+    ]);
+    let kvTaken = false;
+    if (acctRes.ok) {
+      const data = await acctRes.json() as { tier?: string | null; raw?: string | null; error?: string };
+      kvTaken = !!(data.raw && !data.error);
+    }
+    if (!kvTaken && tldRes.ok) {
+      const tldData = await tldRes.json() as { tld?: string | null };
+      kvTaken = !!tldData.tld;
+    }
+    if (kvTaken) {
+      return NextResponse.json({
+        available: false,
+        reason: 'taken',
+        message: `${name}.${tld} is already registered.`,
+      });
     }
   } catch {
     // worker unreachable — proceed optimistically
-  }
-
-  if (agentTaken) {
-    return NextResponse.json({
-      available: false,
-      reason: 'taken',
-      message: `${name}.${tld} is already registered.`,
-    });
   }
 
   // ── 2. ENS check: does name.eth exist on Ethereum mainnet? ──────────────────

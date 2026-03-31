@@ -40,7 +40,7 @@ export function GenomeEditor({
   const visual = SLD_VISUAL[sld];
   const meta = value ?? defaultGenomeMetadata(agentName, sld);
 
-  const [imgKey, setImgKey] = useState(0);
+  const [imgTs, setImgTs] = useState(() => Date.now());
   const placeholderUrl = `/api/genome-image?sld=${sld}&name=${encodeURIComponent(agentName || 'agent')}`;
 
   // ── field helpers ──────────────────────────────────────────────────────────
@@ -66,8 +66,8 @@ export function GenomeEditor({
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              key={imgKey}
-              src={`${placeholderUrl}&_=${imgKey}`}
+              key={imgTs}
+              src={`${placeholderUrl}&_=${imgTs}`}
               alt={agentName}
               className="h-full w-full object-cover"
             />
@@ -77,7 +77,7 @@ export function GenomeEditor({
           </div>
           <button
             type="button"
-            onClick={() => setImgKey(k => k + 1)}
+            onClick={() => setImgTs(() => Date.now())}
             className="rounded-lg border border-[rgba(176,128,92,0.3)] bg-[rgba(176,128,92,0.08)] px-2.5 py-1 text-[10px] font-semibold text-[#b0805c] hover:bg-[rgba(176,128,92,0.14)] transition-colors"
           >
             Refresh preview
