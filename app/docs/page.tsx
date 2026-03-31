@@ -290,7 +290,7 @@ Content-Type: application/json
               { sld: 'openclaw.gno', label: 'Full agent, glassbox',       color: 'text-cyan-300' },
               { sld: 'molt.gno',     label: 'Transition (30d decay)',      color: 'text-fuchsia-300' },
               { sld: 'vault.gno',    label: 'Pro, persistent, private',    color: 'text-emerald-300' },
-              { sld: 'agent.gno',    label: 'Full identity + evolve path', color: 'text-violet-300' },
+              { sld: 'agent.gno',    label: 'Full identity + molt path', color: 'text-violet-300' },
               { sld: 'nftmail.gno',  label: 'NFT-gated inbox',             color: 'text-rose-300' },
             ].map(n => (
               <div key={n.sld} className="rounded-lg border border-[var(--border)] bg-black/20 px-3 py-2">

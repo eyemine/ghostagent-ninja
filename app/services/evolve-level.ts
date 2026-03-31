@@ -92,7 +92,7 @@ export const EVOLVE_ACTIONS: Partial<Record<EvolveLevel, EvolveAction>> = {
   pupa: {
     from: 'pupa',
     to: 'imago',
-    label: 'Evolve to Imago',
+    label: 'Molt to Imago',
     oneOffXdai: 14,
     annualXdai: 24,
     unlocks: [

@@ -59,7 +59,7 @@ export default function EvolveVaultPage() {
     <div className="mx-auto max-w-lg space-y-6 px-4 py-10">
       {/* Page header */}
       <div className="space-y-1">
-        <h1 className="text-xl font-bold text-[#f2eee4]">Evolve to vault.gno</h1>
+        <h1 className="text-xl font-bold text-[#f2eee4]">Molt to vault.gno</h1>
         <p className="text-sm text-[var(--muted)]">
           Upgrade your human inbox to a sovereign vault.gno agent. Mint NFT → deploy Safe → migrate email history.
         </p>
@@ -106,7 +106,7 @@ export default function EvolveVaultPage() {
             disabled={!clientName || !walletAddress || loading || checking}
             className="w-full rounded-xl bg-gradient-to-r from-emerald-600 to-violet-600 py-2.5 text-sm font-semibold text-white shadow-lg transition hover:opacity-90 disabled:opacity-40"
           >
-            {loading ? 'Starting…' : !walletAddress ? 'Connect wallet to evolve' : `Evolve to vault.gno — ${VAULT_EVOLUTION_COST_XDAI} xDAI`}
+            {loading ? 'Starting…' : !walletAddress ? 'Connect wallet to molt' : `Molt to vault.gno — ${VAULT_EVOLUTION_COST_XDAI} xDAI`}
           </button>
           {!walletAddress && (
             <p className="text-center text-[10px] text-[var(--muted)]">Pass ?wallet=0x… in URL or connect wallet</p>
@@ -166,7 +166,7 @@ export default function EvolveVaultPage() {
           {/* Migration summary (complete) */}
           {isComplete && (
             <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 space-y-2">
-              <p className="text-xs font-semibold text-emerald-300">Evolved to vault.gno: {record.agentEmail}</p>
+              <p className="text-xs font-semibold text-emerald-300">Molted to vault.gno: {record.agentEmail}</p>
               <div className="grid grid-cols-2 gap-2 text-[10px]">
                 <div>
                   <span className="text-[var(--muted)]">Messages migrated</span>

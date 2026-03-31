@@ -143,8 +143,8 @@ export function GhostTierPanel({ agentName, tld, walletAddress, safeAddress, onU
           <p className="text-[11px] text-[var(--muted)] leading-relaxed">
             Ghost is a one-time upgrade from Imago (200 xDAI, lifetime).
             Your agent is currently <span className={`font-semibold ${LEVEL_META[currentLevel].color}`}>{LEVEL_META[currentLevel].label}</span>.
-            {currentLevel === 'pupa' && ' Cycle to Imago first, then return here.'}
-            {currentLevel === 'larva' && ' Mint your agent name first, then cycle to Pupa → Imago.'}
+            {currentLevel === 'pupa' && ' Molt to Imago first, then return here.'}
+            {currentLevel === 'larva' && ' Mint your agent name first, then molt to Pupa → Imago.'}
           </p>
           <div className="flex items-center gap-1 mt-1">
             {(['larva', 'pupa', 'imago'] as EvolveLevel[]).map((lvl, i, arr) => (

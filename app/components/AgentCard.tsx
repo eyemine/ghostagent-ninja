@@ -278,7 +278,7 @@ export function AgentCard({
             <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M12 2v20M2 12h20" />
             </svg>
-            Evolve
+            Molt
           </button>
         )}
         <Link
@@ -298,7 +298,7 @@ export function AgentCard({
             <line x1="12" y1="17" x2="12.01" y2="17" />
           </svg>
           <span className="text-[10px] text-amber-300/80">
-            Free tier — 8-day history window. Evolve for persistent storage + IP protection.
+            Free tier — 8-day history window. Molt for persistent storage + IP protection.
           </span>
         </div>
       )}

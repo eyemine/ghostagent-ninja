@@ -98,7 +98,7 @@ export default function EvolveModal({
       } : null);
 
       if (data.storyIp?.fullDomain) setStoryIp(data.storyIp.fullDomain);
-      setStatusMsg(data.message ?? `${action === 'upgrade' ? 'Evolved to Imago' : 'Returned to Pupa'} ✓`);
+      setStatusMsg(data.message ?? `${action === 'upgrade' ? 'Molted to Imago' : 'Returned to Pupa'} ✓`);
       setConfirmDowngrade(false);
       onLevelChange?.(newLevel);
     } catch (err: any) {
@@ -132,7 +132,7 @@ export default function EvolveModal({
 
         {/* Header */}
         <div className="mb-5 space-y-1">
-          <h2 className="text-lg font-bold text-[#f2eee4]">Evolve Agent</h2>
+          <h2 className="text-lg font-bold text-[#f2eee4]">Molt Agent</h2>
           <p className="text-xs text-[var(--muted)]">
             <span className="font-medium text-[#f2eee4]">{agentName}.{tld}</span>
             {' '}· {agentName}_@nftmail.box
@@ -223,10 +223,10 @@ export default function EvolveModal({
                       {busy ? (
                         <span className="flex items-center justify-center gap-2">
                           <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v4m0 12v4m-7.07-3.93 2.83-2.83m8.48-8.48 2.83-2.83M2 12h4m12 0h4M4.93 4.93l2.83 2.83m8.48 8.48 2.83 2.83" /></svg>
-                          Evolving…
+                          Molting…
                         </span>
                       ) : (
-                        `Cycle to Imago +${action.oneOffXdai} xDAI`
+                        `Molt to Imago +${action.oneOffXdai} xDAI`
                       )}
                     </button>
 
@@ -237,7 +237,7 @@ export default function EvolveModal({
                         defaultAmount={action.oneOffXdai ? Math.max(10, action.oneOffXdai * 2) : 10}
                         label={`Pay with Card from $10 (Transak)`}
                         onSuccess={(orderId) => {
-                          setStatusMsg(`Card payment received ✓ — order ${orderId.slice(0, 8)}. xDAI will arrive shortly, then click Evolve.`);
+                          setStatusMsg(`Card payment received ✓ — order ${orderId.slice(0, 8)}. xDAI will arrive shortly, then click Molt.`);
                         }}
                       />
                     )}
@@ -257,7 +257,7 @@ export default function EvolveModal({
                           defaultAmount={action.oneOffXdai ? Math.max(10, action.oneOffXdai * 2) : 10}
                           label={`Pay with Card from $10 (Mercuryo)`}
                           onSuccess={(txId) => {
-                            setStatusMsg(`Card payment received ✓ — tx ${txId.slice(0, 8)}. xDAI will arrive shortly, then click Evolve.`);
+                            setStatusMsg(`Card payment received ✓ — tx ${txId.slice(0, 8)}. xDAI will arrive shortly, then click Molt.`);
                           }}
                         />
                       </>
@@ -350,7 +350,7 @@ export default function EvolveModal({
                     ) : (
                       <>
                         <p className="text-xs font-semibold text-amber-300">
-                          Are you sure? Infinite retention will revert to 30-day cycle.
+                          Are you sure? Infinite retention will revert to 30-day window.
                         </p>
                         <div className="flex gap-2">
                           <button
@@ -454,7 +454,7 @@ export default function EvolveModal({
             {/* No upgrade path (larva tier — must mint first) */}
             {!action && currentLevel === 'larva' && (
               <div className="mb-4 rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-xs text-amber-300">
-                Mint your .nftmail.gno or .agent.gno name first, then return here to evolve.
+                Mint your .nftmail.gno or .agent.gno name first, then return here to molt.
               </div>
             )}
           </>

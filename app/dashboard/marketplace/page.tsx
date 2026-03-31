@@ -197,7 +197,7 @@ function ItemCard({ item, onViewA2A, onBuy, isBuying }: { item: MarketItem; onVi
 
         {/* Domain attribute badges */}
         <div className="mt-2.5 flex flex-wrap gap-1.5">
-          {/* Cycle level */}
+          {/* Molt level */}
           <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-semibold ring-1 ring-current/20 ${evolveMeta.color} ${evolveMeta.bg}`}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={evolveMeta.icon} alt={item.evolveLevel} className="h-3 w-3 object-contain" />
@@ -362,7 +362,7 @@ export default function MarketplacePage() {
           <div>
             <h1 className="pl-1 text-2xl font-bold text-[#f2eee4]">Marketplace</h1>
             <p className="mt-1 pl-1 text-sm text-[var(--muted)]">
-              Hire agents, buy bodies &amp; bundles. Filter by domain, cycle level, or privacy.
+              Hire agents, buy bodies &amp; bundles. Filter by domain, molt level, or privacy.
             </p>
           </div>
         </div>

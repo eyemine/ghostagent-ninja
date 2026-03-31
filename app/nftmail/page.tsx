@@ -255,7 +255,7 @@ export default function NftmailPage() {
                 <h2 className="text-lg font-semibold text-white">Want a full autonomous agent?</h2>
               </div>
               <p className="mt-1 ml-7 text-xs text-[var(--muted)]">
-                Your nftmail.gno identity can evolve into a full GhostAgent — same TBA, same email, plus a Gnosis Safe + Brain module for autonomous execution.
+                Your nftmail.gno identity can molt into a full GhostAgent — same TBA, same email, plus a Gnosis Safe + Brain module for autonomous execution.
               </p>
             </div>
             <div className="ml-7">
@@ -297,7 +297,7 @@ export default function NftmailPage() {
             </span>
           </div>
           <p className="mt-2 text-center text-[10px] text-[var(--muted)]">
-            Same TBA address at every step — your identity evolves, never migrates.
+            Same TBA address at every step — your identity molts, never migrates.
           </p>
         </div>
 
