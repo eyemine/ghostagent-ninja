@@ -116,13 +116,18 @@ export async function GET(req: NextRequest) {
       }),
     ]);
     let kvTaken = false;
+    let kvTld: string | null = null;
     if (acctRes.ok) {
       const data = await acctRes.json() as { tier?: string | null; raw?: string | null; error?: string };
       kvTaken = !!(data.raw && !data.error);
     }
     if (!kvTaken && tldRes.ok) {
       const tldData = await tldRes.json() as { tld?: string | null };
-      kvTaken = !!tldData.tld;
+      if (tldData.tld) {
+        kvTld = tldData.tld;
+        // Only mark as taken if the KV TLD matches the requested TLD
+        kvTaken = tldData.tld.toLowerCase() === tld.toLowerCase();
+      }
     }
     if (kvTaken) {
       return NextResponse.json({
@@ -130,6 +135,10 @@ export async function GET(req: NextRequest) {
         reason: 'taken',
         message: `${name}.${tld} is already registered.`,
       });
+    }
+    // If KV has a different TLD, log it for debugging but don't block
+    if (kvTld && kvTld.toLowerCase() !== tld.toLowerCase()) {
+      console.log(`[check-name] Name ${name} exists with different TLD: ${kvTld} (requested: ${tld})`);
     }
   } catch {
     // worker unreachable — proceed optimistically

@@ -162,11 +162,11 @@ export default function OgNftMoltPage() {
             <div className="grid grid-cols-3 gap-2">
               {([{k:'ens' as NftType,l:'ENS Name',img:'https://gateway.lighthouse.storage/ipfs/bafkreifv35abvqlhdtc4g2i4xelnmxnhaac7exyu6r24o3fbgthwcmupwy'},{k:'chonk' as NftType,l:'Chonk',img:'https://gateway.lighthouse.storage/ipfs/bafkreiczeqhex35dvj4ewbzn2gyqnbgqb22np5zgp223vnbfhaod6sv4sq'},{k:'other' as NftType,l:'Other ERC-721',img:'https://gateway.lighthouse.storage/ipfs/bafkreid7jamriw5jneuarcq2q6lrbfsqe76eebv6r2rworrnhyj2rpsuem'}]).map(opt => (
                 <button key={opt.k} onClick={() => { setNftType(opt.k); reset(); }}
-                  className={`rounded-lg border px-2 py-2 text-xs font-semibold transition text-center ${
+                  className={`aspect-square rounded-lg border px-2 py-2 text-xs font-semibold transition text-center ${
                     nftType === opt.k ? 'border-fuchsia-500/50 bg-fuchsia-500/10 text-fuchsia-300' : 'border-[rgba(176,128,92,0.2)] bg-black/20 text-[var(--muted)] hover:text-[#f2eee4]'
                   }`}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <div className="flex justify-center"><img src={opt.img} alt={opt.l} className="h-8 w-8 rounded object-contain" /></div><div className="mt-0.5">{opt.l}</div>
+                  <div className="flex justify-center"><img src={opt.img} alt={opt.l} className="h-24 w-24 rounded object-contain" /></div><div className="mt-0.5">{opt.l}</div>
                 </button>
               ))}
             </div>

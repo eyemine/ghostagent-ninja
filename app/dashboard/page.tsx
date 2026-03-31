@@ -241,7 +241,6 @@ const DEMO_RECEIPT_DATA = DEMO_RECEIPTS;
 const AGENT_ACTIONS = [
   { key: 'agent-profile', label: 'Agent Profile', href: (n: string) => `/dashboard/agent-profile?agent=${n}`, color: 'border-amber-500/30 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20' },
   { key: 'molt',          label: 'Molt',          href: (n: string) => `/molt?agent=${n}`,                    color: 'border-fuchsia-500/30 bg-fuchsia-500/10 text-fuchsia-300 hover:bg-fuchsia-500/20' },
-  { key: 'cycle',         label: 'Cycle',         href: (n: string) => `/dashboard/cycle?agent=${n}`,         color: 'border-sky-500/30 bg-sky-500/10 text-sky-300 hover:bg-sky-500/20' },
   { key: 'ghost-tier',    label: 'Ghost Tier',    href: (n: string) => `/dashboard/settings/ghost?agent=${n}`,color: 'border-zinc-500/30 bg-zinc-500/10 text-zinc-300 hover:bg-zinc-500/20' },
   { key: 'byo-nft',       label: 'BYO NFT',       href: (n: string) => `/chonk-molt?agent=${n}`,              color: 'border-violet-500/30 bg-violet-500/10 text-violet-300 hover:bg-violet-500/20' },
   { key: 'swarm',         label: 'Swarm',         href: (n: string) => `/dashboard/swarm?agent=${n}`,         color: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20' },
@@ -253,7 +252,6 @@ const AGENT_ACTIONS = [
 const BODY_ACTIONS = [
   { key: 'install-brain', label: 'Install Brain', href: (n: string) => `/dashboard/install-brain?body=${n}`, color: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20' },
   { key: 'molt',          label: 'Molt',          href: (n: string) => `/molt?body=${n}`,                    color: 'border-fuchsia-500/30 bg-fuchsia-500/10 text-fuchsia-300 hover:bg-fuchsia-500/20' },
-  { key: 'cycle',         label: 'Cycle',         href: (n: string) => `/dashboard/cycle?body=${n}`,         color: 'border-sky-500/30 bg-sky-500/10 text-sky-300 hover:bg-sky-500/20' },
 ];
 
 const BRAIN_ACTIONS = [
