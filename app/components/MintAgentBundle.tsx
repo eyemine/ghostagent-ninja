@@ -26,6 +26,7 @@ interface MintAgentBundleProps {
   disabled?: boolean;
   ensProof?: { name: string };  // if set, qualifies for free agent.gno mint
   couponCode?: string;          // if set + valid, triggers gasless mint
+  mintFeeLabel?: string;        // display price next to Mint Agent button
 }
 
 // Namespaces where treasury pays gas — user signs nothing
@@ -45,7 +46,7 @@ interface BundleResult {
   email?: string;
 }
 
-export function MintAgentBundle({ agentName, safeAddress, namespace = 'agent', disabled = false, ensProof, couponCode }: MintAgentBundleProps) {
+export function MintAgentBundle({ agentName, safeAddress, namespace = 'agent', disabled = false, ensProof, couponCode, mintFeeLabel }: MintAgentBundleProps) {
   const isSelfContained = (SELF_CONTAINED_NAMESPACES as readonly string[]).includes(namespace);
   const isGasless = (GASLESS_NAMESPACES as readonly string[]).includes(namespace)
     || (namespace === 'agent' && !!ensProof)
@@ -286,14 +287,14 @@ export function MintAgentBundle({ agentName, safeAddress, namespace = 'agent', d
               <path d="M17 12h.01" />
               <path d="M7 12h.01" />
             </svg>
-            {isGasless ? 'Free Mint — No Gas Required' : 'Mint Agent Bundle'}
+            {isGasless ? 'Free Mint — No Gas Required' : mintFeeLabel ? `Mint Agent — ${mintFeeLabel}` : 'Mint Agent'}
           </>
         ) : step === 'done' ? (
           <>
             <svg className="h-4 w-4 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="20 6 9 17 4 12" />
             </svg>
-            Bundle Complete
+            Minted
           </>
         ) : (
           <>
@@ -339,7 +340,7 @@ export function MintAgentBundle({ agentName, safeAddress, namespace = 'agent', d
                     </svg>
                   </div>
                   <div>
-                    <h3 className="text-lg font-bold text-white">Agent Bundle Minted</h3>
+                    <h3 className="text-lg font-bold text-white">Agent Minted</h3>
                     <p className="text-xs text-[var(--muted)]">{agentName} — {isSelfContained ? 'self-contained identity' : '3-chain identity'}</p>
                   </div>
                 </motion.div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { TermsCheckbox } from '../components/TermsCheckbox';
@@ -216,12 +216,18 @@ export default function MintTab() {
     }
   }, [agentName, ns.domain, connectedWallet]);
 
+  const genomeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   function handleNameChange(val: string) {
     const cleaned = val.toLowerCase().replace(/[^a-z0-9-]/g, '');
     setAgentName(cleaned);
     setCheckStatus('idle');
     setCheckResult(null);
-    setGenomeMeta(cleaned ? defaultGenomeMetadata(cleaned, selected) : null);
+    // Debounce genome metadata init to avoid lag on every keystroke
+    if (genomeTimerRef.current) clearTimeout(genomeTimerRef.current);
+    genomeTimerRef.current = setTimeout(() => {
+      setGenomeMeta(cleaned ? defaultGenomeMetadata(cleaned, selected) : null);
+    }, 400);
   }
 
   async function checkCoupon(code: string) {
@@ -246,55 +252,6 @@ export default function MintTab() {
   return (
     <div className="space-y-6">
 
-      {/* ── FREE ENTRY PATHS ── */}
-      <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 space-y-3">
-        <div className="text-xs font-semibold tracking-[0.18em] text-[var(--muted)]">FREE ENTRY PATHS</div>
-        <div className="grid gap-3 sm:grid-cols-3">
-          {/* ENS holders */}
-          <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 p-3 space-y-1.5">
-            <div className="flex items-center gap-1.5">
-              <span className="text-sm">🔷</span>
-              <span className="text-xs font-semibold text-blue-300">ENS Holders</span>
-            </div>
-            <p className="text-[10px] text-[var(--muted)] leading-relaxed">
-              Free <span className="text-[#f2eee4] font-medium">Larva</span> human email + reserved agent email _@nftmail.box (anti-spoof). 8-day history, no Safe or IP.
-            </p>
-            <p className="text-[10px] text-[var(--muted)] leading-relaxed">
-              Upgrade to <span className="text-violet-300 font-medium">Pupa</span> to install a brain → gains Gnosis Safe governed by ENS NFT (ERC-6551) + activated <span className="text-[#f2eee4]">[name]_@[SLD].gno</span> address.
-            </p>
-          </div>
-          {/* Collection NFT */}
-          <div className="rounded-lg border border-rose-500/20 bg-rose-500/5 p-3 space-y-1.5">
-            <div className="flex items-center gap-1.5">
-              <span className="text-sm">🖼️</span>
-              <span className="text-xs font-semibold text-rose-300">Verified Collection NFT</span>
-            </div>
-            <p className="text-[10px] text-[var(--muted)] leading-relaxed">
-              Free <span className="text-[#f2eee4] font-medium">Larva</span> email <span className="text-[#f2eee4]">[Collection].[tokenID]@nftmail.box</span> + reserved agent email. 8-day history, no Safe or IP.
-            </p>
-            <p className="text-[10px] text-[var(--muted)] leading-relaxed">
-              Upgrade to <span className="text-violet-300 font-medium">Pupa</span> → Gnosis Safe governed by the NFT (ERC-6551) + activated <span className="text-[#f2eee4]">[Collection].[tokenID]_@[SLD].gno</span>.
-            </p>
-          </div>
-          {/* Social Login */}
-          <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 space-y-1.5">
-            <div className="flex items-center gap-1.5">
-              <span className="text-sm">👤</span>
-              <span className="text-xs font-semibold text-amber-300">Social Login</span>
-            </div>
-            <p className="text-[10px] text-[var(--muted)] leading-relaxed">
-              Free <span className="text-[#f2eee4] font-medium">Larva</span> email <span className="text-[#f2eee4]">[name1].[name2]@nftmail.box</span>. 8-day history, no Safe or IP.
-            </p>
-            <p className="text-[10px] text-[var(--muted)] leading-relaxed">
-              Upgrade to <span className="text-violet-300 font-medium">Pupa/Imago</span> @nftmail.box for Gnosis Safe, .ip, Send (Pupa) and Persistent (Imago) email.
-            </p>
-          </div>
-        </div>
-        <p className="text-[10px] text-[var(--muted)]">
-          Use <span className="font-semibold text-[#f4b55a]">$HOST</span> to add features or increase capacity — extend email history, unlock marketplace listing, boost agent reputation.
-        </p>
-      </div>
-
       {/* ── SELECT NAMESPACE ── */}
       <div className="space-y-3">
         <div className="text-xs font-semibold tracking-[0.18em] text-[var(--muted)]">SELECT NAMESPACE</div>
@@ -315,7 +272,7 @@ export default function MintTab() {
               >
                 {/* Top row: domain name + tier badge + mint fee */}
                 <div className="flex items-center justify-between gap-2">
-                  <span className={`text-sm font-semibold transition-colors ${nsC.text}`}>
+                  <span className={`text-lg font-bold transition-colors ${nsC.text}`}>
                     {n.domain}
                   </span>
                   <div className="flex items-center gap-1.5 shrink-0">
@@ -351,14 +308,6 @@ export default function MintTab() {
                 {/* One-liner description */}
                 <span className="text-xs text-[var(--muted)]">{n.shortDesc}</span>
 
-                {/* Molt-to fee line */}
-                <span className="text-[10px] text-[var(--muted)]">
-                  {n.moltToFee !== null
-                    ? <>Molt-to: <span className="font-semibold text-[#f2eee4]">{n.moltToFee} xDAI</span>{n.moltToFeeFromNftmail ? <> ({n.moltToFeeFromNftmail} xDAI from nftmail.gno)</> : null} · Molt path: <span className="font-semibold text-violet-300">{n.moltPath ?? '—'}</span></>
-                    : <>Molt: <span className="font-semibold text-zinc-500">N/A</span> · History: <span className="font-semibold text-amber-300">{n.decayDays}d</span></>
-                  }
-                </span>
-
                 {/* Badges row */}
                 <div className="mt-1.5 flex flex-wrap gap-1">
                   {n.badges.map((b) => (
@@ -371,6 +320,9 @@ export default function MintTab() {
             );
           })}
         </div>
+        <p className="text-[11px] text-[var(--muted)]">
+          Use <span className="font-semibold text-[#f4b55a]">$HOST</span> to add features or increase capacity — extend email history, unlock marketplace listing, boost agent reputation.
+        </p>
       </div>
 
       {/* ── AGENT NAME ── */}
@@ -630,6 +582,7 @@ export default function MintTab() {
               namespace={selected}
               disabled={!termsAgreed}
               couponCode={couponState === 'valid' ? couponCode || undefined : undefined}
+              mintFeeLabel={isFree ? undefined : feeLabel(ns.mintFee)}
             />
           </>
         ) : (

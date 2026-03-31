@@ -219,10 +219,10 @@ export function GenomeEditor({
             />
           </div>
 
-          {/* Tagline */}
+          {/* Description */}
           <div className="space-y-1">
             <label className="block text-[10px] font-semibold tracking-[0.12em] text-[var(--muted)]">
-              TAGLINE <span className="font-normal normal-case">({meta.tagline.length}/{MAX_TAGLINE})</span>
+              DESCRIPTION <span className="font-normal normal-case">({meta.tagline.length}/{MAX_TAGLINE})</span>
             </label>
             <input
               type="text"
@@ -251,21 +251,20 @@ export function GenomeEditor({
 
           {/* Metadata preview pill row */}
           <div className="flex flex-wrap gap-1.5 pt-1">
-            <span className="inline-flex items-center gap-1 rounded-full border border-[rgba(176,128,92,0.2)] bg-[rgba(176,128,92,0.06)] px-2.5 py-0.5 text-[9px] text-[var(--muted)]">
-              <span style={{ color: visual.primaryColor }}>{visual.emoji}</span>
+            <span className="inline-flex items-center rounded-full border border-[rgba(176,128,92,0.2)] bg-[rgba(176,128,92,0.06)] px-2.5 py-0.5 text-[9px] text-[var(--muted)]">
               {sld}.gno
             </span>
             {hasCustomImage ? (
-              <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/5 px-2.5 py-0.5 text-[9px] text-emerald-300">
-                ✓ Custom image pinned
+              <span className="inline-flex items-center rounded-full border border-emerald-500/20 bg-emerald-500/5 px-2.5 py-0.5 text-[9px] text-emerald-300">
+                Custom image pinned
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1 rounded-full border border-[rgba(176,128,92,0.15)] bg-transparent px-2.5 py-0.5 text-[9px] text-[var(--muted)]">
+              <span className="inline-flex items-center rounded-full border border-[rgba(176,128,92,0.15)] bg-transparent px-2.5 py-0.5 text-[9px] text-[var(--muted)]">
                 Placeholder image
               </span>
             )}
             {meta.imageCid && (
-              <span className="inline-flex items-center gap-1 rounded-full border border-[rgba(176,128,92,0.15)] bg-transparent px-2.5 py-0.5 text-[9px] font-mono text-[var(--muted)]">
+              <span className="inline-flex items-center rounded-full border border-[rgba(176,128,92,0.15)] bg-transparent px-2.5 py-0.5 text-[9px] font-mono text-[var(--muted)]">
                 {meta.imageCid.slice(0, 12)}…
               </span>
             )}
