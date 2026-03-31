@@ -399,7 +399,7 @@ export default function DashboardHome() {
       <section>
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-xl font-semibold text-[#f2eee4]">My Bodies</h2>
-          <Link href="/dashboard/mint-body" className="text-xs text-[var(--muted)] transition hover:text-white">
+          <Link href="/agents?tab=mint" className="text-xs text-[var(--muted)] transition hover:text-white">
             Mint Agent Body →
           </Link>
         </div>

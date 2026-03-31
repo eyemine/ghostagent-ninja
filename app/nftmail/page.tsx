@@ -53,7 +53,7 @@ export default function NftmailPage() {
 
         {/* Hero */}
         <section className="text-center">
-          <h1 className="text-4xl font-bold tracking-tight">nftmail.box</h1>
+          <h1 className="text-4xl font-bold tracking-tight" style={{ fontFamily: "Ayuthaya, 'Courier New', monospace" }}>nftmail.box</h1>
           <p className="mx-auto mt-3 max-w-lg text-sm text-[var(--muted)]">
             Mint a self-contained email identity on Gnosis. Start free, upgrade to premium. Zero dependencies.
           </p>

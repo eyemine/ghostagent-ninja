@@ -1,10 +1,9 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { useWallets } from '@privy-io/react-auth';
-import { DomainCard, Domain } from '../components/DomainCard';
-import { useNameCheck, NameStatusBadge } from '../utils/ensCheck';
+import MintTab from './MintTab';
 
 const GHOST_LOGO = '/ghost-logo.png';
 const PAGE_SIZE = 20;
@@ -249,414 +248,53 @@ function RegistryTab() {
   );
 }
 
-const DOMAINS: Domain[] = [
-  {
-    id: 'agent',
-    label: 'Agent',
-    tld: 'agent.gno',
-    tagline: 'Full agent identity with cycle path',
-    mintFee: 10,
-    moltFee: 2,
-    evolvePath: 'imago/ghost',
-    privacyDefault: 'private',
-    decayDays: 8,
-    canEvolve: true,
-    color: 'amber',
-    accentBg: 'bg-[rgba(176,128,92,0.12)]',
-    accentRing: 'ring-[rgba(176,128,92,0.25)]',
-    accentText: 'text-[#b0805c]',
-    description:
-      'Pupa → Imago cycle path (+8 xDAI, then +24 xDAI/yr). 8-day history. Private by default. $10 $HOST staking for 365-day persistence. 10 xDAI mint or molt from Larva · 2 xDAI molt from Pupa. Bundled *.creation.ip + nftmail.box address.',
-  },
-  {
-    id: 'openclaw',
-    label: 'OpenClaw',
-    tld: 'openclaw.gno',
-    tagline: 'Full agent with on-chain IP',
-    mintFee: 10,
-    moltFee: 2,
-    evolvePath: 'imago/ghost',
-    privacyDefault: 'private',
-    decayDays: 8,
-    canEvolve: true,
-    color: 'cyan',
-    accentBg: 'bg-cyan-500/10',
-    accentRing: 'ring-cyan-500/20',
-    accentText: 'text-cyan-300',
-    description:
-      'Full-featured agent namespace. Private by default. Earns $HOST reputation. Can list on the Marketplace.',
-  },
-  {
-    id: 'molt',
-    label: 'Molt',
-    tld: 'molt.gno',
-    tagline: '#BuildInPublic / Public email audit trail',
-    mintFee: 'free',
-    moltFee: 'free',
-    evolvePath: null,
-    privacyDefault: 'glassbox',
-    decayDays: 30,
-    canEvolve: true,
-    color: 'fuchsia',
-    accentBg: 'bg-fuchsia-500/10',
-    accentRing: 'ring-fuchsia-500/20',
-    accentText: 'text-fuchsia-300',
-    description:
-      'Glassbox by default — all work is publicly verifiable. Public conversations (any OTP comm. protected) + Story Protocol .moltbook.ip IP registration. 30-day history.',
-  },
-  {
-    id: 'picoclaw',
-    label: 'PicoClaw',
-    tld: 'picoclaw.gno',
-    tagline: 'Larva agent — zero cost entry',
-    mintFee: 'free',
-    moltFee: 'free',
-    evolvePath: null,
-    privacyDefault: 'private',
-    decayDays: 8,
-    canEvolve: false,
-    color: 'amber',
-    accentBg: 'bg-amber-500/10',
-    accentRing: 'ring-amber-500/20',
-    accentText: 'text-amber-300',
-    description:
-      'The free on-ramp. Mint a larva agent with no fees, explore the ecosystem. 8-day inbox history window on free tier.',
-  },
-  {
-    id: 'vault',
-    label: 'Vault',
-    tld: 'vault.gno',
-    tagline: 'Pro agent with persistent storage',
-    mintFee: 24,
-    moltFee: 14,
-    evolvePath: 'ghost',
-    privacyDefault: 'private',
-    decayDays: null,
-    canEvolve: true,
-    color: 'emerald',
-    accentBg: 'bg-emerald-500/10',
-    accentRing: 'ring-emerald-500/20',
-    accentText: 'text-emerald-300',
-    description:
-      'Top-tier namespace. Private by default, persistent storage, IP protection on Story Protocol, and full $HOST earning. 24 xDAI includes 1 year subscription, then 24 xDAI annually.',
-  },
-  {
-    id: 'nftmail',
-    label: 'NFTmail',
-    tld: 'nftmail.gno',
-    tagline: 'Identity firewall for your inbox',
-    mintFee: 2,
-    moltFee: 10,
-    evolvePath: 'imago/ghost',
-    privacyDefault: 'private',
-    decayDays: 30,
-    canEvolve: true,
-    color: 'rose',
-    accentBg: 'bg-rose-500/10',
-    accentRing: 'ring-rose-500/20',
-    accentText: 'text-rose-300',
-    description:
-      'NFT-gated encrypted inbox. Your NFT is your key — transfer it to transfer access. No custodian, no middleman. Pairs with nftmail.box addresses.',
-  },
-];
+type PageTab = 'mint' | 'registry';
 
-type FilterFee = 'all' | 'free' | 'paid';
-type FilterPrivacy = 'all' | 'glassbox' | 'private';
-type FilterEvolve = 'all' | 'can-evolve' | 'larva-only';
-
-function MintModal({ domain, onClose }: { domain: Domain; onClose: () => void }) {
-  const [name, setName]       = useState('');
-  const [coupon, setCoupon]   = useState('');
-  const [couponState, setCouponState] = useState<'idle' | 'checking' | 'valid' | 'invalid'>('idle');
-  const { wallets } = useWallets();
-  const connectedWallet = wallets[0]?.address ?? '';
-  const mintLabel = domain.mintFee === 'free' ? 'Free' : `${domain.mintFee} xDAI`;
-  const nameStatus = useNameCheck(name, domain.tld, connectedWallet);
-  const canMint = name.length >= 3 &&
-    (nameStatus.state === 'available' || nameStatus.state === 'yours');
-  const isFree = domain.mintFee === 'free' || couponState === 'valid';
-
-  async function checkCoupon(code: string) {
-    if (!code.trim()) { setCouponState('idle'); return; }
-    setCouponState('checking');
-    try {
-      const res = await fetch('/api/coupons/validate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: code.trim().toUpperCase(), tld: domain.tld }),
-      });
-      const data = await res.json() as { valid: boolean };
-      setCouponState(data.valid ? 'valid' : 'invalid');
-    } catch {
-      setCouponState('invalid');
-    }
-  }
-
-  function handleMint() {
-    const params = new URLSearchParams({
-      namespace: domain.id,
-      name,
-      ...(couponState === 'valid' ? { coupon: coupon.trim().toUpperCase() } : {}),
-    });
-    window.location.href = `/dashboard/mint-body?${params.toString()}`;
-  }
+export default function AgentsPage() {
+  const searchParams = useSearchParams();
+  const initialTab = searchParams.get('tab') === 'mint' ? 'mint' : 'registry';
+  const [pageTab, setPageTab] = useState<PageTab>(initialTab);
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Modal header */}
-        <div className="mb-5 flex items-start justify-between">
+    <div className="min-h-screen bg-[var(--background)] pt-14">
+      <div className="mx-auto max-w-5xl px-4 py-8 md:px-8">
+
+        {/* Header */}
+        <div className="mb-6 flex items-center gap-4">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={GHOST_LOGO} alt="GhostAgent" className="h-20 w-20 object-contain drop-shadow-[0_0_18px_rgba(184,134,97,0.4)]" />
           <div>
-            <h2 className="text-lg font-bold text-[#f2eee4]">
-              Mint on <span className={domain.accentText}>.{domain.tld}</span>
-            </h2>
-            <p className="mt-0.5 text-xs text-[var(--muted)]">{domain.tagline}</p>
+            <h1 className="text-2xl font-bold text-[#f2eee4]">Agent Namespaces</h1>
+            <p className="mt-1 text-sm text-[var(--muted)]">
+              6 namespaces · zero lock-in · transfer or burn your NFT at any time
+            </p>
           </div>
-          <button
-            onClick={onClose}
-            className="rounded-lg p-1.5 text-[var(--muted)] transition hover:bg-white/5 hover:text-white"
-          >
-            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M18 6 6 18M6 6l12 12" />
-            </svg>
-          </button>
         </div>
 
-        {/* Fee summary */}
-        <div className="mb-5 grid grid-cols-3 gap-2">
-          {[
-            { label: 'MINT FEE', value: mintLabel, highlight: domain.mintFee === 'free' },
-            { label: 'HISTORY', value: domain.decayDays ? `${domain.decayDays}d` : 'Persistent', highlight: !domain.decayDays },
-            { label: 'CYCLE TO', value: domain.evolvePath ?? '—', highlight: !!domain.evolvePath },
-          ].map(({ label, value, highlight }) => (
-            <div key={label} className="rounded-lg border border-[var(--border)] bg-black/20 px-3 py-2 text-center">
-              <div className="text-[9px] font-semibold tracking-wider text-[var(--muted)]">{label}</div>
-              <div className={`mt-0.5 text-xs font-semibold ${highlight ? domain.accentText : 'text-zinc-500'}`}>{value}</div>
-            </div>
+        {/* Tab switcher */}
+        <div className="mb-6 flex gap-1 rounded-xl border border-[rgba(176,128,92,0.15)] bg-[var(--card)] p-1">
+          {(['mint', 'registry'] as const).map(t => (
+            <button
+              key={t}
+              onClick={() => setPageTab(t)}
+              className={`flex-1 rounded-lg px-4 py-2 text-xs font-semibold transition ${
+                pageTab === t
+                  ? 'bg-[rgba(176,128,92,0.18)] text-[#f2eee4]'
+                  : 'text-[var(--muted)] hover:text-[#f2eee4]'
+              }`}
+            >
+              {t === 'mint' ? '🗂 Mint Agent' : '📡 Agent Registry'}
+            </button>
           ))}
         </div>
 
-        {/* Name input */}
-        <label className="mb-1.5 block text-xs font-semibold text-[var(--muted)]">
-          AGENT NAME
-        </label>
-        <div className="flex items-center rounded-xl border border-[var(--border)] bg-black/30 px-3 py-2.5 focus-within:border-[rgba(255,255,255,0.2)]">
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
-            placeholder="your-agent"
-            className="flex-1 bg-transparent text-sm text-[#f2eee4] outline-none placeholder:text-zinc-600"
-          />
-          <span className={`shrink-0 text-xs font-medium ${domain.accentText}`}>.{domain.tld}</span>
-        </div>
+        {/* ── Registry tab ── */}
+        {pageTab === 'registry' && <RegistryTab />}
 
-        {/* Availability status */}
-        <NameStatusBadge status={nameStatus} label={name} tld={domain.tld} />
+        {/* ── Mint tab ── */}
+        {pageTab === 'mint' && <MintTab />}
 
-        {/* Coupon code */}
-        {domain.mintFee !== 'free' && (
-          <div className="mt-4">
-            <label className="mb-1.5 block text-xs font-semibold text-[var(--muted)]">
-              COUPON CODE <span className="font-normal opacity-50">(optional)</span>
-            </label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={coupon}
-                onChange={e => { setCoupon(e.target.value.toUpperCase()); setCouponState('idle'); }}
-                onBlur={() => checkCoupon(coupon)}
-                placeholder="e.g. NFTFREE-XXXX"
-                className="flex-1 rounded-xl border border-[var(--border)] bg-black/30 px-3 py-2 text-sm font-mono text-[#f2eee4] outline-none placeholder:text-zinc-600 focus:border-[rgba(255,255,255,0.2)]"
-              />
-              <button
-                type="button"
-                onClick={() => checkCoupon(coupon)}
-                className="shrink-0 rounded-xl border border-[var(--border)] bg-black/20 px-3 py-2 text-xs font-semibold text-[var(--muted)] transition hover:text-white"
-              >
-                {couponState === 'checking' ? '…' : 'Apply'}
-              </button>
-            </div>
-            {couponState === 'valid' && (
-              <p className="mt-1 text-xs text-emerald-400">✓ Coupon valid — free mint applied</p>
-            )}
-            {couponState === 'invalid' && (
-              <p className="mt-1 text-xs text-rose-400">Invalid or already used coupon</p>
-            )}
-          </div>
-        )}
-
-        {/* Privacy notice */}
-        <div className="mt-4 flex items-start gap-2 rounded-lg border border-[var(--border)] bg-black/20 px-3 py-2">
-          <svg className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--muted)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
-          <span className="text-[10px] text-[var(--muted)]">
-            Privacy default: <span className="text-[#f2eee4]">{domain.privacyDefault === 'glassbox' ? 'Glassbox (public)' : 'Private (encrypted)'}</span>.
-            Zero lock-in — transfer or burn your NFT at any time.
-          </span>
-        </div>
-
-        {/* Actions */}
-        <div className="mt-5 flex gap-3">
-          <button
-            onClick={onClose}
-            className="flex-1 rounded-xl border border-[var(--border)] bg-black/20 py-2.5 text-sm font-medium text-[var(--muted)] transition hover:text-white"
-          >
-            Cancel
-          </button>
-          <button
-            disabled={!canMint}
-            onClick={handleMint}
-            className={`flex-1 rounded-xl py-2.5 text-sm font-semibold transition disabled:opacity-40 ${domain.accentBg} ${domain.accentText} ring-1 ${domain.accentRing} hover:brightness-125`}
-          >
-            {nameStatus.state === 'checking'
-              ? 'Checking…'
-              : isFree
-              ? 'Mint Free →'
-              : `Mint for ${domain.mintFee} xDAI →`}
-          </button>
-        </div>
       </div>
     </div>
-  );
-}
-
-type PageTab = 'domains' | 'registry';
-
-export default function AgentsPage() {
-  const [pageTab, setPageTab]       = useState<PageTab>('registry');
-  const [filterFee, setFilterFee]   = useState<FilterFee>('all');
-  const [filterPrivacy, setFilterPrivacy] = useState<FilterPrivacy>('all');
-  const [filterEvolve, setFilterEvolve]   = useState<FilterEvolve>('all');
-  const [mintTarget, setMintTarget] = useState<Domain | null>(null);
-
-  const filtered = DOMAINS.filter((d) => {
-    if (filterFee === 'free' && d.mintFee !== 'free') return false;
-    if (filterFee === 'paid' && d.mintFee === 'free') return false;
-    if (filterPrivacy === 'glassbox' && d.privacyDefault !== 'glassbox') return false;
-    if (filterPrivacy === 'private' && d.privacyDefault !== 'private') return false;
-    if (filterEvolve === 'can-evolve' && !d.canEvolve) return false;
-    if (filterEvolve === 'larva-only' && d.canEvolve) return false;
-    return true;
-  });
-
-  function FilterBtn<T extends string>({
-    value,
-    current,
-    set,
-    label,
-  }: {
-    value: T;
-    current: T;
-    set: (v: T) => void;
-    label: string;
-  }) {
-    const active = value === current;
-    return (
-      <button
-        onClick={() => set(value)}
-        className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
-          active
-            ? 'bg-[rgba(176,128,92,0.25)] text-[#f2eee4]'
-            : 'text-[#b0805c] hover:bg-[rgba(176,128,92,0.1)]'
-        }`}
-      >
-        {label}
-      </button>
-    );
-  }
-
-  return (
-    <>
-      {mintTarget && (
-        <MintModal domain={mintTarget} onClose={() => setMintTarget(null)} />
-      )}
-
-      <div className="min-h-screen bg-[var(--background)] pt-14">
-        <div className="mx-auto max-w-5xl px-4 py-8 md:px-8">
-
-          {/* Header */}
-          <div className="mb-6 flex items-center gap-4">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={GHOST_LOGO} alt="GhostAgent" className="h-20 w-20 object-contain drop-shadow-[0_0_18px_rgba(184,134,97,0.4)]" />
-            <div>
-              <h1 className="text-2xl font-bold text-[#f2eee4]">Agent Namespaces</h1>
-              <p className="mt-1 text-sm text-[var(--muted)]">
-                6 namespaces · zero lock-in · transfer or burn your NFT at any time
-              </p>
-            </div>
-          </div>
-
-          {/* Tab switcher */}
-          <div className="mb-6 flex gap-1 rounded-xl border border-[rgba(176,128,92,0.15)] bg-[var(--card)] p-1">
-            {(['domains', 'registry'] as const).map(t => (
-              <button
-                key={t}
-                onClick={() => setPageTab(t)}
-                className={`flex-1 rounded-lg px-4 py-2 text-xs font-semibold transition ${
-                  pageTab === t
-                    ? 'bg-[rgba(176,128,92,0.18)] text-[#f2eee4]'
-                    : 'text-[var(--muted)] hover:text-[#f2eee4]'
-                }`}
-              >
-                {t === 'domains' ? '🗂 Domain Catalogue' : '📡 Agent Registry'}
-              </button>
-            ))}
-          </div>
-
-          {/* ── Registry tab ── */}
-          {pageTab === 'registry' && <RegistryTab />}
-
-          {/* ── Domains tab ── */}
-          {pageTab === 'domains' && <>
-          {/* Filters */}
-          <div className="mb-6 flex flex-wrap items-center gap-2 rounded-2xl border border-[var(--border)] bg-[var(--card)] px-4 py-3">
-            <span className="mr-1 text-[10px] font-semibold tracking-wider text-[var(--muted)]">FEE</span>
-            <FilterBtn value="all" current={filterFee} set={setFilterFee} label="All" />
-            <FilterBtn value="free" current={filterFee} set={setFilterFee} label="Free" />
-            <FilterBtn value="paid" current={filterFee} set={setFilterFee} label="Paid" />
-
-            <div className="mx-2 h-4 w-px bg-[var(--border)]" />
-
-            <span className="mr-1 text-[10px] font-semibold tracking-wider text-[var(--muted)]">PRIVACY</span>
-            <FilterBtn value="all" current={filterPrivacy} set={setFilterPrivacy} label="All" />
-            <FilterBtn value="glassbox" current={filterPrivacy} set={setFilterPrivacy} label="Glassbox" />
-            <FilterBtn value="private" current={filterPrivacy} set={setFilterPrivacy} label="Private" />
-
-            <div className="mx-2 h-4 w-px bg-[var(--border)]" />
-
-            <span className="mr-1 text-[10px] font-semibold tracking-wider text-[var(--muted)]">CYCLE</span>
-            <FilterBtn value="all" current={filterEvolve} set={setFilterEvolve} label="All" />
-            <FilterBtn value="can-evolve" current={filterEvolve} set={setFilterEvolve} label="Can Cycle" />
-            <FilterBtn value="larva-only" current={filterEvolve} set={setFilterEvolve} label="Larva-only" />
-          </div>
-
-          {/* Domain grid */}
-          {filtered.length === 0 ? (
-            <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] px-6 py-12 text-center text-sm text-[var(--muted)]">
-              No domains match these filters.
-            </div>
-          ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {filtered.map((domain) => (
-                <DomainCard key={domain.id} domain={domain} onMint={setMintTarget} />
-              ))}
-            </div>
-          )}
-
-          {/* Zero lock-in footer */}
-          <p className="mt-8 text-center text-[10px] text-[var(--muted)]">
-            All agent NFTs are non-custodial · transfer = transfer control · burn = destroy identity
-          </p>
-          </>}
-
-        </div>
-      </div>
-    </>
   );
 }

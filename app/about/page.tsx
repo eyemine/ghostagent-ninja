@@ -10,7 +10,7 @@ const LIFECYCLE_STEPS = [
     label: 'Larva',
     title: 'Mint Agent Body',
     desc: 'Mint an NFT on Gnosis Chain. A Token-Bound Account (TBA) is created automatically — a sovereign on-chain Safe that only the NFT holder controls. No custodian. No platform key.',
-    cta: { label: 'Mint Agent ID', href: '/dashboard/mint-body' },
+    cta: { label: 'Mint Agent ID', href: '/agents?tab=mint' },
   },
   {
     icon: 'https://gateway.lighthouse.storage/ipfs/bafkreihajbm2nwtuwp4hsgputfqintlw7zxbz4jbpx772ur3rfvfhwadge',
@@ -96,11 +96,11 @@ export default function AboutPage() {
             No platform holds your keys. No platform owns your output.
           </p>
           <div className="flex gap-3 mt-2">
-            <Link href="/dashboard/mint-body" className="rounded-xl border border-[rgba(0,163,255,0.35)] bg-[rgba(0,163,255,0.12)] px-5 py-2 text-sm font-semibold text-[rgb(160,220,255)] transition hover:bg-[rgba(0,163,255,0.18)]">
+            <Link href="/agents?tab=mint" className="rounded-xl border border-[rgba(0,163,255,0.35)] bg-[rgba(0,163,255,0.12)] px-5 py-2 text-sm font-semibold text-[rgb(160,220,255)] transition hover:bg-[rgba(0,163,255,0.18)]">
               Mint Agent
             </Link>
-            <Link href="/ip-portal" className="rounded-xl border border-[#7c4dff]/30 bg-[#7c4dff]/10 px-5 py-2 text-sm font-semibold text-[#a78bfa] transition hover:bg-[#7c4dff]/20">
-              🏛️ IP Portal
+            <Link href="/agents" className="rounded-xl border border-[rgba(176,128,92,0.35)] bg-[rgba(176,128,92,0.12)] px-5 py-2 text-sm font-semibold text-[#b0805c] transition hover:bg-[rgba(176,128,92,0.18)]">
+              📡 Registry
             </Link>
           </div>
         </section>
@@ -207,14 +207,14 @@ export default function AboutPage() {
             Your agent. Your Safe. Your IP. No platform custody.
           </p>
           <div className="flex justify-center gap-3 flex-wrap">
-            <Link href="/dashboard/mint-body" className="rounded-xl border border-[rgba(0,163,255,0.35)] bg-[rgba(0,163,255,0.12)] px-5 py-2.5 text-sm font-semibold text-[rgb(160,220,255)] transition hover:bg-[rgba(0,163,255,0.18)]">
+            <Link href="/agents?tab=mint" className="rounded-xl border border-[rgba(0,163,255,0.35)] bg-[rgba(0,163,255,0.12)] px-5 py-2.5 text-sm font-semibold text-[rgb(160,220,255)] transition hover:bg-[rgba(0,163,255,0.18)]">
               Mint Agent Body
             </Link>
             <Link href="/dashboard/install-brain" className="rounded-xl border border-[rgba(243,238,228,0.2)] bg-[rgba(255,255,255,0.04)] px-5 py-2.5 text-sm font-semibold text-[#ffca92] transition hover:bg-[#262934]">
               Install Brain
             </Link>
-            <Link href="/ip-portal" className="rounded-xl border border-[#7c4dff]/30 bg-[#7c4dff]/10 px-5 py-2.5 text-sm font-semibold text-[#a78bfa] transition hover:bg-[#7c4dff]/20">
-              🏛️ IP Portal
+            <Link href="/agents" className="rounded-xl border border-[rgba(176,128,92,0.35)] bg-[rgba(176,128,92,0.12)] px-5 py-2.5 text-sm font-semibold text-[#b0805c] transition hover:bg-[rgba(176,128,92,0.18)]">
+              📡 Registry
             </Link>
           </div>
           <div className="pt-4 text-[10px] text-[var(--muted)] space-y-1">
@@ -225,6 +225,8 @@ export default function AboutPage() {
               <Link href="/privacy" className="hover:text-[#c8bfb0] transition">Privacy</Link>
               {' · '}
               <Link href="/ip-portal" className="hover:text-[#c8bfb0] transition">IP Portal</Link>
+              {' · '}
+              <Link href="/agents" className="hover:text-[#c8bfb0] transition">Registry</Link>
             </p>
           </div>
         </section>

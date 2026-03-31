@@ -45,7 +45,7 @@ export default function Home() {
         {/* CTA buttons */}
         <div className="flex w-full max-w-sm flex-col gap-3">
           <Link
-            href="/dashboard/mint-body"
+            href="/agents?tab=mint"
             className="w-full rounded-xl border border-[rgba(0,163,255,0.35)] bg-[rgba(0,163,255,0.12)] px-6 py-3 text-center text-sm font-semibold text-[rgb(160,220,255)] transition hover:bg-[rgba(0,163,255,0.18)]"
           >
             Mint Agent Body
