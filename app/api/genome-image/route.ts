@@ -65,7 +65,7 @@ export async function GET(req: NextRequest) {
   return new NextResponse(svg, {
     headers: {
       'Content-Type': 'image/svg+xml',
-      'Cache-Control': 'public, max-age=86400, stale-while-revalidate=3600',
+      'Cache-Control': 'no-store',
       'Vary': 'Accept',
       'X-SLD': sld,
     },

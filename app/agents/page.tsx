@@ -262,7 +262,7 @@ export default function AgentsPage() {
         {/* Header */}
         <div className="mb-6 flex items-center gap-4">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={GHOST_LOGO} alt="GhostAgent" className="h-20 w-20 object-contain drop-shadow-[0_0_18px_rgba(184,134,97,0.4)]" />
+          <img src={GHOST_LOGO} alt="GhostAgent" className="h-28 w-28 object-contain drop-shadow-[0_0_18px_rgba(184,134,97,0.4)]" />
           <div>
             <h1 className="text-2xl font-bold text-[#f2eee4]">Agent Namespaces</h1>
             <p className="mt-1 text-sm text-[var(--muted)]">
