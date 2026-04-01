@@ -145,9 +145,9 @@ export async function POST(req: NextRequest) {
     // ── Step 3: Mint beacon NFT (skip for overlay) ──
     const cleanName = primaryName.toLowerCase().replace(/_$/, '');
     const beaconPrefix = type === 'ens' ? 'ens' : type === 'pownft' ? 'atom' : type === 'normie' ? 'normie' : type === 'chonk' ? 'chonk' : 'nft';
-    // For ENS, use the actual name (e.g. "vitalik") instead of raw tokenId
+    // For ENS, use the actual name (e.g. "vitalik") without ens. prefix
     const displayLabel = type === 'ens' && nftName ? nftName.replace(/\.eth$/i, '').toLowerCase() : tokenId.slice(0, 20);
-    const beaconLabel = `${beaconPrefix}.${displayLabel}`;
+    const beaconLabel = type === 'ens' ? displayLabel : `${beaconPrefix}.${displayLabel}`;
 
     let beacon: { success: boolean; beaconNft?: string; txHash?: string; beaconTokenId?: number | null; error?: string };
     if (isOverlay) {

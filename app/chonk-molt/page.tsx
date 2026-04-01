@@ -429,7 +429,14 @@ export default function OgNftMoltPage() {
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-fuchsia-500/15 text-lg">🦋</div>
+                  <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full border-2 border-fuchsia-500/30">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img 
+                      src="https://gateway.lighthouse.storage/ipfs/bafkreifm4gtqaxgyb2quyykij4np5naoxzpf5w6za6maywemcvl7tltt7u" 
+                      alt="White Butterfly (Imago)" 
+                      className="h-full w-full object-cover" 
+                    />
+                  </div>
                   <div className="flex-1">
                     <div className="text-sm font-semibold text-fuchsia-300">Create New Agent</div>
                     <div className="text-[10px] text-[var(--muted)]">Mint a fresh beacon NFT and start a new GhostAgent</div>
@@ -452,7 +459,21 @@ export default function OgNftMoltPage() {
                       }`}
                     >
                       <div className="flex items-center gap-2">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-500/15 text-sm">🎭</div>
+                        <div className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full border border-amber-500/30">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img 
+                            src={
+                              agent.tld === 'nftmail.gno' ? 'https://gateway.lighthouse.storage/ipfs/bafkreifv35abvqlhdtc4g2i4xelnmxnhaac7exyu6r24o3fbgthwcmupwy' :
+                              agent.tld === 'molt.gno' ? 'https://gateway.lighthouse.storage/ipfs/bafkreifm4gtqaxgyb2quyykij4np5naoxzpf5w6za6maywemcvl7tltt7u' :
+                              agent.tld === 'openclaw.gno' ? 'https://gateway.lighthouse.storage/ipfs/bafkreiczeqhex35dvj4ewbzn2gyqnbgqb22np5zgp223vnbfhaod6sv4sq' :
+                              agent.tld === 'vault.gno' ? 'https://gateway.lighthouse.storage/ipfs/bafkreick55xkc2ucnmk2wjbzl6a5chqkvmwjll4oqbqajfh5mapd3s7fku' :
+                              agent.tld === 'agent.gno' ? 'https://gateway.lighthouse.storage/ipfs/bafkreigdisoyfs75rneioevm5irn2k4prdddtuum5bpn27bykhjtdc4fii' :
+                              'https://gateway.lighthouse.storage/ipfs/bafkreid7jamriw5jneuarcq2q6lrbfsqe76eebv6r2rworrnhyj2rpsuem'
+                            }
+                            alt={agent.tld ?? 'agent'}
+                            className="h-full w-full object-cover"
+                          />
+                        </div>
                         <div className="flex-1">
                           <div className="text-xs font-semibold text-amber-300">{agent.name}</div>
                           <div className="text-[9px] text-[var(--muted)]">tld: {agent.tld ?? 'none'}</div>
@@ -473,6 +494,45 @@ export default function OgNftMoltPage() {
 
           {step === 'confirm' && ownershipVerified && nftPreview && (
             <div className="space-y-4">
+              {/* Target selection persistence */}
+              <div className="rounded-xl border border-[rgba(176,128,92,0.15)] bg-black/20 p-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-semibold tracking-wider text-[var(--muted)]">TARGET</span>
+                    {moltTarget === 'new-agent' ? (
+                      <div className="flex items-center gap-2">
+                        <div className="relative h-6 w-6 overflow-hidden rounded-full border border-fuchsia-500/30">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img 
+                            src="https://gateway.lighthouse.storage/ipfs/bafkreifm4gtqaxgyb2quyykij4np5naoxzpf5w6za6maywemcvl7tltt7u" 
+                            alt="White Butterfly" 
+                            className="h-full w-full object-cover" 
+                          />
+                        </div>
+                        <span className="text-xs font-semibold text-fuchsia-300">Create New Agent</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <div className="relative h-6 w-6 overflow-hidden rounded-full border border-amber-500/30">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img 
+                            src="https://gateway.lighthouse.storage/ipfs/bafkreifm4gtqaxgyb2quyykij4np5naoxzpf5w6za6maywemcvl7tltt7u" 
+                            alt="Agent" 
+                            className="h-full w-full object-cover" 
+                          />
+                        </div>
+                        <span className="text-xs font-semibold text-amber-300">Overlay onto {selectedAgent}</span>
+                      </div>
+                    )}
+                  </div>
+                  <button 
+                    onClick={() => setStep('select-agent')}
+                    className="rounded-lg border border-[var(--border)] bg-black/20 px-3 py-1 text-xs text-[var(--muted)] transition hover:border-fuchsia-500/30 hover:bg-fuchsia-500/5 hover:text-fuchsia-300"
+                  >
+                    ← Back
+                  </button>
+                </div>
+              </div>
               {/* NFT preview card with image */}
               <div className="flex items-center gap-3 rounded-xl border border-emerald-500/25 bg-emerald-500/5 px-3 py-2.5">
                 {nftPreview.imageUrl ? (

@@ -33,11 +33,19 @@ interface DemoBody {
   minted: string;
 }
 
-interface DemoBrain {
+interface LiveBrain {
   agent: string;
   type: BrainType;
   endpoint: string;
   installed: string;
+}
+
+interface LiveBody {
+  name: string;
+  namespace: string;
+  tokenId: number;
+  tba: string;
+  minted: string;
 }
 
 const DEMO_AGENTS: DemoAgent[] = [
@@ -105,11 +113,7 @@ const DEMO_RECEIPTS = [
   },
 ];
 
-const DEMO_BRAINS: DemoBrain[] = [
-  { agent: 'eyemine',  type: 'CF Worker', endpoint: 'eyemine.ghostagent.workers.dev', installed: '20/02/2026' },
-  { agent: 'treasury', type: 'Safe Brain', endpoint: 'vault.safe.brain',              installed: '27/02/2026' },
-  { agent: 'hive',     type: 'GlassBox',  endpoint: 'hive.glassbox.agent',            installed: '01/03/2026' },
-];
+// These will be replaced with real data fetched from APIs
 
 const NS_THEME: Record<string, { text: string; border: string; bg: string; selBorder: string; selBg: string; imgBorder: string; placeholder: string }> = {
   'agent.gno':    { text: 'text-blue-300',    border: 'border-blue-500/20',    bg: 'bg-blue-500/5',    selBorder: 'border-blue-400/50',    selBg: 'bg-blue-500/10',    imgBorder: 'border-blue-500/30',    placeholder: 'bg-blue-950/60' },
@@ -269,8 +273,12 @@ export default function DashboardHome() {
   const [agentsLoading, setAgentsLoading] = useState(false);
 
   const [selectedAgent, setSelectedAgent] = useState<string>('');
-  const [selectedBody,  setSelectedBody]  = useState<string>(DEMO_BODIES[0].name);
-  const [selectedBrain, setSelectedBrain] = useState<string>(DEMO_BRAINS[0].agent);
+  const [selectedBody,  setSelectedBody]  = useState<string>('');
+  const [selectedBrain, setSelectedBrain] = useState<string>('');
+  const [liveBodies, setLiveBodies] = useState<LiveBody[] | null>(null);
+  const [liveBrains, setLiveBrains] = useState<LiveBrain[] | null>(null);
+  const [bodiesLoading, setBodiesLoading] = useState(false);
+  const [brainsLoading, setBrainsLoading] = useState(false);
 
   useEffect(() => {
     if (!connectedWallet) { setLiveAgents(null); return; }
@@ -299,7 +307,43 @@ export default function DashboardHome() {
       .finally(() => setAgentsLoading(false));
   }, [connectedWallet]);
 
+  // Fetch user's NFT bodies
+  useEffect(() => {
+    if (!connectedWallet) { setLiveBodies(null); return; }
+    setBodiesLoading(true);
+    fetch(`/api/my-nfts?wallet=${connectedWallet}`)
+      .then(r => r.json() as Promise<{ nfts?: LiveBody[] }>)
+      .then(data => {
+        const bodies = data.nfts ?? [];
+        setLiveBodies(bodies);
+        if (bodies.length > 0 && !selectedBody) {
+          setSelectedBody(bodies[0].name);
+        }
+      })
+      .catch(() => setLiveBodies([]))
+      .finally(() => setBodiesLoading(false));
+  }, [connectedWallet, selectedBody]);
+
+  // Fetch user's brains (placeholder - would need brain registry API)
+  useEffect(() => {
+    if (!connectedWallet || liveAgents) {
+      // For now, derive brains from agents
+      const brains: LiveBrain[] = (liveAgents ?? []).map(agent => ({
+        agent: agent.name,
+        type: 'CF Worker' as BrainType,
+        endpoint: `${agent.name}.ghostagent.workers.dev`,
+        installed: new Date().toLocaleDateString('en-GB'),
+      }));
+      setLiveBrains(brains);
+      if (brains.length > 0 && !selectedBrain) {
+        setSelectedBrain(brains[0].agent);
+      }
+    }
+  }, [connectedWallet, liveAgents, selectedBrain]);
+
   const agents = liveAgents ?? DEMO_AGENTS;
+  const bodies = liveBodies ?? [];
+  const brains = liveBrains ?? [];
   const isDemo = liveAgents === null;
 
   return (
@@ -396,7 +440,9 @@ export default function DashboardHome() {
       {/* My Bodies section */}
       <section>
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-[#f2eee4]">My Bodies</h2>
+          <h2 className="text-xl font-semibold text-[#f2eee4]">
+            My Bodies {bodiesLoading && <span className="text-xs text-[var(--muted)] ml-2">Loading...</span>}
+          </h2>
           <Link href="/agents?tab=mint" className="text-xs text-[var(--muted)] transition hover:text-white">
             Mint Agent Body →
           </Link>
@@ -411,7 +457,7 @@ export default function DashboardHome() {
               </tr>
             </thead>
             <tbody>
-              {DEMO_BODIES.map((body, i) => {
+              {bodies.map((body, i) => {
                 const nsColor = (NS_THEME[body.namespace] ?? NS_FALLBACK).text;
                 return (
                   <tr
@@ -419,7 +465,7 @@ export default function DashboardHome() {
                     onClick={() => setSelectedBody(body.name)}
                     className={`cursor-pointer transition ${
                       selectedBody === body.name ? 'bg-amber-500/5' : 'hover:bg-white/[0.02]'
-                    } ${i < DEMO_BODIES.length - 1 ? 'border-b border-[rgba(176,128,92,0.15)]' : ''}`}
+                    } ${i < bodies.length - 1 ? 'border-b border-[rgba(176,128,92,0.15)]' : ''}`}
                   >
                     <td className="px-4 py-3 font-medium text-[#f2eee4]">{body.name}</td>
                     <td className={`px-4 py-3 text-xs font-medium ${nsColor}`}>{body.namespace}</td>
@@ -466,7 +512,9 @@ export default function DashboardHome() {
       {/* My Brains section */}
       <section>
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-[#f2eee4]">My Brains</h2>
+          <h2 className="text-xl font-semibold text-[#f2eee4]">
+            My Brains {brainsLoading && <span className="text-xs text-[var(--muted)] ml-2">Loading...</span>}
+          </h2>
           <Link href="/dashboard/install-brain" className="text-xs text-[var(--muted)] transition hover:text-white">
             Install Agent Brain →
           </Link>
@@ -481,13 +529,13 @@ export default function DashboardHome() {
               </tr>
             </thead>
             <tbody>
-              {DEMO_BRAINS.map((brain, i) => (
+              {brains.map((brain, i) => (
                 <tr
                   key={brain.agent}
                   onClick={() => setSelectedBrain(brain.agent)}
                   className={`cursor-pointer transition ${
                     selectedBrain === brain.agent ? 'bg-amber-500/5' : 'hover:bg-white/[0.02]'
-                  } ${i < DEMO_BRAINS.length - 1 ? 'border-b border-[rgba(176,128,92,0.15)]' : ''}`}
+                    } ${i < brains.length - 1 ? 'border-b border-[rgba(176,128,92,0.15)]' : ''}`}
                 >
                   <td className="px-4 py-3 font-medium text-[#f2eee4]">{brain.agent}</td>
                   <td className="px-4 py-3">
