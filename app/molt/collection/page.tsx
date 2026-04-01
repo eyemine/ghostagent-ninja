@@ -221,7 +221,7 @@ export default function CollectionMoltPage() {
             <div className="text-xs font-semibold tracking-[0.18em] text-violet-300">COLLECTION MOLT</div>
           </div>
           <div className="flex items-center gap-2">
-            <Link href="/chonk-molt" className="rounded-full border border-[var(--border)] bg-black/20 px-3 py-1.5 text-[11px] text-[var(--muted)] transition hover:text-white">
+            <Link href="/byo-molt" className="rounded-full border border-[var(--border)] bg-black/20 px-3.3 py-1.5 text-[11px] text-[var(--muted)] transition hover:text-white">
               Chonk Classic
             </Link>
             <Link href="/molt" className="rounded-full border border-[var(--border)] bg-black/20 px-3 py-1.5 text-[11px] text-[var(--muted)] transition hover:text-white">

@@ -9,7 +9,7 @@ const NAV = [
   { href: '/dashboard', label: 'Dashboard' },
   { href: '/dashboard/marketplace', label: 'Marketplace' },
   { href: '/agents?tab=mint', label: 'Mint Agent ID' },
-  { href: '/chonk-molt', label: 'BYO NFT' },
+  { href: '/byo-molt', label: 'BYO NFT' },
   { href: '/host', label: '$HOST' },
   { href: '/docs', label: 'Docs' },
 ];

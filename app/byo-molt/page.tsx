@@ -247,7 +247,7 @@ export default function OgNftMoltPage() {
     addLog(`Verifying ${nftPreview?.name ?? 'NFT'} ownership on-chain…`);
     addLog(txHash ? 'Verifying 2 xDAI fee payment on Gnosis…' : 'Coupon applied — fee waived');
     try {
-      const res = await fetch('/api/chonk-molt', {
+      const res = await fetch('/api/byo-molt', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -330,7 +330,7 @@ export default function OgNftMoltPage() {
 
           {/* NFT type picker */}
           <div>
-            <label className="block text-[10px] font-semibold tracking-wider text-[var(--muted)] mb-2">NFT TYPE</label>
+            <label className="block text-[10px] font-semibold tracking-wider text-[var(--muted)] mb-2">NFT COLLECTION</label>
             <div className="grid grid-cols-3 gap-2 md:grid-cols-5">
               {([
                 {k:'ens' as NftType,l:'ENS Name',img:'https://gateway.lighthouse.storage/ipfs/bafkreifv35abvqlhdtc4g2i4xelnmxnhaac7exyu6r24o3fbgthwcmupwy'},
@@ -339,7 +339,7 @@ export default function OgNftMoltPage() {
                 {k:'normie' as NftType,l:'Normies',img:'https://gateway.lighthouse.storage/ipfs/bafkreigdisoyfs75rneioevm5irn2k4prdddtuum5bpn27bykhjtdc4fii'},
                 {k:'other' as NftType,l:'Other Verified ERC721',img:'https://gateway.lighthouse.storage/ipfs/bafkreid7jamriw5jneuarcq2q6lrbfsqe76eebv6r2rworrnhyj2rpsuem'},
               ]).map(opt => (
-                <button key={opt.k} onClick={() => selectNftType(opt.k)}
+                <button key={opt.k} onClick={() => { selectNftType(opt.k); setTokenId(''); }}
                   className={`aspect-square rounded-lg border px-2 py-2 text-xs font-semibold transition text-center ${
                     nftType === opt.k ? 'border-fuchsia-500/50 bg-fuchsia-500/10 text-fuchsia-300' : 'border-[rgba(176,128,92,0.2)] bg-black/20 text-[var(--muted)] hover:text-[#f2eee4]'
                   }`}>
@@ -568,11 +568,11 @@ export default function OgNftMoltPage() {
               {/* NFT preview card with image */}
               <div className="flex items-center gap-3 rounded-xl border border-emerald-500/25 bg-emerald-500/5 px-3 py-2.5">
                 {nftPreview.imageUrl ? (
-                  <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-[rgba(176,128,92,0.3)]">
+                  <div className="relative h-28 w-28 shrink-0 overflow-hidden rounded-lg border border-[rgba(176,128,92,0.3)]">
                     <Image src={nftPreview.imageUrl} alt={nftPreview.name} fill unoptimized className="object-cover" />
                   </div>
                 ) : (
-                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg border border-emerald-500/20 bg-emerald-500/8 overflow-hidden">
+                  <div className="flex h-28 w-28 shrink-0 items-center justify-center rounded-lg border border-emerald-500/20 bg-emerald-500/8 overflow-hidden">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={
                       nftPreview.type==='ens' ? 'https://gateway.lighthouse.storage/ipfs/bafkreifv35abvqlhdtc4g2i4xelnmxnhaac7exyu6r24o3fbgthwcmupwy' :
@@ -580,7 +580,7 @@ export default function OgNftMoltPage() {
                       nftPreview.type==='pownft' ? 'https://gateway.lighthouse.storage/ipfs/bafkreick55xkc2ucnmk2wjbzl6a5chqkvmwjll4oqbqajfh5mapd3s7fku' :
                       nftPreview.type==='normie' ? 'https://gateway.lighthouse.storage/ipfs/bafkreigdisoyfs75rneioevm5irn2k4prdddtuum5bpn27bykhjtdc4fii' :
                       'https://gateway.lighthouse.storage/ipfs/bafkreid7jamriw5jneuarcq2q6lrbfsqe76eebv6r2rworrnhyj2rpsuem'
-                    } alt={nftPreview.type} className="h-10 w-10 rounded object-contain" />
+                    } alt={nftPreview.type} className="h-20 w-20 rounded object-contain" />
                   </div>
                 )}
                 <div>

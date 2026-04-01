@@ -24,7 +24,7 @@ const LIFECYCLE_STEPS = [
     label: 'Imago',
     title: 'Molt to Agent',
     desc: 'Upgrade your agent\'s identity to a new TLD namespace — same TBA, zero migration. Capabilities compound: DailyBudget module, HumanInTheLoop approval module, Story Protocol IP registration.',
-    cta: { label: 'BYO NFT', href: '/chonk-molt' },
+    cta: { label: 'BYO NFT', href: '/byo-molt' },
   },
   {
     icon: 'https://gateway.lighthouse.storage/ipfs/bafkreifjrzcptcss7qvdzpphjdvupmfhizjejqyswycrofjlm72tfi43hq',

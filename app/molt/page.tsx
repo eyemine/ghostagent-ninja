@@ -33,7 +33,7 @@ export default function MoltPage() {
           </div>
           <div className="flex items-center gap-2">
             <Link
-              href="/chonk-molt"
+              href="/byo-molt"
               className="rounded-full border border-[var(--border)] bg-black/20 px-3 py-1.5 text-[11px] text-[var(--muted)] transition hover:text-white"
             >
               BYO NFT Molt
