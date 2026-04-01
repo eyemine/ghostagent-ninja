@@ -303,6 +303,7 @@ export default function DashboardHome() {
                 if (card.image) imageUrl = card.image;
               }
             } catch { /* non-fatal */ }
+            console.log(`[dashboard] Agent ${a.name} imageUrl:`, imageUrl);
             return {
               name:      a.name,
               namespace: a.tld,
@@ -323,43 +324,56 @@ export default function DashboardHome() {
       .finally(() => setAgentsLoading(false));
   }, [connectedWallet]);
 
-  // Derive bodies from live agents (each agent = a beacon NFT body)
+  // Fetch bodies = beacon NFTs (real on-chain data)
   useEffect(() => {
-    if (!liveAgents) { setLiveBodies(null); return; }
-    const bodies: LiveBody[] = liveAgents.map((a, i) => ({
-      name: a.name,
-      namespace: a.namespace,
-      tokenId: i + 1,
-      tba: a.tba,
-      minted: '',
-    }));
-    setLiveBodies(bodies);
-    if (bodies.length > 0 && !selectedBody) {
-      setSelectedBody(bodies[0].name);
-    }
-  }, [liveAgents, selectedBody]);
+    if (!connectedWallet) { setLiveBodies(null); return; }
+    setBodiesLoading(true);
+    fetch(`/api/my-nfts?wallet=${connectedWallet}`)
+      .then(r => r.json() as Promise<{ nfts?: LiveBody[] }>)
+      .then(data => {
+        const bodies = data.nfts ?? [];
+        setLiveBodies(bodies);
+        if (bodies.length > 0 && !selectedBody) {
+          setSelectedBody(bodies[0].name);
+        }
+      })
+      .catch(() => setLiveBodies([]))
+      .finally(() => setBodiesLoading(false));
+  }, [connectedWallet, selectedBody]);
 
-  // Fetch user's brains (placeholder - would need brain registry API)
+  // Fetch brains = installed brain modules (placeholder for now)
   useEffect(() => {
-    if (!connectedWallet || liveAgents) {
-      // For now, derive brains from agents
-      const brains: LiveBrain[] = (liveAgents ?? []).map(agent => ({
-        agent: agent.name,
+    if (!connectedWallet) { setLiveBrains(null); return; }
+    setBrainsLoading(true);
+    // TODO: Replace with real brain registry API
+    // For now, simulate some brains that might not have bodies
+    const mockBrains: LiveBrain[] = [
+      {
+        agent: 'test-brain-1',
         type: 'CF Worker' as BrainType,
-        endpoint: `${agent.name}.ghostagent.workers.dev`,
-        installed: new Date().toLocaleDateString('en-GB'),
-      }));
-      setLiveBrains(brains);
-      if (brains.length > 0 && !selectedBrain) {
-        setSelectedBrain(brains[0].agent);
-      }
+        endpoint: 'test-brain-1.ghostagent.workers.dev',
+        installed: '01/04/2026',
+      },
+    ];
+    setLiveBrains(mockBrains);
+    if (mockBrains.length > 0 && !selectedBrain) {
+      setSelectedBrain(mockBrains[0].agent);
     }
-  }, [connectedWallet, liveAgents, selectedBrain]);
+    setBrainsLoading(false);
+  }, [connectedWallet, selectedBrain]);
 
   const agents = liveAgents ?? DEMO_AGENTS;
   const bodies = liveBodies ?? [];
   const brains = liveBrains ?? [];
   const isDemo = liveAgents === null;
+  
+  // Filter: My Bodies = bodies without brains, My Brains = brains without bodies
+  const orphanBodies = bodies.filter(body => 
+    !brains.some(brain => brain.agent === body.name)
+  );
+  const orphanBrains = brains.filter(brain => 
+    !bodies.some(body => body.name === brain.agent)
+  );
 
   return (
     <div className="space-y-8">
@@ -472,7 +486,7 @@ export default function DashboardHome() {
               </tr>
             </thead>
             <tbody>
-              {bodies.map((body, i) => {
+              {orphanBodies.map((body, i) => {
                 const nsColor = (NS_THEME[body.namespace] ?? NS_FALLBACK).text;
                 return (
                   <tr
@@ -480,7 +494,7 @@ export default function DashboardHome() {
                     onClick={() => setSelectedBody(body.name)}
                     className={`cursor-pointer transition ${
                       selectedBody === body.name ? 'bg-amber-500/5' : 'hover:bg-white/[0.02]'
-                    } ${i < bodies.length - 1 ? 'border-b border-[rgba(176,128,92,0.15)]' : ''}`}
+                    } ${i < orphanBodies.length - 1 ? 'border-b border-[rgba(176,128,92,0.15)]' : ''}`}
                   >
                     <td className="px-4 py-3 font-medium text-[#f2eee4]">{body.name}</td>
                     <td className={`px-4 py-3 text-xs font-medium ${nsColor}`}>{body.namespace}</td>
@@ -544,13 +558,13 @@ export default function DashboardHome() {
               </tr>
             </thead>
             <tbody>
-              {brains.map((brain, i) => (
+              {orphanBrains.map((brain, i) => (
                 <tr
                   key={brain.agent}
                   onClick={() => setSelectedBrain(brain.agent)}
                   className={`cursor-pointer transition ${
                     selectedBrain === brain.agent ? 'bg-amber-500/5' : 'hover:bg-white/[0.02]'
-                    } ${i < brains.length - 1 ? 'border-b border-[rgba(176,128,92,0.15)]' : ''}`}
+                    } ${i < orphanBrains.length - 1 ? 'border-b border-[rgba(176,128,92,0.15)]' : ''}`}
                 >
                   <td className="px-4 py-3 font-medium text-[#f2eee4]">{brain.agent}</td>
                   <td className="px-4 py-3">

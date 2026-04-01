@@ -12,7 +12,11 @@ const WORKER_URL = process.env.NEXT_PUBLIC_WORKER_URL ?? 'https://nftmail-email-
 // Known beacon NFT contracts (agent body NFTs)
 const BEACON_CONTRACTS = {
   'nftmail.gno': '0x46c37365572C9994812AAA41fD04eB56D05469D0', // NFTMail registrar
-  // Add other TLD contracts as needed
+  'molt.gno': '0x4b54213c1e5826497ff39ba8c87a7b75d2bc3c50', // Molt registrar
+  'openclaw.gno': '0xbD8285A8455CCEC4bE671D9eE3924Ab1264fcbbe', // OpenClaw registrar
+  'picoclaw.gno': '0xe5fd65562698f46ea9762bd38141535b1fd875b5', // PicoClaw registrar
+  'agent.gno': '0x3582544a0c716e449d4a6d4c1c0f3b3a3b3b3b3b', // Agent placeholder
+  'vault.gno': '0xca6374a5b4a5a4a5a4a5a4a5a4a5a4a5a4a5a5a5', // Vault placeholder
 };
 
 interface NftBody {
