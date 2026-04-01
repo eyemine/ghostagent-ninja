@@ -74,7 +74,7 @@ export const COLLECTION_REGISTRY: Record<string, CollectionConfig> = {
     name: 'Chonk',
     icon: '🦀',
     description: 'Chonk NFT collection on Base — the original ghost agent overlay',
-    contract: '0x07152bfde079b5319e5308C43fB1DCf86F040B84',
+    contract: '0x07152bfde079b5319e5308C43fB1DBc9C76CB4f9',
     chainId: 8453,
     rpcUrl: 'https://mainnet.base.org',
     // A: CHONK.123@nftmail.box  /  chonk123.nftmail.gno

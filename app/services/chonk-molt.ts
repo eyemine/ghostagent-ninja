@@ -20,7 +20,7 @@
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-export const CHONK_CONTRACT = '0x07152bfde079b5319e5308C43fB1DCf86F040B84' as const;
+export const CHONK_CONTRACT = '0x07152bfde079b5319e5308C43fB1DBc9C76CB4f9' as const;
 export const CHONK_CHAIN_ID = 8453; // Base
 export const CHONK_BASE_RPC = 'https://mainnet.base.org';
 export const CHONK_MOLT_FEE_XDAI = 2;

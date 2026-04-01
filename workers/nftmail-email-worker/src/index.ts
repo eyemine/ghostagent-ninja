@@ -386,7 +386,7 @@ const WHITELISTED_COLLECTIONS: WhitelistedCollection[] = [
   {
     assignedName: 'chonk',
     chainId: 8453,
-    contractAddress: '0x07152bfde079b5319e5308C43fB1DCf86F040B84',
+    contractAddress: '0x07152bfde079b5319e5308C43fB1DBc9C76CB4f9',
     rpcUrl: 'https://mainnet.base.org',
     displayName: 'Chonks',
   },

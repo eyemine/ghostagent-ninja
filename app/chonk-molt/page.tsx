@@ -4,7 +4,9 @@ import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
-import { keccak256, toHex } from 'viem';
+import { keccak256, toHex, createWalletClient, custom, parseEther } from 'viem';
+import { gnosis } from '../utils/chains';
+import { MercuryoButton } from '../components/MercuryoWidget';
 import { EmailAliasToggle } from '../components/EmailAliasToggle';
 
 type NftType = 'ens' | 'chonk' | 'pownft' | 'normie' | 'other';
@@ -28,7 +30,7 @@ interface MoltResult {
   message: string;
 }
 
-const CHONK_CONTRACT  = '0x07152bfde079b5319e5308C43fB1DCf86F040B84';
+const CHONK_CONTRACT  = '0x07152bfde079b5319e5308C43fB1DBc9C76CB4f9';
 const ENS_CONTRACT    = '0x57f1887a8BF19b14fC0dF6Fd9B2acc9Af147eA85';
 const POWNFT_CONTRACT = '0x3B3ee1931Dc30C1957379FAc9aba94D1C48a5405';
 const NORMIE_CONTRACT = '0x7Bc1C072742D8391817EB4Eb2317F98dc72C61dB';
@@ -71,6 +73,10 @@ export default function OgNftMoltPage() {
   const [tokenId, setTokenId]             = useState('');
   const [ownerWallet, setOwnerWallet]     = useState('');
   const [paymentTxHash, setPaymentTxHash] = useState('');
+  const [couponCode, setCouponCode]       = useState('');
+  const [couponValid, setCouponValid]     = useState(false);
+  const [couponChecking, setCouponChecking] = useState(false);
+  const [couponError, setCouponError]     = useState<string | null>(null);
   const [ownershipVerified, setOwnershipVerified] = useState(false);
   const [nftPreview, setNftPreview]       = useState<NftPreview | null>(null);
   const [checking, setChecking]           = useState(false);
@@ -80,6 +86,22 @@ export default function OgNftMoltPage() {
 
   function addLog(msg: string) { setLogs(prev => [...prev, `${new Date().toLocaleTimeString()} — ${msg}`]); }
   function reset() { setOwnershipVerified(false); setNftPreview(null); setError(null); setStep('check'); }
+
+  async function handleValidateCoupon() {
+    if (!couponCode.trim()) return;
+    setCouponChecking(true); setCouponError(null); setCouponValid(false);
+    try {
+      const res = await fetch('/api/coupons/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: couponCode.trim(), tld: 'nftmail.gno' }),
+      });
+      const data = await res.json() as { valid: boolean; reason?: string };
+      if (data.valid) { setCouponValid(true); }
+      else { setCouponError(data.reason ?? 'Invalid coupon'); }
+    } catch { setCouponError('Could not validate coupon.'); }
+    finally { setCouponChecking(false); }
+  }
 
   // Auto-fill wallet from Privy connected wallet
   useEffect(() => {
@@ -155,16 +177,42 @@ export default function OgNftMoltPage() {
     finally { setChecking(false); }
   }
 
-  async function handleMolt() {
-    if (!paymentTxHash) { setError('Paste your 2 xDAI payment tx hash first.'); return; }
+  const [paying, setPaying] = useState(false);
+
+  async function handlePayWithWallet() {
+    setPaying(true); setError(null);
+    try {
+      const provider = (window as unknown as { ethereum?: unknown }).ethereum;
+      if (!provider) throw new Error('No wallet provider — connect MetaMask or WalletConnect');
+      const walletClient = createWalletClient({ chain: gnosis, transport: custom(provider as Parameters<typeof custom>[0]) });
+      const [account] = await walletClient.requestAddresses();
+      const txHash = await walletClient.sendTransaction({
+        account,
+        to: TREASURY as `0x${string}`,
+        value: parseEther(String(MOLT_FEE_XDAI)),
+        chain: gnosis,
+      });
+      setPaymentTxHash(txHash);
+      await executeMolt(txHash);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(msg); setPaying(false);
+    }
+  }
+
+  async function executeMolt(txHash: string) {
     setStep('molting'); setError(null); setLogs([]);
     addLog(`Verifying ${nftPreview?.name ?? 'NFT'} ownership on-chain…`);
-    addLog('Verifying 2 xDAI fee payment on Gnosis…');
+    addLog(txHash ? 'Verifying 2 xDAI fee payment on Gnosis…' : 'Coupon applied — fee waived');
     try {
       const res = await fetch('/api/chonk-molt', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ primaryName, tokenId, ownerWallet, paymentTxHash, nftType, contractAddress: resolvedContract(), nftName: nftPreview?.name }),
+        body: JSON.stringify({
+          primaryName, tokenId, ownerWallet, paymentTxHash: txHash,
+          nftType, contractAddress: resolvedContract(), nftName: nftPreview?.name,
+          ...(couponValid ? { couponCode: couponCode.trim() } : {}),
+        }),
       });
       const data = await res.json() as any;
       if (!res.ok || data.status === 'error') { setError(data.error ?? 'Molt failed'); setStep('error'); return; }
@@ -173,7 +221,16 @@ export default function OgNftMoltPage() {
       addLog('Recording molt + upgrading agent tier…');
       addLog('✓ BYO NFT Molt Complete');
       setResult(data as MoltResult); setStep('done');
-    } catch (err: any) { setError(err?.message ?? 'Molt failed'); setStep('error'); }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(msg); setStep('error');
+    } finally { setPaying(false); }
+  }
+
+  async function handleMolt() {
+    if (couponValid) { await executeMolt(''); return; }
+    if (!paymentTxHash) { await handlePayWithWallet(); return; }
+    await executeMolt(paymentTxHash);
   }
 
   const ic = "w-full rounded-lg border border-[rgba(176,128,92,0.25)] bg-black/30 px-3 py-2 text-sm text-[#f2eee4] placeholder-[var(--muted)] focus:border-[rgba(176,128,92,0.55)] focus:outline-none transition";
@@ -255,7 +312,7 @@ export default function OgNftMoltPage() {
               <label className="block text-[10px] font-semibold tracking-wider text-[var(--muted)] mb-1">{NFT_TYPE_META[nftType].nameLabel} (no underscore)</label>
               {nftType === 'ens' ? (
                 <div className="flex gap-2">
-                  <input className={`${ic} flex-1`} placeholder="e.g. purebpm" value={primaryName}
+                  <input className={`${ic} flex-1`} placeholder="e.g. vitalik" value={primaryName}
                     onChange={e => { setPrimaryName(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g,'')); setTokenId(''); reset(); }} />
                   <button onClick={resolveEnsName} disabled={!primaryName || ensResolving}
                     className="shrink-0 rounded-lg bg-fuchsia-600/80 px-4 py-2 text-xs font-bold text-white transition hover:bg-fuchsia-600 disabled:opacity-40">
@@ -359,19 +416,65 @@ export default function OgNftMoltPage() {
                   <p className="text-[10px] text-[var(--muted)]">{nftPreview.chain === 'base' ? 'Base' : 'Ethereum'} · token #{nftPreview.tokenId}</p>
                 </div>
               </div>
-              <div>
-                <label className="block text-[10px] font-semibold tracking-wider text-[var(--muted)] mb-1">
-                  PAYMENT TX HASH — send {MOLT_FEE_XDAI} xDAI on Gnosis to{' '}
-                  <span className="font-mono text-amber-300">{TREASURY.slice(0,10)}…</span>
-                </label>
-                <input className={ic} placeholder="0x… (Gnosis transaction hash)" value={paymentTxHash}
-                  onChange={e => setPaymentTxHash(e.target.value.trim())} />
+              {/* Coupon OR payment */}
+              <div className="rounded-xl border border-[rgba(176,128,92,0.15)] bg-black/20 p-3 space-y-3">
+                <div>
+                  <label className="block text-[10px] font-semibold tracking-wider text-[var(--muted)] mb-1">COUPON CODE (optional)</label>
+                  <div className="flex gap-2">
+                    <input className={`${ic} flex-1 uppercase`} placeholder="e.g. NFTFREE-XXXX" value={couponCode}
+                      onChange={e => { setCouponCode(e.target.value.toUpperCase().trim()); setCouponValid(false); setCouponError(null); }}
+                      disabled={couponValid} />
+                    {couponValid ? (
+                      <button onClick={() => { setCouponCode(''); setCouponValid(false); setCouponError(null); }}
+                        className="shrink-0 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-300 transition hover:bg-red-500/20">
+                        Remove
+                      </button>
+                    ) : (
+                      <button onClick={handleValidateCoupon} disabled={!couponCode.trim() || couponChecking}
+                        className="shrink-0 rounded-lg bg-amber-500/80 px-4 py-2 text-xs font-bold text-white transition hover:bg-amber-500 disabled:opacity-40">
+                        {couponChecking ? 'Checking…' : 'Apply'}
+                      </button>
+                    )}
+                  </div>
+                  {couponValid && <p className="mt-1 text-[10px] font-semibold text-emerald-400">✓ Coupon valid — fee waived</p>}
+                  {couponError && <p className="mt-1 text-[10px] text-red-400">{couponError}</p>}
+                </div>
+                {!couponValid && (
+                  <div className="space-y-2">
+                    <div className="text-[10px] font-semibold tracking-wider text-[var(--muted)]">PAY {MOLT_FEE_XDAI} xDAI</div>
+                    <button onClick={handlePayWithWallet} disabled={paying}
+                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 py-3 text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-40">
+                      {paying ? (
+                        <><svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Awaiting wallet…</>
+                      ) : (
+                        <>🦋 Pay {MOLT_FEE_XDAI} xDAI &amp; Molt</>
+                      )}
+                    </button>
+                    <div className="flex items-center gap-2 text-[10px] text-[var(--muted)]">
+                      <span className="flex-1 border-t border-[rgba(176,128,92,0.15)]" />
+                      <span>or pay with card</span>
+                      <span className="flex-1 border-t border-[rgba(176,128,92,0.15)]" />
+                    </div>
+                    <MercuryoButton
+                      walletAddress={TREASURY}
+                      defaultAmount={3}
+                      label={`💳 Pay with Card (~$${MOLT_FEE_XDAI} USD)`}
+                      onSuccess={(txId) => { setPaymentTxHash(txId); }}
+                    />
+                    <p className="text-[9px] text-[var(--muted)] text-center">
+                      Wallet payment sends {MOLT_FEE_XDAI} xDAI on Gnosis to treasury{' '}
+                      <span className="font-mono text-amber-300/60">{TREASURY.slice(0,10)}…</span>
+                    </p>
+                  </div>
+                )}
               </div>
               {error && <p className="text-xs text-red-400">{error}</p>}
-              <button onClick={handleMolt} disabled={!paymentTxHash}
-                className="w-full rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 py-2.5 text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-40">
-                🦋 Execute BYO NFT Molt
-              </button>
+              {couponValid && (
+                <button onClick={handleMolt}
+                  className="w-full rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 py-2.5 text-sm font-bold text-white transition hover:opacity-90">
+                  🦋 Execute BYO NFT Molt (free)
+                </button>
+              )}
             </div>
           )}
         </div>
