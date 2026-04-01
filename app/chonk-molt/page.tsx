@@ -5,7 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { EmailAliasToggle } from '../components/EmailAliasToggle';
 
-type NftType = 'ens' | 'chonk' | 'other';
+type NftType = 'ens' | 'chonk' | 'pownft' | 'normie' | 'other';
 type Step = 'check' | 'confirm' | 'molting' | 'done' | 'error';
 
 interface NftPreview {
@@ -26,8 +26,10 @@ interface MoltResult {
   message: string;
 }
 
-const CHONK_CONTRACT = '0x07152bfde079b5319e5308C43fB1DCf86F040B84';
-const ENS_CONTRACT   = '0x57f1887a8BF19b14fC0dF6Fd9B2acc9Af147eA85';
+const CHONK_CONTRACT  = '0x07152bfde079b5319e5308C43fB1DCf86F040B84';
+const ENS_CONTRACT    = '0x57f1887a8BF19b14fC0dF6Fd9B2acc9Af147eA85';
+const POWNFT_CONTRACT = '0x3B3ee1931Dc30C1957379FAc9aba94D1C48a5405';
+const NORMIE_CONTRACT = '0x7Bc1C072742D8391817EB4Eb2317F98dc72C61dB';
 const MOLT_FEE_XDAI  = 2;
 const TREASURY       = '0xeD0B0694953158dd54D0c36D320b391f44cd67f3';
 
@@ -74,8 +76,33 @@ export default function OgNftMoltPage() {
   function addLog(msg: string) { setLogs(prev => [...prev, `${new Date().toLocaleTimeString()} — ${msg}`]); }
   function reset() { setOwnershipVerified(false); setNftPreview(null); setError(null); setStep('check'); }
 
-  const resolvedContract = () => nftType === 'ens' ? ENS_CONTRACT : nftType === 'chonk' ? CHONK_CONTRACT : contractAddr;
-  const resolvedRpc      = () => nftType === 'chonk' ? 'https://mainnet.base.org' : 'https://cloudflare-eth.com';
+  const resolvedContract = () => {
+    if (nftType === 'ens') return ENS_CONTRACT;
+    if (nftType === 'chonk') return CHONK_CONTRACT;
+    if (nftType === 'pownft') return POWNFT_CONTRACT;
+    if (nftType === 'normie') return NORMIE_CONTRACT;
+    return contractAddr;
+  };
+  const resolvedRpc = () => {
+    if (nftType === 'chonk' || nftType === 'normie') return 'https://mainnet.base.org';
+    return 'https://cloudflare-eth.com';
+  };
+
+  const NFT_TYPE_META: Record<NftType, { nameLabel: string; prefill: string }> = {
+    ens:    { nameLabel: 'ENS NAME', prefill: '' },
+    chonk:  { nameLabel: 'CHONK NAME', prefill: 'chonk' },
+    pownft: { nameLabel: 'ATOM NAME', prefill: 'atom' },
+    normie: { nameLabel: 'NORMIE NAME', prefill: 'normie' },
+    other:  { nameLabel: 'YOUR AGENT NAME', prefill: '' },
+  };
+
+  function selectNftType(t: NftType) {
+    setNftType(t);
+    const meta = NFT_TYPE_META[t];
+    if (meta.prefill) setPrimaryName(meta.prefill);
+    else setPrimaryName('');
+    reset();
+  }
 
   async function handleVerifyOwnership() {
     if (!tokenId || !ownerWallet) return;
@@ -91,7 +118,9 @@ export default function OgNftMoltPage() {
         const { name, imageUrl } = await fetchEnsImage(tokenId);
         preview = { type: 'ens', tokenId, name, imageUrl, chain: 'mainnet' };
       } else {
-        preview = { type: nftType, tokenId, name: nftType === 'chonk' ? `Chonk #${tokenId}` : `NFT #${tokenId}`, imageUrl: null, chain: nftType === 'chonk' ? 'base' : 'mainnet' };
+        const nameMap: Record<NftType, string> = { chonk: `Chonk #${tokenId}`, pownft: `ATOM #${tokenId}`, normie: `Normie #${tokenId}`, ens: '', other: `NFT #${tokenId}` };
+        const chainMap: Record<NftType, 'mainnet' | 'base'> = { chonk: 'base', normie: 'base', ens: 'mainnet', pownft: 'mainnet', other: 'mainnet' };
+        preview = { type: nftType, tokenId, name: nameMap[nftType] || `NFT #${tokenId}`, imageUrl: null, chain: chainMap[nftType] };
       }
       setNftPreview(preview); setOwnershipVerified(true); setStep('confirm');
     } catch { setError('Could not verify ownership — check your connection.'); }
@@ -122,21 +151,22 @@ export default function OgNftMoltPage() {
   const ic = "w-full rounded-lg border border-[rgba(176,128,92,0.25)] bg-black/30 px-3 py-2 text-sm text-[#f2eee4] placeholder-[var(--muted)] focus:border-[rgba(176,128,92,0.55)] focus:outline-none transition";
 
   return (
-    <div className="max-w-xl mx-auto space-y-6 py-2">
+    <div className="max-w-5xl space-y-6">
 
-      {/* Header */}
-      <div>
-        <div className="flex items-center gap-4 mb-1">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="https://gateway.lighthouse.storage/ipfs/bafkreiejmu35lnu34e6dm754c6tad34nogywf2oslbql6lzcdpz4acxjue" alt="BYO NFT Molt" className="h-20 w-20 shrink-0 rounded-xl object-contain" />
-          <div>
-            <h1 className="text-2xl font-bold text-[#f2eee4]">BYO NFT Molt</h1>
-            <p className="text-xs text-[var(--muted)]">Overlay any NFT you own — ENS, Chonk, or Verified Collection — onto your GhostAgent identity</p>
-          </div>
+      {/* Header — marketplace-style */}
+      <div className="flex items-center gap-3">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="https://gateway.lighthouse.storage/ipfs/bafkreiejmu35lnu34e6dm754c6tad34nogywf2oslbql6lzcdpz4acxjue" alt="BYO NFT Molt" className="h-28 w-28 shrink-0 object-contain drop-shadow-[0_0_18px_rgba(184,134,97,0.4)]" />
+        <div>
+          <h1 className="pl-1 text-2xl font-bold text-[#f2eee4]">BYO NFT Molt</h1>
+          <p className="mt-1 pl-1 text-sm text-[var(--muted)]">Overlay an NFT you own — ENS, Chonk, or Verified Collection — onto your GhostAgent identity</p>
         </div>
-        <div className="mt-4 rounded-xl border border-violet-500/20 bg-violet-500/5 px-4 py-3 text-xs text-[var(--muted)]">
+      </div>
+
+      <div>
+        <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 px-4 py-3 text-xs text-[var(--muted)]">
           <p className="text-[#f2eee4] font-semibold mb-1">Bundle-building scenario</p>
-          <p>Own an ENS name that isn&apos;t your primary? Molt it into an agent identity to add provenance before selling a wallet bundle. Each NFT molt creates a unique beacon + alias.</p>
+          <p>Own an ENS name that you would like to augment? Molt it into an agent identity to add provenance and utility. Flaunt it, or sell a wallet bundle. Each NFT molt a Gnosis SAFE, NFTmail inbox and Story IP claim.</p>
         </div>
         <div className="mt-3 rounded-xl border border-[rgba(176,128,92,0.2)] bg-black/20 px-4 py-3 space-y-1 text-xs text-[var(--muted)]">
           <p className="text-[#f2eee4] font-semibold">What happens</p>
@@ -153,14 +183,20 @@ export default function OgNftMoltPage() {
       {/* Check + Confirm */}
       {(step === 'check' || step === 'confirm') && (
         <div className="rounded-2xl border border-[rgba(176,128,92,0.35)] bg-[var(--card)] p-5 space-y-4">
-          <p className="text-sm font-semibold text-[#f2eee4]">NFT details</p>
+          <p className="text-sm font-semibold text-[#f2eee4]">OG NFTs</p>
 
           {/* NFT type picker */}
           <div>
             <label className="block text-[10px] font-semibold tracking-wider text-[var(--muted)] mb-2">NFT TYPE</label>
-            <div className="grid grid-cols-3 gap-2">
-              {([{k:'ens' as NftType,l:'ENS Name',img:'https://gateway.lighthouse.storage/ipfs/bafkreifv35abvqlhdtc4g2i4xelnmxnhaac7exyu6r24o3fbgthwcmupwy'},{k:'chonk' as NftType,l:'Chonk',img:'https://gateway.lighthouse.storage/ipfs/bafkreiczeqhex35dvj4ewbzn2gyqnbgqb22np5zgp223vnbfhaod6sv4sq'},{k:'other' as NftType,l:'Other ERC-721',img:'https://gateway.lighthouse.storage/ipfs/bafkreid7jamriw5jneuarcq2q6lrbfsqe76eebv6r2rworrnhyj2rpsuem'}]).map(opt => (
-                <button key={opt.k} onClick={() => { setNftType(opt.k); reset(); }}
+            <div className="grid grid-cols-3 gap-2 md:grid-cols-5">
+              {([
+                {k:'ens' as NftType,l:'ENS Name',img:'https://gateway.lighthouse.storage/ipfs/bafkreifv35abvqlhdtc4g2i4xelnmxnhaac7exyu6r24o3fbgthwcmupwy'},
+                {k:'chonk' as NftType,l:'Chonk',img:'https://gateway.lighthouse.storage/ipfs/bafkreiczeqhex35dvj4ewbzn2gyqnbgqb22np5zgp223vnbfhaod6sv4sq'},
+                {k:'pownft' as NftType,l:'POWNFT',img:'https://gateway.lighthouse.storage/ipfs/bafkreick55xkc2ucnmk2wjbzl6a5chqkvmwjll4oqbqajfh5mapd3s7fku'},
+                {k:'normie' as NftType,l:'Normies',img:'https://gateway.lighthouse.storage/ipfs/bafkreigdisoyfs75rneioevm5irn2k4prdddtuum5bpn27bykhjtdc4fii'},
+                {k:'other' as NftType,l:'Other Verified ERC721',img:'https://gateway.lighthouse.storage/ipfs/bafkreid7jamriw5jneuarcq2q6lrbfsqe76eebv6r2rworrnhyj2rpsuem'},
+              ]).map(opt => (
+                <button key={opt.k} onClick={() => selectNftType(opt.k)}
                   className={`aspect-square rounded-lg border px-2 py-2 text-xs font-semibold transition text-center ${
                     nftType === opt.k ? 'border-fuchsia-500/50 bg-fuchsia-500/10 text-fuchsia-300' : 'border-[rgba(176,128,92,0.2)] bg-black/20 text-[var(--muted)] hover:text-[#f2eee4]'
                   }`}>
@@ -173,9 +209,10 @@ export default function OgNftMoltPage() {
 
           <div className="space-y-3">
             <div>
-              <label className="block text-[10px] font-semibold tracking-wider text-[var(--muted)] mb-1">YOUR AGENT NAME (no underscore)</label>
-              <input className={ic} placeholder="e.g. paymastr" value={primaryName}
+              <label className="block text-[10px] font-semibold tracking-wider text-[var(--muted)] mb-1">{NFT_TYPE_META[nftType].nameLabel} (no underscore)</label>
+              <input className={ic} placeholder={NFT_TYPE_META[nftType].prefill || 'e.g. paymastr'} value={primaryName}
                 onChange={e => { setPrimaryName(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g,'')); reset(); }} />
+              <p className="mt-1 text-[10px] text-[var(--muted)]">All BYO molts mint to <span className="font-semibold text-fuchsia-300">nftmail.gno</span>. For molt.gno / openclaw.gno / vault.gno / agent.gno use the dashboard Molt action.</p>
             </div>
             {nftType === 'other' && (
               <div>
@@ -186,7 +223,7 @@ export default function OgNftMoltPage() {
             )}
             <div>
               <label className="block text-[10px] font-semibold tracking-wider text-[var(--muted)] mb-1">
-                {nftType === 'ens' ? 'ENS TOKEN ID' : nftType === 'chonk' ? 'CHONK TOKEN ID' : 'TOKEN ID'}
+                {nftType === 'ens' ? 'ENS TOKEN ID' : nftType === 'chonk' ? 'CHONK TOKEN ID' : nftType === 'pownft' ? 'POWNFT TOKEN ID' : nftType === 'normie' ? 'NORMIE TOKEN ID' : 'TOKEN ID'}
               </label>
               <input className={ic} placeholder="e.g. 123" value={tokenId}
                 onChange={e => { setTokenId(e.target.value.replace(/[^0-9]/g,'')); reset(); }} />
@@ -225,7 +262,13 @@ export default function OgNftMoltPage() {
                 ) : (
                   <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg border border-emerald-500/20 bg-emerald-500/8 overflow-hidden">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={nftPreview.type==='ens' ? 'https://gateway.lighthouse.storage/ipfs/bafkreifv35abvqlhdtc4g2i4xelnmxnhaac7exyu6r24o3fbgthwcmupwy' : nftPreview.type==='chonk' ? 'https://gateway.lighthouse.storage/ipfs/bafkreiczeqhex35dvj4ewbzn2gyqnbgqb22np5zgp223vnbfhaod6sv4sq' : 'https://gateway.lighthouse.storage/ipfs/bafkreid7jamriw5jneuarcq2q6lrbfsqe76eebv6r2rworrnhyj2rpsuem'} alt={nftPreview.type} className="h-10 w-10 rounded object-contain" />
+                    <img src={
+                      nftPreview.type==='ens' ? 'https://gateway.lighthouse.storage/ipfs/bafkreifv35abvqlhdtc4g2i4xelnmxnhaac7exyu6r24o3fbgthwcmupwy' :
+                      nftPreview.type==='chonk' ? 'https://gateway.lighthouse.storage/ipfs/bafkreiczeqhex35dvj4ewbzn2gyqnbgqb22np5zgp223vnbfhaod6sv4sq' :
+                      nftPreview.type==='pownft' ? 'https://gateway.lighthouse.storage/ipfs/bafkreick55xkc2ucnmk2wjbzl6a5chqkvmwjll4oqbqajfh5mapd3s7fku' :
+                      nftPreview.type==='normie' ? 'https://gateway.lighthouse.storage/ipfs/bafkreigdisoyfs75rneioevm5irn2k4prdddtuum5bpn27bykhjtdc4fii' :
+                      'https://gateway.lighthouse.storage/ipfs/bafkreid7jamriw5jneuarcq2q6lrbfsqe76eebv6r2rworrnhyj2rpsuem'
+                    } alt={nftPreview.type} className="h-10 w-10 rounded object-contain" />
                   </div>
                 )}
                 <div>
