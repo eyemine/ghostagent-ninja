@@ -86,10 +86,13 @@ export async function POST(req: NextRequest) {
       nftType?: string;
       contractAddress?: string;
       nftName?: string;
+      moltTarget?: string;
+      targetAgent?: string;
     };
 
-    const { primaryName, tokenId, ownerWallet, paymentTxHash, couponCode, nftType, contractAddress, nftName } = body;
+    const { primaryName, tokenId, ownerWallet, paymentTxHash, couponCode, nftType, contractAddress, nftName, moltTarget, targetAgent } = body;
     const type = nftType ?? 'chonk';
+    const isOverlay = moltTarget === 'existing-agent' && targetAgent;
 
     if (!primaryName || typeof primaryName !== 'string') {
       return NextResponse.json({ error: 'Missing primaryName' }, { status: 400 });
@@ -139,15 +142,23 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // ── Step 3: Mint beacon NFT ──
+    // ── Step 3: Mint beacon NFT (skip for overlay) ──
     const cleanName = primaryName.toLowerCase().replace(/_$/, '');
     const beaconPrefix = type === 'ens' ? 'ens' : type === 'pownft' ? 'atom' : type === 'normie' ? 'normie' : type === 'chonk' ? 'chonk' : 'nft';
-    const beaconLabel = `${beaconPrefix}.${tokenId.slice(0, 20)}`;
-    const beacon = await mintChonkBeacon(tokenId, ownerWallet, APP_URL, webhookSecret);
-    // Override label for non-chonk (reuse mint logic but beacon label above is for display)
+    // For ENS, use the actual name (e.g. "vitalik") instead of raw tokenId
+    const displayLabel = type === 'ens' && nftName ? nftName.replace(/\.eth$/i, '').toLowerCase() : tokenId.slice(0, 20);
+    const beaconLabel = `${beaconPrefix}.${displayLabel}`;
 
-    if (!beacon.success) {
-      return NextResponse.json({ status: 'error', step: 'beacon-mint', error: beacon.error ?? 'Beacon mint failed' }, { status: 502 });
+    let beacon: { success: boolean; beaconNft?: string; txHash?: string; beaconTokenId?: number | null; error?: string };
+    if (isOverlay) {
+      // Overlay: no new beacon minted, use existing agent's beacon
+      beacon = { success: true, beaconNft: `${targetAgent}.nftmail.gno`, txHash: 'overlay', beaconTokenId: null };
+    } else {
+      // New agent: mint fresh beacon
+      beacon = await mintChonkBeacon(tokenId, ownerWallet, APP_URL, webhookSecret);
+      if (!beacon.success) {
+        return NextResponse.json({ status: 'error', step: 'beacon-mint', error: beacon.error ?? 'Beacon mint failed' }, { status: 502 });
+      }
     }
 
     // ── Step 4: Register alias ──
@@ -155,12 +166,15 @@ export async function POST(req: NextRequest) {
     const aliasLocalPart = `${aliasPrefix}_`;
     const aliasEmail = `${aliasLocalPart}@nftmail.box`;
 
+    // For overlays, the primaryName is the existing agent (targetAgent); for new agents, it's the NFT-derived name
+    const finalPrimaryName = isOverlay ? targetAgent! : cleanName;
+
     try {
       await fetch(NFTMAIL_WORKER_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: 'createAlias', primaryName: cleanName, aliasLocalPart,
+          action: 'createAlias', primaryName: finalPrimaryName, aliasLocalPart,
           collectionName: type, tokenId, ownerAddress: ownerWallet.toLowerCase(), displayEmail: 'alias',
         }),
       });
@@ -169,11 +183,11 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Step 5: Record molt + upgrade tier ──
-    await recordChonkMolt(cleanName, tokenId, ownerWallet, beacon.beaconNft!, beacon.txHash!, webhookSecret);
+    await recordChonkMolt(finalPrimaryName, tokenId, ownerWallet, beacon.beaconNft!, beacon.txHash!, webhookSecret);
 
     return NextResponse.json({
       status: 'ok',
-      primaryEmail: `${cleanName}_@nftmail.box`,
+      primaryEmail: `${finalPrimaryName}_@nftmail.box`,
       aliasEmail,
       beaconNft: beacon.beaconNft,
       beaconTxHash: beacon.txHash,

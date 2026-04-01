@@ -3,14 +3,17 @@
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { keccak256, toHex, createWalletClient, custom, parseEther } from 'viem';
 import { gnosis } from '../utils/chains';
 import { MercuryoButton } from '../components/MercuryoWidget';
 import { EmailAliasToggle } from '../components/EmailAliasToggle';
+import type { AgentRegistryEntry } from '../api/agents/route';
 
 type NftType = 'ens' | 'chonk' | 'pownft' | 'normie' | 'other';
-type Step = 'check' | 'confirm' | 'molting' | 'done' | 'error';
+type Step = 'check' | 'select-agent' | 'confirm' | 'molting' | 'done' | 'error';
+type MoltTarget = 'new-agent' | 'existing-agent';
 
 interface NftPreview {
   type: NftType;
@@ -66,6 +69,9 @@ export default function OgNftMoltPage() {
   const { wallets } = useWallets();
   const connectedWallet = wallets[0]?.address ?? '';
 
+  const searchParams = useSearchParams();
+  const preselectedAgent = searchParams.get('agent') ?? undefined;
+
   const [step, setStep]                   = useState<Step>('check');
   const [nftType, setNftType]             = useState<NftType>('ens');
   const [primaryName, setPrimaryName]     = useState('');
@@ -83,9 +89,23 @@ export default function OgNftMoltPage() {
   const [result, setResult]               = useState<MoltResult | null>(null);
   const [error, setError]                 = useState<string | null>(null);
   const [logs, setLogs]                   = useState<string[]>([]);
+  const [userAgents, setUserAgents]       = useState<AgentRegistryEntry[]>([]);
+  const [moltTarget, setMoltTarget]       = useState<MoltTarget>('new-agent');
+  const [selectedAgent, setSelectedAgent]   = useState<string>(preselectedAgent ?? '');
 
   function addLog(msg: string) { setLogs(prev => [...prev, `${new Date().toLocaleTimeString()} — ${msg}`]); }
   function reset() { setOwnershipVerified(false); setNftPreview(null); setError(null); setStep('check'); }
+
+  // Fetch user's agents (ERC-8004 registered) for overlay option
+  async function fetchUserAgents() {
+    try {
+      const res = await fetch('/api/agents');
+      const data = await res.json() as { agents: AgentRegistryEntry[] };
+      setUserAgents(data.agents ?? []);
+    } catch {
+      setUserAgents([]);
+    }
+  }
 
   async function handleValidateCoupon() {
     if (!couponCode.trim()) return;
@@ -172,7 +192,7 @@ export default function OgNftMoltPage() {
         const chainMap: Record<NftType, 'mainnet' | 'base'> = { chonk: 'base', normie: 'base', ens: 'mainnet', pownft: 'mainnet', other: 'mainnet' };
         preview = { type: nftType, tokenId, name: nameMap[nftType] || `NFT #${tokenId}`, imageUrl: null, chain: chainMap[nftType] };
       }
-      setNftPreview(preview); setOwnershipVerified(true); setStep('confirm');
+      setNftPreview(preview); setOwnershipVerified(true); await fetchUserAgents(); setStep('select-agent');
     } catch { setError('Could not verify ownership — check your connection.'); }
     finally { setChecking(false); }
   }
@@ -211,12 +231,13 @@ export default function OgNftMoltPage() {
         body: JSON.stringify({
           primaryName, tokenId, ownerWallet, paymentTxHash: txHash,
           nftType, contractAddress: resolvedContract(), nftName: nftPreview?.name,
+          moltTarget, targetAgent: moltTarget === 'existing-agent' ? selectedAgent : undefined,
           ...(couponValid ? { couponCode: couponCode.trim() } : {}),
         }),
       });
       const data = await res.json() as any;
       if (!res.ok || data.status === 'error') { setError(data.error ?? 'Molt failed'); setStep('error'); return; }
-      addLog('Minting beacon NFT…');
+      addLog(moltTarget === 'existing-agent' ? 'Updating agent identity overlay…' : 'Minting beacon NFT…');
       addLog('Registering alias email…');
       addLog('Recording molt + upgrading agent tier…');
       addLog('✓ BYO NFT Molt Complete');
@@ -280,8 +301,8 @@ export default function OgNftMoltPage() {
         </div>
       </div>
 
-      {/* Check + Confirm */}
-      {(step === 'check' || step === 'confirm') && (
+      {/* Check + Select Agent + Confirm */}
+      {(step === 'check' || step === 'select-agent' || step === 'confirm') && (
         <div className="rounded-2xl border border-[rgba(176,128,92,0.35)] bg-[var(--card)] p-5 space-y-4">
           <p className="text-sm font-semibold text-[#f2eee4]">OG NFTs</p>
 
@@ -388,6 +409,66 @@ export default function OgNftMoltPage() {
               className="w-full rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 py-2.5 text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-40">
               {checking ? 'Checking ownership…' : 'Verify NFT Ownership →'}
             </button>
+          )}
+
+          {/* Agent selection step */}
+          {step === 'select-agent' && ownershipVerified && nftPreview && (
+            <div className="space-y-4">
+              <div className="text-center">
+                <h3 className="text-sm font-semibold text-[#f2eee4]">Choose target for this NFT</h3>
+                <p className="text-xs text-[var(--muted)] mt-1">Create a new agent or overlay onto an existing one</p>
+              </div>
+
+              {/* Option 1: Create new agent */}
+              <button
+                onClick={() => { setMoltTarget('new-agent'); setStep('confirm'); }}
+                className={`w-full rounded-xl border px-4 py-3 text-left transition ${
+                  moltTarget === 'new-agent'
+                    ? 'border-fuchsia-500/50 bg-fuchsia-500/10'
+                    : 'border-[var(--border)] bg-black/20 hover:border-fuchsia-500/20'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-fuchsia-500/15 text-lg">🦋</div>
+                  <div className="flex-1">
+                    <div className="text-sm font-semibold text-fuchsia-300">Create New Agent</div>
+                    <div className="text-[10px] text-[var(--muted)]">Mint a fresh beacon NFT and start a new GhostAgent</div>
+                  </div>
+                </div>
+              </button>
+
+              {/* Option 2: Overlay onto existing agent */}
+              {userAgents.length > 0 && (
+                <div className="space-y-2">
+                  <div className="text-[10px] font-semibold tracking-wider text-[var(--muted)]">Overlay onto Existing Agent</div>
+                  {userAgents.map(agent => (
+                    <button
+                      key={agent.name}
+                      onClick={() => { setMoltTarget('existing-agent'); setSelectedAgent(agent.name); setStep('confirm'); }}
+                      className={`w-full rounded-xl border px-3 py-2 text-left transition ${
+                        selectedAgent === agent.name && moltTarget === 'existing-agent'
+                          ? 'border-amber-500/50 bg-amber-500/10'
+                          : 'border-[var(--border)] bg-black/20 hover:border-amber-500/20'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-500/15 text-sm">🎭</div>
+                        <div className="flex-1">
+                          <div className="text-xs font-semibold text-amber-300">{agent.name}</div>
+                          <div className="text-[9px] text-[var(--muted)]">tld: {agent.tld ?? 'none'}</div>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {userAgents.length === 0 && (
+                <div className="rounded-lg border border-[var(--border)] bg-black/20 px-3 py-2 text-center">
+                  <p className="text-xs text-[var(--muted)]">No existing agents found. Create a new agent to get started.</p>
+                </div>
+              )}
+            </div>
           )}
 
           {step === 'confirm' && ownershipVerified && nftPreview && (
