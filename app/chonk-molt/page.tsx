@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { EmailAliasToggle } from '../components/EmailAliasToggle';
 
 type NftType = 'ens' | 'chonk' | 'pownft' | 'normie' | 'other';
@@ -59,6 +60,10 @@ async function checkOwner(contract: string, tokenId: string, rpc: string): Promi
 }
 
 export default function OgNftMoltPage() {
+  const { authenticated } = usePrivy();
+  const { wallets } = useWallets();
+  const connectedWallet = wallets[0]?.address ?? '';
+
   const [step, setStep]                   = useState<Step>('check');
   const [nftType, setNftType]             = useState<NftType>('ens');
   const [primaryName, setPrimaryName]     = useState('');
@@ -75,6 +80,11 @@ export default function OgNftMoltPage() {
 
   function addLog(msg: string) { setLogs(prev => [...prev, `${new Date().toLocaleTimeString()} — ${msg}`]); }
   function reset() { setOwnershipVerified(false); setNftPreview(null); setError(null); setStep('check'); }
+
+  // Auto-fill wallet from Privy connected wallet
+  useEffect(() => {
+    if (connectedWallet && !ownerWallet) setOwnerWallet(connectedWallet);
+  }, [connectedWallet, ownerWallet]);
 
   const resolvedContract = () => {
     if (nftType === 'ens') return ENS_CONTRACT;
@@ -93,7 +103,7 @@ export default function OgNftMoltPage() {
     chonk:  { nameLabel: 'CHONK NAME', prefill: 'chonk' },
     pownft: { nameLabel: 'ATOM NAME', prefill: 'atom' },
     normie: { nameLabel: 'NORMIE NAME', prefill: 'normie' },
-    other:  { nameLabel: 'YOUR AGENT NAME', prefill: '' },
+    other:  { nameLabel: 'AGENT NAME', prefill: '' },
   };
 
   function selectNftType(t: NftType) {
@@ -151,12 +161,12 @@ export default function OgNftMoltPage() {
   const ic = "w-full rounded-lg border border-[rgba(176,128,92,0.25)] bg-black/30 px-3 py-2 text-sm text-[#f2eee4] placeholder-[var(--muted)] focus:border-[rgba(176,128,92,0.55)] focus:outline-none transition";
 
   return (
-    <div className="max-w-5xl space-y-6">
+    <div className="max-w-5xl mx-auto space-y-6">
 
       {/* Header — marketplace-style */}
       <div className="flex items-center gap-3">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="https://gateway.lighthouse.storage/ipfs/bafkreiejmu35lnu34e6dm754c6tad34nogywf2oslbql6lzcdpz4acxjue" alt="BYO NFT Molt" className="h-28 w-28 shrink-0 object-contain drop-shadow-[0_0_18px_rgba(184,134,97,0.4)]" />
+        <img src="https://gateway.lighthouse.storage/ipfs/bafkreiejmu35lnu34e6dm754c6tad34nogywf2oslbql6lzcdpz4acxjue" alt="BYO NFT Molt" className="h-28 w-28 shrink-0 rounded-xl border border-fuchsia-500/40 object-contain" />
         <div>
           <h1 className="pl-1 text-2xl font-bold text-[#f2eee4]">BYO NFT Molt</h1>
           <p className="mt-1 pl-1 text-sm text-[var(--muted)]">Overlay an NFT you own — ENS, Chonk, or Verified Collection — onto your GhostAgent identity</p>
@@ -170,9 +180,24 @@ export default function OgNftMoltPage() {
         </div>
         <div className="mt-3 rounded-xl border border-[rgba(176,128,92,0.2)] bg-black/20 px-4 py-3 space-y-1 text-xs text-[var(--muted)]">
           <p className="text-[#f2eee4] font-semibold">What happens</p>
-          <p>✓ Primary email <span className="font-mono text-[#f2eee4]">{primaryName ? `${primaryName}_@nftmail.box` : 'agent_@nftmail.box'}</span> preserved</p>
-          <p>✓ Alias for NFT identity created — human and agent, same login</p>
-          <p>✓ Beacon NFT minted on Gnosis · Zero lock-in</p>
+          <p>✓ Primary email <span className="font-mono text-[#f2eee4]">{
+            nftType === 'chonk' ? `chonk.${tokenId || '[tokenID]'}@nftmail.box` :
+            nftType === 'pownft' ? `atom.${tokenId || '[tokenID]'}@nftmail.box` :
+            nftType === 'normie' ? `normie.${tokenId || '[tokenID]'}@nftmail.box` :
+            primaryName ? `${primaryName}@nftmail.box` : 'agent@nftmail.box'
+          }</span></p>
+          <p className="ml-3">+ Agent email <span className="font-mono text-[#f2eee4]">{
+            nftType === 'chonk' ? `chonk.${tokenId || '[tokenID]'}_@nftmail.box` :
+            nftType === 'pownft' ? `atom.${tokenId || '[tokenID]'}_@nftmail.box` :
+            nftType === 'normie' ? `normie.${tokenId || '[tokenID]'}_@nftmail.box` :
+            primaryName ? `${primaryName}_@nftmail.box` : 'agent_@nftmail.box'
+          }</span> preserved</p>
+          <p>✓ Beacon NFT <span className="font-mono text-[#f2eee4]">{
+            nftType === 'chonk' ? `chonk-${tokenId || '[tokenID]'}.nftmail.gno` :
+            nftType === 'pownft' ? `atom-${tokenId || '[tokenID]'}.nftmail.gno` :
+            nftType === 'normie' ? `normie-${tokenId || '[tokenID]'}.nftmail.gno` :
+            primaryName ? `${primaryName}.nftmail.gno` : '[name].nftmail.gno'
+          }</span> minted to Gnosis Safe · Zero lock-in</p>
         </div>
         <div className="mt-3 flex items-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2">
           <svg className="h-3.5 w-3.5 shrink-0 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
@@ -233,11 +258,33 @@ export default function OgNftMoltPage() {
                   <a href="https://app.ens.domains" target="_blank" rel="noopener noreferrer" className="underline text-fuchsia-400">app.ens.domains</a>.
                 </p>
               )}
+              {nftType === 'chonk' && (
+                <p className="mt-1 text-[10px] text-[var(--muted)]">Find your Chonk on{' '}
+                  <a href="https://chonks.xyz" target="_blank" rel="noopener noreferrer" className="underline text-fuchsia-400">chonks.xyz</a>.
+                </p>
+              )}
+              {nftType === 'pownft' && (
+                <p className="mt-1 text-[10px] text-[var(--muted)]">Find your ATOM on{' '}
+                  <a href="https://pownft.com" target="_blank" rel="noopener noreferrer" className="underline text-fuchsia-400">pownft.com</a>.
+                </p>
+              )}
+              {nftType === 'normie' && (
+                <p className="mt-1 text-[10px] text-[var(--muted)]">Find your Normie on{' '}
+                  <a href="https://www.normies.art" target="_blank" rel="noopener noreferrer" className="underline text-fuchsia-400">normies.art</a>.
+                </p>
+              )}
             </div>
             <div>
-              <label className="block text-[10px] font-semibold tracking-wider text-[var(--muted)] mb-1">YOUR WALLET ADDRESS (must hold the NFT)</label>
-              <input className={ic} placeholder="0x…" value={ownerWallet}
-                onChange={e => { setOwnerWallet(e.target.value.trim()); reset(); }} />
+              <label className="block text-[10px] font-semibold tracking-wider text-[var(--muted)] mb-1">WALLET ADDRESS (must hold the NFT)</label>
+              {connectedWallet ? (
+                <div className={`${ic} flex items-center gap-2 opacity-70`}>
+                  <span className="truncate">{ownerWallet}</span>
+                  <span className="shrink-0 text-[9px] text-emerald-400">✓ connected</span>
+                </div>
+              ) : (
+                <input className={ic} placeholder="0x… (connect wallet above to auto-fill)" value={ownerWallet}
+                  onChange={e => { setOwnerWallet(e.target.value.trim()); reset(); }} />
+              )}
             </div>
           </div>
 

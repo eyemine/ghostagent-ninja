@@ -27,7 +27,8 @@ export default function MoltPage() {
         {/* Header */}
         <header className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <span className="text-xl">🐛</span>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="https://gateway.lighthouse.storage/ipfs/bafkreihajbm2nwtuwp4hsgputfqintlw7zxbz4jbpx772ur3rfvfhwadge" alt="Molt" className="h-8 w-8 rounded object-contain" />
             <div className="text-xs font-semibold tracking-[0.18em] text-amber-300">MOLT</div>
           </div>
           <div className="flex items-center gap-2">
@@ -35,7 +36,7 @@ export default function MoltPage() {
               href="/chonk-molt"
               className="rounded-full border border-[var(--border)] bg-black/20 px-3 py-1.5 text-[11px] text-[var(--muted)] transition hover:text-white"
             >
-              Chonk Molt
+              BYO NFT Molt
             </Link>
             <Link
               href="/dashboard"
