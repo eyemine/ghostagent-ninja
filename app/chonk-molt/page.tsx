@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
+import { keccak256, toHex } from 'viem';
 import { EmailAliasToggle } from '../components/EmailAliasToggle';
 
 type NftType = 'ens' | 'chonk' | 'pownft' | 'normie' | 'other';
@@ -46,17 +47,16 @@ async function fetchEnsImage(tokenId: string): Promise<{ name: string; imageUrl:
 }
 
 async function checkOwner(contract: string, tokenId: string, rpc: string): Promise<string | null> {
-  try {
-    const tokenIdHex = BigInt(tokenId).toString(16).padStart(64, '0');
-    const res = await fetch(rpc, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_call', params: [{ to: contract, data: '0x6352211e' + tokenIdHex }, 'latest'] }),
-    });
-    const data = await res.json() as { result?: string };
-    if (!data.result || data.result === '0x') return null;
-    return ('0x' + data.result.slice(26)).toLowerCase();
-  } catch { return null; }
+  const tokenIdHex = BigInt(tokenId).toString(16).padStart(64, '0');
+  const res = await fetch(rpc, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_call', params: [{ to: contract, data: '0x6352211e' + tokenIdHex }, 'latest'] }),
+  });
+  const data = await res.json() as { result?: string; error?: { message?: string } };
+  if (data.error) throw new Error(data.error.message ?? 'RPC error');
+  if (!data.result || data.result === '0x' || data.result === '0x0000000000000000000000000000000000000000000000000000000000000000') return null;
+  return ('0x' + data.result.slice(26)).toLowerCase();
 }
 
 export default function OgNftMoltPage() {
@@ -95,8 +95,26 @@ export default function OgNftMoltPage() {
   };
   const resolvedRpc = () => {
     if (nftType === 'chonk' || nftType === 'normie') return 'https://mainnet.base.org';
-    return 'https://cloudflare-eth.com';
+    return 'https://ethereum.publicnode.com';
   };
+
+  const [ensResolving, setEnsResolving] = useState(false);
+
+  // ENS: compute labelhash from name → token ID
+  async function resolveEnsName() {
+    if (!primaryName) return;
+    setEnsResolving(true); setError(null);
+    try {
+      const label = primaryName.replace(/\.eth$/i, '').toLowerCase();
+      const labelHash = keccak256(toHex(label));
+      const tid = BigInt(labelHash).toString(10);
+      setTokenId(tid);
+      // verify it exists via metadata API
+      const meta = await fetch(`https://metadata.ens.domains/mainnet/${ENS_CONTRACT}/${tid}`);
+      if (!meta.ok) { setError(`ENS name "${label}.eth" not found.`); }
+    } catch { setError('Could not resolve ENS name.'); }
+    finally { setEnsResolving(false); }
+  }
 
   const NFT_TYPE_META: Record<NftType, { nameLabel: string; prefill: string }> = {
     ens:    { nameLabel: 'ENS NAME', prefill: '' },
@@ -235,8 +253,19 @@ export default function OgNftMoltPage() {
           <div className="space-y-3">
             <div>
               <label className="block text-[10px] font-semibold tracking-wider text-[var(--muted)] mb-1">{NFT_TYPE_META[nftType].nameLabel} (no underscore)</label>
-              <input className={ic} placeholder={NFT_TYPE_META[nftType].prefill || 'e.g. paymastr'} value={primaryName}
-                onChange={e => { setPrimaryName(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g,'')); reset(); }} />
+              {nftType === 'ens' ? (
+                <div className="flex gap-2">
+                  <input className={`${ic} flex-1`} placeholder="e.g. purebpm" value={primaryName}
+                    onChange={e => { setPrimaryName(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g,'')); setTokenId(''); reset(); }} />
+                  <button onClick={resolveEnsName} disabled={!primaryName || ensResolving}
+                    className="shrink-0 rounded-lg bg-fuchsia-600/80 px-4 py-2 text-xs font-bold text-white transition hover:bg-fuchsia-600 disabled:opacity-40">
+                    {ensResolving ? 'Resolving…' : 'Resolve'}
+                  </button>
+                </div>
+              ) : (
+                <input className={ic} placeholder={NFT_TYPE_META[nftType].prefill || 'e.g. paymastr'} value={primaryName}
+                  onChange={e => { setPrimaryName(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g,'')); reset(); }} />
+              )}
               <p className="mt-1 text-[10px] text-[var(--muted)]">All BYO molts mint to <span className="font-semibold text-fuchsia-300">nftmail.gno</span>. For molt.gno / openclaw.gno / vault.gno / agent.gno use the dashboard Molt action.</p>
             </div>
             {nftType === 'other' && (
@@ -246,34 +275,40 @@ export default function OgNftMoltPage() {
                   onChange={e => { setContractAddr(e.target.value.trim()); reset(); }} />
               </div>
             )}
-            <div>
-              <label className="block text-[10px] font-semibold tracking-wider text-[var(--muted)] mb-1">
-                {nftType === 'ens' ? 'ENS TOKEN ID' : nftType === 'chonk' ? 'CHONK TOKEN ID' : nftType === 'pownft' ? 'POWNFT TOKEN ID' : nftType === 'normie' ? 'NORMIE TOKEN ID' : 'TOKEN ID'}
-              </label>
-              <input className={ic} placeholder="e.g. 123" value={tokenId}
-                onChange={e => { setTokenId(e.target.value.replace(/[^0-9]/g,'')); reset(); }} />
-              {nftType === 'ens' && (
-                <p className="mt-1 text-[10px] text-[var(--muted)]">Token ID = decimal labelhash. Find on{' '}
-                  <a href="https://opensea.io/collection/ens" target="_blank" rel="noopener noreferrer" className="underline text-fuchsia-400">OpenSea</a>{' '}or{' '}
-                  <a href="https://app.ens.domains" target="_blank" rel="noopener noreferrer" className="underline text-fuchsia-400">app.ens.domains</a>.
-                </p>
-              )}
-              {nftType === 'chonk' && (
-                <p className="mt-1 text-[10px] text-[var(--muted)]">Find your Chonk on{' '}
-                  <a href="https://chonks.xyz" target="_blank" rel="noopener noreferrer" className="underline text-fuchsia-400">chonks.xyz</a>.
-                </p>
-              )}
-              {nftType === 'pownft' && (
-                <p className="mt-1 text-[10px] text-[var(--muted)]">Find your ATOM on{' '}
-                  <a href="https://pownft.com" target="_blank" rel="noopener noreferrer" className="underline text-fuchsia-400">pownft.com</a>.
-                </p>
-              )}
-              {nftType === 'normie' && (
-                <p className="mt-1 text-[10px] text-[var(--muted)]">Find your Normie on{' '}
-                  <a href="https://www.normies.art" target="_blank" rel="noopener noreferrer" className="underline text-fuchsia-400">normies.art</a>.
-                </p>
-              )}
-            </div>
+            {nftType === 'ens' ? (
+              tokenId && (
+                <div>
+                  <label className="block text-[10px] font-semibold tracking-wider text-[var(--muted)] mb-1">RESOLVED TOKEN ID</label>
+                  <div className={`${ic} truncate opacity-70 text-xs`}>{tokenId}</div>
+                  <p className="mt-1 text-[10px] text-[var(--muted)]">Auto-resolved from <span className="font-mono text-fuchsia-300">{primaryName}.eth</span>. Verify on{' '}
+                    <a href={`https://app.ens.domains/${primaryName}.eth`} target="_blank" rel="noopener noreferrer" className="underline text-fuchsia-400">app.ens.domains</a>.
+                  </p>
+                </div>
+              )
+            ) : (
+              <div>
+                <label className="block text-[10px] font-semibold tracking-wider text-[var(--muted)] mb-1">
+                  {nftType === 'chonk' ? 'CHONK TOKEN ID' : nftType === 'pownft' ? 'POWNFT TOKEN ID' : nftType === 'normie' ? 'NORMIE TOKEN ID' : 'TOKEN ID'}
+                </label>
+                <input className={ic} placeholder="e.g. 123" value={tokenId}
+                  onChange={e => { setTokenId(e.target.value.replace(/[^0-9]/g,'')); reset(); }} />
+                {nftType === 'chonk' && (
+                  <p className="mt-1 text-[10px] text-[var(--muted)]">Find your Chonk on{' '}
+                    <a href="https://chonks.xyz" target="_blank" rel="noopener noreferrer" className="underline text-fuchsia-400">chonks.xyz</a>.
+                  </p>
+                )}
+                {nftType === 'pownft' && (
+                  <p className="mt-1 text-[10px] text-[var(--muted)]">Find your ATOM on{' '}
+                    <a href="https://pownft.com" target="_blank" rel="noopener noreferrer" className="underline text-fuchsia-400">pownft.com</a>.
+                  </p>
+                )}
+                {nftType === 'normie' && (
+                  <p className="mt-1 text-[10px] text-[var(--muted)]">Find your Normie on{' '}
+                    <a href="https://www.normies.art" target="_blank" rel="noopener noreferrer" className="underline text-fuchsia-400">normies.art</a>.
+                  </p>
+                )}
+              </div>
+            )}
             <div>
               <label className="block text-[10px] font-semibold tracking-wider text-[var(--muted)] mb-1">WALLET ADDRESS (must hold the NFT)</label>
               {connectedWallet ? (
