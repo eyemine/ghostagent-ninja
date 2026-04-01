@@ -23,6 +23,7 @@ interface DemoAgent {
   active: boolean;
   ipDomain?: string;
   brainType?: BrainType;
+  imageUrl?: string;
 }
 
 interface DemoBody {
@@ -144,17 +145,21 @@ function AgentCard({ agent, onSelect, selected }: { agent: DemoAgent; onSelect: 
     >
       {/* NFT image + identity row */}
       <div className="flex gap-3">
-        {/* NFT image — SLD-coloured placeholder */}
+        {/* NFT image — real agent card image or SLD-coloured placeholder */}
         <div className={`w-1/2 shrink-0 aspect-square rounded-xl border ${ns.imgBorder} ${ns.placeholder} overflow-hidden flex items-center justify-center`}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={`/sld-images/${sld}.png`}
+            src={agent.imageUrl ?? `/sld-images/${sld}.png`}
             alt={`${agent.name}.${agent.namespace}`}
             className="h-full w-full object-cover"
             onError={(e) => {
               const el = e.target as HTMLImageElement;
-              el.style.display = 'none';
-              el.parentElement!.innerHTML = `<span class="text-[9px] font-bold tracking-widest opacity-30 uppercase">${sld}</span>`;
+              if (agent.imageUrl && el.src !== `/sld-images/${sld}.png`) {
+                el.src = `/sld-images/${sld}.png`;
+              } else {
+                el.style.display = 'none';
+                el.parentElement!.innerHTML = `<span class="text-[9px] font-bold tracking-widest opacity-30 uppercase">${sld}</span>`;
+              }
             }}
           />
         </div>
@@ -285,17 +290,32 @@ export default function DashboardHome() {
       body: JSON.stringify({ action: 'listAgents', safeAddress: connectedWallet }),
     })
       .then(r => r.json() as Promise<{ agents?: Array<{ name: string; tld: string; erc8004?: Record<string, unknown> }> }>)
-      .then(data => {
-        const agents: DemoAgent[] = (data.agents ?? []).map(a => ({
-          name:      a.name,
-          namespace: a.tld,
-          tba:       connectedWallet,
-          tier:      'pro' as AgentTier,
-          hostScore: 0,
-          inbox:     0,
-          events:    0,
-          active:    true,
-        }));
+      .then(async (data) => {
+        const rawAgents = data.agents ?? [];
+        // Fetch agent card metadata to get real NFT images
+        const agents: DemoAgent[] = await Promise.all(
+          rawAgents.map(async (a) => {
+            let imageUrl: string | undefined;
+            try {
+              const cardRes = await fetch(`/api/agent-card?agent=${a.name}`);
+              if (cardRes.ok) {
+                const card = await cardRes.json() as { image?: string };
+                if (card.image) imageUrl = card.image;
+              }
+            } catch { /* non-fatal */ }
+            return {
+              name:      a.name,
+              namespace: a.tld,
+              tba:       connectedWallet,
+              tier:      'pro' as AgentTier,
+              hostScore: 0,
+              inbox:     0,
+              events:    0,
+              active:    true,
+              imageUrl,
+            };
+          })
+        );
         setLiveAgents(agents);
         if (agents.length > 0) setSelectedAgent(agents[0].name);
       })
@@ -303,22 +323,21 @@ export default function DashboardHome() {
       .finally(() => setAgentsLoading(false));
   }, [connectedWallet]);
 
-  // Fetch user's NFT bodies
+  // Derive bodies from live agents (each agent = a beacon NFT body)
   useEffect(() => {
-    if (!connectedWallet) { setLiveBodies(null); return; }
-    setBodiesLoading(true);
-    fetch(`/api/my-nfts?wallet=${connectedWallet}`)
-      .then(r => r.json() as Promise<{ nfts?: LiveBody[] }>)
-      .then(data => {
-        const bodies = data.nfts ?? [];
-        setLiveBodies(bodies);
-        if (bodies.length > 0 && !selectedBody) {
-          setSelectedBody(bodies[0].name);
-        }
-      })
-      .catch(() => setLiveBodies([]))
-      .finally(() => setBodiesLoading(false));
-  }, [connectedWallet, selectedBody]);
+    if (!liveAgents) { setLiveBodies(null); return; }
+    const bodies: LiveBody[] = liveAgents.map((a, i) => ({
+      name: a.name,
+      namespace: a.namespace,
+      tokenId: i + 1,
+      tba: a.tba,
+      minted: '',
+    }));
+    setLiveBodies(bodies);
+    if (bodies.length > 0 && !selectedBody) {
+      setSelectedBody(bodies[0].name);
+    }
+  }, [liveAgents, selectedBody]);
 
   // Fetch user's brains (placeholder - would need brain registry API)
   useEffect(() => {

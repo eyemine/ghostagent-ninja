@@ -136,14 +136,18 @@ export async function verifyFeePayment(
   }
 }
 
-// ─── Step 3: Mint beacon NFT chonk.{tokenId}.nftmail.gno ──────────────────────
+// ─── Step 3: Mint beacon NFT {type}-{tokenId}.nftmail.gno ──────────────────────
 // Reuses the gnosis-mint endpoint internally via server-side fetch.
+// label: hyphenated subname label (e.g. "chonk-123", "atom-1234", "eyemine")
+// recipient: wallet to mint to (owner wallet or Safe address for overlays)
 
 export async function mintChonkBeacon(
   tokenId: string,
   ownerWallet: string,
   appUrl: string,
   webhookSecret: string,
+  label?: string,
+  recipient?: string,
 ): Promise<{
   success: boolean;
   txHash?: string;
@@ -152,17 +156,18 @@ export async function mintChonkBeacon(
   email?: string;
   error?: string;
 }> {
-  // Label format: chonk.{tokenId}  — dot-delimited, all lowercase digits for segment2
-  const label = `chonk.${tokenId}`;
+  // Default label format: chonk-{tokenId} (hyphenated to avoid sub.sub.name)
+  const beaconLabel = label ?? `chonk-${tokenId}`;
+  const mintTo = recipient ?? ownerWallet;
 
   try {
     const res = await fetch(`${appUrl}/api/gnosis-mint`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        label,
-        ownerWallet,
-        legacyIdentity: `chonk.${tokenId}`,
+        label: beaconLabel,
+        ownerWallet: mintTo,
+        legacyIdentity: beaconLabel,
         privacyTier: 'private',
       }),
     });
@@ -174,7 +179,7 @@ export async function mintChonkBeacon(
       success: true,
       txHash: data.txHash,
       beaconTokenId: data.tokenId ?? null,
-      beaconNft: `chonk.${tokenId}.nftmail.gno`,
+      beaconNft: `${beaconLabel}.nftmail.gno`,
       email: data.email,
     };
   } catch (err: any) {

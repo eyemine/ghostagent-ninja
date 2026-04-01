@@ -107,6 +107,7 @@ export default function OgNftMoltPage() {
       const agentsWithImages = await Promise.all(
         agents.map(async (agent) => {
           try {
+            // agentCardUrl is like "https://ghostagent.ninja/api/agent-card?agent=eyemine"
             const cardRes = await fetch(agent.agentCardUrl);
             if (cardRes.ok) {
               const card = await cardRes.json() as any;

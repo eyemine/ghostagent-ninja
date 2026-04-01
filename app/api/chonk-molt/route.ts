@@ -142,45 +142,79 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // ── Step 3: Mint beacon NFT (skip for overlay) ──
+    // ── Step 3: Mint beacon NFT ──
+    // Beacon labels use hyphens (not dots) to avoid sub.sub.name interpretation
+    // e.g. chonk-123.nftmail.gno, atom-1234.nftmail.gno, eyemine.nftmail.gno
     const cleanName = primaryName.toLowerCase().replace(/_$/, '');
-    const beaconPrefix = type === 'ens' ? 'ens' : type === 'pownft' ? 'atom' : type === 'normie' ? 'normie' : type === 'chonk' ? 'chonk' : 'nft';
-    // For ENS, use the actual name (e.g. "vitalik") without ens. prefix
+    const beaconPrefix = type === 'pownft' ? 'atom' : type === 'normie' ? 'normie' : type === 'chonk' ? 'chonk' : 'nft';
     const displayLabel = type === 'ens' && nftName ? nftName.replace(/\.eth$/i, '').toLowerCase() : tokenId.slice(0, 20);
-    const beaconLabel = type === 'ens' ? displayLabel : `${beaconPrefix}.${displayLabel}`;
+    const beaconLabel = type === 'ens' ? displayLabel : `${beaconPrefix}-${displayLabel}`;
 
     let beacon: { success: boolean; beaconNft?: string; txHash?: string; beaconTokenId?: number | null; error?: string };
     if (isOverlay) {
-      // Overlay: no new beacon minted, use existing agent's beacon
-      beacon = { success: true, beaconNft: `${targetAgent}.nftmail.gno`, txHash: 'overlay', beaconTokenId: null };
+      // Overlay: still mint beacon NFT for provenance, but to the agent's Safe
+      let safeAddress = ownerWallet; // fallback to owner if Safe lookup fails
+      try {
+        const identityRes = await fetch(NFTMAIL_WORKER_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'getAgentIdentity', name: targetAgent }),
+        });
+        if (identityRes.ok) {
+          const identity = await identityRes.json() as { safeAddress?: string };
+          if (identity.safeAddress) safeAddress = identity.safeAddress;
+        }
+      } catch {
+        // Safe lookup failed, mint to owner wallet instead
+      }
+      beacon = await mintChonkBeacon(tokenId, ownerWallet, APP_URL, webhookSecret, beaconLabel, safeAddress);
+      if (!beacon.success) {
+        return NextResponse.json({ status: 'error', step: 'beacon-mint', error: beacon.error ?? 'Beacon mint failed' }, { status: 502 });
+      }
     } else {
-      // New agent: mint fresh beacon
-      beacon = await mintChonkBeacon(tokenId, ownerWallet, APP_URL, webhookSecret);
+      // New agent: mint fresh beacon to owner wallet
+      beacon = await mintChonkBeacon(tokenId, ownerWallet, APP_URL, webhookSecret, beaconLabel);
       if (!beacon.success) {
         return NextResponse.json({ status: 'error', step: 'beacon-mint', error: beacon.error ?? 'Beacon mint failed' }, { status: 502 });
       }
     }
 
-    // ── Step 4: Register alias ──
-    const aliasPrefix = type === 'ens' ? (nftName ?? `ENS_${tokenId.slice(0, 8)}`) : type === 'pownft' ? `ATOM_${tokenId}` : type === 'normie' ? `NORMIE_${tokenId}` : `CHONK_${tokenId}`;
-    // For ENS, use the name directly without underscore; for others, use prefix with underscore
-    const aliasLocalPart = type === 'ens' ? aliasPrefix : `${aliasPrefix}_`;
-    const aliasEmail = `${aliasLocalPart}@nftmail.box`;
+    // ── Step 4: Register aliases (both human + agent emails) ──
+    // Human HITL email: chonk.123@nftmail.box (dot separator, no underscore)
+    // Agent A2A email:  chonk.123_@nftmail.box (dot separator, trailing underscore)
+    // ENS: eyemine.eth@nftmail.box / eyemine.eth_@nftmail.box
+    const humanLocalPart = type === 'ens'
+      ? (nftName ?? `ens.${tokenId.slice(0, 8)}`)
+      : `${beaconPrefix}.${displayLabel}`;
+    const agentLocalPart = `${humanLocalPart}_`;
+    const humanEmail = `${humanLocalPart}@nftmail.box`;
+    const agentEmail = `${agentLocalPart}@nftmail.box`;
 
     // For overlays, the primaryName is the existing agent (targetAgent); for new agents, it's the NFT-derived name
     const finalPrimaryName = isOverlay ? targetAgent! : cleanName;
 
+    // Register both human and agent aliases
     try {
-      await fetch(NFTMAIL_WORKER_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'createAlias', primaryName: finalPrimaryName, aliasLocalPart,
-          collectionName: type, tokenId, ownerAddress: ownerWallet.toLowerCase(), displayEmail: 'alias',
+      await Promise.all([
+        fetch(NFTMAIL_WORKER_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'createAlias', primaryName: finalPrimaryName, aliasLocalPart: humanLocalPart,
+            collectionName: type, tokenId, ownerAddress: ownerWallet.toLowerCase(), displayEmail: 'human',
+          }),
         }),
-      });
+        fetch(NFTMAIL_WORKER_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'createAlias', primaryName: finalPrimaryName, aliasLocalPart: agentLocalPart,
+            collectionName: type, tokenId, ownerAddress: ownerWallet.toLowerCase(), displayEmail: 'agent',
+          }),
+        }),
+      ]);
     } catch {
-      // Non-fatal — alias is cosmetic
+      // Non-fatal — aliases are cosmetic
     }
 
     // ── Step 5: Record molt + upgrade tier ──
@@ -189,12 +223,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       status: 'ok',
       primaryEmail: `${finalPrimaryName}_@nftmail.box`,
-      aliasEmail,
+      humanEmail,
+      agentEmail,
+      aliasEmail: agentEmail,
       beaconNft: beacon.beaconNft,
       beaconTxHash: beacon.txHash,
       beaconTokenId: beacon.beaconTokenId ?? null,
       displayEmail: 'alias',
-      message: `BYO NFT Molt Complete: Now ${aliasPrefix}`,
+      message: `BYO NFT Molt Complete: Now ${humanLocalPart}`,
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
