@@ -84,11 +84,7 @@ const DEMO_AGENTS: DemoAgent[] = [
   },
 ];
 
-const DEMO_BODIES: DemoBody[] = [
-  { name: 'eyemine',  namespace: 'openclaw.gno', tokenId: 1, tba: '0xb7e40c...f3af13', minted: '19/02/2026' },
-  { name: 'treasury', namespace: 'vault.gno',    tokenId: 3, tba: '0xd4e5f6...c3d4e5', minted: '26/02/2026' },
-  { name: 'hive',     namespace: 'molt.gno',     tokenId: 7, tba: '0xc3d4e5...b2c3d4', minted: '28/02/2026' },
-];
+// DEMO_BODIES removed - now fetching real NFT data via /api/my-nfts
 
 const DEMO_RECEIPTS = [
   {

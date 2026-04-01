@@ -101,7 +101,28 @@ export default function OgNftMoltPage() {
     try {
       const res = await fetch('/api/agents');
       const data = await res.json() as { agents: AgentRegistryEntry[] };
-      setUserAgents(data.agents ?? []);
+      const agents = data.agents ?? [];
+      
+      // Fetch agent card metadata to get NFT images
+      const agentsWithImages = await Promise.all(
+        agents.map(async (agent) => {
+          try {
+            const cardRes = await fetch(agent.agentCardUrl);
+            if (cardRes.ok) {
+              const card = await cardRes.json() as any;
+              return {
+                ...agent,
+                imageUrl: card.image || null,
+              };
+            }
+          } catch {
+            // Failed to fetch card, use default
+          }
+          return agent;
+        })
+      );
+      
+      setUserAgents(agentsWithImages);
     } catch {
       setUserAgents([]);
     }
@@ -460,19 +481,29 @@ export default function OgNftMoltPage() {
                     >
                       <div className="flex items-center gap-2">
                         <div className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full border border-amber-500/30">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img 
-                            src={
-                              agent.tld === 'nftmail.gno' ? 'https://gateway.lighthouse.storage/ipfs/bafkreifv35abvqlhdtc4g2i4xelnmxnhaac7exyu6r24o3fbgthwcmupwy' :
-                              agent.tld === 'molt.gno' ? 'https://gateway.lighthouse.storage/ipfs/bafkreifm4gtqaxgyb2quyykij4np5naoxzpf5w6za6maywemcvl7tltt7u' :
-                              agent.tld === 'openclaw.gno' ? 'https://gateway.lighthouse.storage/ipfs/bafkreiczeqhex35dvj4ewbzn2gyqnbgqb22np5zgp223vnbfhaod6sv4sq' :
-                              agent.tld === 'vault.gno' ? 'https://gateway.lighthouse.storage/ipfs/bafkreick55xkc2ucnmk2wjbzl6a5chqkvmwjll4oqbqajfh5mapd3s7fku' :
-                              agent.tld === 'agent.gno' ? 'https://gateway.lighthouse.storage/ipfs/bafkreigdisoyfs75rneioevm5irn2k4prdddtuum5bpn27bykhjtdc4fii' :
-                              'https://gateway.lighthouse.storage/ipfs/bafkreid7jamriw5jneuarcq2q6lrbfsqe76eebv6r2rworrnhyj2rpsuem'
-                            }
-                            alt={agent.tld ?? 'agent'}
-                            className="h-full w-full object-cover"
-                          />
+                          {(agent as any).imageUrl ? (
+                            <Image 
+                              src={(agent as any).imageUrl} 
+                              alt={agent.name}
+                              fill
+                              unoptimized
+                              className="object-cover"
+                            />
+                          ) : (
+                            /* eslint-disable-next-line @next/next/no-img-element */
+                            <img 
+                              src={
+                                agent.tld === 'nftmail.gno' ? 'https://gateway.lighthouse.storage/ipfs/bafkreifv35abvqlhdtc4g2i4xelnmxnhaac7exyu6r24o3fbgthwcmupwy' :
+                                agent.tld === 'molt.gno' ? 'https://gateway.lighthouse.storage/ipfs/bafkreifm4gtqaxgyb2quyykij4np5naoxzpf5w6za6maywemcvl7tltt7u' :
+                                agent.tld === 'openclaw.gno' ? 'https://gateway.lighthouse.storage/ipfs/bafkreiczeqhex35dvj4ewbzn2gyqnbgqb22np5zgp223vnbfhaod6sv4sq' :
+                                agent.tld === 'vault.gno' ? 'https://gateway.lighthouse.storage/ipfs/bafkreick55xkc2ucnmk2wjbzl6a5chqkvmwjll4oqbqajfh5mapd3s7fku' :
+                                agent.tld === 'agent.gno' ? 'https://gateway.lighthouse.storage/ipfs/bafkreigdisoyfs75rneioevm5irn2k4prdddtuum5bpn27bykhjtdc4fii' :
+                                'https://gateway.lighthouse.storage/ipfs/bafkreid7jamriw5jneuarcq2q6lrbfsqe76eebv6r2rworrnhyj2rpsuem'
+                              }
+                              alt={agent.tld ?? 'agent'}
+                              className="h-full w-full object-cover"
+                            />
+                          )}
                         </div>
                         <div className="flex-1">
                           <div className="text-xs font-semibold text-amber-300">{agent.name}</div>

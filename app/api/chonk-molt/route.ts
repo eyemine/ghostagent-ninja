@@ -163,7 +163,8 @@ export async function POST(req: NextRequest) {
 
     // ── Step 4: Register alias ──
     const aliasPrefix = type === 'ens' ? (nftName ?? `ENS_${tokenId.slice(0, 8)}`) : type === 'pownft' ? `ATOM_${tokenId}` : type === 'normie' ? `NORMIE_${tokenId}` : `CHONK_${tokenId}`;
-    const aliasLocalPart = `${aliasPrefix}_`;
+    // For ENS, use the name directly without underscore; for others, use prefix with underscore
+    const aliasLocalPart = type === 'ens' ? aliasPrefix : `${aliasPrefix}_`;
     const aliasEmail = `${aliasLocalPart}@nftmail.box`;
 
     // For overlays, the primaryName is the existing agent (targetAgent); for new agents, it's the NFT-derived name
