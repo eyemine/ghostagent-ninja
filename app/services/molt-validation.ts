@@ -25,33 +25,17 @@ import { WORKER_URL } from '../utils/config';
 // Worker tiers that are permitted to molt
 const MOLT_PERMITTED_TIERS = new Set(['pupa', 'imago', 'ghost']);
 
-
 const APP_URL =
   process.env.NEXT_PUBLIC_APP_URL || 'https://ghostagent.ninja';
 
-export interface MoltValidationParams {
-  agentName: string;        // bare name, no underscore
-  callerWallet: string;     // connected wallet address
-  targetName: string;       // target identity bare name
-  targetTld: string;        // e.g. 'molt.gno' | 'agent.gno'
-}
+const GNOSIS_RPC = 'https://rpc.gnosischain.com';
 
-export interface MoltValidationResult {
-  canMolt: boolean;
-  errors: string[];
-  warnings: string[];
-  sourceAgent?: {
-    name: string;
-    tld: string;
-    tier: string;
-    onChainOwner: string;
-    originNft: string;
-    tbaAddress: string | null;
-    totalXdaiBurned: number;
-    surgeReputationScore: number;
-  };
-  targetAvailable?: boolean;
-}
+const BEACON_CONTRACTS: Record<string, string> = {
+  'nftmail.gno': '0x46c37365572C9994812AAA41fD04eB56D05469D0',
+  'molt.gno': '0x4b54213c1e5826497ff39ba8c87a7b75d2bc3c50',
+  'openclaw.gno': '0xbD8285A8455CCEC4bE671D9eE3924Ab1264fcbbe',
+  'picoclaw.gno': '0xe5fd65562698f46ea9762bd38141535b1fd875b5',
+};
 
 // ── Resolve source agent from worker KV ──────────────────────────────────────
 
@@ -68,6 +52,41 @@ async function resolveAgent(agentName: string): Promise<any | null> {
   } catch {
     return null;
   }
+}
+
+// ── Check direct beacon NFT ownership (fallback when agent not in KV) ──────────
+
+async function checkBeaconOwnership(agentName: string, wallet: string): Promise<{ tokenId: number; namespace: string } | null> {
+  // Check each namespace for a token owned by this wallet with matching name
+  for (const [namespace, contract] of Object.entries(BEACON_CONTRACTS)) {
+    try {
+      // Check tokens 1-20 for ownership
+      for (let tokenId = 1; tokenId <= 20; tokenId++) {
+        const tokenIdHex = BigInt(tokenId).toString(16).padStart(64, '0');
+        const res = await fetch(GNOSIS_RPC, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            jsonrpc: '2.0',
+            id: 1,
+            method: 'eth_call',
+            params: [{ to: contract, data: '0x6352211e' + tokenIdHex }, 'latest'],
+          }),
+        });
+        const data = await res.json() as { result?: string };
+        if (data.result && data.result !== '0x') {
+          const owner = ('0x' + data.result.slice(26)).toLowerCase();
+          if (owner === wallet.toLowerCase()) {
+            // Found a token owned by this wallet - check metadata for name match
+            return { tokenId, namespace };
+          }
+        }
+      }
+    } catch {
+      // Continue to next namespace
+    }
+  }
+  return null;
 }
 
 // ── Check target name availability via check-name API ────────────────────────
@@ -103,6 +122,32 @@ async function getMoltPath(agentName: string): Promise<any | null> {
 
 // ── Main validation ───────────────────────────────────────────────────────────
 
+export interface MoltValidationParams {
+  agentName: string;        // bare name, no underscore
+  callerWallet: string;     // connected wallet address
+  targetName: string;       // target identity bare name
+  targetTld: string;        // e.g. 'molt.gno' | 'agent.gno'
+}
+
+export interface MoltValidationResult {
+  canMolt: boolean;
+  errors: string[];
+  warnings: string[];
+  sourceAgent?: {
+    name: string;
+    tld: string;
+    tier: string;
+    onChainOwner: string;
+    originNft: string;
+    tbaAddress: string | null;
+    totalXdaiBurned: number;
+    surgeReputationScore: number;
+  };
+  targetAvailable?: boolean;
+}
+
+// ── Main validation ───────────────────────────────────────────────────────────
+
 export async function validateMolt(
   params: MoltValidationParams,
 ): Promise<MoltValidationResult> {
@@ -125,11 +170,47 @@ export async function validateMolt(
     return { canMolt: false, errors, warnings };
   }
 
-  // 2. Resolve source agent
-  const [resolved, moltPath] = await Promise.all([
+  // 2. Resolve source agent (try KV first, fallback to on-chain beacon check)
+  const [resolved, moltPath, beaconOwned] = await Promise.all([
     resolveAgent(agentName),
     getMoltPath(agentName),
+    checkBeaconOwnership(agentName, callerWallet),
   ]);
+
+  // If not in KV but owns beacon NFT directly, allow molt
+  if (!resolved && beaconOwned) {
+    // Allow molt for direct beacon owners even if not in KV
+    const sourceAgent = {
+      name: agentName,
+      tld: beaconOwned.namespace,
+      tier: 'basic',
+      level: 'larva',
+      onChainOwner: callerWallet,
+      originNft: `${agentName}.${beaconOwned.namespace}`,
+      tbaAddress: null,
+      totalXdaiBurned: 0,
+      surgeReputationScore: 0,
+    };
+
+    // Check target availability
+    const targetAvailable = await checkTargetAvailable(targetName, targetTld);
+    if (!targetAvailable) {
+      errors.push(`Target identity "${targetName}.${targetTld}" is already taken`);
+    }
+
+    // Warn if molting to same name
+    if (targetName === agentName) {
+      warnings.push('Target identity is the same as the source agent name');
+    }
+
+    return {
+      canMolt: errors.length === 0,
+      errors,
+      warnings,
+      sourceAgent,
+      targetAvailable,
+    };
+  }
 
   if (!resolved) {
     errors.push(`Agent "${agentName}_" not found — check the name and try again`);
