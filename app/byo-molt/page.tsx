@@ -57,8 +57,11 @@ async function fetchChonkImage(tokenId: string): Promise<{ name: string; imageUr
     const res = await fetch(`https://base-mainnet.g.alchemy.com/nft/v3/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY || 'demo'}/getNFTMetadata?contractAddress=${CHONK_CONTRACT}&tokenId=${tokenId}&refreshCache=false`);
     if (!res.ok) return { name: `Chonk #${tokenId}`, imageUrl: null };
     const data = await res.json() as any;
-    // Alchemy returns image.cachedUrl or image.originalUrl
-    const imageUrl = data?.image?.cachedUrl || data?.image?.originalUrl || data?.image?.pngUrl || null;
+    // For video NFTs, use pngUrl (thumbnail), otherwise use cachedUrl
+    const isVideo = data?.image?.contentType?.startsWith('video/');
+    const imageUrl = isVideo 
+      ? (data?.image?.pngUrl || data?.image?.thumbnailUrl || null)
+      : (data?.image?.cachedUrl || data?.image?.originalUrl || data?.image?.pngUrl || null);
     return { name: data?.name || `Chonk #${tokenId}`, imageUrl };
   } catch {
     return { name: `Chonk #${tokenId}`, imageUrl: null };
@@ -71,7 +74,11 @@ async function fetchPownftImage(tokenId: string): Promise<{ name: string; imageU
     const res = await fetch(`https://eth-mainnet.g.alchemy.com/nft/v3/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY || 'demo'}/getNFTMetadata?contractAddress=${POWNFT_CONTRACT}&tokenId=${tokenId}&refreshCache=false`);
     if (!res.ok) return { name: `ATOM #${tokenId}`, imageUrl: null };
     const data = await res.json() as any;
-    const imageUrl = data?.image?.cachedUrl || data?.image?.originalUrl || data?.image?.pngUrl || null;
+    // For video NFTs, use pngUrl (thumbnail), otherwise use cachedUrl
+    const isVideo = data?.image?.contentType?.startsWith('video/');
+    const imageUrl = isVideo 
+      ? (data?.image?.pngUrl || data?.image?.thumbnailUrl || null)
+      : (data?.image?.cachedUrl || data?.image?.originalUrl || data?.image?.pngUrl || null);
     return { name: data?.name || `ATOM #${tokenId}`, imageUrl };
   } catch {
     return { name: `ATOM #${tokenId}`, imageUrl: null };
@@ -84,7 +91,11 @@ async function fetchNormieImage(tokenId: string): Promise<{ name: string; imageU
     const res = await fetch(`https://eth-mainnet.g.alchemy.com/nft/v3/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY || 'demo'}/getNFTMetadata?contractAddress=${NORMIE_CONTRACT}&tokenId=${tokenId}&refreshCache=false`);
     if (!res.ok) return { name: `Normie #${tokenId}`, imageUrl: null };
     const data = await res.json() as any;
-    const imageUrl = data?.image?.cachedUrl || data?.image?.originalUrl || data?.image?.pngUrl || null;
+    // For video NFTs, use pngUrl (thumbnail), otherwise use cachedUrl
+    const isVideo = data?.image?.contentType?.startsWith('video/');
+    const imageUrl = isVideo 
+      ? (data?.image?.pngUrl || data?.image?.thumbnailUrl || null)
+      : (data?.image?.cachedUrl || data?.image?.originalUrl || data?.image?.pngUrl || null);
     return { name: data?.name || `Normie #${tokenId}`, imageUrl };
   } catch {
     return { name: `Normie #${tokenId}`, imageUrl: null };
