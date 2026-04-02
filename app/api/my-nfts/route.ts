@@ -98,42 +98,43 @@ async function fetchNftsForContract(wallet: string, contract: string, namespace:
     const nfts: NftBody[] = [];
     
     if (balance === 0) {
-      // Try to find tokens by checking ownerOf for recent token IDs
-      // This handles contracts with non-standard balanceOf implementations
-      console.log(`[my-nfts] Balance is 0 for ${namespace}, checking ownerOf fallback for tokens 1-20`);
-      const MAX_TOKEN_CHECK = 20; // Check tokens 1-20
-      for (let tokenId = 1; tokenId <= MAX_TOKEN_CHECK; tokenId++) {
+      // Parallel check for tokens 1-10 (reduced from 20 to avoid timeout)
+      const MAX_TOKEN_CHECK = 10;
+      const ownerChecks = Array.from({ length: MAX_TOKEN_CHECK }, async (_, i) => {
+        const tokenId = i + 1;
         try {
           const tokenIdHex = BigInt(tokenId).toString(16).padStart(64, '0');
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 2000);
+          
           const ownerRes = await fetch(GNOSIS_RPC, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            signal: controller.signal,
             body: JSON.stringify({
               jsonrpc: '2.0',
               id: 1,
               method: 'eth_call',
-              params: [{ to: contract, data: '0x6352211e' + tokenIdHex }, 'latest'], // ownerOf
+              params: [{ to: contract, data: '0x6352211e' + tokenIdHex }, 'latest'],
             }),
           });
+          clearTimeout(timeout);
+          
           const ownerData = await ownerRes.json() as { result?: string };
-          console.log(`[my-nfts] Token ${tokenId} ownerOf result:`, ownerData.result);
           if (ownerData.result && ownerData.result !== '0x') {
             const owner = ('0x' + ownerData.result.slice(26)).toLowerCase();
-            console.log(`[my-nfts] Token ${tokenId} owner: ${owner}, wallet: ${wallet.toLowerCase()}`);
             if (owner === wallet.toLowerCase()) {
-              // Found a token owned by this wallet
-              console.log(`[my-nfts] Found matching token ${tokenId}, fetching metadata...`);
-              const nft = await fetchTokenMetadata(contract, namespace, tokenId, wallet);
-              console.log(`[my-nfts] Metadata result:`, nft);
-              if (nft) nfts.push(nft);
+              return await fetchTokenMetadata(contract, namespace, tokenId, wallet);
             }
           }
-        } catch (err) {
-          console.log(`[my-nfts] Error checking token ${tokenId}:`, err);
+        } catch {
+          // Ignore errors for individual tokens
         }
-      }
-      console.log(`[my-nfts] Fallback complete, found ${nfts.length} NFTs for ${namespace}`);
-      return nfts;
+        return null;
+      });
+      
+      const results = await Promise.all(ownerChecks);
+      return results.filter((nft): nft is NftBody => nft !== null);
     }
 
     // For each token owned, get its token ID and metadata
