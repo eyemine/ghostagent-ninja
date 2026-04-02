@@ -482,8 +482,9 @@ export default function OgNftMoltPage() {
                   </button>
                 </div>
               ) : (
-                <input className={ic} placeholder={NFT_TYPE_META[nftType].prefill || 'e.g. paymastr'} value={primaryName}
-                  onChange={e => { setPrimaryName(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g,'')); reset(); }} />
+                <div className={`${ic} opacity-70 cursor-not-allowed`}>
+                  {NFT_TYPE_META[nftType].prefill || 'N/A'}
+                </div>
               )}
               <p className="mt-1 text-[10px] text-[var(--muted)]">All BYO molts mint to <span className="font-semibold text-fuchsia-300">nftmail.gno</span>. For molt.gno / openclaw.gno / vault.gno / agent.gno use the dashboard Molt action.</p>
             </div>
@@ -579,7 +580,7 @@ export default function OgNftMoltPage() {
                     />
                   </div>
                   <div className="flex-1">
-                    <div className="text-sm font-semibold text-fuchsia-300">Create New Agent</div>
+                    <div className="text-sm font-semibold text-fuchsia-300">Create New Agent Body</div>
                     <div className="text-[10px] text-[var(--muted)]">Mint a fresh beacon NFT and start a new GhostAgent</div>
                   </div>
                 </div>
@@ -660,7 +661,7 @@ export default function OgNftMoltPage() {
                             className="h-full w-full object-cover" 
                           />
                         </div>
-                        <span className="text-xs font-semibold text-fuchsia-300">Create New Agent</span>
+                        <span className="text-xs font-semibold text-fuchsia-300">Create New Agent Body</span>
                       </div>
                     ) : (
                       <div className="flex items-center gap-2">
