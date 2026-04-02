@@ -399,7 +399,7 @@ export default function DashboardHome() {
       ) : agents.length === 0 ? (
         <div className="rounded-2xl border border-zinc-700/30 bg-zinc-800/10 px-6 py-12 text-center space-y-2">
           <p className="text-sm text-[var(--muted)]">No agents found for this wallet.</p>
-          <p className="text-xs text-zinc-600">Agents are keyed to your Safe address. Make sure your wallet is a Safe owner.</p>
+          <p className="text-xs text-zinc-600">Agent ownership is determined by the Beacon NFT. Connect the EOA wallet holding the NFT.</p>
         </div>
       ) : (
         <>
