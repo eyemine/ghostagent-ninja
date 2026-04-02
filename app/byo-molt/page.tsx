@@ -35,8 +35,8 @@ interface MoltResult {
 
 const CHONK_CONTRACT  = '0x07152bfde079b5319e5308C43fB1DBc9C76CB4f9';
 const ENS_CONTRACT    = '0x57f1887a8BF19b14fC0dF6Fd9B2acc9Af147eA85';
-const POWNFT_CONTRACT = '0x3B3ee1931Dc30C1957379FAc9aba94D1C48a5405';
-const NORMIE_CONTRACT = '0x7Bc1C072742D8391817EB4Eb2317F98dc72C61dB';
+const POWNFT_CONTRACT = '0x9abb7bddc43fa67c76a62d8c016513827f59be1b';
+const NORMIE_CONTRACT = '0x9eb6e2025b64f340691e424b7fe7022ffde12438';
 const MOLT_FEE_XDAI  = 2;
 const TREASURY       = '0xeD0B0694953158dd54D0c36D320b391f44cd67f3';
 
@@ -53,17 +53,13 @@ async function fetchEnsImage(tokenId: string): Promise<{ name: string; imageUrl:
 
 async function fetchChonkImage(tokenId: string): Promise<{ name: string; imageUrl: string | null }> {
   try {
-    // Chonk metadata is on-chain, scrape from website
-    const res = await fetch(`https://www.chonks.xyz/market/chonks/${tokenId}`);
+    // Use Alchemy NFT API to get the image
+    const res = await fetch(`https://base-mainnet.g.alchemy.com/nft/v3/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY || 'demo'}/getNFTMetadata?contractAddress=${CHONK_CONTRACT}&tokenId=${tokenId}&refreshCache=false`);
     if (!res.ok) return { name: `Chonk #${tokenId}`, imageUrl: null };
-    const html = await res.text();
-    // Extract image URL from HTML meta tags or JSON-LD
-    const imgMatch = html.match(/<meta[^>]+property="og:image"[^>]+content="([^"]+)"/i) ||
-                     html.match(/<img[^>]+src="([^"]+chonks[^>]+\.(png|jpg|jpeg|gif))"/i);
-    if (imgMatch && imgMatch[1]) {
-      return { name: `Chonk #${tokenId}`, imageUrl: imgMatch[1].startsWith('http') ? imgMatch[1] : `https://www.chonks.xyz${imgMatch[1]}` };
-    }
-    return { name: `Chonk #${tokenId}`, imageUrl: null };
+    const data = await res.json() as any;
+    // Alchemy returns image.cachedUrl or image.originalUrl
+    const imageUrl = data?.image?.cachedUrl || data?.image?.originalUrl || data?.image?.pngUrl || null;
+    return { name: data?.name || `Chonk #${tokenId}`, imageUrl };
   } catch {
     return { name: `Chonk #${tokenId}`, imageUrl: null };
   }
@@ -71,12 +67,12 @@ async function fetchChonkImage(tokenId: string): Promise<{ name: string; imageUr
 
 async function fetchPownftImage(tokenId: string): Promise<{ name: string; imageUrl: string | null }> {
   try {
-    // POWNFT on Ethereum mainnet
-    const res = await fetch(`https://pownft.com/api/metadata/${tokenId}`);
+    // Use Alchemy NFT API for Ethereum mainnet
+    const res = await fetch(`https://eth-mainnet.g.alchemy.com/nft/v3/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY || 'demo'}/getNFTMetadata?contractAddress=${POWNFT_CONTRACT}&tokenId=${tokenId}&refreshCache=false`);
     if (!res.ok) return { name: `ATOM #${tokenId}`, imageUrl: null };
-    const meta = await res.json() as any;
-    // POWNFT API returns standard ERC721 metadata
-    return { name: meta.name ?? `ATOM #${tokenId}`, imageUrl: meta.image ?? null };
+    const data = await res.json() as any;
+    const imageUrl = data?.image?.cachedUrl || data?.image?.originalUrl || data?.image?.pngUrl || null;
+    return { name: data?.name || `ATOM #${tokenId}`, imageUrl };
   } catch {
     return { name: `ATOM #${tokenId}`, imageUrl: null };
   }
@@ -84,12 +80,12 @@ async function fetchPownftImage(tokenId: string): Promise<{ name: string; imageU
 
 async function fetchNormieImage(tokenId: string): Promise<{ name: string; imageUrl: string | null }> {
   try {
-    // Normie on Ethereum mainnet
-    const res = await fetch(`https://www.normies.art/api/metadata/${tokenId}`);
+    // Use Alchemy NFT API for Ethereum mainnet
+    const res = await fetch(`https://eth-mainnet.g.alchemy.com/nft/v3/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY || 'demo'}/getNFTMetadata?contractAddress=${NORMIE_CONTRACT}&tokenId=${tokenId}&refreshCache=false`);
     if (!res.ok) return { name: `Normie #${tokenId}`, imageUrl: null };
-    const meta = await res.json() as any;
-    // Normie API returns standard ERC721 metadata
-    return { name: meta.name ?? `Normie #${tokenId}`, imageUrl: meta.image ?? null };
+    const data = await res.json() as any;
+    const imageUrl = data?.image?.cachedUrl || data?.image?.originalUrl || data?.image?.pngUrl || null;
+    return { name: data?.name || `Normie #${tokenId}`, imageUrl };
   } catch {
     return { name: `Normie #${tokenId}`, imageUrl: null };
   }
