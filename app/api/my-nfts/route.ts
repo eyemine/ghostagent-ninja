@@ -100,6 +100,7 @@ async function fetchNftsForContract(wallet: string, contract: string, namespace:
     if (balance === 0) {
       // Try to find tokens by checking ownerOf for recent token IDs
       // This handles contracts with non-standard balanceOf implementations
+      console.log(`[my-nfts] Balance is 0 for ${namespace}, checking ownerOf fallback for tokens 1-20`);
       const MAX_TOKEN_CHECK = 20; // Check tokens 1-20
       for (let tokenId = 1; tokenId <= MAX_TOKEN_CHECK; tokenId++) {
         try {
@@ -115,18 +116,23 @@ async function fetchNftsForContract(wallet: string, contract: string, namespace:
             }),
           });
           const ownerData = await ownerRes.json() as { result?: string };
+          console.log(`[my-nfts] Token ${tokenId} ownerOf result:`, ownerData.result);
           if (ownerData.result && ownerData.result !== '0x') {
             const owner = ('0x' + ownerData.result.slice(26)).toLowerCase();
+            console.log(`[my-nfts] Token ${tokenId} owner: ${owner}, wallet: ${wallet.toLowerCase()}`);
             if (owner === wallet.toLowerCase()) {
               // Found a token owned by this wallet
+              console.log(`[my-nfts] Found matching token ${tokenId}, fetching metadata...`);
               const nft = await fetchTokenMetadata(contract, namespace, tokenId, wallet);
+              console.log(`[my-nfts] Metadata result:`, nft);
               if (nft) nfts.push(nft);
             }
           }
-        } catch {
-          // Continue to next token
+        } catch (err) {
+          console.log(`[my-nfts] Error checking token ${tokenId}:`, err);
         }
       }
+      console.log(`[my-nfts] Fallback complete, found ${nfts.length} NFTs for ${namespace}`);
       return nfts;
     }
 
