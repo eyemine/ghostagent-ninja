@@ -51,6 +51,77 @@ async function fetchEnsImage(tokenId: string): Promise<{ name: string; imageUrl:
   }
 }
 
+async function fetchChonkImage(tokenId: string): Promise<{ name: string; imageUrl: string | null }> {
+  try {
+    const res = await fetch(`https://token.chonks.xyz/api/chonk/${tokenId}`);
+    if (!res.ok) return { name: `Chonk #${tokenId}`, imageUrl: null };
+    const meta = await res.json() as any;
+    // Chonk API returns: { name: string, image: string, attributes: [...] }
+    return { name: meta.name ?? `Chonk #${tokenId}`, imageUrl: meta.image ?? null };
+  } catch {
+    return { name: `Chonk #${tokenId}`, imageUrl: null };
+  }
+}
+
+async function fetchPownftImage(tokenId: string): Promise<{ name: string; imageUrl: string | null }> {
+  try {
+    const res = await fetch(`https://pownft.com/api/metadata/${tokenId}`);
+    if (!res.ok) return { name: `ATOM #${tokenId}`, imageUrl: null };
+    const meta = await res.json() as any;
+    // POWNFT API returns standard ERC721 metadata
+    return { name: meta.name ?? `ATOM #${tokenId}`, imageUrl: meta.image ?? null };
+  } catch {
+    return { name: `ATOM #${tokenId}`, imageUrl: null };
+  }
+}
+
+async function fetchNormieImage(tokenId: string): Promise<{ name: string; imageUrl: string | null }> {
+  try {
+    const res = await fetch(`https://www.normies.art/api/metadata/${tokenId}`);
+    if (!res.ok) return { name: `Normie #${tokenId}`, imageUrl: null };
+    const meta = await res.json() as any;
+    // Normie API returns standard ERC721 metadata
+    return { name: meta.name ?? `Normie #${tokenId}`, imageUrl: meta.image ?? null };
+  } catch {
+    return { name: `Normie #${tokenId}`, imageUrl: null };
+  }
+}
+
+async function fetchErc721Image(contract: string, tokenId: string): Promise<{ name: string; imageUrl: string | null }> {
+  try {
+    // First try tokenURI
+    const rpc = contract === CHONK_CONTRACT ? 'https://mainnet.base.org' : 'https://cloudflare-eth.com';
+    const tokenIdHex = BigInt(tokenId).toString(16).padStart(64, '0');
+    const res = await fetch(rpc, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        jsonrpc: '2.0', 
+        id: 1, 
+        method: 'eth_call', 
+        params: [{ to: contract, data: '0xc87b56dd' + tokenIdHex }, 'latest'] 
+      }),
+    });
+    const data = await res.json() as { result?: string };
+    if (!data.result || data.result === '0x') return { name: `NFT #${tokenId}`, imageUrl: null };
+    
+    // Decode tokenURI (it's usually a string)
+    const uri = data.result.startsWith('0x') 
+      ? Buffer.from(data.result.slice(2), 'hex').toString().replace(/\0.*$/, '')
+      : data.result;
+    
+    if (!uri || !uri.startsWith('http')) return { name: `NFT #${tokenId}`, imageUrl: null };
+    
+    // Fetch metadata from URI
+    const metaRes = await fetch(uri);
+    if (!metaRes.ok) return { name: `NFT #${tokenId}`, imageUrl: null };
+    const meta = await metaRes.json() as any;
+    return { name: meta.name ?? `NFT #${tokenId}`, imageUrl: meta.image ?? null };
+  } catch {
+    return { name: `NFT #${tokenId}`, imageUrl: null };
+  }
+}
+
 async function checkOwner(contract: string, tokenId: string, rpc: string): Promise<string | null> {
   const tokenIdHex = BigInt(tokenId).toString(16).padStart(64, '0');
   const res = await fetch(rpc, {
@@ -209,10 +280,19 @@ export default function OgNftMoltPage() {
       if (nftType === 'ens') {
         const { name, imageUrl } = await fetchEnsImage(tokenId);
         preview = { type: 'ens', tokenId, name, imageUrl, chain: 'mainnet' };
+      } else if (nftType === 'chonk') {
+        const { name, imageUrl } = await fetchChonkImage(tokenId);
+        preview = { type: 'chonk', tokenId, name, imageUrl, chain: 'base' };
+      } else if (nftType === 'pownft') {
+        const { name, imageUrl } = await fetchPownftImage(tokenId);
+        preview = { type: 'pownft', tokenId, name, imageUrl, chain: 'mainnet' };
+      } else if (nftType === 'normie') {
+        const { name, imageUrl } = await fetchNormieImage(tokenId);
+        preview = { type: 'normie', tokenId, name, imageUrl, chain: 'base' };
       } else {
-        const nameMap: Record<NftType, string> = { chonk: `Chonk #${tokenId}`, pownft: `ATOM #${tokenId}`, normie: `Normie #${tokenId}`, ens: '', other: `NFT #${tokenId}` };
-        const chainMap: Record<NftType, 'mainnet' | 'base'> = { chonk: 'base', normie: 'base', ens: 'mainnet', pownft: 'mainnet', other: 'mainnet' };
-        preview = { type: nftType, tokenId, name: nameMap[nftType] || `NFT #${tokenId}`, imageUrl: null, chain: chainMap[nftType] };
+        // For 'other' ERC721, try to fetch metadata via tokenURI
+        const { name, imageUrl } = await fetchErc721Image(contract, tokenId);
+        preview = { type: 'other', tokenId, name, imageUrl, chain: 'mainnet' };
       }
       setNftPreview(preview); setOwnershipVerified(true); await fetchUserAgents(); setStep('select-agent');
     } catch { setError('Could not verify ownership — check your connection.'); }
