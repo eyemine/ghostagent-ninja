@@ -198,8 +198,14 @@ export async function validateMolt(
     checkBeaconOwnership(agentName, callerWallet),
   ]);
 
-  // If not in KV but owns beacon NFT directly, allow molt
-  if (!resolved && beaconOwned) {
+  // Use beacon ownership if:
+  // 1. Not in KV but owns beacon NFT directly, OR
+  // 2. In KV but at invalid tier (basic/larva) and owns beacon NFT
+  const resolvedTier = resolved?.accountTier || resolved?.tier;
+  const resolvedLevel = workerTierToLevel(resolvedTier);
+  const needsBeaconFallback = !resolved || (!MOLT_PERMITTED_TIERS.has(resolvedLevel) && beaconOwned);
+
+  if (needsBeaconFallback && beaconOwned) {
     // Allow molt for direct beacon owners - set tier to pupa to bypass restriction
     const sourceAgent = {
       name: agentName,
