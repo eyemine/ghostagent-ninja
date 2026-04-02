@@ -48,7 +48,7 @@ export function MoltStep1({ onSelect }: MoltStep1Props) {
         body: JSON.stringify({
           agentName: lookupName.trim(),
           callerWallet: connectedWallet,
-          targetName: '_placeholder',   // step 1 only checks source ownership
+          targetName: 'temp',   // step 1 only checks source ownership
           targetTld: 'molt.gno',
         }),
       });
