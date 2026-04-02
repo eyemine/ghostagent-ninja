@@ -182,6 +182,11 @@ export default function OgNftMoltPage() {
   function addLog(msg: string) { setLogs(prev => [...prev, `${new Date().toLocaleTimeString()} — ${msg}`]); }
   function reset() { setOwnershipVerified(false); setNftPreview(null); setError(null); setStep('check'); }
 
+  // Fetch user's agents when wallet changes
+  useEffect(() => {
+    fetchUserAgents();
+  }, [connectedWallet]);
+
   // Fetch user's agents (beacon NFTs owned by connected wallet)
   async function fetchUserAgents() {
     if (!connectedWallet) {
@@ -764,8 +769,9 @@ export default function OgNftMoltPage() {
               {error && <p className="text-xs text-red-400">{error}</p>}
               {couponValid && (
                 <button onClick={handleMolt}
-                  className="w-full rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 py-2.5 text-sm font-bold text-white transition hover:opacity-90">
-                  🦋 Execute BYO NFT Molt (free)
+                  className="w-full rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 py-2.5 text-sm font-bold text-white transition hover:opacity-90 flex items-center justify-center gap-2">
+                  <span className="text-base">🦋</span>
+                  Execute BYO NFT Molt (free)
                 </button>
               )}
             </div>
