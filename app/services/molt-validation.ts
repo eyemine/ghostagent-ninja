@@ -235,9 +235,13 @@ export async function validateMolt(
     errors.push('vault.gno is a terminal identity — cannot molt out. Your agent has reached its final form.');
   }
 
-  // 4. Tier gate — free Larva (picoclaw) cannot molt
+  // 4. Tier gate — free Larva (picoclaw) cannot molt (unless they own beacon directly)
   const agentLevel = workerTierToLevel(resolved.accountTier);
-  if (!MOLT_PERMITTED_TIERS.has(agentLevel)) {
+  const walletOwnsBeacon = beaconOwned && beaconOwned.namespace === resolved.tld;
+  const isOwner = resolved.onChainOwner?.toLowerCase() === callerWallet.toLowerCase();
+  
+  // Bypass tier restriction if wallet is owner AND owns the beacon NFT
+  if (!MOLT_PERMITTED_TIERS.has(agentLevel) && !(isOwner && walletOwnsBeacon)) {
     errors.push(
       'Molting requires Pupa tier or above. ' +
       'Free picoclaw (Larva) accounts cannot molt — evolve to Pupa first (2 xDAI).',
