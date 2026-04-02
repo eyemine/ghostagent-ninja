@@ -500,11 +500,29 @@ export default function DashboardHome() {
         <div className="mb-3 flex items-center gap-3">
           <span className="text-[10px] font-semibold tracking-widest text-[var(--muted)]">BODY ACTIONS FOR</span>
           <span className="rounded-full bg-amber-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-amber-300 ring-1 ring-amber-500/20">
-            {selectedBody}
+            {selectedBody || '—'}
           </span>
           <span className="text-[10px] text-zinc-600">select body row to action</span>
         </div>
         <div className="flex flex-wrap gap-2">
+          {orphanBodies.length === 0 && connectedWallet && (
+            <button
+              onClick={async () => {
+                // Direct lookup for rgbanksy token #6
+                const res = await fetch('/api/check-token?wallet=' + connectedWallet + '&tokenId=6&namespace=nftmail.gno');
+                if (res.ok) {
+                  const data = await res.json();
+                  if (data.found) {
+                    setLiveBodies([{ name: 'rgbanksy', namespace: 'nftmail.gno', tokenId: 6, tba: connectedWallet.slice(0, 8) + '...' + connectedWallet.slice(-4), minted: '02/04/2026' }]);
+                    setSelectedBody('rgbanksy');
+                  }
+                }
+              }}
+              className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-1.5 text-xs font-semibold text-amber-300 transition hover:bg-amber-500/20"
+            >
+              Find rgbanksy Token #6
+            </button>
+          )}
           {BODY_ACTIONS.map(action => (
             <Link
               key={action.key}
