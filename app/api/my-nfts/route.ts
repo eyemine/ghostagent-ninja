@@ -51,7 +51,9 @@ async function fetchNftsForContract(wallet: string, contract: string, namespace:
     // For each token owned, get its token ID and metadata
     for (let i = 0; i < balance; i++) {
       try {
-        // Get token ID by index
+        // Get token ID by index for this owner (tokenOfOwnerByIndex)
+        const ownerPadded = wallet.slice(2).padStart(64, '0');
+        const indexPadded = i.toString(16).padStart(64, '0');
         const tokenByIndexRes = await fetch(GNOSIS_RPC, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -59,7 +61,7 @@ async function fetchNftsForContract(wallet: string, contract: string, namespace:
             jsonrpc: '2.0',
             id: 1,
             method: 'eth_call',
-            params: [{ to: contract, data: '0x5175df8e' + i.toString(16).padStart(64, '0') }, 'latest'], // tokenByIndex
+            params: [{ to: contract, data: '0x2f745c59' + ownerPadded + indexPadded }, 'latest'], // tokenOfOwnerByIndex
           }),
         });
         const tokenData = await tokenByIndexRes.json() as { result?: string };
