@@ -5,9 +5,9 @@ import { useState } from 'react';
 const BLOCKED_TLDS = ['picoclaw.gno'];
 
 const SLD_IMAGES: Record<string, string> = {
-  'molt.gno': 'https://gateway.lighthouse.storage/ipfs/bafkreicyrwnh4oxdvmvtqgzgvdmgvpvlpqfnlwrqxbwlwxqxqxqxqxqxqx',
-  'agent.gno': 'https://gateway.lighthouse.storage/ipfs/bafkreihdpulp5ri7wnxqxqxqxqxqxqxqxqxqxqxqxqxqxqxqxqxqxqxqxqx',
-  'openclaw.gno': 'https://gateway.lighthouse.storage/ipfs/bafkreigyk2c7gg5xqxqxqxqxqxqxqxqxqxqxqxqxqxqxqxqxqxqxqxqxqx',
+  'molt.gno': 'https://gateway.lighthouse.storage/ipfs/bafkreicyrwnh4oxk4e53kly7kzmlpb345pqr5gd2v5acf4kcyl75e4hjdy',
+  'agent.gno': 'https://gateway.lighthouse.storage/ipfs/bafkreihdpulp5riv3dkhtomi2iurgeypvplhdsi3nnkumzmvx725xc4yly',
+  'openclaw.gno': 'https://gateway.lighthouse.storage/ipfs/bafkreigyk2c7gg5ijwvg4v6pyopcioatdjsfffvnkplgqyc2t3jowe3t7e',
   'vault.gno': 'https://gateway.lighthouse.storage/ipfs/bafkreibxujpkkylek6uznnl2d2d4vmpxi3aiowxyx2ydf5xo4xexcnksau',
 };
 
@@ -41,7 +41,7 @@ export function MoltStep2({ sourceAgentName, onSelect, onBack }: MoltStep2Props)
   const [error, setError] = useState<string | null>(null);
 
   const preset = PRESET_IDENTITIES.find(p => p.id === selected);
-  const isCustom = selected === 'custom';
+  const isCustom = selected === 'imago';
   const targetName = isCustom ? customName : (selected || '');
   const targetTld = isCustom ? customTld : (preset?.tld ?? '');
   const fullTarget = targetName ? `${targetName}.${targetTld}` : '';
@@ -99,13 +99,17 @@ export function MoltStep2({ sourceAgentName, onSelect, onBack }: MoltStep2Props)
               }`}
             >
               <div className="flex items-center gap-2">
-                <span className="text-base">{opt.icon}</span>
+                {opt.image ? (
+                  <img src={opt.image} alt={opt.label} className="h-8 w-8 rounded object-cover" />
+                ) : opt.icon ? (
+                  <span className="text-4xl">{opt.icon}</span>
+                ) : null}
                 <div>
                   <div className="text-xs font-semibold text-white">{opt.label}</div>
                   <div className="text-[9px] text-[var(--muted)]">{opt.description}</div>
                 </div>
               </div>
-              {opt.tld && opt.id !== 'custom' && (
+              {opt.tld && opt.id !== 'imago' && (
                 <div className="mt-1.5 font-mono text-[9px] text-amber-400/60">.{opt.tld}</div>
               )}
               {blocked && (
@@ -114,6 +118,15 @@ export function MoltStep2({ sourceAgentName, onSelect, onBack }: MoltStep2Props)
             </button>
           );
         })}
+      </div>
+
+      {/* Footer */}
+      <div className="mt-6 space-y-1 text-center text-[10px] text-[var(--muted)]">
+        <div>✓ Email unchanged</div>
+        <div>✓ Safe preserved</div>
+        <div>✓ TBA unchanged</div>
+        <div>✓ picoclaw.gno blocked</div>
+        <div className="pt-2 text-[9px]">molts are logged onchain · primary email never changes · fee non-refundable</div>
       </div>
 
       {/* Custom input */}

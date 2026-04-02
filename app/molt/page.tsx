@@ -68,7 +68,7 @@ export default function MoltPage() {
           <h1 className="text-3xl font-bold tracking-tight text-white">Identity Molt</h1>
           <p className="mx-auto mt-2 max-w-md text-sm text-[var(--muted)]">
             Change your agent's display identity while keeping your email, Safe, TBA, and history intact.
-            Costs 2 xDAI — funds your surge reputation score.
+            Costs 14 xDAI — funds your surge reputation score.
           </p>
         </section>
 
@@ -156,7 +156,7 @@ export default function MoltPage() {
                   <div className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-500/15 text-[10px] font-bold text-amber-300">3</div>
                   <h2 className="text-base font-semibold text-white">Preview & Execute</h2>
                 </div>
-                <p className="ml-8 text-xs text-[var(--muted)]">Review what changes, what stays the same, then pay 2 xDAI to execute.</p>
+                <p className="ml-8 text-xs text-[var(--muted)]">Review what changes, what stays the same, then pay 14 xDAI to execute.</p>
               </div>
               <MoltStep3
                 source={source}

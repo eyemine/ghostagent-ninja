@@ -23,7 +23,7 @@ const MOLT_PERMITTED_TIERS = new Set(['pupa', 'imago', 'ghost']);
 const WEBHOOK_SECRET = process.env.NFTMAIL_WEBHOOK_SECRET || '';
 const GNOSIS_RPC = process.env.NEXT_PUBLIC_GNOSIS_RPC || 'https://rpc.gnosischain.com';
 const GNOSIS_TREASURY = '0xeD0B0694953158dd54D0c36D320b391f44cd67f3';
-const MOLT_FEE_XDAI = 2n * 10n ** 18n; // 2 xDAI in wei
+const MOLT_FEE_XDAI = 14n * 10n ** 18n; // 14 xDAI in wei
 
 async function verifyPayment(txHash: string, ownerWallet: string, expectedFee: bigint = MOLT_FEE_XDAI): Promise<boolean> {
   try {
@@ -114,11 +114,11 @@ export async function POST(req: NextRequest) {
       }, { status: 402 });
     }
 
-    // 2. Verify fee payment (2 xDAI base; 7 xDAI if optional IP mint requested)
-    const expectedFee = (FEATURES.optionalIPMint && optionalIPMint) ? 7n * 10n ** 18n : MOLT_FEE_XDAI;
+    // 2. Verify fee payment (14 xDAI base; 19 xDAI if optional IP mint requested)
+    const expectedFee = (FEATURES.optionalIPMint && optionalIPMint) ? 19n * 10n ** 18n : MOLT_FEE_XDAI;
     const paymentOk = await verifyPayment(paymentTxHash, ownerWallet, expectedFee);
     if (!paymentOk) {
-      const feeLabel = expectedFee === MOLT_FEE_XDAI ? '2 xDAI' : '7 xDAI';
+      const feeLabel = expectedFee === MOLT_FEE_XDAI ? '14 xDAI' : '19 xDAI';
       return NextResponse.json({ error: `Payment verification failed — send ${feeLabel} to treasury on Gnosis` }, { status: 402 });
     }
 

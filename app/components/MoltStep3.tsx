@@ -8,7 +8,7 @@ import type { TargetIdentity } from './MoltStep2';
 import { FEATURES } from '../constants/features';
 
 const GNOSIS_TREASURY = '0xeD0B0694953158dd54D0c36D320b391f44cd67f3' as const;
-const MOLT_FEE_BASE = parseEther('2');
+const MOLT_FEE_BASE = parseEther('14');
 const IP_MINT_FEE  = parseEther('5');
 
 // Opposite .ip type to what the agent already has
@@ -45,7 +45,7 @@ export function MoltStep3({ source, target, onBack, onSuccess }: MoltStep3Props)
   // Only charge extra if feature is enabled AND user opted in
   const activeIPMint  = FEATURES.optionalIPMint && optionalIPMint;
   const totalFee      = activeIPMint ? MOLT_FEE_BASE + IP_MINT_FEE : MOLT_FEE_BASE;
-  const totalFeeLabel = activeIPMint ? '7 xDAI' : '2 xDAI';
+  const totalFeeLabel = activeIPMint ? '19 xDAI' : '14 xDAI';
 
   async function handleExecute() {
     setError(null);
@@ -188,7 +188,7 @@ export function MoltStep3({ source, target, onBack, onSuccess }: MoltStep3Props)
         <div>
           <div className="text-xs font-semibold text-amber-200">Molt fee{optionalIPMint ? ' + .ip mint' : ''}</div>
           <div className="text-[10px] text-[var(--muted)]">
-            {optionalIPMint ? '2 xDAI molt + 5 xDAI .ip mint · ' : ''}Sent to treasury on Gnosis
+            {optionalIPMint ? '14 xDAI molt + 5 xDAI .ip mint · ' : ''}Sent to treasury on Gnosis
           </div>
         </div>
         <div className="text-lg font-bold text-amber-300">{totalFeeLabel}</div>
