@@ -281,17 +281,14 @@ export default function DashboardHome() {
   const [bodiesLoading, setBodiesLoading] = useState(false);
   const [brainsLoading, setBrainsLoading] = useState(false);
 
+  // Fetch agents from beacon NFTs owned by connected wallet
   useEffect(() => {
     if (!connectedWallet) { setLiveAgents(null); return; }
     setAgentsLoading(true);
-    fetch(WORKER_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'listAgents', safeAddress: connectedWallet }),
-    })
-      .then(r => r.json() as Promise<{ agents?: Array<{ name: string; tld: string; erc8004?: Record<string, unknown> }> }>)
+    fetch(`/api/my-nfts?wallet=${connectedWallet}`)
+      .then(r => r.json() as Promise<{ nfts?: Array<{ name: string; namespace: string; tokenId: number }> }>)
       .then(async (data) => {
-        const rawAgents = data.agents ?? [];
+        const rawAgents = data.nfts ?? [];
         // Fetch agent card metadata to get real NFT images
         const agents: DemoAgent[] = await Promise.all(
           rawAgents.map(async (a) => {
@@ -306,7 +303,7 @@ export default function DashboardHome() {
             console.log(`[dashboard] Agent ${a.name} imageUrl:`, imageUrl);
             return {
               name:      a.name,
-              namespace: a.tld,
+              namespace: a.namespace,
               tba:       connectedWallet,
               tier:      'pro' as AgentTier,
               hostScore: 0,
@@ -341,26 +338,15 @@ export default function DashboardHome() {
       .finally(() => setBodiesLoading(false));
   }, [connectedWallet, selectedBody]);
 
-  // Fetch brains = installed brain modules (placeholder for now)
+  // Fetch brains = installed brain modules (from worker by wallet)
   useEffect(() => {
     if (!connectedWallet) { setLiveBrains(null); return; }
     setBrainsLoading(true);
-    // TODO: Replace with real brain registry API
-    // For now, simulate some brains that might not have bodies
-    const mockBrains: LiveBrain[] = [
-      {
-        agent: 'test-brain-1',
-        type: 'CF Worker' as BrainType,
-        endpoint: 'test-brain-1.ghostagent.workers.dev',
-        installed: '01/04/2026',
-      },
-    ];
-    setLiveBrains(mockBrains);
-    if (mockBrains.length > 0 && !selectedBrain) {
-      setSelectedBrain(mockBrains[0].agent);
-    }
+    // TODO: Replace with real brain registry API that filters by wallet
+    // For now, return empty until we have real brain data
+    setLiveBrains([]);
     setBrainsLoading(false);
-  }, [connectedWallet, selectedBrain]);
+  }, [connectedWallet]);
 
   const agents = liveAgents ?? DEMO_AGENTS;
   const bodies = liveBodies ?? [];
