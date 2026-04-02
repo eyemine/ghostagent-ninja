@@ -131,48 +131,14 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    // Also fetch from worker KV for any additional data
-    let workerNfts: NftBody[] = [];
-    try {
-      const workerRes = await fetch(WORKER_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'listAgents', safeAddress: wallet }),
-      });
-      if (workerRes.ok) {
-        const data = await workerRes.json() as { agents?: Array<{ name: string; tld: string; erc8004?: any }> };
-        workerNfts = (data.agents ?? []).map(agent => ({
-          name: agent.name,
-          namespace: agent.tld,
-          tokenId: 0, // Will be filled from contract data
-          tba: wallet.slice(0, 8) + '...' + wallet.slice(-4),
-          minted: new Date().toLocaleDateString('en-GB'),
-        }));
-      }
-    } catch {
-      // Worker fetch failed, continue with on-chain data only
-    }
-
-    // Fetch on-chain NFTs
+    // Fetch on-chain beacon NFTs owned by the wallet
     const onChainNfts: NftBody[] = [];
     for (const [namespace, contract] of Object.entries(BEACON_CONTRACTS)) {
       const nfts = await fetchNftsForContract(wallet, contract, namespace);
       onChainNfts.push(...nfts);
     }
 
-    // Merge worker data with on-chain data
-    const mergedNfts = workerNfts.map(workerNft => {
-      const onChainMatch = onChainNfts.find(n => n.name === workerNft.name);
-      return onChainMatch || workerNft;
-    });
-
-    // Add any on-chain NFTs not in worker data
-    const allNfts = [
-      ...mergedNfts,
-      ...onChainNfts.filter(n => !mergedNfts.find(w => w.name === n.name))
-    ];
-
-    return NextResponse.json({ nfts: allNfts });
+    return NextResponse.json({ nfts: onChainNfts });
   } catch (err: any) {
     console.error('[my-nfts]', err);
     return NextResponse.json(
