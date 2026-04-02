@@ -184,28 +184,57 @@ export default function OgNftMoltPage() {
 
   // Fetch user's agents (ERC-8004 registered) for overlay option
   async function fetchUserAgents() {
+    if (!connectedWallet) {
+      setUserAgents([]);
+      return;
+    }
+    
     try {
-      const res = await fetch('/api/agents');
-      const data = await res.json() as { agents: AgentRegistryEntry[] };
+      // Fetch agents owned by the connected wallet's Safe
+      const WORKER_URL = process.env.NEXT_PUBLIC_WORKER_URL || 'https://nftmail-email-worker.richard-159.workers.dev';
+      const res = await fetch(WORKER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'listAgents', safeAddress: connectedWallet }),
+      });
+      
+      if (!res.ok) {
+        setUserAgents([]);
+        return;
+      }
+      
+      const data = await res.json() as { agents?: Array<{ name: string; tld: string }> };
       const agents = data.agents ?? [];
       
       // Fetch agent card metadata to get NFT images
       const agentsWithImages = await Promise.all(
         agents.map(async (agent) => {
           try {
-            // agentCardUrl is like "https://ghostagent.ninja/api/agent-card?agent=eyemine"
-            const cardRes = await fetch(agent.agentCardUrl);
+            const cardRes = await fetch(`/api/agent-card?agent=${agent.name}`);
             if (cardRes.ok) {
               const card = await cardRes.json() as any;
               return {
-                ...agent,
+                name: agent.name,
+                tld: agent.tld,
+                profileUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'https://ghostagent.ninja'}/agent/${agent.name}`,
+                agentCardUrl: `/api/agent-card?agent=${agent.name}`,
+                a2aCardUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'https://ghostagent.ninja'}/.well-known/agent-card.json`,
+                erc8004: {},
                 imageUrl: card.image || null,
               };
             }
           } catch {
             // Failed to fetch card, use default
           }
-          return agent;
+          return {
+            name: agent.name,
+            tld: agent.tld,
+            profileUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'https://ghostagent.ninja'}/agent/${agent.name}`,
+            agentCardUrl: `/api/agent-card?agent=${agent.name}`,
+            a2aCardUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'https://ghostagent.ninja'}/.well-known/agent-card.json`,
+            erc8004: {},
+            imageUrl: null,
+          };
         })
       );
       
