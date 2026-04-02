@@ -2,12 +2,13 @@
 
 import { useState } from 'react';
 
-const BLOCKED_TLDS = ['vault.gno'];
+const BLOCKED_TLDS: string[] = [];
 
 const PRESET_IDENTITIES = [
-  { id: 'ghost', label: 'Ghost', tld: 'molt.gno', description: 'Anonymous glass-box identity', icon: '👻' },
+  { id: 'molt', label: 'Molt', tld: 'molt.gno', description: 'Glass-box identity with full history', icon: '👻' },
   { id: 'agent', label: 'Agent', tld: 'agent.gno', description: 'Black-box autonomous agent', icon: '🤖' },
-  { id: 'chonk', label: 'Chonk NFT', tld: 'molt.gno', description: 'Verified Chonk collection overlay', icon: '🐸' },
+  { id: 'openclaw', label: 'OpenClaw', tld: 'openclaw.gno', description: 'Transparent governance agent', icon: '🦀' },
+  { id: 'vault', label: 'Vault', tld: 'vault.gno', description: 'Terminal Safe-locked identity', icon: '🏛️' },
   { id: 'custom', label: 'Custom', tld: '', description: 'Enter any available .gno name', icon: '✏️' },
 ];
 
