@@ -118,7 +118,7 @@ export function MoltStep3({ source, target, onBack, onSuccess }: MoltStep3Props)
           </div>
           <div className="flex-1 rounded-lg border border-amber-500/20 bg-amber-500/8 px-3 py-2.5">
             <div className="text-[9px] text-amber-400/60 mb-1">TO</div>
-            <div className="font-mono text-sm text-amber-300">{target.name}</div>
+            <div className="font-mono text-sm text-amber-300">{source.name}</div>
             <div className="text-[9px] text-[var(--muted)] mt-0.5">.{target.tld}</div>
           </div>
         </div>
@@ -127,10 +127,10 @@ export function MoltStep3({ source, target, onBack, onSuccess }: MoltStep3Props)
         <div className="space-y-1.5">
           <div className="text-[9px] font-semibold tracking-[0.12em] text-[var(--muted)]">UNCHANGED</div>
           {[
-            { label: 'Primary email', value: `${source.name}_@nftmail.box` },
-            { label: 'TBA address', value: source.tba },
+            { label: 'Primary Agent email', value: `${source.name}_@nftmail.box` },
+            { label: 'TBA address', value: source.tba === '—' ? '(retrieve Safe address)' : source.tba },
             { label: 'Safe / vault', value: 'preserved' },
-            { label: 'Inbox / history', value: 'preserved' },
+            { label: 'Inbox / history', value: 'preserved (8-day/30-day/Persistent)' },
           ].map(({ label, value }) => (
             <div key={label} className="flex items-center justify-between text-[10px]">
               <span className="text-[var(--muted)]">{label}</span>
@@ -173,12 +173,12 @@ export function MoltStep3({ source, target, onBack, onSuccess }: MoltStep3Props)
           <div>
             <div className="text-[9px] text-[var(--muted)]">Surge score after molt</div>
             <div className="text-xs font-semibold text-amber-300">
-              {source.surgeReputationScore} → {Math.min(Math.round((source.surgeReputationScore + 2.2) * 10) / 10, 1000)} pts
+              {source.surgeReputationScore} → {Math.min(Math.round((source.surgeReputationScore + 15.4) * 10) / 10, 1000)} pts
             </div>
           </div>
           <div className="text-right">
             <div className="text-[9px] text-[var(--muted)]">Total xDAI burned</div>
-            <div className="text-xs font-semibold text-white">{source.totalXdaiBurned.toFixed(1)} → {(source.totalXdaiBurned + 2).toFixed(1)}</div>
+            <div className="text-xs font-semibold text-white">{source.totalXdaiBurned.toFixed(1)} → {(source.totalXdaiBurned + 14).toFixed(1)}</div>
           </div>
         </div>
       </div>
