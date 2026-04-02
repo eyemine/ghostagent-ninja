@@ -167,6 +167,51 @@ export default function MoltPage() {
                   setStep(4);
                 }}
               />
+              
+              {/* Ghost tier molt option (Imago-only) */}
+              {source.tier === 'imago' && (
+                <div className="mt-6 rounded-xl border border-zinc-500/30 bg-zinc-900/40 p-5">
+                  <div className="flex items-start gap-4">
+                    <img 
+                      src="https://gateway.lighthouse.storage/ipfs/bafkreiggfgwko2etlo4uxu65bou2cfv33awklo5m5zj7fypxwvfjp72xk4" 
+                      alt="Ghost" 
+                      className="h-12 w-12 rounded-lg object-cover"
+                    />
+                    <div className="flex-1">
+                      <h3 className="text-sm font-bold text-white">Molt to Ghost Tier</h3>
+                      <p className="mt-1 text-xs text-zinc-400">
+                        Final evolution — full autonomy, privacy-preserving, optional local execution. Brain preserved.
+                      </p>
+                      <div className="mt-3 flex items-center gap-3">
+                        <Link
+                          href={`/dashboard/settings/ghost?agent=${source.name}`}
+                          className="rounded-lg border border-zinc-400/30 bg-zinc-800/60 px-4 py-2 text-xs font-semibold text-zinc-200 transition hover:bg-zinc-700/60"
+                        >
+                          Molt to Ghost (50 xDAI)
+                        </Link>
+                        <span className="text-[10px] text-zinc-500">Imago tier required</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {source.tier !== 'imago' && (
+                <div className="mt-6 rounded-xl border border-zinc-500/20 bg-zinc-900/20 p-5 opacity-50">
+                  <div className="flex items-start gap-4">
+                    <img 
+                      src="https://gateway.lighthouse.storage/ipfs/bafkreiggfgwko2etlo4uxu65bou2cfv33awklo5m5zj7fypxwvfjp72xk4" 
+                      alt="Ghost" 
+                      className="h-12 w-12 rounded-lg object-cover grayscale"
+                    />
+                    <div className="flex-1">
+                      <h3 className="text-sm font-bold text-zinc-500">Molt to Ghost Tier</h3>
+                      <p className="mt-1 text-xs text-zinc-600">
+                        Only Imago tier agents can molt to Ghost. Molt to Imago first.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </>
           )}
 
