@@ -182,7 +182,7 @@ export default function OgNftMoltPage() {
   function addLog(msg: string) { setLogs(prev => [...prev, `${new Date().toLocaleTimeString()} — ${msg}`]); }
   function reset() { setOwnershipVerified(false); setNftPreview(null); setError(null); setStep('check'); }
 
-  // Fetch user's agents (ERC-8004 registered) for overlay option
+  // Fetch user's agents (beacon NFTs owned by connected wallet)
   async function fetchUserAgents() {
     if (!connectedWallet) {
       setUserAgents([]);
@@ -190,34 +190,29 @@ export default function OgNftMoltPage() {
     }
     
     try {
-      // Fetch agents owned by the connected wallet's Safe
-      const WORKER_URL = process.env.NEXT_PUBLIC_WORKER_URL || 'https://nftmail-email-worker.richard-159.workers.dev';
-      const res = await fetch(WORKER_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'listAgents', safeAddress: connectedWallet }),
-      });
+      // Fetch beacon NFTs owned by the connected wallet (EOA)
+      const res = await fetch(`/api/my-nfts?wallet=${connectedWallet}`);
       
       if (!res.ok) {
         setUserAgents([]);
         return;
       }
       
-      const data = await res.json() as { agents?: Array<{ name: string; tld: string }> };
-      const agents = data.agents ?? [];
+      const data = await res.json() as { nfts?: Array<{ name: string; namespace: string; tokenId: number }> };
+      const nfts = data.nfts ?? [];
       
       // Fetch agent card metadata to get NFT images
       const agentsWithImages = await Promise.all(
-        agents.map(async (agent) => {
+        nfts.map(async (nft) => {
           try {
-            const cardRes = await fetch(`/api/agent-card?agent=${agent.name}`);
+            const cardRes = await fetch(`/api/agent-card?agent=${nft.name}`);
             if (cardRes.ok) {
               const card = await cardRes.json() as any;
               return {
-                name: agent.name,
-                tld: agent.tld,
-                profileUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'https://ghostagent.ninja'}/agent/${agent.name}`,
-                agentCardUrl: `/api/agent-card?agent=${agent.name}`,
+                name: nft.name,
+                tld: nft.namespace,
+                profileUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'https://ghostagent.ninja'}/agent/${nft.name}`,
+                agentCardUrl: `/api/agent-card?agent=${nft.name}`,
                 a2aCardUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'https://ghostagent.ninja'}/.well-known/agent-card.json`,
                 erc8004: {},
                 imageUrl: card.image || null,
@@ -227,10 +222,10 @@ export default function OgNftMoltPage() {
             // Failed to fetch card, use default
           }
           return {
-            name: agent.name,
-            tld: agent.tld,
-            profileUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'https://ghostagent.ninja'}/agent/${agent.name}`,
-            agentCardUrl: `/api/agent-card?agent=${agent.name}`,
+            name: nft.name,
+            tld: nft.namespace,
+            profileUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'https://ghostagent.ninja'}/agent/${nft.name}`,
+            agentCardUrl: `/api/agent-card?agent=${nft.name}`,
             a2aCardUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'https://ghostagent.ninja'}/.well-known/agent-card.json`,
             erc8004: {},
             imageUrl: null,
