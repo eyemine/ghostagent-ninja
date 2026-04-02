@@ -53,11 +53,17 @@ async function fetchEnsImage(tokenId: string): Promise<{ name: string; imageUrl:
 
 async function fetchChonkImage(tokenId: string): Promise<{ name: string; imageUrl: string | null }> {
   try {
-    const res = await fetch(`https://token.chonks.xyz/api/chonk/${tokenId}`);
+    // Chonk metadata is on-chain, scrape from website
+    const res = await fetch(`https://www.chonks.xyz/market/chonks/${tokenId}`);
     if (!res.ok) return { name: `Chonk #${tokenId}`, imageUrl: null };
-    const meta = await res.json() as any;
-    // Chonk API returns: { name: string, image: string, attributes: [...] }
-    return { name: meta.name ?? `Chonk #${tokenId}`, imageUrl: meta.image ?? null };
+    const html = await res.text();
+    // Extract image URL from HTML meta tags or JSON-LD
+    const imgMatch = html.match(/<meta[^>]+property="og:image"[^>]+content="([^"]+)"/i) ||
+                     html.match(/<img[^>]+src="([^"]+chonks[^>]+\.(png|jpg|jpeg|gif))"/i);
+    if (imgMatch && imgMatch[1]) {
+      return { name: `Chonk #${tokenId}`, imageUrl: imgMatch[1].startsWith('http') ? imgMatch[1] : `https://www.chonks.xyz${imgMatch[1]}` };
+    }
+    return { name: `Chonk #${tokenId}`, imageUrl: null };
   } catch {
     return { name: `Chonk #${tokenId}`, imageUrl: null };
   }
@@ -65,6 +71,7 @@ async function fetchChonkImage(tokenId: string): Promise<{ name: string; imageUr
 
 async function fetchPownftImage(tokenId: string): Promise<{ name: string; imageUrl: string | null }> {
   try {
+    // POWNFT on Ethereum mainnet
     const res = await fetch(`https://pownft.com/api/metadata/${tokenId}`);
     if (!res.ok) return { name: `ATOM #${tokenId}`, imageUrl: null };
     const meta = await res.json() as any;
@@ -77,6 +84,7 @@ async function fetchPownftImage(tokenId: string): Promise<{ name: string; imageU
 
 async function fetchNormieImage(tokenId: string): Promise<{ name: string; imageUrl: string | null }> {
   try {
+    // Normie on Ethereum mainnet
     const res = await fetch(`https://www.normies.art/api/metadata/${tokenId}`);
     if (!res.ok) return { name: `Normie #${tokenId}`, imageUrl: null };
     const meta = await res.json() as any;
@@ -229,7 +237,7 @@ export default function OgNftMoltPage() {
     return contractAddr;
   };
   const resolvedRpc = () => {
-    if (nftType === 'chonk' || nftType === 'normie') return 'https://mainnet.base.org';
+    if (nftType === 'chonk') return 'https://mainnet.base.org';
     return 'https://ethereum.publicnode.com';
   };
 
@@ -288,7 +296,7 @@ export default function OgNftMoltPage() {
         preview = { type: 'pownft', tokenId, name, imageUrl, chain: 'mainnet' };
       } else if (nftType === 'normie') {
         const { name, imageUrl } = await fetchNormieImage(tokenId);
-        preview = { type: 'normie', tokenId, name, imageUrl, chain: 'base' };
+        preview = { type: 'normie', tokenId, name, imageUrl, chain: 'mainnet' };
       } else {
         // For 'other' ERC721, try to fetch metadata via tokenURI
         const { name, imageUrl } = await fetchErc721Image(contract, tokenId);
@@ -414,9 +422,9 @@ export default function OgNftMoltPage() {
             <div className="grid grid-cols-3 gap-2 md:grid-cols-5">
               {([
                 {k:'ens' as NftType,l:'ENS Name',img:'https://gateway.lighthouse.storage/ipfs/bafkreifv35abvqlhdtc4g2i4xelnmxnhaac7exyu6r24o3fbgthwcmupwy'},
-                {k:'chonk' as NftType,l:'Chonk',img:'https://gateway.lighthouse.storage/ipfs/bafkreiczeqhex35dvj4ewbzn2gyqnbgqb22np5zgp223vnbfhaod6sv4sq'},
-                {k:'pownft' as NftType,l:'POWNFT',img:'https://gateway.lighthouse.storage/ipfs/bafkreick55xkc2ucnmk2wjbzl6a5chqkvmwjll4oqbqajfh5mapd3s7fku'},
-                {k:'normie' as NftType,l:'Normies',img:'https://gateway.lighthouse.storage/ipfs/bafkreigdisoyfs75rneioevm5irn2k4prdddtuum5bpn27bykhjtdc4fii'},
+                {k:'chonk' as NftType,l:'CHONKS\nON BASE',img:'https://gateway.lighthouse.storage/ipfs/bafkreiczeqhex35dvj4ewbzn2gyqnbgqb22np5zgp223vnbfhaod6sv4sq'},
+                {k:'pownft' as NftType,l:'POWNFT\nON ETH',img:'https://gateway.lighthouse.storage/ipfs/bafkreick55xkc2ucnmk2wjbzl6a5chqkvmwjll4oqbqajfh5mapd3s7fku'},
+                {k:'normie' as NftType,l:'NORMIES\nON ETH',img:'https://gateway.lighthouse.storage/ipfs/bafkreigdisoyfs75rneioevm5irn2k4prdddtuum5bpn27bykhjtdc4fii'},
                 {k:'other' as NftType,l:'Other Verified ERC721',img:'https://gateway.lighthouse.storage/ipfs/bafkreid7jamriw5jneuarcq2q6lrbfsqe76eebv6r2rworrnhyj2rpsuem'},
               ]).map(opt => (
                 <button key={opt.k} onClick={() => { selectNftType(opt.k); setTokenId(''); }}
