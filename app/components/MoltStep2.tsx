@@ -2,14 +2,21 @@
 
 import { useState } from 'react';
 
-const BLOCKED_TLDS: string[] = [];
+const BLOCKED_TLDS = ['picoclaw.gno'];
+
+const SLD_IMAGES: Record<string, string> = {
+  'molt.gno': 'https://gateway.lighthouse.storage/ipfs/bafkreicyrwnh4oxdvmvtqgzgvdmgvpvlpqfnlwrqxbwlwxqxqxqxqxqxqx',
+  'agent.gno': 'https://gateway.lighthouse.storage/ipfs/bafkreihdpulp5ri7wnxqxqxqxqxqxqxqxqxqxqxqxqxqxqxqxqxqxqxqxqx',
+  'openclaw.gno': 'https://gateway.lighthouse.storage/ipfs/bafkreigyk2c7gg5xqxqxqxqxqxqxqxqxqxqxqxqxqxqxqxqxqxqxqxqxqx',
+  'vault.gno': 'https://gateway.lighthouse.storage/ipfs/bafkreibxujpkkylek6uznnl2d2d4vmpxi3aiowxyx2ydf5xo4xexcnksau',
+};
 
 const PRESET_IDENTITIES = [
-  { id: 'molt', label: 'Molt', tld: 'molt.gno', description: 'Glass-box identity with full history', icon: '👻' },
-  { id: 'agent', label: 'Agent', tld: 'agent.gno', description: 'Black-box autonomous agent', icon: '🤖' },
-  { id: 'openclaw', label: 'OpenClaw', tld: 'openclaw.gno', description: 'Transparent governance agent', icon: '🦀' },
-  { id: 'vault', label: 'Vault', tld: 'vault.gno', description: 'Terminal Safe-locked identity', icon: '🏛️' },
-  { id: 'custom', label: 'Custom', tld: '', description: 'Enter any available .gno name', icon: '✏️' },
+  { id: 'molt', label: 'Molt', tld: 'molt.gno', description: 'Glass-box identity with full history', image: SLD_IMAGES['molt.gno'] },
+  { id: 'agent', label: 'Agent', tld: 'agent.gno', description: 'Black-box autonomous agent', image: SLD_IMAGES['agent.gno'] },
+  { id: 'openclaw', label: 'OpenClaw', tld: 'openclaw.gno', description: 'Transparent governance agent', image: SLD_IMAGES['openclaw.gno'] },
+  { id: 'vault', label: 'Vault', tld: 'vault.gno', description: 'Terminal Safe-locked identity', image: SLD_IMAGES['vault.gno'] },
+  { id: 'imago', label: 'Imago', tld: '', description: 'Pupa → Imago tier upgrade (any SLD)', icon: '🦋' },
 ];
 
 export interface TargetIdentity {

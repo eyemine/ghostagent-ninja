@@ -281,41 +281,61 @@ export default function DashboardHome() {
   const [bodiesLoading, setBodiesLoading] = useState(false);
   const [brainsLoading, setBrainsLoading] = useState(false);
 
-  // Fetch agents from beacon NFTs owned by connected wallet
+  // Fetch agents owned by connected wallet (via worker listAgents + filter by onChainOwner)
   useEffect(() => {
     if (!connectedWallet) { setLiveAgents(null); return; }
     setAgentsLoading(true);
-    fetch(`/api/my-nfts?wallet=${connectedWallet}`)
-      .then(r => r.json() as Promise<{ nfts?: Array<{ name: string; namespace: string; tokenId: number }> }>)
+    fetch(WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'listAgents' }),
+    })
+      .then(r => r.json() as Promise<{ agents?: Array<{ name: string; tld: string | null }> }>)
       .then(async (data) => {
-        const rawAgents = data.nfts ?? [];
-        // Fetch agent card metadata to get real NFT images
-        const agents: DemoAgent[] = await Promise.all(
-          rawAgents.map(async (a) => {
-            let imageUrl: string | undefined;
+        const allAgents = data.agents ?? [];
+        // Fetch full identity for each agent to check ownership
+        const ownedAgents = await Promise.all(
+          allAgents.map(async (a) => {
             try {
-              const cardRes = await fetch(`/api/agent-card?agent=${a.name}`);
-              if (cardRes.ok) {
-                const card = await cardRes.json() as { image?: string };
-                if (card.image) imageUrl = card.image;
-              }
-            } catch { /* non-fatal */ }
-            console.log(`[dashboard] Agent ${a.name} imageUrl:`, imageUrl);
-            return {
-              name:      a.name,
-              namespace: a.namespace,
-              tba:       connectedWallet,
-              tier:      'pro' as AgentTier,
-              hostScore: 0,
-              inbox:     0,
-              events:    0,
-              active:    true,
-              imageUrl,
-            };
+              const idRes = await fetch(WORKER_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'getAgentIdentity', name: a.name }),
+              });
+              if (!idRes.ok) return null;
+              const identity = await idRes.json() as { onChainOwner?: string; safeAddress?: string; tld?: string };
+              if (!identity.onChainOwner) return null;
+              if (identity.onChainOwner.toLowerCase() !== connectedWallet.toLowerCase()) return null;
+              
+              // Fetch agent card for image
+              let imageUrl: string | undefined;
+              try {
+                const cardRes = await fetch(`/api/agent-card?agent=${a.name}`);
+                if (cardRes.ok) {
+                  const card = await cardRes.json() as { image?: string };
+                  if (card.image) imageUrl = card.image;
+                }
+              } catch { /* non-fatal */ }
+              
+              return {
+                name:      a.name,
+                namespace: identity.tld ?? a.tld ?? 'nftmail.gno',
+                tba:       identity.safeAddress ?? connectedWallet,
+                tier:      'pro' as AgentTier,
+                hostScore: 0,
+                inbox:     0,
+                events:    0,
+                active:    true,
+                imageUrl,
+              };
+            } catch {
+              return null;
+            }
           })
         );
-        setLiveAgents(agents);
-        if (agents.length > 0) setSelectedAgent(agents[0].name);
+        const filtered = ownedAgents.filter(a => a !== null) as DemoAgent[];
+        setLiveAgents(filtered);
+        if (filtered.length > 0) setSelectedAgent(filtered[0].name);
       })
       .catch(() => setLiveAgents([]))
       .finally(() => setAgentsLoading(false));
@@ -505,24 +525,6 @@ export default function DashboardHome() {
           <span className="text-[10px] text-zinc-600">select body row to action</span>
         </div>
         <div className="flex flex-wrap gap-2">
-          {orphanBodies.length === 0 && connectedWallet && (
-            <button
-              onClick={async () => {
-                // Direct lookup for rgbanksy token #6
-                const res = await fetch('/api/check-token?wallet=' + connectedWallet + '&tokenId=6&namespace=nftmail.gno');
-                if (res.ok) {
-                  const data = await res.json();
-                  if (data.found) {
-                    setLiveBodies([{ name: 'rgbanksy', namespace: 'nftmail.gno', tokenId: 6, tba: connectedWallet.slice(0, 8) + '...' + connectedWallet.slice(-4), minted: '02/04/2026' }]);
-                    setSelectedBody('rgbanksy');
-                  }
-                }
-              }}
-              className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-1.5 text-xs font-semibold text-amber-300 transition hover:bg-amber-500/20"
-            >
-              Find rgbanksy Token #6
-            </button>
-          )}
           {BODY_ACTIONS.map(action => (
             <Link
               key={action.key}
