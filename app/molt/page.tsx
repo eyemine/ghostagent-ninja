@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { MoltStep1, type SourceAgent } from '../components/MoltStep1';
 import { MoltStep2, type TargetIdentity } from '../components/MoltStep2';
@@ -15,10 +16,25 @@ const STEPS = [
 ];
 
 export default function MoltPage() {
+  const searchParams = useSearchParams();
+  const preselectedBody = searchParams.get('body') || searchParams.get('agent') || '';
+  
   const [step, setStep] = useState<PageStep>(1);
   const [source, setSource] = useState<SourceAgent | null>(null);
   const [target, setTarget] = useState<TargetIdentity | null>(null);
   const [result, setResult] = useState<MoltFinalResult | null>(null);
+  const [autoLookupDone, setAutoLookupDone] = useState(false);
+
+  // Auto-lookup agent when body/agent is passed via query params
+  useEffect(() => {
+    if (preselectedBody && !autoLookupDone && step === 1) {
+      // Trigger lookup via custom event that MoltStep1 will listen for
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('molt:autoLookup', { detail: { agentName: preselectedBody } }));
+      }, 100);
+      setAutoLookupDone(true);
+    }
+  }, [preselectedBody, autoLookupDone, step]);
 
   return (
     <div className="min-h-screen bg-[radial-gradient(1200px_circle_at_20%_-10%,rgba(176,128,92,0.12),transparent_45%),radial-gradient(900px_circle_at_90%_10%,rgba(124,77,255,0.1),transparent_40%),linear-gradient(180deg,var(--background),#03040a)]">

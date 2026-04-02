@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { useSafeAuth } from '../hooks/useSafeAuth';
 
@@ -34,8 +34,9 @@ export function MoltStep1({ onSelect }: MoltStep1Props) {
   const connectedWallet = isSafeAuth ? safeAddress : wallets[0]?.address;
   const isConnected = authenticated || isSafeAuth;
 
-  async function handleLookup() {
-    if (!agentName.trim() || !connectedWallet) return;
+  async function handleLookup(name?: string) {
+    const lookupName = name || agentName;
+    if (!lookupName.trim() || !connectedWallet) return;
     setLoading(true);
     setError(null);
     setFound(null);
@@ -45,7 +46,7 @@ export function MoltStep1({ onSelect }: MoltStep1Props) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          agentName: agentName.trim(),
+          agentName: lookupName.trim(),
           callerWallet: connectedWallet,
           targetName: '_placeholder',   // step 1 only checks source ownership
           targetTld: 'molt.gno',
@@ -55,24 +56,25 @@ export function MoltStep1({ onSelect }: MoltStep1Props) {
 
       // Ownership errors block selection; target errors are step-2 concerns
       const ownershipErrors = (data.errors ?? []).filter((e: string) =>
-        !e.includes('Target') && !e.includes('target')
+        !e.includes('Target') && !e.includes('target') && !e.includes('tier') && !e.includes('Tier')
       );
+      // For beacon NFT owners, ignore tier errors
       if (ownershipErrors.length > 0) {
         setError(ownershipErrors[0]);
         return;
       }
       if (!data.sourceAgent) {
-        setError('Agent not found');
+        setError('Agent-Body not found — verify you own the beacon NFT');
         return;
       }
       const s = data.sourceAgent;
       setFound({
-        name: agentName.trim(),
+        name: lookupName.trim(),
         namespace: s.tld ?? 'nftmail.gno',
         tba: s.tbaAddress ?? '—',
         tier: s.tier ?? 'basic',
-        currentIdentity: agentName.trim(),
-        originNft: s.originNft ?? `${agentName.trim()}.nftmail.gno`,
+        currentIdentity: lookupName.trim(),
+        originNft: s.originNft ?? `${lookupName.trim()}.nftmail.gno`,
         ownerWallet: s.onChainOwner,
         totalXdaiBurned: s.totalXdaiBurned ?? 0,
         surgeReputationScore: s.surgeReputationScore ?? 0,
@@ -85,6 +87,16 @@ export function MoltStep1({ onSelect }: MoltStep1Props) {
       setLoading(false);
     }
   }
+
+  // Listen for auto-lookup event from parent page
+  useEffect(() => {
+    const handleAutoLookup = (e: CustomEvent<{ agentName: string }>) => {
+      setAgentName(e.detail.agentName);
+      handleLookup(e.detail.agentName);
+    };
+    window.addEventListener('molt:autoLookup', handleAutoLookup as EventListener);
+    return () => window.removeEventListener('molt:autoLookup', handleAutoLookup as EventListener);
+  }, [connectedWallet]);
 
   if (!isConnected) {
     return (
