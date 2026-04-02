@@ -126,7 +126,7 @@ export function MoltStep1({ onSelect }: MoltStep1Props) {
           <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-[var(--muted)]">_@nftmail.box</span>
         </div>
         <button
-          onClick={handleLookup}
+          onClick={() => handleLookup()}
           disabled={!agentName.trim() || loading}
           className="rounded-xl bg-amber-500/15 px-4 py-3 text-sm font-semibold text-amber-200 transition hover:bg-amber-500/25 disabled:opacity-40"
         >
