@@ -25,11 +25,10 @@ import { WORKER_URL } from '../../utils/config';
 
 // ── ERC-6551 TBA derivation ───────────────────────────────────────────────────
 const ERC6551_REGISTRY    = '0x000000006551c19487814612e58FE06813775758';
-const TBA_IMPLEMENTATION  = '0x55266d75D1a14E4572138116aF39863Ed6596E7F';
 const GNOSIS_RPC          = 'https://rpc.gnosischain.com';
 const GNOSIS_CHAIN_ID     = 100;
 
-// Registrar (NFT contract) addresses per SLD on Gnosis mainnet
+// Current registrar (NFT contract) addresses per SLD on Gnosis mainnet
 const SLD_REGISTRARS: Record<string, string> = {
   nftmail:  '0x831ddd71e7c33e16b674099129e6e379da407faf',
   molt:     '0x4b54213c1e5826497ff39ba8c87a7b75d2bc3c50',
@@ -38,23 +37,57 @@ const SLD_REGISTRARS: Record<string, string> = {
   agent:    '0x73f2f2ef73dc512cac0f5b0372f1d58a84ed13e6', // GhostRegistry v1
 };
 
+// Old registrar versions — agents minted on these before redeployment
+// The TBA is tied to the registrar at mint time, not the current one
+const OLD_REGISTRARS: Record<string, string[]> = {
+  molt:    ['0xd2c8d961e0bbb9c5324709c145f3dc8dd7615dcf'],
+  nftmail: ['0x46c37365572c9994812aaa41fd04eb56d05469d0'],
+};
+
 /**
- * Derive TBA address deterministically from ERC-6551 registry on Gnosis.
- * Calls registry.account(implementation, chainId, tokenContract, tokenId, salt).
+ * Read the ERC-6551 account implementation address from a registrar contract.
+ * Each registrar stores its own impl address — no hardcoding needed.
+ */
+async function readRegistrarImpl(registrarAddress: string): Promise<string | null> {
+  try {
+    // erc6551AccountImplementation() selector
+    const selector = '0x918372de';
+    const res = await fetch(GNOSIS_RPC, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0', id: 1, method: 'eth_call',
+        params: [{ to: registrarAddress, data: selector }, 'latest'],
+      }),
+    });
+    const json = await res.json() as { result?: string };
+    if (!json.result || json.result === '0x') return null;
+    return '0x' + json.result.replace('0x', '').slice(-40);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Derive TBA address deterministically from ERC-6551 v0.3 registry on Gnosis.
+ * Calls registry.account(address impl, bytes32 salt, uint256 chainId, address tokenContract, uint256 tokenId).
+ * Reads the implementation address from the registrar contract on-chain.
  */
 async function deriveTbaAddress(tokenId: number, tokenContract: string): Promise<string | null> {
   try {
-    // ABI-encode: account(address impl, uint256 chainId, address tokenContract, uint256 tokenId, uint256 salt)
-    // selector: keccak256("account(address,uint256,address,uint256,uint256)")[0:4]
-    const selector = '0x246a0069'; // precomputed selector for account()
+    const impl = await readRegistrarImpl(tokenContract);
+    if (!impl) return null;
+
+    // ERC-6551 v0.3: account(address,bytes32,uint256,address,uint256)
+    const selector = '0x246a0021';
     const pad = (val: string, bytes = 32) => val.replace('0x', '').padStart(bytes * 2, '0');
     const data =
       selector +
-      pad(TBA_IMPLEMENTATION) +               // impl address (padded to 32 bytes)
+      pad(impl) +                              // implementation address
+      pad('0') +                               // salt (bytes32 zero)
       pad(GNOSIS_CHAIN_ID.toString(16)) +      // chainId = 100
-      pad(tokenContract) +                    // tokenContract (registrar for this agent's SLD)
-      pad(tokenId.toString(16)) +              // tokenId
-      pad('0');                                // salt = 0
+      pad(tokenContract) +                     // tokenContract (registrar)
+      pad(tokenId.toString(16));               // tokenId
 
     const res = await fetch(GNOSIS_RPC, {
       method: 'POST',
@@ -66,15 +99,54 @@ async function deriveTbaAddress(tokenId: number, tokenContract: string): Promise
     });
     const json = await res.json() as { result?: string };
     if (!json.result || json.result === '0x') return null;
-    // Result is ABI-encoded address (32 bytes) — take last 20 bytes
     const hex = json.result.replace('0x', '');
     const addr = '0x' + hex.slice(-40);
-    // Sanity check: non-zero address
     if (addr === '0x0000000000000000000000000000000000000000') return null;
     return addr;
   } catch {
     return null;
   }
+}
+
+/**
+ * Try deriving TBA from current registrar first, then fall back to old registrar versions.
+ * Agents minted on old registrars have TBAs bound to those contracts.
+ */
+async function deriveTbaWithFallback(tokenId: number, currentRegistrar: string, sld: string): Promise<string | null> {
+  // Try current registrar first
+  const tba = await deriveTbaAddress(tokenId, currentRegistrar);
+  if (tba) {
+    // Verify it's actually deployed (has code)
+    try {
+      const codeRes = await fetch(GNOSIS_RPC, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'eth_getCode', params: [tba, 'latest'] }),
+      });
+      const codeJson = await codeRes.json() as { result?: string };
+      if (codeJson.result && codeJson.result !== '0x') return tba;
+    } catch {}
+  }
+
+  // Try old registrar versions for this SLD
+  const oldAddrs = OLD_REGISTRARS[sld] || [];
+  for (const oldAddr of oldAddrs) {
+    const oldTba = await deriveTbaAddress(tokenId, oldAddr);
+    if (oldTba) {
+      try {
+        const codeRes = await fetch(GNOSIS_RPC, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ jsonrpc: '2.0', id: 3, method: 'eth_getCode', params: [oldTba, 'latest'] }),
+        });
+        const codeJson = await codeRes.json() as { result?: string };
+        if (codeJson.result && codeJson.result !== '0x') return oldTba;
+      } catch {}
+    }
+  }
+
+  // Return the computed address even if not deployed (deterministic, can be deployed later)
+  return tba;
 }
 
 export interface AgentIdentityGraph {
@@ -192,11 +264,11 @@ export async function GET(req: NextRequest) {
           body: JSON.stringify({ action: 'getMoltPath', name }),
         }).then(r => r.json()),
 
-        // TBA derivation — use registrar matching agent's SLD (fallback if not in KV)
+        // TBA derivation — read impl from registrar on-chain, try old registrars if needed
         needsTbaDerivation ? (() => {
           const sld = (resolved.tld as string | undefined)?.split('.')?.[0] ?? 'nftmail';
           const registrar = SLD_REGISTRARS[sld] ?? SLD_REGISTRARS['nftmail'];
-          return deriveTbaAddress(mintedTokenId!, registrar);
+          return deriveTbaWithFallback(mintedTokenId!, registrar, sld);
         })() : Promise.resolve(null),
       ]);
 
