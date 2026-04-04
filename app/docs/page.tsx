@@ -301,6 +301,87 @@ Content-Type: application/json
           </div>
         </div>
 
+        {/* NPX Mail */}
+        <div className={SECTION_CLASSES}>
+          <h2 className={H2_CLASSES}>7 · NFTMail SDK & NPX Commands</h2>
+          <p className={P_CLASSES}>
+            NFTMail provides a comprehensive SDK and CLI tools for blockchain-native email with x402 payments.
+            Perfect for developers building autonomous agents and Web3 communication systems.
+          </p>
+
+          <h3 className={H3_CLASSES}>Installation</h3>
+          <pre className={CODE_CLASSES}>{`npm install @ghostagent/nftmail`}</pre>
+
+          <h3 className={H3_CLASSES}>Quick Setup</h3>
+          <pre className={CODE_CLASSES}>{`npx nftmail-setup`}</pre>
+
+          <h3 className={H3_CLASSES}>Basic Usage</h3>
+          <pre className={CODE_CLASSES}>{`import NFTMail from '@ghostagent/nftmail';
+
+const nftmail = new NFTMail();
+
+// Create freemium agent
+const agent = await nftmail.createAgent('my-agent', 'freemium');
+
+// Send email with optional payment
+await nftmail.sendEmail(
+  'my-agent@nftmail.box',
+  'recipient@example.com', 
+  'Hello from GhostAgent',
+  'This email includes blockchain payment',
+  { amount: '0.1', recipient: '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb' }
+);`}</pre>
+
+          <h3 className={H3_CLASSES}>CLI Commands</h3>
+          <div className="space-y-2">
+            <div className="rounded-lg border border-[var(--border)] bg-black/20 px-3 py-2">
+              <div className="text-[10px] font-semibold text-cyan-300">npx nftmail-setup</div>
+              <div className="text-[10px] text-[var(--muted)]">Create freemium agent with 100 emails, 8-day storage</div>
+            </div>
+            <div className="rounded-lg border border-[var(--border)] bg-black/20 px-3 py-2">
+              <div className="text-[10px] font-semibold text-cyan-300">npx nftmail-upgrade</div>
+              <div className="text-[10px] text-[var(--muted)]">Upgrade to Professional (10 xDAI/month) or Vault (24 xDAI/year)</div>
+            </div>
+            <div className="rounded-lg border border-[var(--border)] bg-black/20 px-3 py-2">
+              <div className="text-[10px] font-semibold text-cyan-300">npx ghostagent-add-brain</div>
+              <div className="text-[10px] text-[var(--muted)]">Add AI brain for autonomous decision-making (0.01 ETH)</div>
+            </div>
+            <div className="rounded-lg border border-[var(--border)] bg-black/20 px-3 py-2">
+              <div className="text-[10px] font-semibold text-cyan-300">npx ghostagent-molt</div>
+              <div className="text-[10px] text-[var(--muted)]">Convert to sellable agent with 3x-14x ROI (0.035 ETH)</div>
+            </div>
+          </div>
+
+          <h3 className={H3_CLASSES}>Pricing Tiers</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+            <div className="rounded-lg border border-[var(--border)] bg-black/20 px-3 py-2">
+              <div className="text-[10px] font-semibold text-emerald-300">FREEMIUM</div>
+              <div className="text-[10px] text-[var(--muted)]">100 emails, 8-day TTL, NPX inbox only</div>
+            </div>
+            <div className="rounded-lg border border-[var(--border)] bg-black/20 px-3 py-2">
+              <div className="text-[10px] font-semibold text-cyan-300">PROFESSIONAL</div>
+              <div className="text-[10px] text-[var(--muted)]">10 xDAI/month, unlimited emails, 30-day storage</div>
+            </div>
+            <div className="rounded-lg border border-[var(--border)] bg-black/20 px-3 py-2">
+              <div className="text-[10px] font-semibold text-violet-300">VAULT</div>
+              <div className="text-[10px] text-[var(--muted)]">24 xDAI/year, unlimited emails, 365-day storage</div>
+            </div>
+          </div>
+
+          <h3 className={H3_CLASSES}>Documentation</h3>
+          <div className="flex flex-wrap gap-2">
+            <a href="https://nftmail.box/sdk" target="_blank" rel="noopener noreferrer" className="text-[11px] text-cyan-300 hover:text-white transition">
+              Complete SDK Documentation ↗
+            </a>
+            <a href="https://github.com/eyemine/ghostagent-ninja/tree/main/packages/nftmail" target="_blank" rel="noopener noreferrer" className="text-[11px] text-cyan-300 hover:text-white transition">
+              GitHub Package ↗
+            </a>
+            <a href="https://www.npmjs.com/package/@ghostagent/nftmail" target="_blank" rel="noopener noreferrer" className="text-[11px] text-cyan-300 hover:text-white transition">
+              NPM Package ↗
+            </a>
+          </div>
+        </div>
+
         {/* Links */}
         <div className="flex flex-wrap gap-4 text-[11px] text-[var(--muted)] pb-8">
           <a href="/.well-known/agent.json" target="_blank" rel="noopener noreferrer"

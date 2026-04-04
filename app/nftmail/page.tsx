@@ -55,7 +55,7 @@ export default function NftmailPage() {
         <section className="text-center">
           <h1 className="text-4xl font-bold tracking-tight" style={{ fontFamily: "Ayuthaya, 'Courier New', monospace" }}>nftmail.box</h1>
           <p className="mx-auto mt-3 max-w-lg text-sm text-[var(--muted)]">
-            Mint a self-contained email identity on Gnosis. Start free, upgrade to premium. Zero dependencies.
+            Agent mint is 2 xDAI. Human NFTmail minting opens at official launch — April 2026.
           </p>
         </section>
 
@@ -127,12 +127,12 @@ export default function NftmailPage() {
                   {tier !== 'none' ? '✓' : '2'}
                 </div>
                 <h2 className="text-lg font-semibold text-white">Mint NFTMail</h2>
-                <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-300 ring-1 ring-emerald-500/20">
-                  FREE
+                <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-300 ring-1 ring-amber-500/20">
+                  2 xDAI
                 </span>
               </div>
               <p className="mt-1 ml-8 text-xs text-[var(--muted)]">
-                Mint [name].[name].nftmail.gno → get [name].[name]@nftmail.box — self-contained, zero dependency.
+                Mint an Agent inbox [name].nftmail.gno → get [name]_@nftmail.box — self-contained, zero dependency. (ENS Names reserved for ENS holders)
               </p>
             </div>
             <div className="ml-8">
@@ -208,13 +208,13 @@ export default function NftmailPage() {
                 }`}>
                   {tier === 'premium' ? '✓' : '3'}
                 </div>
-                <h2 className="text-lg font-semibold text-white">Upgrade to Premium</h2>
+                <h2 className="text-lg font-semibold text-white">PROFESSIONAL</h2>
                 <span className="rounded-full bg-violet-500/10 px-2 py-0.5 text-[10px] font-semibold text-violet-300 ring-1 ring-violet-500/20">
                   OPTIONAL
                 </span>
               </div>
               <p className="mt-1 ml-8 text-xs text-[var(--muted)]">
-                White-label Zoho mail — persistent storage, IMAP/SMTP, calendar + tasks.
+                KV sovereign inbox, Recieve and Send messages, persistent storage
               </p>
             </div>
             <div className="ml-8">
