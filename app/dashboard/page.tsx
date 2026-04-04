@@ -300,12 +300,33 @@ export default function DashboardHome() {
               const idRes = await fetch(WORKER_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'getAgentIdentity', name: a.name }),
+                body: JSON.stringify({ action: 'getAgentIdentity', agentName: a.name }),
               });
               if (!idRes.ok) return null;
-              const identity = await idRes.json() as { onChainOwner?: string; safeAddress?: string; tld?: string };
-              if (!identity.onChainOwner) return null;
-              if (identity.onChainOwner.toLowerCase() !== connectedWallet.toLowerCase()) return null;
+              const identity = await idRes.json() as {
+                onChainOwner?: string;
+                identityNft?: { owner?: string; tld?: string | null } | null;
+                safe?: string | null;
+                tld?: string | null;
+                accountTier?: string;
+                tier?: string;
+              };
+
+              const owner = identity.onChainOwner ?? identity.identityNft?.owner ?? null;
+              if (!owner) return null;
+              if (owner.toLowerCase() !== connectedWallet.toLowerCase()) return null;
+
+              // Enrich with live lookup (TBA + normalized tier/tld)
+              let lookup: {
+                tbaAddress?: string | null;
+                safe?: string | null;
+                accountTier?: string;
+                tld?: string | null;
+              } | null = null;
+              try {
+                const lookupRes = await fetch(`/api/agent-lookup?q=${encodeURIComponent(a.name)}`);
+                if (lookupRes.ok) lookup = await lookupRes.json();
+              } catch { /* non-fatal */ }
               
               // Fetch agent card for image
               let imageUrl: string | undefined;
@@ -316,12 +337,15 @@ export default function DashboardHome() {
                   if (card.image) imageUrl = card.image;
                 }
               } catch { /* non-fatal */ }
+
+              const tierRaw = (lookup?.accountTier ?? identity.accountTier ?? identity.tier ?? 'basic').toLowerCase();
+              const tier: AgentTier = tierRaw === 'free' || tierRaw === 'basic' ? 'free' : 'pro';
               
               return {
                 name:      a.name,
-                namespace: identity.tld ?? a.tld ?? 'nftmail.gno',
-                tba:       identity.safeAddress ?? connectedWallet,
-                tier:      'pro' as AgentTier,
+                namespace: lookup?.tld ?? identity.tld ?? identity.identityNft?.tld ?? a.tld ?? 'nftmail.gno',
+                tba:       lookup?.tbaAddress ?? lookup?.safe ?? identity.safe ?? connectedWallet,
+                tier,
                 hostScore: 0,
                 inbox:     0,
                 events:    0,
