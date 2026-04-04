@@ -28,6 +28,17 @@ const ERC6551_REGISTRY    = '0x000000006551c19487814612e58FE06813775758';
 const GNOSIS_RPC          = 'https://rpc.gnosischain.com';
 const GNOSIS_CHAIN_ID     = 100;
 
+// Shared ERC-6551 account implementation on Gnosis mainnet
+// Same address used by all GNO registrars (MinimalERC6551Account from RedeployAll.s.sol)
+const FALLBACK_ERC6551_IMPL = '0x878E703A93b6e0aaD92f9907332c68fb09765697';
+
+// Known NFT token IDs for existing agents (fallback when KV lacks mintedTokenId)
+const KNOWN_TOKEN_IDS: Record<string, { sld: string; tokenId: number }> = {
+  ghostagent: { sld: 'molt',     tokenId: 2 },
+  eyemine:    { sld: 'nftmail',  tokenId: 1 },
+  victor:     { sld: 'openclaw', tokenId: 1 },
+};
+
 // Current registrar (NFT contract) addresses per SLD on Gnosis mainnet
 const SLD_REGISTRARS: Record<string, string> = {
   nftmail:  '0x831ddd71e7c33e16b674099129e6e379da407faf',
@@ -48,7 +59,7 @@ const OLD_REGISTRARS: Record<string, string[]> = {
  * Read the ERC-6551 account implementation address from a registrar contract.
  * Each registrar stores its own impl address — no hardcoding needed.
  */
-async function readRegistrarImpl(registrarAddress: string): Promise<string | null> {
+async function readRegistrarImpl(registrarAddress: string): Promise<string> {
   try {
     // erc6551AccountImplementation() selector
     const selector = '0x918372de';
@@ -61,11 +72,13 @@ async function readRegistrarImpl(registrarAddress: string): Promise<string | nul
       }),
     });
     const json = await res.json() as { result?: string };
-    if (!json.result || json.result === '0x') return null;
-    return '0x' + json.result.replace('0x', '').slice(-40);
-  } catch {
-    return null;
-  }
+    if (json.result && json.result !== '0x' && json.result.length >= 42) {
+      const addr = '0x' + json.result.replace('0x', '').slice(-40);
+      if (addr !== '0x0000000000000000000000000000000000000000') return addr;
+    }
+  } catch {}
+  // All GNO registrars share the same MinimalERC6551Account impl
+  return FALLBACK_ERC6551_IMPL;
 }
 
 /**
@@ -75,8 +88,7 @@ async function readRegistrarImpl(registrarAddress: string): Promise<string | nul
  */
 async function deriveTbaAddress(tokenId: number, tokenContract: string): Promise<string | null> {
   try {
-    const impl = await readRegistrarImpl(tokenContract);
-    if (!impl) return null;
+    const impl = await readRegistrarImpl(tokenContract); // never returns null now
 
     // ERC-6551 v0.3: account(address,bytes32,uint256,address,uint256)
     const selector = '0x246a0021';
@@ -244,9 +256,12 @@ export async function GET(req: NextRequest) {
     let tbaAddress: string | null = resolved.tba ?? null; // prefer KV-stored TBA
 
     if (resolved.exists) {
-      const mintedTokenId: number | null = resolved.mintedTokenId ?? null;
+      // mintedTokenId from KV; fall back to KNOWN_TOKEN_IDS for pre-seeded agents
+      let mintedTokenId: number | null = resolved.mintedTokenId ?? null;
+      if (mintedTokenId === null && KNOWN_TOKEN_IDS[name]) {
+        mintedTokenId = KNOWN_TOKEN_IDS[name].tokenId;
+      }
 
-      // Only derive on-chain if TBA not already in KV
       const needsTbaDerivation = tbaAddress === null && mintedTokenId !== null;
 
       const [beaconResult, moltResult, tbaResult] = await Promise.allSettled([
