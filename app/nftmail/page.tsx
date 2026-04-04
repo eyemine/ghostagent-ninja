@@ -1,3 +1,8 @@
+/* AGENT-ONLY VERSION: GhostAgent.ninja/nftmail
+ * This is a simplified version for minting agent email accounts only.
+ * Full features available at nftmail.box (the standalone app)
+ */
+
 'use client';
 
 import { useState } from 'react';
@@ -5,13 +10,28 @@ import Link from 'next/link';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { NFTLogin } from '../components/NFTLogin';
 import { MintNFTMail } from '../components/MintNFTMail';
-import { WhiteLabelZoho } from '../components/WhiteLabelZoho';
-import { AgentIdentityCard } from '../components/AgentIdentityCard';
-import { StealthAlias } from '../components/StealthAlias';
+// import { WhiteLabelZoho } from '../components/WhiteLabelZoho'; // Commented out - agent-only version
+// import { AgentIdentityCard } from '../components/AgentIdentityCard'; // Commented out - agent-only version
+// import { StealthAlias } from '../components/StealthAlias'; // Commented out - agent-only version
 import { useSafeAuth } from '../hooks/useSafeAuth';
 
 type Tier = 'none' | 'free' | 'premium';
 
+/**
+ * AGENT-ONLY NFTMAIL PAGE
+ * 
+ * This is a simplified version for GhostAgent.ninja that only handles
+ * minting agent email accounts ([name]_@nftmail.box).
+ * 
+ * Full features available at nftmail.box:
+ * - Identity card with full ERC-8004 details
+ * - Stealth alias management
+ * - Zoho mailbox provisioning
+ * - Molt to full GhostAgent
+ * 
+ * This version keeps the codebase minimal for agents who just need
+ * an email inbox on the nftmail.gno namespace.
+ */
 export default function NftmailPage() {
   const { authenticated } = usePrivy();
   const { wallets } = useWallets();
@@ -155,7 +175,7 @@ export default function NftmailPage() {
           </section>
         )}
 
-        {/* Identity lookup card — shown after mint */}
+        {/* AGENT-ONLY: Identity lookup card commented out - full version available at nftmail.box
         {(tier === 'free' || tier === 'premium') && (
           <section className="rounded-2xl border border-[rgba(0,163,255,0.2)] bg-[var(--card)] overflow-hidden">
             <button
@@ -188,15 +208,18 @@ export default function NftmailPage() {
             )}
           </section>
         )}
+        */}
 
-        {/* Stealth Alias — shown after mint */}
+        {/* AGENT-ONLY: Stealth Alias section commented out - full version available at nftmail.box
         {(tier === 'free' || tier === 'premium') && (
           <section className="rounded-2xl border border-[rgba(0,163,255,0.2)] bg-[var(--card)] p-5">
             <StealthAlias primaryName={mintedName} />
           </section>
         )}
+        */}
 
-        {/* Step 3: Upgrade to Premium (Zoho) */}
+        {/* AGENT-ONLY: Zoho upgrade section commented out - full version available at nftmail.box
+        Step 3: Upgrade to Premium (Zoho)
         {tier === 'free' || tier === 'premium' ? (
           <section className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5">
             <div className="mb-4">
@@ -241,6 +264,7 @@ export default function NftmailPage() {
             </div>
           </section>
         ) : null}
+        */}
 
         {/* Handoff to GhostAgent.ninja */}
         {(tier === 'free' || tier === 'premium') && (
