@@ -59,7 +59,6 @@ coverage/
 # Non-web source (Solidity — not needed for Next.js deploy)
 /src/
 /contracts/
-apps/
 docs/*.md
 tsconfig.tsbuildinfo
 package-lock.json
