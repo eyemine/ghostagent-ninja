@@ -38,7 +38,11 @@ export default function Home() {
         <header className="flex w-full items-center justify-between">
           <div className="flex items-center gap-2">
             <Image src="/nftmail-logo.png" alt="NFTMail" width={48} height={48} className="opacity-95" />
-            <span style={{ fontFamily: "'Ayuthaya', serif", color: '#d8d4cf' }} className="text-base tracking-wide">nftmail.box</span>
+            <span className="flex items-center gap-1.5">
+              <span style={{ fontFamily: "'Ayuthaya', serif", color: '#d8d4cf' }} className="text-base tracking-wide">nftmail.box</span>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="https://gateway.lighthouse.storage/ipfs/bafkreihrbcstovmanpu3fgcpgxregh4krxj2jyvil3vapo2xz4giojulki" alt="beta" style={{ height: '0.5rem', width: 'auto', opacity: 0.85 }} />
+            </span>
           </div>
           <div className="flex items-center gap-3">
             <a
@@ -55,7 +59,11 @@ export default function Home() {
 
         {/* Hero */}
         <section className="text-center">
-          <h1 style={{ fontFamily: "'Ayuthaya', serif", color: '#d8d4cf' }} className="text-5xl font-bold tracking-tight">nftmail.box</h1>
+          <h1 style={{ fontFamily: "'Ayuthaya', serif", color: '#d8d4cf' }} className="text-5xl font-bold tracking-tight flex items-center justify-center gap-3">
+            nftmail.box
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="https://gateway.lighthouse.storage/ipfs/bafkreihrbcstovmanpu3fgcpgxregh4krxj2jyvil3vapo2xz4giojulki" alt="beta" style={{ height: '1.2rem', width: 'auto', opacity: 0.85, marginTop: '0.4rem' }} />
+          </h1>
           <p className="mx-auto mt-3 max-w-md text-sm text-[var(--muted)]">
             Sovereign email identity on Gnosis. Mint, read, or check any inbox.
           </p>
@@ -131,6 +139,12 @@ export default function Home() {
                 className="rounded-lg bg-[rgba(0,163,255,0.12)] px-6 py-2.5 text-xs font-semibold text-[rgb(160,220,255)] border border-[rgba(0,163,255,0.3)] hover:bg-[rgba(0,163,255,0.2)] transition"
               >
                 NFTmail
+              </a>
+              <a
+                href="/sdk"
+                className="rounded-lg border border-[var(--border)] bg-black/20 px-6 py-2.5 text-xs font-semibold text-[var(--foreground)] transition hover:bg-black/30"
+              >
+                SDK Docs
               </a>
             </div>
           </div>
