@@ -71,7 +71,9 @@ export function NFTLogin() {
   const [safeAddress, setSafeAddress] = useState<string | null>(null);
   const [isSafeAuth, setIsSafeAuth] = useState(false);
 
-  const preferredWallet = wallets.find((w: any) => w?.walletClientType === 'injected') || wallets[0];
+  // Add null check for wallets array
+  const safeWallets = wallets || [];
+  const preferredWallet = safeWallets.find((w: any) => w?.walletClientType === 'injected') || safeWallets[0];
 
   // Check for existing Safe auth on mount
   useEffect(() => {
@@ -107,15 +109,15 @@ export function NFTLogin() {
   // Detect if connected wallet is a Safe (for Privy-authenticated wallets)
   const [detectedSafe, setDetectedSafe] = useState(false);
   useEffect(() => {
-    if (authenticated && wallets.length > 0 && preferredWallet?.address) {
-      isSafeAddress(preferredWallet.address).then(setDetectedSafe);
+    if (authenticated && safeWallets.length > 0 && preferredWallet?.address) {
+      isSafeAddress(preferredWallet.address).then(setDetectedSafe).catch(() => setDetectedSafe(false));
     } else {
       setDetectedSafe(false);
     }
-  }, [authenticated, wallets, preferredWallet?.address]);
+  }, [authenticated, safeWallets, preferredWallet?.address]);
 
   // Show connected state for either Privy auth or Safe auth
-  if ((authenticated && wallets.length > 0) || isSafeAuth) {
+  if ((authenticated && safeWallets.length > 0) || isSafeAuth) {
     const addr = isSafeAuth ? safeAddress : preferredWallet?.address;
     const isSafe = isSafeAuth || detectedSafe;
     
@@ -160,7 +162,7 @@ export function NFTLogin() {
             : 'Wallet connected — ready to mint your nftmail.gno identity'
           }
         </p>
-        {!isSafe && wallets.length > 1 && (
+        {!isSafe && safeWallets.length > 1 && (
           <p className="text-center text-[10px] text-[var(--muted)]">
             Using: {(preferredWallet as any)?.walletClientType || 'wallet'}
           </p>
@@ -169,7 +171,7 @@ export function NFTLogin() {
     );
   }
 
-  if (authenticated && wallets.length === 0) {
+  if (authenticated && safeWallets.length === 0) {
     return (
       <div className="flex flex-col gap-3">
         <div className="flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/8 px-4 py-3">
@@ -177,7 +179,13 @@ export function NFTLogin() {
           <span className="text-sm text-amber-300">Logged in — connecting wallet...</span>
         </div>
         <button
-          onClick={() => connectWallet()}
+          onClick={async () => {
+            try {
+              await connectWallet();
+            } catch (err: any) {
+              setError(err?.message || 'Failed to connect wallet');
+            }
+          }}
           className="w-full rounded-xl border border-[rgba(0,163,255,0.35)] bg-[rgba(0,163,255,0.12)] px-6 py-3 text-sm font-semibold text-[rgb(160,220,255)] transition hover:bg-[rgba(0,163,255,0.18)]"
         >
           Connect External Wallet
@@ -193,8 +201,8 @@ export function NFTLogin() {
       
       // After Privy login, check if the connected wallet is a Safe
       // If it is, store it for Safe auth flow
-      if (authenticated && wallets.length > 0 && preferredWallet?.address) {
-        const isSafe = await isSafeAddress(preferredWallet.address);
+      if (authenticated && safeWallets.length > 0 && preferredWallet?.address) {
+        const isSafe = await isSafeAddress(preferredWallet.address).catch(() => false);
         if (isSafe) {
           localStorage.setItem(SAFE_AUTH_KEY, 'true');
           localStorage.setItem(SAFE_ADDRESS_KEY, preferredWallet.address);
