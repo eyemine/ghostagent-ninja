@@ -1,7 +1,7 @@
 'use client';
 
 // SDK Documentation page - https://nftmail.box/sdk
-// Last updated: 2026-04-04 23:12 - Force rebuild
+// Build: 2026-04-04 23:38
 import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
