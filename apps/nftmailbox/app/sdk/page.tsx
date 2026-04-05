@@ -1,7 +1,7 @@
 'use client';
 
 // SDK Documentation page - https://nftmail.box/sdk
-// Build: 2026-04-04 23:38
+// Build: 2026-04-05 15:10
 import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -61,6 +61,7 @@ export default function SDKPage() {
           </h1>
           <p className="mx-auto max-w-2xl text-sm text-[var(--muted)] mb-6">
             Blockchain-native email service with x402 payments, sovereign identity, and marketplace integration.
+            NPX users receive <code className="text-[rgb(160,220,255)]">[name].agent@ghostmail.box</code> — no ENS screening required.
           </p>
           <div className="flex justify-center gap-4">
             <a
