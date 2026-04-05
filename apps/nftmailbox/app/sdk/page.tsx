@@ -61,7 +61,7 @@ export default function SDKPage() {
           </h1>
           <p className="mx-auto max-w-2xl text-sm text-[var(--muted)] mb-6">
             Blockchain-native email service with x402 payments, sovereign identity, and marketplace integration.
-            NPX users receive <code className="text-[rgb(160,220,255)]">[name].agent@ghostmail.box</code> — no ENS screening required.
+            NPX users receive <code className="text-[rgb(160,220,255)]">[name].agent@nftmail.box</code> — no ENS screening required.
           </p>
           <div className="flex justify-center gap-4">
             <a
