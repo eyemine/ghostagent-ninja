@@ -121,6 +121,19 @@ export default function HITLPage() {
         ))}
       </div>
 
+      {/* Funding Warning */}
+      <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 flex items-start gap-3">
+        <span className="text-lg">⚠️</span>
+        <div className="space-y-1">
+          <p className="text-xs font-semibold text-amber-300">HITL Agent Funding Required</p>
+          <p className="text-[10px] text-[var(--muted)] leading-relaxed">
+            Ensure the HITL agent address has sufficient native token (xDAI on Gnosis, ETH on Base) 
+            to cover gas for all transactions that may be executed. Failed transactions due to 
+            insufficient funds will revert and may queue indefinitely.
+          </p>
+        </div>
+      </div>
+
       {!authenticated ? (
         <div className="rounded-2xl border border-[rgba(176,128,92,0.2)] bg-[rgba(176,128,92,0.04)] px-6 py-12 text-center space-y-2">
           <p className="text-sm text-[var(--muted)]">Connect your wallet to deploy or manage a HITL module.</p>
