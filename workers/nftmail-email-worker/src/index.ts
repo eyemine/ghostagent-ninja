@@ -3509,13 +3509,10 @@ export default {
           const hasEciesKey = !!eciesKey;
           const hasZohoSeat = !!zohoSeat;
           const hasAcctTier = !!(acctTierRaw || baseAcctTierRaw);
-          // For _@ aliases: also check base agent TLD and on-chain ERC-8004 registration
           const hasBaseTld = resolvedBaseName !== resolvedName && !!baseTldValue;
-          const baseErc8004Raw = (resolvedBaseName !== resolvedName)
-            ? await env.INBOX_KV.get(`erc8004:gnosis:${resolvedBaseName}`)
-            : null;
-          const hasBaseOnChain = !!baseErc8004Raw;
-          const exists = hasMessages || hasEciesKey || hasZohoSeat || hasAcctTier || hasBaseTld || hasBaseOnChain;
+          // _@ aliases are always valid (registered pattern alongside base agent)
+          const isAlias = resolvedBaseName !== resolvedName;
+          const exists = isAlias || hasMessages || hasEciesKey || hasZohoSeat || hasAcctTier || hasBaseTld;
 
           // Privacy tier — for aliases, fall back to base agent privacy if alias has none
           const basePrivacyStatus = (resolvedBaseName !== resolvedName && !privacyStatus)
@@ -3559,7 +3556,7 @@ export default {
           let agentSafe: string | null = null;
           let storyIp: string | null = null;
           let expiresAt: number | null = null;
-          let canSend = false;
+          let canSend = isAlias; // aliases always allow compose (human stream)
           if (effectiveAcctTierRaw) {
             try {
               const td = JSON.parse(effectiveAcctTierRaw);
@@ -3570,7 +3567,7 @@ export default {
               agentSafe = td.safe || null;
               storyIp = td.story_ip || null;
               expiresAt = td.expires_at || null;
-              canSend = (td.tier || 'basic') !== 'basic';
+              if (!isAlias) canSend = (td.tier || 'basic') !== 'basic';
             } catch {}
           }
 
