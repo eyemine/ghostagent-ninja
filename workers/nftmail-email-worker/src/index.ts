@@ -3509,8 +3509,9 @@ export default {
           const hasEciesKey = !!eciesKey;
           const hasZohoSeat = !!zohoSeat;
           const hasAcctTier = !!(acctTierRaw || baseAcctTierRaw);
-          // Agent exists if any presence signal found; for _@ aliases also check base agent acct-tier
-          const exists = hasMessages || hasEciesKey || hasZohoSeat || hasAcctTier;
+          // For _@ aliases: also consider base agent TLD as an existence signal
+          const hasBaseTld = resolvedBaseName !== resolvedName && !!baseTldValue;
+          const exists = hasMessages || hasEciesKey || hasZohoSeat || hasAcctTier || hasBaseTld;
 
           // Privacy tier
           let privacyTier: 'exposed' | 'private' | 'hard-privacy' = 'exposed';
