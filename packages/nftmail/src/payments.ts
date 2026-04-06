@@ -78,8 +78,8 @@ export class PaymentProcessor {
       // Create contract instance with signer
       const contractWithSigner = this.paymentContract.connect(signer);
       
-      // Process payment
-      const tx = await contractWithSigner.processPayment.send(
+      // Process payment (ethers v6: call function directly on typed contract)
+      const tx = await (contractWithSigner as any)['processPayment'](
         agentId,
         priceWei,
         tier,
@@ -142,12 +142,15 @@ export class PaymentProcessor {
       const filter = this.paymentContract.filters.PaymentProcessed(agentId);
       const events = await this.paymentContract.queryFilter(filter, -10000); // Last 10000 blocks
       
-      return events.map(event => ({
-        txHash: event.transactionHash,
-        amount: ethers.formatEther(event.args?.amount || '0'),
-        tier: event.args?.tier || '',
-        timestamp: new Date((event.args?.timestamp || 0) * 1000).toISOString()
-      }));
+      return events.map(event => {
+        const e = event as import('ethers').EventLog;
+        return {
+          txHash: event.transactionHash,
+          amount: ethers.formatEther(e.args?.[1] ?? '0'),
+          tier: e.args?.[2] ?? '',
+          timestamp: new Date(Number(e.args?.[3] ?? 0) * 1000).toISOString()
+        };
+      });
     } catch (error) {
       throw new Error(`Failed to get payment history: ${error}`);
     }

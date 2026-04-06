@@ -24,7 +24,7 @@ export default class NFTMail {
    * Create email agent - superior to inboxapi.ai's basic setup
    */
   async createAgent(name: string, tier: 'freemium' | 'professional' | 'vault' = 'freemium') {
-    return this.client.createAgent(name, tier);
+    return this.client.createAgent({ name, tier });
   }
 
   /**
@@ -44,8 +44,8 @@ export default class NFTMail {
   /**
    * Upgrade tier - inboxapi.ai has no upgrade path
    */
-  async upgrade(agentId: string, tier: 'professional' | 'vault') {
-    return this.payments.upgrade(agentId, tier);
+  async upgrade(agentId: string, tier: 'professional' | 'vault', signer?: import('ethers').Wallet) {
+    return this.payments.upgrade(agentId, tier, signer as import('ethers').Wallet);
   }
 
   /**
@@ -91,6 +91,6 @@ export const ADVANTAGES = {
   MARKETPLACE: 'Sellable agents (vs inboxapi.ai: no marketplace)'
 };
 
-// Installation command: npm install @ghostagent/nftmail
+// Installation command: npm install @ghost-agency/nftmail
 // Setup command: npx nftmail-setup
 // Upgrade command: npx nftmail-upgrade

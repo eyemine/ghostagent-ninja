@@ -23,7 +23,7 @@ jobs:
           scope: '@ghost-agency'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
         working-directory: packages/nftmail
 
       - name: Build
