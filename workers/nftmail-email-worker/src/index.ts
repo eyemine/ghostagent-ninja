@@ -3645,6 +3645,8 @@ export default {
           const ghostmailFreemiumGlassbox = isGhostmailAgentStream && accountTier === 'basic';
           if (ghostmailFreemiumGlassbox) privacyTier = 'exposed';
           const agentIsPublic = ghostmailFreemiumGlassbox || PUBLIC_TLDS.some(t => agentResolvedTld.endsWith(t));
+          // Glassbox agents on public TLDs are always exposed regardless of privacy: KV key
+          if (agentIsPublic) privacyTier = 'exposed';
 
           // Inbox message count from blind-index
           const inboxIds: string[] = blindIndex ? (() => { try { return JSON.parse(blindIndex); } catch { return []; } })() : [];
