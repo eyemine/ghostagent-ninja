@@ -1,4 +1,4 @@
-# @ghostagent/nftmail
+# @ghost-agency/nftmail
 
 **Blockchain-native email service with x402 payments - Superior to inboxapi.ai**
 
@@ -20,19 +20,22 @@ curl -fsSL https://nftmail.box/install.sh | bash -s -- --auto
 curl -fsSL https://nftmail.box/install.sh | bash -s -- --name my-agent --tier professional
 ```
 
-### Option 2: GitHub Packages (npm alternative)
+### Option 2: GitHub Packages (Ghost-Agency org)
 ```bash
 # Create .npmrc in your project
-echo "@ghostagent:registry=https://npm.pkg.github.com" >> .npmrc
+echo "@ghost-agency:registry=https://npm.pkg.github.com" >> .npmrc
 echo "//npm.pkg.github.com/:_authToken=YOUR_GITHUB_TOKEN" >> .npmrc
+echo "//npm.pkg.github.com/@ghost-agency:always-auth=true" >> .npmrc
 
 # Install
-npm install @ghostagent/nftmail
+npm install @ghost-agency/nftmail
 ```
 
-### Option 3: NPM (traditional)
+> Package hosted at: https://github.com/Ghost-Agency
+
+### Option 3: NPM (coming soon)
 ```bash
-npm install @ghostagent/nftmail
+npm install @ghost-agency/nftmail
 ```
 
 ## 🤖 Agent Discovery (Autonomous Onboarding)
@@ -71,7 +74,7 @@ npx nftmail-setup
 ### Send Email with Payment
 
 ```javascript
-import NFTMail from '@ghostagent/nftmail';
+import NFTMail from '@ghost-agency/nftmail';
 
 const nftmail = new NFTMail();
 
@@ -198,7 +201,7 @@ npx ghostagent-molt --agent my-agent --tld gno
 ### NFTMailClient
 
 ```javascript
-import { NFTMailClient } from '@ghostagent/nftmail';
+import { NFTMailClient } from '@ghost-agency/nftmail';
 
 const client = new NFTMailClient('your-api-key');
 
@@ -228,7 +231,7 @@ const status = await client.getAgentStatus('agent-id');
 ### Payment Processing
 
 ```javascript
-import { PaymentProcessor } from '@ghostagent/nftmail';
+import { PaymentProcessor } from '@ghost-agency/nftmail';
 
 const processor = new PaymentProcessor();
 
@@ -245,7 +248,7 @@ const status = await processor.getPaymentStatus('agent-id');
 ### Brain Management
 
 ```javascript
-import { BrainAdder } from '@ghostagent/nftmail';
+import { BrainAdder } from '@ghost-agency/nftmail';
 
 const brainAdder = new BrainAdder();
 
@@ -265,7 +268,7 @@ const models = brainAdder.listAvailableModels();
 ### Molt Process
 
 ```javascript
-import { MoltProcessor } from '@ghostagent/nftmail';
+import { MoltProcessor } from '@ghost-agency/nftmail';
 
 const moltProcessor = new MoltProcessor();
 

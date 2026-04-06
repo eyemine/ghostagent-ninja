@@ -1,5 +1,5 @@
 {
-  "name": "@ghostagent/nftmail",
+  "name": "@ghost-agency/nftmail",
   "version": "1.0.0",
   "description": "Blockchain-native email service with x402 payments - drop-in replacement for inboxapi.ai",
   "main": "dist/index.js",
@@ -17,7 +17,8 @@
     "prepare": "npm run build"
   },
   "publishConfig": {
-    "registry": "https://npm.pkg.github.com"
+    "registry": "https://npm.pkg.github.com",
+    "access": "public"
   },
   "keywords": [
     "email",
