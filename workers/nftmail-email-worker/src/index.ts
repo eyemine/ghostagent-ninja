@@ -503,8 +503,10 @@ function classifyRecipient(emailAddr: string): ClassifiedRecipient {
 }
 
 // --- Blind Index Helper ---
-async function updateBlindIndex(env: Env, agentName: string, blindId: string): Promise<void> {
-  const blindIndexKey = `blind-index:${agentName}`;
+// domainPrefix: 'ghostmail' for ghostmail.box inbound, '' for nftmail.box (default)
+async function updateBlindIndex(env: Env, agentName: string, blindId: string, domainPrefix = ''): Promise<void> {
+  const keyName = domainPrefix ? `${domainPrefix}:${agentName}` : agentName;
+  const blindIndexKey = `blind-index:${keyName}`;
   let blindIndex: string[] = [];
   try {
     const raw = await env.INBOX_KV.get(blindIndexKey);
@@ -710,6 +712,11 @@ async function handleMailgunPayload(
     return corsify(Response.json({ error: 'Invalid recipient format', recipient }, { status: 400 }), request);
   }
 
+  // Domain-keyed storage: ghostmail.box emails stored under ghostmail:{agentName} prefix to avoid
+  // contaminating nftmail.box inboxes when two domains share the same local-part
+  const storeDomainPrefix = recipient.toLowerCase().includes('@ghostmail.box') ? 'ghostmail' : '';
+  const storeKeyName = (name: string) => storeDomainPrefix ? `${storeDomainPrefix}:${name}` : name;
+
   const sender = String(mgEmail['sender'] || mgEmail['from'] || '');
   const subject = String(mgEmail['subject'] || '');
   const body = String(mgEmail['strippedText'] || mgEmail['bodyPlain'] || mgEmail['bodyHtml'] || '');
@@ -735,8 +742,8 @@ async function handleMailgunPayload(
       payload: JSON.parse(plaintextPayload), plaintextHash,
       recipient: agentName, receivedAt: timestamp,
     };
-    await env.INBOX_KV.put(`blind:${agentName}:${blindId}`, JSON.stringify(envelope), { expirationTtl: 8 * 24 * 60 * 60 });
-    await updateBlindIndex(env, agentName, blindId);
+    await env.INBOX_KV.put(`blind:${storeKeyName(agentName)}:${blindId}`, JSON.stringify(envelope), { expirationTtl: 8 * 24 * 60 * 60 });
+    await updateBlindIndex(env, agentName, blindId, storeDomainPrefix);
     return corsify(Response.json({ status: 'received', stream: 'human', blindId, plaintextHash, recipient: agentName }), request);
   }
 
@@ -747,8 +754,8 @@ async function handleMailgunPayload(
       const plaintextPayload = JSON.stringify({ from: sender, to: recipient, subject, body, timestamp });
       const plaintextHash = await sha256Hex(plaintextPayload);
       const envelope = { type: 'agent-glassbox-cleartext', encrypted: false, payload: JSON.parse(plaintextPayload), plaintextHash, recipient: agentName, receivedAt: timestamp };
-      await env.INBOX_KV.put(`blind:${agentName}:${blindId}`, JSON.stringify(envelope), { expirationTtl: 8 * 24 * 60 * 60 });
-      await updateBlindIndex(env, agentName, blindId);
+      await env.INBOX_KV.put(`blind:${storeKeyName(agentName)}:${blindId}`, JSON.stringify(envelope), { expirationTtl: 8 * 24 * 60 * 60 });
+      await updateBlindIndex(env, agentName, blindId, storeDomainPrefix);
       return corsify(Response.json({ status: 'received', stream: 'agent', agentType: 'glassbox', blindId, plaintextHash, recipient: agentName }), request);
     }
 
@@ -758,8 +765,8 @@ async function handleMailgunPayload(
       const plaintextPayload = JSON.stringify({ from: sender, to: recipient, subject, body, timestamp });
       const plaintextHash = await sha256Hex(plaintextPayload);
       const envelope = { type: 'agent-cleartext-warning', encrypted: false, warning: 'No ECIES key registered.', payload: JSON.parse(plaintextPayload), plaintextHash, recipient: agentName, receivedAt: timestamp };
-      await env.INBOX_KV.put(`blind:${agentName}:${blindId}`, JSON.stringify(envelope), { expirationTtl: 8 * 24 * 60 * 60 });
-      await updateBlindIndex(env, agentName, blindId);
+      await env.INBOX_KV.put(`blind:${storeKeyName(agentName)}:${blindId}`, JSON.stringify(envelope), { expirationTtl: 8 * 24 * 60 * 60 });
+      await updateBlindIndex(env, agentName, blindId, storeDomainPrefix);
       return corsify(Response.json({ status: 'received', stream: 'agent', agentType: 'blackbox', encrypted: false, blindId, plaintextHash, warning: 'No ECIES key — stored unencrypted.' }), request);
     }
 
@@ -770,8 +777,8 @@ async function handleMailgunPayload(
     if (env.MASTER_SAFE_PUBKEY) { try { recoveryEnvelope = await eciesEncrypt(plaintextPayload, env.MASTER_SAFE_PUBKEY); } catch {} }
     const blindId = `blind-${timestamp}-${crypto.randomUUID().slice(0, 8)}`;
     const blindEnvelope = { type: 'agent-ecies-blind', encrypted: true, envelope: encEnvelope, recoveryEnvelope: recoveryEnvelope || undefined, plaintextHash, recipient: agentName, receivedAt: timestamp };
-    await env.INBOX_KV.put(`blind:${agentName}:${blindId}`, JSON.stringify(blindEnvelope), { expirationTtl: 8 * 24 * 60 * 60 });
-    await updateBlindIndex(env, agentName, blindId);
+    await env.INBOX_KV.put(`blind:${storeKeyName(agentName)}:${blindId}`, JSON.stringify(blindEnvelope), { expirationTtl: 8 * 24 * 60 * 60 });
+    await updateBlindIndex(env, agentName, blindId, storeDomainPrefix);
     return corsify(Response.json({ status: 'received', stream: 'agent', agentType: 'blackbox', encrypted: true, blindId, plaintextHash, hasRecoveryKey: !!recoveryEnvelope, recipient: agentName }), request);
   }
 
@@ -3725,16 +3732,19 @@ export default {
 
         if (email.action === 'getBlindInbox') {
           const agent = email.localPart || '';
+          const inboxDomain: string = ((email as any).domain || 'nftmail').toLowerCase();
           if (!agent) {
             return corsify(Response.json({ error: 'Missing localPart' }, { status: 400 }), request);
           }
-          const blindIndexKey = `blind-index:${agent}`;
+          const domainPfx = inboxDomain === 'ghostmail' ? 'ghostmail' : '';
+          const kvKeyName = domainPfx ? `${domainPfx}:${agent}` : agent;
+          const blindIndexKey = `blind-index:${kvKeyName}`;
           const raw = await env.INBOX_KV.get(blindIndexKey);
           const blindIds: string[] = raw ? JSON.parse(raw) : [];
 
           const messages: any[] = [];
           const fetches = blindIds.map(async (id) => {
-            const data = await env.INBOX_KV.get(`blind:${agent}:${id}`);
+            const data = await env.INBOX_KV.get(`blind:${kvKeyName}:${id}`);
             if (data) {
               try {
                 const parsed = JSON.parse(data);
