@@ -3513,16 +3513,20 @@ export default {
           const hasBaseTld = resolvedBaseName !== resolvedName && !!baseTldValue;
           const exists = hasMessages || hasEciesKey || hasZohoSeat || hasAcctTier || hasBaseTld;
 
-          // Privacy tier
+          // Privacy tier — for aliases, fall back to base agent privacy if alias has none
+          const basePrivacyStatus = (resolvedBaseName !== resolvedName && !privacyStatus)
+            ? await env.INBOX_KV.get(`privacy:${resolvedBaseName}`)
+            : null;
+          const effectivePrivacyStatus = privacyStatus ?? basePrivacyStatus;
           let privacyTier: 'exposed' | 'private' | 'hard-privacy' = 'exposed';
-          if (privacyStatus) {
+          if (effectivePrivacyStatus) {
             try {
-              const p = JSON.parse(privacyStatus);
+              const p = JSON.parse(effectivePrivacyStatus);
               if (p.tier === 'hard-privacy') privacyTier = 'hard-privacy';
               else if (p.tier === 'private') privacyTier = 'private';
               else if (p.enabled === true && !p.tier) privacyTier = 'private'; // legacy boolean fallback
             } catch {
-              if (privacyStatus === 'true') privacyTier = 'private';
+              if (effectivePrivacyStatus === 'true') privacyTier = 'private';
             }
           }
 
