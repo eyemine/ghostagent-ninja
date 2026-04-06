@@ -3536,7 +3536,8 @@ export default {
           }
 
           // Parse acct-tier for safe / storyIp / tier info
-          // For _@ aliases fall back to base agent's acct-tier (ghostagent_ inherits ghostagent's tier)
+          // effectiveAcctTierRaw used for canSend + safe (alias inherits from base agent)
+          // accountTier display uses ONLY the alias-specific acctTierRaw (so alias shows its own tier, not base agent's)
           const effectiveAcctTierRaw = acctTierRaw || baseAcctTierRaw;
           let accountTier: string = 'basic';
           let agentSafe: string | null = null;
@@ -3546,11 +3547,14 @@ export default {
           if (effectiveAcctTierRaw) {
             try {
               const td = JSON.parse(effectiveAcctTierRaw);
-              accountTier = td.tier || 'basic';
+              // Display tier: use alias-specific tier only; base fallback only provides canSend/safe
+              if (acctTierRaw) {
+                accountTier = td.tier || 'basic';
+              }
               agentSafe = td.safe || null;
               storyIp = td.story_ip || null;
               expiresAt = td.expires_at || null;
-              canSend = accountTier !== 'basic';
+              canSend = (td.tier || 'basic') !== 'basic';
             } catch {}
           }
 
