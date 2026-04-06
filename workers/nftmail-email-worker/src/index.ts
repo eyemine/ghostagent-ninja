@@ -3509,9 +3509,13 @@ export default {
           const hasEciesKey = !!eciesKey;
           const hasZohoSeat = !!zohoSeat;
           const hasAcctTier = !!(acctTierRaw || baseAcctTierRaw);
-          // For _@ aliases: also consider base agent TLD as an existence signal
+          // For _@ aliases: also check base agent TLD and on-chain ERC-8004 registration
           const hasBaseTld = resolvedBaseName !== resolvedName && !!baseTldValue;
-          const exists = hasMessages || hasEciesKey || hasZohoSeat || hasAcctTier || hasBaseTld;
+          const baseErc8004Raw = (resolvedBaseName !== resolvedName)
+            ? await env.INBOX_KV.get(`erc8004:gnosis:${resolvedBaseName}`)
+            : null;
+          const hasBaseOnChain = !!baseErc8004Raw;
+          const exists = hasMessages || hasEciesKey || hasZohoSeat || hasAcctTier || hasBaseTld || hasBaseOnChain;
 
           // Privacy tier — for aliases, fall back to base agent privacy if alias has none
           const basePrivacyStatus = (resolvedBaseName !== resolvedName && !privacyStatus)
