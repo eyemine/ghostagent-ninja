@@ -3548,9 +3548,7 @@ export default {
             }
           }
 
-          // Parse acct-tier for safe / storyIp / tier info
-          // effectiveAcctTierRaw used for canSend + safe (alias inherits from base agent)
-          // accountTier display uses ONLY the alias-specific acctTierRaw (so alias shows its own tier, not base agent's)
+          // Parse acct-tier — aliases inherit from base agent for all display fields
           const effectiveAcctTierRaw = acctTierRaw || baseAcctTierRaw;
           let accountTier: string = 'basic';
           let agentSafe: string | null = null;
@@ -3560,10 +3558,7 @@ export default {
           if (effectiveAcctTierRaw) {
             try {
               const td = JSON.parse(effectiveAcctTierRaw);
-              // Display tier: use alias-specific tier only; base fallback only provides canSend/safe
-              if (acctTierRaw) {
-                accountTier = td.tier || 'basic';
-              }
+              accountTier = td.tier || 'basic';
               agentSafe = td.safe || null;
               storyIp = td.story_ip || null;
               expiresAt = td.expires_at || null;
@@ -3582,7 +3577,21 @@ export default {
             };
           }
 
-          const agentResolvedTld = tldValue || baseTldValue || (resolvedName.endsWith('_molt') || resolvedBaseName.endsWith('_molt') ? 'molt.gno' : 'nftmail.gno');
+          // For aliases: also try to derive TLD from base agent's nftmailgno origin_nft
+          // e.g. origin_nft = 'ghostagent.molt.gno' → tld = 'molt.gno'
+          let baseOriginTld: string | null = null;
+          if (isAlias) {
+            const baseNftmailGno = await env.INBOX_KV.get(`nftmailgno:${resolvedBaseName}`);
+            if (baseNftmailGno) {
+              try {
+                const g = JSON.parse(baseNftmailGno);
+                const originNftStr: string = g.origin_nft || '';
+                const dotIdx = originNftStr.indexOf('.');
+                if (dotIdx > 0) baseOriginTld = originNftStr.slice(dotIdx + 1) || null;
+              } catch {}
+            }
+          }
+          const agentResolvedTld = tldValue || baseTldValue || baseOriginTld || (resolvedName.endsWith('_molt') || resolvedBaseName.endsWith('_molt') ? 'molt.gno' : 'nftmail.gno');
           // ghostmail.box + .agent stream + freemium/basic tier → always glassbox (npx/curl open access)
           // pro/vault on ghostmail.box gets a privacy toggle like any other agent
           const isGhostmailAgentStream = isAgent && reqDomain === 'ghostmail.box';
