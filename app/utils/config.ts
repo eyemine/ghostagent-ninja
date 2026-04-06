@@ -3,6 +3,13 @@
  * Import from here — never redeclare locally.
  */
 
-export const WORKER_URL =
-  process.env.NFTMAIL_WORKER_URL ||
-  'https://nftmail-email-worker.richard-159.workers.dev';
+const workerUrl = process.env.NFTMAIL_WORKER_URL;
+
+if (!workerUrl) {
+  throw new Error(
+    'NFTMAIL_WORKER_URL environment variable is required. ' +
+    'Set it in Netlify environment variables or .env.local'
+  );
+}
+
+export const WORKER_URL = workerUrl;

@@ -16,6 +16,9 @@
     "test": "jest",
     "prepare": "npm run build"
   },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
   "keywords": [
     "email",
     "blockchain",

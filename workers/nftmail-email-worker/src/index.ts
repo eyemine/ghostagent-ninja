@@ -171,17 +171,13 @@ export interface Env {
   GHOST_REGISTRY: string;
   INBOX_KV: KVNamespace;
   GHOST_CALENDAR: KVNamespace;
-  ZOHO_WEBHOOK_SECRET?: string;
   WEBHOOK_SECRET?: string;
   MAILGUN_API_KEY?: string;
   IPFS_GATEWAY?: string;
-  // Zoho API for forwarding encrypted blobs to catch-all
-  ZOHO_REFRESH_TOKEN?: string;
-  ZOHO_CLIENT_ID?: string;
-  ZOHO_CLIENT_SECRET?: string;
-  ZOHO_CATCHALL_ACCOUNT_ID?: string;
   // Social recovery: Master Safe public key (optional auditor)
   MASTER_SAFE_PUBKEY?: string;
+  // Worker authentication secret
+  WORKER_SECRET?: string;
 }
 
 interface EmailMessage {
@@ -205,9 +201,9 @@ interface HttpEmailPayload {
   content: string;
 }
 
-// Accept both nftmail.box and surge.nftmail.box (Zoho routing destination)
-const EMAIL_RE = /^([a-z0-9._-]+)(@(?:surge\.)?nftmail\.box)$/;
-const AGENT_EMAIL_RE = /^([a-z0-9._-]+)_(@(?:surge\.)?nftmail\.box)$/;
+// Accept both nftmail.box and ghostmail.box (and surge prefix variants)
+const EMAIL_RE = /^([a-z0-9._-]+)(@(?:surge\.)?(?:nftmail|ghostmail)\.box)$/;
+const AGENT_EMAIL_RE = /^([a-z0-9._-]+)\.agent(@(?:surge\.)?(?:nftmail|ghostmail)\.box)$/;
 
 function extractLocalPart(email: string): string | null {
   const match = EMAIL_RE.exec(email.toLowerCase().trim());
@@ -215,21 +211,21 @@ function extractLocalPart(email: string): string | null {
 }
 
 // --- MIME Parsing Helpers ---
-// Extract the original @nftmail.box recipient from headers or message.to
+// Extract the original @nftmail.box or @ghostmail.box recipient from headers or message.to
 function resolveOriginalRecipient(message: EmailMessage): string {
   // Priority: X-Original-To → Delivered-To → To header → message.to
   const xOrigTo = message.headers.get('x-original-to');
-  if (xOrigTo && xOrigTo.includes('@nftmail.box')) return xOrigTo.trim();
+  if (xOrigTo && (xOrigTo.includes('@nftmail.box') || xOrigTo.includes('@ghostmail.box'))) return xOrigTo.trim();
   const deliveredTo = message.headers.get('delivered-to');
-  if (deliveredTo && deliveredTo.includes('@nftmail.box')) return deliveredTo.trim();
+  if (deliveredTo && (deliveredTo.includes('@nftmail.box') || deliveredTo.includes('@ghostmail.box'))) return deliveredTo.trim();
   const toHeader = message.headers.get('to');
-  if (toHeader && toHeader.includes('@nftmail.box')) {
+  if (toHeader && (toHeader.includes('@nftmail.box') || toHeader.includes('@ghostmail.box'))) {
     // Extract email from "Name <email>" format
-    const emailMatch = /<([^>]+@nftmail\.box)>/.exec(toHeader) || /([^\s,]+@nftmail\.box)/.exec(toHeader);
+    const emailMatch = /<([^>]+@(?:nftmail|ghostmail)\.box)>/.exec(toHeader) || /([^\s,]+@(?:nftmail|ghostmail)\.box)/.exec(toHeader);
     if (emailMatch) return emailMatch[1].trim();
   }
   // Fallback: strip surge. prefix from message.to
-  return message.to.replace('@surge.nftmail.box', '@nftmail.box');
+  return message.to.replace('@surge.', '@');
 }
 
 // Strip HTML to plain text — handles multiline tags, style/script blocks, CSS artifacts
@@ -326,18 +322,21 @@ function extractBodyFromMime(rawMime: string): string {
 // --- Ghost-Router: Stream Classification ---
 // Suffix-Boundary Architecture (Vitalik Proof):
 //
-//   Format                        Stream       KV Provisioning    Verification
-//   ──────────────────────────────────────────────────────────────────────────
-//   name_@nftmail.box             agent        AUTO (minting)     6551 Brain / Safe (ECIES)
-//   name.digits_@nftmail.box      agent        AUTO (minting)     NFT collection + 6551
-//   name@nftmail.box              sovereign    ENS RESERVED       Free (treasury gas for first 100k)
-//   name.name@nftmail.box         no-coiner    EMAIL/SOCIAL       Privy creates wallet (email/social login)
-//   name.digits@nftmail.box       collection   APPROVED NFT       [AssignedCollectionName].[TokenIDdigits]
+//   Format                           Stream       KV Provisioning    Verification
+//   ──────────────────────────────────────────────────────────────────────────────
+//   name.agent@nftmail.box           agent        AUTO (minting)     6551 Brain / Safe (ECIES)
+//   name.digits.agent@nftmail.box    agent        AUTO (minting)     NFT collection + 6551
+//   name_@nftmail.box                agent-alias  inherits base      Agent A2A send address (nftmail)
+//   name@nftmail.box                 sovereign    ENS RESERVED       Free (treasury gas for first 100k)
+//   name.name@nftmail.box            no-coiner    EMAIL/SOCIAL       Privy creates wallet (email/social login)
+//   name.digits@nftmail.box          collection   APPROVED NFT       [AssignedCollectionName].[TokenIDdigits]
+//   name.agent@ghostmail.box         agent        AUTO (minting)     npx/curl A2A stream
+//   name-@ghostmail.box              agent-alias  inherits base      Agent A2A send address (ghostmail)
 //
 // Upgrade path: name.name → Lite Tier → mint name_name.nftmail.gno → may molt to name_name.vault.gno
 //
-// The _ suffix IS the boundary. Only _@ addresses get automated KV stores.
-// Root addresses (no _) are reserved for sovereign identities — cannot be
+// The .agent suffix IS the boundary. Only .agent@ addresses get automated KV stores.
+// Root addresses (no .agent) are reserved for sovereign identities — cannot be
 // auto-provisioned, only activated via ENS ownership proof or Genome Ownership Proof.
 //
 // ── ENS × Email Character Intersection ──
@@ -354,7 +353,7 @@ function extractBodyFromMime(rawMime: string): string {
 // Dot-delimited: name.segment2 where segment2 is ALL digits or ALL letters.
 // Mixed digits+letters in segment2 = REJECTED (anti-spoof guardrail).
 //
-// Agent streams: ECIES encrypt + Zoho delete (except @molt.gno → cleartext glassbox)
+// Agent streams: ECIES encrypt (except @molt.gno → cleartext glassbox)
 
 type StreamType = 'agent' | 'human' | 'unknown';
 
@@ -437,9 +436,9 @@ interface ClassifiedRecipient {
   socialPair?: [string, string]; // [name1, name2]
 }
 
-// Dot-delimited regex: name1.segment2 with optional trailing underscore
+// Dot-delimited regex: name1.segment2 with optional .agent suffix
 // segment2 is captured raw — the logic gate checks digits vs letters
-const DOT_DELIMITED_RE = /^([a-z]+)\.([a-z0-9]+)(_?)(@(?:surge\.)?nftmail\.box)$/;
+const DOT_DELIMITED_RE = /^([a-z]+)\.([a-z0-9]+)(\.agent)?(@(?:surge\.)?nftmail\.box)$/;
 const ALL_DIGITS = /^[0-9]+$/;
 const ALL_LETTERS = /^[a-z]+$/;
 
@@ -449,8 +448,8 @@ function classifyRecipient(emailAddr: string): ClassifiedRecipient {
   // 1. Dot-delimited: apply the Digit vs. Letter Logic Gate
   const dotMatch = DOT_DELIMITED_RE.exec(lower);
   if (dotMatch) {
-    const [, segment1, segment2, underscore] = dotMatch;
-    const isAgent = underscore === '_';
+    const [, segment1, segment2, agentSuffix] = dotMatch;
+    const isAgent = agentSuffix === '.agent';
 
     // LOGIC GATE: Digit vs. Letter partition
     if (ALL_DIGITS.test(segment2)) {
@@ -459,7 +458,7 @@ function classifyRecipient(emailAddr: string): ClassifiedRecipient {
       if (collection) {
         return {
           stream: isAgent ? 'agent' : 'human',
-          localPart: `${segment1}.${segment2}${underscore}`,
+          localPart: `${segment1}.${segment2}${isAgent ? '.agent' : ''}`,
           agentName: `${segment1}.${segment2}`,
           collectionName: segment1,
           tokenId: segment2,
@@ -474,7 +473,7 @@ function classifyRecipient(emailAddr: string): ClassifiedRecipient {
       // ── HUMAN IDENTITY PATH ── segment2 is all letters = Privy/wallet/social account
       return {
         stream: isAgent ? 'agent' : 'human',
-        localPart: `${segment1}.${segment2}${underscore}`,
+        localPart: `${segment1}.${segment2}${isAgent ? '.agent' : ''}`,
         agentName: `${segment1}.${segment2}`,
         socialPair: [segment1, segment2],
       };
@@ -484,188 +483,28 @@ function classifyRecipient(emailAddr: string): ClassifiedRecipient {
     return { stream: 'unknown', localPart: '', agentName: '' };
   }
 
-  // 2. Agent: flat name ending with _ before @
+  // 2. Agent: flat name ending with .agent before @
   const agentMatch = AGENT_EMAIL_RE.exec(lower);
   if (agentMatch) {
-    return { stream: 'agent', localPart: agentMatch[1] + '_', agentName: agentMatch[1] };
+    return { stream: 'agent', localPart: agentMatch[1] + '.agent', agentName: agentMatch[1] };
   }
 
   // 3. Human: flat name (sovereign / ENS holder)
   const humanMatch = EMAIL_RE.exec(lower);
   if (humanMatch) {
     const lp = humanMatch[1];
-    if (lp.endsWith('_')) {
-      return { stream: 'agent', localPart: lp, agentName: lp.slice(0, -1) };
+    const domain = humanMatch[2]; // e.g. '@ghostmail.box'
+    if (lp.endsWith('.agent')) {
+      return { stream: 'agent', localPart: lp, agentName: lp.slice(0, -6) };
+    }
+    // name-@ghostmail.box → agent alias (ghostmail.box convention, parallel to name_@nftmail.box)
+    if (lp.endsWith('-') && domain.includes('ghostmail')) {
+      return { stream: 'agent', localPart: lp, agentName: lp };
     }
     return { stream: 'human', localPart: lp, agentName: lp };
   }
 
   return { stream: 'unknown', localPart: '', agentName: '' };
-}
-
-// --- Zoho OAuth Token Helper ---
-async function getZohoAccessToken(env: Env): Promise<string | null> {
-  if (!env.ZOHO_REFRESH_TOKEN || !env.ZOHO_CLIENT_ID || !env.ZOHO_CLIENT_SECRET) return null;
-  try {
-    const res = await fetch('https://accounts.zoho.com.au/oauth/v2/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        refresh_token: env.ZOHO_REFRESH_TOKEN,
-        client_id: env.ZOHO_CLIENT_ID,
-        client_secret: env.ZOHO_CLIENT_SECRET,
-        grant_type: 'refresh_token',
-      }),
-    });
-    const data = await res.json() as Record<string, any>;
-    if (data.access_token) return data.access_token;
-    console.error(`[zohoAuth] token refresh failed: ${JSON.stringify(data).slice(0, 300)}`);
-    return null;
-  } catch (err) {
-    console.error(`[zohoAuth] error:`, err);
-    return null;
-  }
-}
-
-// --- Zoho Send: forward encrypted blob as email to catch-all ---
-async function forwardToCatchAll(
-  env: Env,
-  accessToken: string,
-  originalFrom: string,
-  agentName: string,
-  encryptedSubject: string,
-  encryptedBody: string
-): Promise<boolean> {
-  if (!env.ZOHO_CATCHALL_ACCOUNT_ID) return false;
-  try {
-    const res = await fetch(
-      `https://mail.zoho.com.au/api/accounts/${env.ZOHO_CATCHALL_ACCOUNT_ID}/messages`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Zoho-oauthtoken ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          fromAddress: 'ghostagent@nftmail.box',
-          toAddress: 'ghostagent@nftmail.box',
-          subject: `[BLIND:${agentName}] ${encryptedSubject}`,
-          content: encryptedBody,
-          mailFormat: 'plaintext',
-        }),
-      }
-    );
-    return res.ok;
-  } catch {
-    return false;
-  }
-}
-
-// --- Zoho: get inbox folder ID — KV-cached to survive across worker instances ---
-let _cachedInboxFolderId: string | null = null;
-async function getZohoInboxFolderId(env: Env, accessToken: string): Promise<string | null> {
-  if (_cachedInboxFolderId) return _cachedInboxFolderId;
-  // Check KV cache first (survives worker restarts, avoids extra API round-trip)
-  const kvCached = await env.INBOX_KV.get('zoho:inbox-folder-id');
-  if (kvCached) {
-    _cachedInboxFolderId = kvCached;
-    return _cachedInboxFolderId;
-  }
-  try {
-    const res = await fetch(
-      `https://mail.zoho.com.au/api/accounts/${env.ZOHO_CATCHALL_ACCOUNT_ID}/messages/view?limit=1`,
-      { headers: { 'Authorization': `Zoho-oauthtoken ${accessToken}` } }
-    );
-    if (res.ok) {
-      const data = await res.json() as { data?: Array<{ folderId: string }> };
-      if (data.data && data.data.length > 0 && data.data[0].folderId) {
-        _cachedInboxFolderId = data.data[0].folderId;
-        // Cache in KV with 30-day TTL — folderId is stable
-        await env.INBOX_KV.put('zoho:inbox-folder-id', _cachedInboxFolderId, { expirationTtl: 30 * 24 * 60 * 60 });
-        console.log(`[zohoFolders] inbox folderId=${_cachedInboxFolderId} (cached to KV)`);
-        return _cachedInboxFolderId;
-      }
-    }
-    console.error(`[zohoFolders] could not get folderId from messages, status=${res.status}`);
-    return null;
-  } catch (err) {
-    console.error('[zohoFolders] error:', err);
-    return null;
-  }
-}
-
-// --- Zoho Delete: purge cleartext after ECIES encryption ---
-async function zohoDeleteMessage(env: Env, accessToken: string, messageId: string, folderId?: string): Promise<boolean> {
-  if (!env.ZOHO_CATCHALL_ACCOUNT_ID || !messageId) {
-    console.log(`[zohoDelete] skipped: accountId=${!!env.ZOHO_CATCHALL_ACCOUNT_ID}, messageId=${messageId}`);
-    return false;
-  }
-  try {
-    // Use provided folderId, or look it up from message metadata
-    const folder = folderId || await getZohoInboxFolderId(env, accessToken);
-    if (!folder) {
-      console.error(`[zohoDelete] cannot delete: inbox folderId not found`);
-      return false;
-    }
-    // Zoho Mail API: DELETE /api/accounts/{accountId}/folders/{folderId}/messages/{messageId}?expunge=true
-    const url = `https://mail.zoho.com.au/api/accounts/${env.ZOHO_CATCHALL_ACCOUNT_ID}/folders/${folder}/messages/${messageId}?expunge=true`;
-    const res = await fetch(url, {
-      method: 'DELETE',
-      headers: { 'Authorization': `Zoho-oauthtoken ${accessToken}` },
-    });
-    const body = await res.text();
-    console.log(`[zohoDelete] status=${res.status} messageId=${messageId} folderId=${folder} response=${body.slice(0, 200)}`);
-    return res.ok;
-  } catch (err) {
-    console.error(`[zohoDelete] error:`, err);
-    return false;
-  }
-}
-
-// --- Zoho Fetch: get unread messages for cron polling fallback ---
-interface ZohoMessage {
-  messageId: string;
-  fromAddress: string;
-  toAddress: string;
-  subject: string;
-  receivedTime: number;
-  folderId?: string;
-  summary?: string;
-}
-
-async function zohoFetchUnread(env: Env, accessToken: string, limit: number = 20): Promise<ZohoMessage[]> {
-  if (!env.ZOHO_CATCHALL_ACCOUNT_ID) return [];
-  try {
-    const res = await fetch(
-      `https://mail.zoho.com.au/api/accounts/${env.ZOHO_CATCHALL_ACCOUNT_ID}/messages/view?folderId=inbox&limit=${limit}&status=unread`,
-      {
-        headers: { 'Authorization': `Zoho-oauthtoken ${accessToken}` },
-      }
-    );
-    if (!res.ok) return [];
-    const data = await res.json() as { data?: ZohoMessage[] };
-    return data.data || [];
-  } catch {
-    return [];
-  }
-}
-
-// --- Zoho Fetch: get full message content by ID ---
-async function zohoGetMessageContent(env: Env, accessToken: string, messageId: string): Promise<string> {
-  if (!env.ZOHO_CATCHALL_ACCOUNT_ID || !messageId) return '';
-  try {
-    const res = await fetch(
-      `https://mail.zoho.com.au/api/accounts/${env.ZOHO_CATCHALL_ACCOUNT_ID}/messages/${messageId}/content`,
-      {
-        headers: { 'Authorization': `Zoho-oauthtoken ${accessToken}` },
-      }
-    );
-    if (!res.ok) return '';
-    const data = await res.json() as { data?: { content?: string } };
-    return data.data?.content || '';
-  } catch {
-    return '';
-  }
 }
 
 // --- Blind Index Helper ---
@@ -726,21 +565,25 @@ const PRIVATE_TLDS = ['agent.gno', 'openclaw.gno', 'picoclaw.gno', 'vault.gno', 
 
 async function isPublicAgent(agentName: string, env: Env, parentTld?: string): Promise<boolean> {
   if (parentTld) return PUBLIC_TLDS.some(t => parentTld.endsWith(t));
+  // Strip trailing _ (nftmail alias) or - (ghostmail alias) to inherit base agent's TLD
+  const baseName = agentName.replace(/[_-]+$/, '');
   // KV registry: tld:{agentName} → 'molt.gno' | 'vault.gno' | etc.
-  const tld = await env.INBOX_KV.get(`tld:${agentName}`);
+  const tld = await env.INBOX_KV.get(`tld:${agentName}`) || (baseName !== agentName ? await env.INBOX_KV.get(`tld:${baseName}`) : null);
   if (tld) return PUBLIC_TLDS.includes(tld);
   // Fallback: suffix convention for legacy agents
-  return agentName.endsWith('_molt');
+  return agentName.endsWith('_molt') || baseName.endsWith('_molt');
 }
 
 async function getAgentTld(agentName: string, env: Env, parentTld?: string): Promise<string> {
   if (parentTld) return parentTld;
-  // KV registry first
-  const tld = await env.INBOX_KV.get(`tld:${agentName}`);
+  // Strip trailing _ (nftmail alias) or - (ghostmail alias) to inherit base agent's TLD
+  const baseName = agentName.replace(/[_-]+$/, '');
+  // KV registry first — check specific name, then base name
+  const tld = await env.INBOX_KV.get(`tld:${agentName}`) || (baseName !== agentName ? await env.INBOX_KV.get(`tld:${baseName}`) : null);
   if (tld) return tld;
   // Fallback: suffix convention
-  if (agentName.endsWith('_molt')) return 'molt.gno';
-  if (agentName.endsWith('_vault')) return 'vault.gno';
+  if (agentName.endsWith('_molt') || baseName.endsWith('_molt')) return 'molt.gno';
+  if (agentName.endsWith('_vault') || baseName.endsWith('_vault')) return 'vault.gno';
   return 'nftmail.gno';
 }
 
@@ -858,8 +701,8 @@ async function handleMailgunPayload(
   const timestamp = Date.now();
   const rawRecipient = String(mgEmail['recipient'] || mgEmail['to'] || '');
   const recipientLocal = rawRecipient.split('@')[0] || '';
-  const normalisedRecipient = (recipientLocal && !recipientLocal.includes('.') && !recipientLocal.endsWith('_'))
-    ? `${recipientLocal}_@nftmail.box`
+  const normalisedRecipient = (recipientLocal && !recipientLocal.includes('.') && !recipientLocal.endsWith('.agent'))
+    ? `${recipientLocal}.agent@nftmail.box`
     : rawRecipient;
 
   let recipient = normalisedRecipient.replace(/&lt;/g, '<').replace(/&gt;/g, '>');
@@ -1090,6 +933,19 @@ export default {
       return new Response(null, { headers: corsHeaders(request) });
     }
 
+    // ── AUTH GUARD: Validate X-Worker-Secret header for all requests ──
+    const workerSecret = env.WORKER_SECRET;
+    if (workerSecret) {
+      const requestSecret = request.headers.get('X-Worker-Secret');
+      if (requestSecret !== workerSecret) {
+        console.error(`[auth] Invalid or missing X-Worker-Secret from ${request.headers.get('host')}`);
+        return corsify(
+          Response.json({ error: 'Unauthorized - Invalid or missing X-Worker-Secret header' }, { status: 401 }),
+          request
+        );
+      }
+    }
+
     try {
       const storage = new MailStorageAdapter({
         backend: env.BACKEND,
@@ -1179,8 +1035,8 @@ export default {
           if (!rawAgent) {
             return corsify(new Response('Missing agent name (localPart or email)', { status: 400 }), request);
           }
-          // Normalize: strip trailing _ since KV stores under identity name (no underscore)
-          const agent = rawAgent.endsWith('_') ? rawAgent.slice(0, -1) : rawAgent;
+          // Normalize: strip .agent suffix since KV stores under identity name (no .agent)
+          const agent = rawAgent.endsWith('.agent') ? rawAgent.slice(0, -6) : rawAgent;
           result = await storage.getInbox(agent);
           return corsify(result, request);
         }
@@ -1261,7 +1117,7 @@ export default {
 
           return corsify(Response.json({
             name: agentName,
-            email: `${agentName}_@nftmail.box`,
+            email: `${agentName}.agent@nftmail.box`,
             // Identity NFT layer
             identityNft: originNft ? {
               name:    originNft,
@@ -1291,9 +1147,9 @@ export default {
 
         // Agent Registry: update acct-tier (safe, story_ip, tier) and/or nftmailgno (originNft, tokenId, TBA) for an agent
         if (email.action === 'setAgentRecord') {
-          // Preserve trailing _ for agent inbox keys (ghostagent_ vs ghostagent)
+          // Preserve .agent suffix for agent inbox keys (ghostagent.agent vs ghostagent)
           const rawName = ((email as any).agentName || '').toLowerCase().trim();
-          const agentName = rawName.endsWith('_') ? rawName : rawName.replace(/_+$/, '');
+          const agentName = rawName.endsWith('.agent') ? rawName : rawName.replace(/\.agent$/, '');
           if (!agentName) {
             return corsify(Response.json({ error: 'Missing agentName' }, { status: 400 }), request);
           }
@@ -1672,7 +1528,7 @@ export default {
                 const s = (g.safe || '').toLowerCase();
                 // Match on controller field OR safe address
                 if (c !== controller && s !== controller) return;
-                const isAgent = name.endsWith('_');
+                const isAgent = name.endsWith('.agent');
                 const tldRaw = await env.INBOX_KV.get(`tld:${name}`);
                 const tld = tldRaw || 'nftmail.gno';
                 results.push({
@@ -2225,7 +2081,7 @@ export default {
           const stateRaw = await env.INBOX_KV.get(stateKey);
           const state    = stateRaw ? JSON.parse(stateRaw) : {
             vaultName,
-            inboxEmail: `swarm.${vaultName}_@nftmail.box`,
+            inboxEmail: `swarm.${vaultName}.agent@nftmail.box`,
             agents: [],
             tasks:  [],
           };
@@ -2448,7 +2304,7 @@ export default {
           const rawState = await env.INBOX_KV.get(stateKey);
           const state: { vaultName: string; inboxEmail: string; agents: unknown[]; tasks: unknown[] } = rawState
             ? JSON.parse(rawState)
-            : { vaultName, inboxEmail: `swarm.${vaultName}_@nftmail.box`, agents: [], tasks: [] };
+            : { vaultName, inboxEmail: `swarm.${vaultName}.agent@nftmail.box`, agents: [], tasks: [] };
 
           if (subAction === 'register-agent') {
             const agentName = (email as any).agentName || '';
@@ -2738,23 +2594,23 @@ export default {
           return corsify(Response.json({ status: 'molted', transition }), request);
         }
 
-        // --- Ghost-Router: Inbound Email from Zoho Catch-All ---
-        // Zoho catch-all receives *@nftmail.box → webhook fires → Worker classifies:
-        //   Agent (_@): ECIES encrypt → blind KV + blind Zoho + IPFS
-        //   Human (@):  Check Zoho seat → forward normally or store in KV
+        // --- Ghost-Router: Inbound Email ---
+        // Webhook receives *@nftmail.box → Worker classifies:
+        //   Agent (.agent@): ECIES encrypt → blind KV + IPFS
+        //   Human (@): Store in KV
         if (email.action === 'ghostRoute') {
           // Skip secret check for Mailgun-sourced calls (already HMAC-verified upstream)
           if (!(email as any)._mailgunVerified) {
-            const expectedSecret = env.ZOHO_WEBHOOK_SECRET || env.WEBHOOK_SECRET;
-            if (expectedSecret) {
-              const authHeader = request.headers.get('X-Zoho-Webhook-Secret') || (email as any).webhookSecret || '';
-              if (authHeader !== env.ZOHO_WEBHOOK_SECRET && authHeader !== env.WEBHOOK_SECRET) {
+            const workerSecret = env.WEBHOOK_SECRET;
+            if (workerSecret) {
+              const authHeader = (email as any).webhookSecret || '';
+              if (authHeader !== workerSecret) {
                 return corsify(Response.json({ error: 'Invalid webhook secret' }, { status: 401 }), request);
               }
             }
           }
 
-          // Decode HTML entities from Zoho's webhook payload
+          // Decode HTML entities from webhook payload
           let recipient = (email as any).recipient || email.to || '';
           recipient = recipient.replace(/&lt;/g, '<').replace(/&gt;/g, '>');
           // Clean any remaining brackets/quotes
@@ -3159,164 +3015,6 @@ export default {
           }), request);
         }
 
-        // --- Zoho Webhook Receiver (legacy): ECIES Blind Storage ---
-        // Kept for backward compatibility with existing zohoWebhook calls
-        if (email.action === 'zohoWebhook') {
-          // Verify webhook secret if configured
-          if (env.ZOHO_WEBHOOK_SECRET) {
-            const authHeader = request.headers.get('X-Zoho-Webhook-Secret') || (email as any).webhookSecret || '';
-            if (authHeader !== env.ZOHO_WEBHOOK_SECRET) {
-              return corsify(Response.json({ error: 'Invalid webhook secret' }, { status: 401 }), request);
-            }
-          }
-
-          const recipient = (email as any).recipient || email.to || '';
-          const localPart = extractLocalPart(recipient) || (email as any).localPart || '';
-          if (!localPart) {
-            return corsify(Response.json({ error: 'Missing recipient' }, { status: 400 }), request);
-          }
-
-          // Look up recipient's ECIES public key from KV
-          const pubKeyHex = await env.INBOX_KV.get(`ecies-pubkey:${localPart}`);
-
-          // Build the plaintext payload
-          const plaintextPayload = JSON.stringify({
-            from: email.from || (email as any).sender || '',
-            to: recipient,
-            subject: email.subject || '',
-            body: email.content || (email as any).body || '',
-            timestamp: Date.now(),
-            headers: (email as any).headers || {},
-          });
-
-          // Content hash of plaintext (always computed, even if not encrypted)
-          const plaintextHash = await sha256Hex(plaintextPayload);
-
-          let blindEnvelope: any;
-          let encrypted = false;
-
-          if (pubKeyHex) {
-            // ECIES encrypt — Zoho/KV only stores ciphertext
-            const encEnvelope = await eciesEncrypt(plaintextPayload, pubKeyHex);
-            blindEnvelope = {
-              type: 'ecies-blind',
-              encrypted: true,
-              envelope: encEnvelope,
-              plaintextHash,
-              recipient: localPart,
-              receivedAt: Date.now(),
-            };
-            encrypted = true;
-          } else {
-            // No ECIES key registered — store cleartext with warning
-            blindEnvelope = {
-              type: 'cleartext-warning',
-              encrypted: false,
-              warning: 'No ECIES public key registered for this recipient. Message stored in cleartext.',
-              payload: JSON.parse(plaintextPayload),
-              plaintextHash,
-              recipient: localPart,
-              receivedAt: Date.now(),
-            };
-          }
-
-          // Store blind envelope in KV — PRO/infinite retention accounts skip TTL
-          const blindId = `blind-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
-          const acctTierRaw = await env.INBOX_KV.get(`acct-tier:${localPart}`);
-          let isInfiniteRetention = false;
-          try {
-            const td = acctTierRaw ? JSON.parse(acctTierRaw) : {};
-            isInfiniteRetention = td.retention === 'infinite' || td.tier === 'premium' || td.tier === 'ghost';
-          } catch {}
-          const sovereignTtlOpts = isInfiniteRetention ? {} : { expirationTtl: 30 * 24 * 60 * 60 };
-          await env.INBOX_KV.put(
-            `blind:${localPart}:${blindId}`,
-            JSON.stringify(blindEnvelope),
-            sovereignTtlOpts
-          );
-
-          // Update blind message index (index itself has no TTL for PRO users)
-          const blindIndexKey = `blind-index:${localPart}`;
-          let blindIndex: string[] = [];
-          try {
-            const raw = await env.INBOX_KV.get(blindIndexKey);
-            if (raw) blindIndex = JSON.parse(raw);
-          } catch {}
-          blindIndex.push(blindId);
-          if (blindIndex.length > 200) blindIndex = blindIndex.slice(-200); // Imago: larger index
-          await env.INBOX_KV.put(blindIndexKey, JSON.stringify(blindIndex), sovereignTtlOpts);
-
-          // Pin to IPFS (fire-and-forget, non-blocking)
-          let ipfsCid = '';
-          try {
-            const ipfsRes = await fetch('https://api.web3.storage/upload', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                ...(env.IPFS_GATEWAY ? { 'Authorization': `Bearer ${env.IPFS_GATEWAY}` } : {}),
-              },
-              body: JSON.stringify(blindEnvelope),
-            });
-            if (ipfsRes.ok) {
-              const ipfsData = await ipfsRes.json() as { cid?: string };
-              ipfsCid = ipfsData.cid || '';
-              // Store CID reference
-              if (ipfsCid) {
-                await env.INBOX_KV.put(`ipfs:${localPart}:${blindId}`, ipfsCid);
-              }
-            }
-          } catch {
-            // IPFS pin is best-effort — don't fail the webhook
-          }
-
-          // Also store in regular inbox for backward compatibility
-          // (the cleartext or encrypted version depending on key availability)
-          if (!encrypted) {
-            // No ECIES key — also push to sovereign KV for inbox reads
-            await storage.storeEmail(localPart, {
-              from: email.from || (email as any).sender || '',
-              to: recipient,
-              subject: email.subject || '',
-              content: email.content || (email as any).body || '',
-              timestamp: Date.now(),
-            });
-          }
-
-          // Glass Box audit log for molt.gno agents
-          if (await isPublicAgent(localPart, env)) {
-            const sensitivity = isSensitiveContent(
-              email.from || '',
-              email.subject || '',
-              email.content || (email as any).body || ''
-            );
-            const entry: AuditEntry = {
-              id: blindId,
-              from: email.from || (email as any).sender || '',
-              to: recipient,
-              subject: sensitivity.sensitive ? REDACTED_SUBJECT_PREFIX + 'Authentication Signal' : (email.subject || ''),
-              content: sensitivity.sensitive ? REDACTED_BODY : (encrypted ? '[ECIES ENCRYPTED — Blind Storage]' : (email.content || '')),
-              timestamp: Date.now(),
-              contentHash: plaintextHash,
-              verified: true,
-              redacted: sensitivity.sensitive,
-              redactionReason: sensitivity.sensitive ? sensitivity.reason : undefined,
-            };
-            const auditRaw = await env.INBOX_KV.get(`audit:${localPart}`);
-            const auditLog: AuditEntry[] = auditRaw ? JSON.parse(auditRaw) : [];
-            auditLog.push(entry);
-            await env.INBOX_KV.put(`audit:${localPart}`, JSON.stringify(auditLog));
-          }
-
-          return corsify(Response.json({
-            status: 'received',
-            blindId,
-            encrypted,
-            plaintextHash,
-            ipfsCid: ipfsCid || undefined,
-            recipient: localPart,
-          }), request);
-        }
-
         // --- Collection Identity Actions ---
         // List all whitelisted collections
         if (email.action === 'whitelistedCollections') {
@@ -3327,7 +3025,7 @@ export default {
               chainId: c.chainId,
               contractAddress: c.contractAddress,
               emailFormat: `${c.assignedName}.<tokenId>@nftmail.box`,
-              agentFormat: `${c.assignedName}.<tokenId>_@nftmail.box`,
+              agentFormat: `${c.assignedName}.<tokenId>.agent@nftmail.box`,
             })),
           }), request);
         }
@@ -3361,7 +3059,7 @@ export default {
             chainId: coll.chainId,
             owner,
             emailAddress: `${collKey}@nftmail.box`,
-            agentAddress: `${collKey}_@nftmail.box`,
+            agentAddress: `${collKey}.agent@nftmail.box`,
             eciesKeyRegistered: hasKey,
           }), request);
         }
@@ -3388,7 +3086,7 @@ export default {
 
         if (email.action === 'setMoltPath') {
           const secret = (email as any).secret;
-          if (!secret || secret !== (env.WEBHOOK_SECRET || env.ZOHO_WEBHOOK_SECRET)) {
+          if (!secret || secret !== env.WEBHOOK_SECRET) {
             return corsify(Response.json({ error: 'Unauthorized' }, { status: 401 }), request);
           }
           const name = ((email as any).name || '').toLowerCase().trim();
@@ -3405,7 +3103,7 @@ export default {
         // getBeacon: read stored beacon CID + metadata URL
         if (email.action === 'setBeacon') {
           const secret = (email as any).secret;
-          if (!secret || secret !== (env.WEBHOOK_SECRET || env.ZOHO_WEBHOOK_SECRET)) {
+          if (!secret || secret !== env.WEBHOOK_SECRET) {
             return corsify(Response.json({ error: 'Unauthorized' }, { status: 401 }), request);
           }
           const name = ((email as any).name || '').toLowerCase().trim();
@@ -3547,20 +3245,24 @@ export default {
         }
 
         // --- Resolve Address: check existence + privacy for inbox display ---
-        // Suffix-Boundary Architecture: only name_ addresses auto-resolve.
-        // Root addresses (no _) are sovereign-reserved.
+        // Suffix-Boundary Architecture: name_ (nftmail) and name- (ghostmail) are agent aliases.
+        // Root addresses (no suffix) are sovereign-reserved.
         if (email.action === 'resolveAddress') {
           const inputName = ((email as any).name || '').toLowerCase().trim();
+          // domain: 'ghostmail.box' | 'nftmail.box' — caller passes for tier-based privacy rules
+          const reqDomain: string = ((email as any).domain || 'nftmail.box').toLowerCase();
           if (!inputName) {
             return corsify(Response.json({ error: 'Missing name' }, { status: 400 }), request);
           }
 
-          // Character sanitisation: strip trailing _ for prefix check
-          const isAgent = inputName.endsWith('_');
-          const prefix = isAgent ? inputName.slice(0, -1) : inputName;
+          // Character sanitisation: strip .agent suffix for prefix check
+          const isAgent = inputName.endsWith('.agent');
+          const prefix = isAgent ? inputName.slice(0, -6) : inputName;
 
           // Classify through logic gate for dot-delimited patterns
-          const addr = inputName.includes('@') ? inputName : `${inputName}@nftmail.box`;
+          // Use domain to build the right address for classification
+          const classifyDomain = reqDomain === 'ghostmail.box' ? '@ghostmail.box' : '@nftmail.box';
+          const addr = inputName.includes('@') ? inputName : `${inputName}${classifyDomain}`;
           const classified = classifyRecipient(addr);
           const { stream, collectionName, tokenId, collection, socialPair } = classified;
           const agentName = classified.agentName || prefix;
@@ -3568,7 +3270,9 @@ export default {
           // ── SOVEREIGN (no underscore suffix) ──
           // Root addresses may be pre-existing accounts (e.g. fresh.boy).
           // Must check KV existence FIRST before returning availability.
-          if (!isAgent) {
+          // name_/@nftmail + name-/@ghostmail agent aliases skip sovereign path → fall through to AGENT block.
+          const isAgentAlias = !isAgent && (inputName.endsWith('_') || inputName.endsWith('-'));
+          if (!isAgent && !isAgentAlias) {
             // First: validate against ENS × Email character intersection
             if (!isValidSovereignName(inputName)) {
               let reason = 'Invalid address format';
@@ -3775,15 +3479,19 @@ export default {
           // ── AGENT (underscore suffix) ──
           // Validate prefix: alphanumeric only (dots allowed for collection patterns)
           const resolvedName = agentName;
+          // Strip trailing _ (nftmail alias) or - (ghostmail alias) to get base name
+          const resolvedBaseName = resolvedName.replace(/[_-]+$/, '');
 
           // Check existence signals in KV (+ tld, on-chain linkage, acct-tier, heartbeat)
-          const [blindIndex, eciesKey, zohoSeat, privacyStatus, tldValue, acctTierRaw, nftmailGnoRaw, cronHeartbeat, erc8004GnosisChain, erc8004GnosisLegacy, erc8004BaseMainnet, erc8004BaseSepoliaRaw] = await Promise.all([
+          const [blindIndex, eciesKey, zohoSeat, privacyStatus, tldValue, baseTldValue, acctTierRaw, baseAcctTierRaw, nftmailGnoRaw, cronHeartbeat, erc8004GnosisChain, erc8004GnosisLegacy, erc8004BaseMainnet, erc8004BaseSepoliaRaw] = await Promise.all([
             env.INBOX_KV.get(`blind-index:${resolvedName}`),
             env.INBOX_KV.get(`ecies-pubkey:${resolvedName}`),
             env.INBOX_KV.get(`zoho-seat:${resolvedName}`),
             env.INBOX_KV.get(`privacy:${resolvedName}`),
             env.INBOX_KV.get(`tld:${resolvedName}`),
+            resolvedBaseName !== resolvedName ? env.INBOX_KV.get(`tld:${resolvedBaseName}`) : Promise.resolve(null),
             env.INBOX_KV.get(`acct-tier:${resolvedName}`),
+            resolvedBaseName !== resolvedName ? env.INBOX_KV.get(`acct-tier:${resolvedBaseName}`) : Promise.resolve(null),
             env.INBOX_KV.get(`nftmailgno:${resolvedName}`),
             env.INBOX_KV.get('heartbeat:cron'),
             env.INBOX_KV.get(`erc8004:gnosis:${resolvedName}`),
@@ -3798,8 +3506,8 @@ export default {
           const hasMessages = !!blindIndex && JSON.parse(blindIndex).length > 0;
           const hasEciesKey = !!eciesKey;
           const hasZohoSeat = !!zohoSeat;
-          const hasAcctTier = !!acctTierRaw;
-          // Agent exists if any presence signal found (blind-index, ecies key, zoho seat, or acct-tier)
+          const hasAcctTier = !!(acctTierRaw || baseAcctTierRaw);
+          // Agent exists if any presence signal found; for _@ aliases also check base agent acct-tier
           const exists = hasMessages || hasEciesKey || hasZohoSeat || hasAcctTier;
 
           // Privacy tier
@@ -3833,14 +3541,16 @@ export default {
           }
 
           // Parse acct-tier for safe / storyIp / tier info
+          // For _@ aliases fall back to base agent's acct-tier (ghostagent_ inherits ghostagent's tier)
+          const effectiveAcctTierRaw = acctTierRaw || baseAcctTierRaw;
           let accountTier: string = 'basic';
           let agentSafe: string | null = null;
           let storyIp: string | null = null;
           let expiresAt: number | null = null;
           let canSend = false;
-          if (acctTierRaw) {
+          if (effectiveAcctTierRaw) {
             try {
-              const td = JSON.parse(acctTierRaw);
+              const td = JSON.parse(effectiveAcctTierRaw);
               accountTier = td.tier || 'basic';
               agentSafe = td.safe || null;
               storyIp = td.story_ip || null;
@@ -3860,8 +3570,13 @@ export default {
             };
           }
 
-          const agentResolvedTld = tldValue || (resolvedName.endsWith('_molt') ? 'molt.gno' : 'nftmail.gno');
-          const agentIsPublic = PUBLIC_TLDS.some(t => agentResolvedTld.endsWith(t));
+          const agentResolvedTld = tldValue || baseTldValue || (resolvedName.endsWith('_molt') || resolvedBaseName.endsWith('_molt') ? 'molt.gno' : 'nftmail.gno');
+          // ghostmail.box + .agent stream + freemium/basic tier → always glassbox (npx/curl open access)
+          // pro/vault on ghostmail.box gets a privacy toggle like any other agent
+          const isGhostmailAgentStream = isAgent && reqDomain === 'ghostmail.box';
+          const ghostmailFreemiumGlassbox = isGhostmailAgentStream && accountTier === 'basic';
+          if (ghostmailFreemiumGlassbox) privacyTier = 'exposed';
+          const agentIsPublic = ghostmailFreemiumGlassbox || PUBLIC_TLDS.some(t => agentResolvedTld.endsWith(t));
 
           // Inbox message count from blind-index
           const inboxIds: string[] = blindIndex ? (() => { try { return JSON.parse(blindIndex); } catch { return []; } })() : [];
@@ -3958,7 +3673,7 @@ export default {
             status: 'registered',
             socialKey,
             emailAddress: `${socialKey}@nftmail.box`,
-            agentAddress: `${socialKey}_@nftmail.box`,
+            agentAddress: `${socialKey}.agent@nftmail.box`,
             owner: ownerWallet,
           }), request);
         }
@@ -3996,52 +3711,6 @@ export default {
             publicKey: keyPair.publicKey,
             privateKey: keyPair.privateKey,
             warning: 'Save the private key securely. It will NOT be stored on the server.',
-          }), request);
-        }
-
-        // Debug: test Zoho API access and folder lookup
-        if (email.action === 'debugZoho') {
-          const accessToken = await getZohoAccessToken(env);
-          if (!accessToken) {
-            return corsify(Response.json({ error: 'Failed to get Zoho access token', hasRefreshToken: !!env.ZOHO_REFRESH_TOKEN, hasClientId: !!env.ZOHO_CLIENT_ID }), request);
-          }
-          // Try message list to get folderId from message metadata
-          let msgListStatus = 0;
-          let sampleMessage: any = null;
-          try {
-            const mRes = await fetch(
-              `https://mail.zoho.com.au/api/accounts/${env.ZOHO_CATCHALL_ACCOUNT_ID}/messages/view?limit=1`,
-              { headers: { 'Authorization': `Zoho-oauthtoken ${accessToken}` } }
-            );
-            msgListStatus = mRes.status;
-            const mData = await mRes.json() as any;
-            if (mData.data && mData.data.length > 0) {
-              const m = mData.data[0];
-              sampleMessage = { messageId: m.messageId, folderId: m.folderId, subject: m.subject?.slice(0, 50), toAddress: m.toAddress };
-            }
-          } catch (e: any) {
-            sampleMessage = { error: e.message };
-          }
-          // Also try delete with a test messageId to see the error
-          let deleteTest: any = null;
-          const testMsgId = (email as any).testMessageId || '';
-          if (testMsgId && sampleMessage?.folderId) {
-            try {
-              const dRes = await fetch(
-                `https://mail.zoho.com.au/api/accounts/${env.ZOHO_CATCHALL_ACCOUNT_ID}/folders/${sampleMessage.folderId}/messages/${testMsgId}?expunge=true`,
-                { method: 'DELETE', headers: { 'Authorization': `Zoho-oauthtoken ${accessToken}` } }
-              );
-              deleteTest = { status: dRes.status, body: (await dRes.text()).slice(0, 300) };
-            } catch (e: any) {
-              deleteTest = { error: e.message };
-            }
-          }
-          return corsify(Response.json({
-            accountId: env.ZOHO_CATCHALL_ACCOUNT_ID,
-            accessTokenObtained: true,
-            msgListStatus,
-            sampleMessage,
-            deleteTest,
           }), request);
         }
 
@@ -4264,122 +3933,13 @@ export default {
       return;
     }
 
-    // ── imap-poll branch (*/5 * * * *) ──────────────────────────────────────
-    const accessToken = await getZohoAccessToken(env);
-    if (!accessToken) return; // No Zoho credentials configured
-
-    // Write global heartbeat + canary timestamps — heartbeat read by Audit Card, canary by WarrantCanary UI
+    // ── Heartbeat only (no Zoho polling) ─────────────────────────────────────
+    // Write global heartbeat + canary timestamps
     const now = String(Date.now());
     await Promise.all([
       env.INBOX_KV.put('heartbeat:cron', now, { expirationTtl: 60 * 60 }),
       env.INBOX_KV.put('canary:alive',   now, { expirationTtl: 72 * 60 * 60 }),
     ]);
-
-    const unread = await zohoFetchUnread(env, accessToken, 20);
-    if (!unread.length) return;
-
-    const storage = new MailStorageAdapter({
-      backend: env.BACKEND,
-      surgeToken: env.SURGE_TOKEN,
-      ghostRegistry: env.GHOST_REGISTRY,
-      inboxKV: env.INBOX_KV,
-      calendarKV: env.GHOST_CALENDAR,
-    });
-
-    for (const msg of unread) {
-      // Skip messages already processed (check KV marker)
-      const processedKey = `zoho-processed:${msg.messageId}`;
-      const alreadyProcessed = await env.INBOX_KV.get(processedKey);
-      if (alreadyProcessed) continue;
-
-      // Fetch full message content
-      const body = await zohoGetMessageContent(env, accessToken, msg.messageId);
-      const recipient = msg.toAddress || '';
-      const classified = classifyRecipient(recipient);
-      const { stream, localPart, agentName } = classified;
-
-      if (stream === 'unknown' || !localPart) {
-        // Mark as processed to avoid re-checking
-        await env.INBOX_KV.put(processedKey, 'skipped', { expirationTtl: 24 * 60 * 60 });
-        continue;
-      }
-
-      const timestamp = Date.now();
-      const EXEMPT_FROM_DELETE = ['admin', 'ghostagent'];
-
-      if (stream === 'human') {
-        // Human stream: store cleartext in KV + delete from Zoho
-        await storage.storeEmail(localPart, {
-          from: msg.fromAddress, to: recipient, subject: msg.subject, content: body, timestamp,
-        });
-        const blindId = `blind-${timestamp}-${crypto.randomUUID().slice(0, 8)}`;
-        const plaintextPayload = JSON.stringify({ from: msg.fromAddress, to: recipient, subject: msg.subject, body, timestamp });
-        const plaintextHash = await sha256Hex(plaintextPayload);
-        const envelope = {
-          type: 'human-cleartext', encrypted: false,
-          payload: JSON.parse(plaintextPayload), plaintextHash,
-          recipient: agentName, receivedAt: timestamp, source: 'cron-fallback',
-        };
-        await env.INBOX_KV.put(`blind:${agentName}:${blindId}`, JSON.stringify(envelope), { expirationTtl: 8 * 24 * 60 * 60 });
-        await updateBlindIndex(env, agentName, blindId);
-        if (!EXEMPT_FROM_DELETE.includes(agentName)) {
-          await zohoDeleteMessage(env, accessToken, msg.messageId);
-        }
-      } else if (stream === 'agent') {
-        // Agent stream: ECIES encrypt + delete, except molt.gno glassbox → cleartext
-        const isGlassbox = await isPublicAgent(agentName, env);
-        if (isGlassbox) {
-          // Glassbox agent: store cleartext
-          await storage.storeEmail(localPart, {
-            from: msg.fromAddress, to: recipient, subject: msg.subject, content: body, timestamp,
-          });
-          const blindId = `blind-${timestamp}-${crypto.randomUUID().slice(0, 8)}`;
-          const plaintextPayload = JSON.stringify({ from: msg.fromAddress, to: recipient, subject: msg.subject, body, timestamp });
-          const plaintextHash = await sha256Hex(plaintextPayload);
-          const envelope = {
-            type: 'agent-glassbox-cleartext', encrypted: false,
-            payload: JSON.parse(plaintextPayload), plaintextHash,
-            recipient: agentName, receivedAt: timestamp, source: 'cron-fallback',
-          };
-          await env.INBOX_KV.put(`blind:${agentName}:${blindId}`, JSON.stringify(envelope), { expirationTtl: 8 * 24 * 60 * 60 });
-          await updateBlindIndex(env, agentName, blindId);
-          await zohoDeleteMessage(env, accessToken, msg.messageId);
-        } else {
-          // Blackbox agent: ECIES encrypt
-          const pubKeyHex = await env.INBOX_KV.get(`ecies-pubkey:${agentName}`);
-          if (pubKeyHex) {
-            const plaintextPayload = JSON.stringify({
-              from: msg.fromAddress, to: recipient, subject: msg.subject, body, timestamp,
-            });
-            const plaintextHash = await sha256Hex(plaintextPayload);
-            const encEnvelope = await eciesEncrypt(plaintextPayload, pubKeyHex);
-            const blindId = `blind-${timestamp}-${crypto.randomUUID().slice(0, 8)}`;
-            let recoveryEnvelope: EncryptedEnvelope | null = null;
-            if (env.MASTER_SAFE_PUBKEY) {
-              try { recoveryEnvelope = await eciesEncrypt(plaintextPayload, env.MASTER_SAFE_PUBKEY); } catch {}
-            }
-            const blindEnvelope = {
-              type: 'agent-ecies-blind', encrypted: true,
-              envelope: encEnvelope, recoveryEnvelope: recoveryEnvelope || undefined,
-              plaintextHash, recipient: agentName, receivedAt: timestamp, source: 'cron-fallback',
-            };
-            await env.INBOX_KV.put(`blind:${agentName}:${blindId}`, JSON.stringify(blindEnvelope), { expirationTtl: 8 * 24 * 60 * 60 });
-            await updateBlindIndex(env, agentName, blindId);
-            await zohoDeleteMessage(env, accessToken, msg.messageId);
-          } else {
-            // No ECIES key — store cleartext, still delete from Zoho
-            await storage.storeEmail(localPart, {
-              from: msg.fromAddress, to: recipient, subject: msg.subject, content: body, timestamp,
-            });
-            await zohoDeleteMessage(env, accessToken, msg.messageId);
-          }
-        }
-      }
-
-      // Mark as processed
-      await env.INBOX_KV.put(processedKey, JSON.stringify({ stream, processedAt: timestamp }), { expirationTtl: 7 * 24 * 60 * 60 });
-    }
+    return;
   },
-
 };
-

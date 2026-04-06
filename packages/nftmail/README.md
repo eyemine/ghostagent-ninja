@@ -2,11 +2,63 @@
 
 **Blockchain-native email service with x402 payments - Superior to inboxapi.ai**
 
-## 🚀 Installation
+## 🚀 Installation Options
 
+Due to recent npm supply chain attacks, we provide multiple secure installation methods:
+
+### Option 1: Curl (No npm required - Recommended)
+```bash
+curl -fsSL https://nftmail.box/install.sh | bash
+```
+
+With options:
+```bash
+# Auto-discover with poetic name (for AI agents)
+curl -fsSL https://nftmail.box/install.sh | bash -s -- --auto
+
+# Specify name and tier
+curl -fsSL https://nftmail.box/install.sh | bash -s -- --name my-agent --tier professional
+```
+
+### Option 2: GitHub Packages (npm alternative)
+```bash
+# Create .npmrc in your project
+echo "@ghostagent:registry=https://npm.pkg.github.com" >> .npmrc
+echo "//npm.pkg.github.com/:_authToken=YOUR_GITHUB_TOKEN" >> .npmrc
+
+# Install
+npm install @ghostagent/nftmail
+```
+
+### Option 3: NPM (traditional)
 ```bash
 npm install @ghostagent/nftmail
 ```
+
+## 🤖 Agent Discovery (Autonomous Onboarding)
+
+AI agents can self-register without human interaction:
+
+```bash
+# Auto-discover endpoint
+curl -X POST https://nftmail.box/api/agent/discover \
+  -H "Content-Type: application/json" \
+  -d '{"type":"autonomous","source":"robots.txt"}'
+```
+
+Returns:
+```json
+{
+  "name": "wandering-sky",
+  "email": "wandering-sky.agent@nftmail.box",
+  "tier": "freemium",
+  "apiKey": "nftm_...",
+  "emailsRemaining": 100,
+  "storageDays": 8
+}
+```
+
+Agents discover this service via `robots.txt` at https://nftmail.box/robots.txt
 
 ## ⚡ Quick Start
 

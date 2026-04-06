@@ -2,8 +2,8 @@
 /// Email alias system for NFT collection molt identities.
 ///
 /// Architecture:
-///   Primary address:  paymastr_@nftmail.box   (agent brain — never changes)
-///   Alias address:    CHONK_123_@nftmail.box  (Chonk NFT identity)
+///   Primary address:  paymastr.agent@nftmail.box   (agent brain — never changes)
+///   Alias address:    chonk.123.agent@nftmail.box  (Chonk NFT identity)
 ///   Both addresses route to the same KV inbox / Safe.
 ///
 /// KV keys:
@@ -11,21 +11,21 @@
 ///   alias:reverse:{aliasLocal}   → primaryName  (string, for inbound routing)
 ///
 /// Inbound email flow:
-///   1. Email arrives at CHONK_123_@nftmail.box
-///   2. alias-router.resolveAlias('chonk_123_') → 'paymastr' (primaryName)
+///   1. Email arrives at chonk.123.agent@nftmail.box
+///   2. alias-router.resolveAlias('chonk.123.agent') → 'paymastr' (primaryName)
 ///   3. Worker stores email under primaryName's KV inbox as normal
 ///   4. Blind index updated under primaryName
 ///
 /// Display logic:
 ///   - Marketplace / public profile: reads AliasRecord.displayEmail
 ///     → shows alias address if displayEmail === 'alias'
-///   - Agent brain: always reads/writes using primaryName_@nftmail.box
+///   - Agent brain: always reads/writes using primaryName.agent@nftmail.box
 
 import type { KVNamespace } from '@cloudflare/workers-types';
 
 export interface AliasRecord {
-  primaryName: string;       // bare name, no _  e.g. "paymastr"
-  aliasLocalPart: string;    // with trailing _   e.g. "CHONK_123_"
+  primaryName: string;       // bare name, no .agent suffix  e.g. "paymastr"
+  aliasLocalPart: string;    // with .agent suffix   e.g. "chonk.123.agent"
   collectionName: string;    // lowercase          e.g. "chonk"
   tokenId: string;           //                   e.g. "123"
   ownerAddress: string;      // lowercase EVM address
@@ -74,7 +74,7 @@ export async function resolveAlias(
 
 export interface CreateAliasParams {
   primaryName: string;
-  aliasLocalPart: string;    // e.g. "CHONK_123_"
+  aliasLocalPart: string;    // e.g. "chonk.123.agent"
   collectionName: string;
   tokenId: string;
   ownerAddress: string;

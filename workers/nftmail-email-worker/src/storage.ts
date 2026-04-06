@@ -8,7 +8,7 @@ export const BRAIN_MODULE = '0x291e8405096413407c3Ddd8850Fb101b446f5200';
 export const MIN_REPUTATION = BigInt('1000000000000000000'); // 1 SURGE
 export const SOVEREIGN_TTL_SECONDS = 8 * 24 * 60 * 60; // 8-day decay
 export const MAX_INBOX_MESSAGES = 50; // max messages per sovereign inbox
-export const AGENT_SUFFIX_RE = /^([a-z0-9-]+)_@nftmail\.box$/i;
+export const AGENT_SUFFIX_RE = /^([a-z0-9-]+)\.agent@nftmail\.box$/i;
 
 // Types and interfaces
 export type IdentityState = 'AGENT' | 'HUMAN' | 'NONE';
@@ -301,12 +301,12 @@ export class MailStorageAdapter {
 
   // A2A Ghost-Wire: agent-to-agent direct KV transfer, zero SMTP cost
   async sendA2A(fromAgent: string, toAgent: string, subject: string, content: string): Promise<Response> {
-    // Normalize: strip trailing _ for consistent KV key (handleAgentMail stores under identityName without _)
-    const normalizedTo = toAgent.endsWith('_') ? toAgent.slice(0, -1) : toAgent;
-    const normalizedFrom = fromAgent.endsWith('_') ? fromAgent.slice(0, -1) : fromAgent;
+    // Normalize: strip .agent suffix for consistent KV key (handleAgentMail stores under identityName without .agent)
+    const normalizedTo = toAgent.endsWith('.agent') ? toAgent.slice(0, -6) : toAgent;
+    const normalizedFrom = fromAgent.endsWith('.agent') ? fromAgent.slice(0, -6) : fromAgent;
     const email: EmailData = {
-      from: `${normalizedFrom}_@nftmail.box`,
-      to: `${normalizedTo}_@nftmail.box`,
+      from: `${normalizedFrom}.agent@nftmail.box`,
+      to: `${normalizedTo}.agent@nftmail.box`,
       subject,
       content,
       timestamp: Date.now()
@@ -316,8 +316,8 @@ export class MailStorageAdapter {
       isInternal: true,
       isVerified: true,
       channel: 'ghost-wire',
-      senderAgent: `${normalizedFrom}_`,
-      recipientAgent: `${normalizedTo}_`
+      senderAgent: `${normalizedFrom}.agent`,
+      recipientAgent: `${normalizedTo}.agent`
     });
   }
 
@@ -490,12 +490,12 @@ export class MailStorageAdapter {
   }
 
   async handleAgentMail(localPart: string, email: EmailData): Promise<Response> {
-    const identityName = localPart.slice(0, -1); // Remove trailing _
+    const identityName = localPart.endsWith('.agent') ? localPart.slice(0, -6) : localPart;
 
     // Check if agent is Awakened (has Brain module installed)
     const awakened = await this.checkAwakened(identityName);
 
-    // A2A detection: if sender is also an agent (_@nftmail.box), this is Ghost-Wire
+    // A2A detection: if sender is also an agent (.agent@nftmail.box), this is Ghost-Wire
     const a2a = this.isA2A(email);
     if (a2a) {
       return this.pushToSovereignKV(identityName, email, {
@@ -537,7 +537,7 @@ export class MailStorageAdapter {
   }
 
   async storeEmail(localPart: string, email: EmailData): Promise<Response> {
-    if (localPart.endsWith('_')) {
+    if (localPart.endsWith('.agent')) {
       return this.handleAgentMail(localPart, email);
     } else {
       return new Response('Not implemented', { status: 501 });
