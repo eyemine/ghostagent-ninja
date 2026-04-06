@@ -326,12 +326,12 @@ function extractBodyFromMime(rawMime: string): string {
 //   ──────────────────────────────────────────────────────────────────────────────
 //   name.agent@nftmail.box           agent        AUTO (minting)     6551 Brain / Safe (ECIES)
 //   name.digits.agent@nftmail.box    agent        AUTO (minting)     NFT collection + 6551
-//   name_@nftmail.box                agent-alias  inherits base      Agent A2A send address (nftmail)
+//   name_@nftmail.box                agent-alias  inherits base      Agent A2A send address
+//   name_@ghostmail.box              agent-alias  inherits base      Agent A2A send address (ghostmail)
 //   name@nftmail.box                 sovereign    ENS RESERVED       Free (treasury gas for first 100k)
 //   name.name@nftmail.box            no-coiner    EMAIL/SOCIAL       Privy creates wallet (email/social login)
 //   name.digits@nftmail.box          collection   APPROVED NFT       [AssignedCollectionName].[TokenIDdigits]
 //   name.agent@ghostmail.box         agent        AUTO (minting)     npx/curl A2A stream
-//   name-@ghostmail.box              agent-alias  inherits base      Agent A2A send address (ghostmail)
 //
 // Upgrade path: name.name → Lite Tier → mint name_name.nftmail.gno → may molt to name_name.vault.gno
 //
@@ -493,13 +493,8 @@ function classifyRecipient(emailAddr: string): ClassifiedRecipient {
   const humanMatch = EMAIL_RE.exec(lower);
   if (humanMatch) {
     const lp = humanMatch[1];
-    const domain = humanMatch[2]; // e.g. '@ghostmail.box'
     if (lp.endsWith('.agent')) {
       return { stream: 'agent', localPart: lp, agentName: lp.slice(0, -6) };
-    }
-    // name-@ghostmail.box → agent alias (ghostmail.box convention, parallel to name_@nftmail.box)
-    if (lp.endsWith('-') && domain.includes('ghostmail')) {
-      return { stream: 'agent', localPart: lp, agentName: lp };
     }
     return { stream: 'human', localPart: lp, agentName: lp };
   }
@@ -565,8 +560,8 @@ const PRIVATE_TLDS = ['agent.gno', 'openclaw.gno', 'picoclaw.gno', 'vault.gno', 
 
 async function isPublicAgent(agentName: string, env: Env, parentTld?: string): Promise<boolean> {
   if (parentTld) return PUBLIC_TLDS.some(t => parentTld.endsWith(t));
-  // Strip trailing _ (nftmail alias) or - (ghostmail alias) to inherit base agent's TLD
-  const baseName = agentName.replace(/[_-]+$/, '');
+  // Strip trailing _ (agent alias) to inherit base agent's TLD
+  const baseName = agentName.replace(/_+$/, '');
   // KV registry: tld:{agentName} → 'molt.gno' | 'vault.gno' | etc.
   const tld = await env.INBOX_KV.get(`tld:${agentName}`) || (baseName !== agentName ? await env.INBOX_KV.get(`tld:${baseName}`) : null);
   if (tld) return PUBLIC_TLDS.includes(tld);
@@ -576,8 +571,8 @@ async function isPublicAgent(agentName: string, env: Env, parentTld?: string): P
 
 async function getAgentTld(agentName: string, env: Env, parentTld?: string): Promise<string> {
   if (parentTld) return parentTld;
-  // Strip trailing _ (nftmail alias) or - (ghostmail alias) to inherit base agent's TLD
-  const baseName = agentName.replace(/[_-]+$/, '');
+  // Strip trailing _ (agent alias) to inherit base agent's TLD
+  const baseName = agentName.replace(/_+$/, '');
   // KV registry first — check specific name, then base name
   const tld = await env.INBOX_KV.get(`tld:${agentName}`) || (baseName !== agentName ? await env.INBOX_KV.get(`tld:${baseName}`) : null);
   if (tld) return tld;
@@ -3270,8 +3265,8 @@ export default {
           // ── SOVEREIGN (no underscore suffix) ──
           // Root addresses may be pre-existing accounts (e.g. fresh.boy).
           // Must check KV existence FIRST before returning availability.
-          // name_/@nftmail + name-/@ghostmail agent aliases skip sovereign path → fall through to AGENT block.
-          const isAgentAlias = !isAgent && (inputName.endsWith('_') || inputName.endsWith('-'));
+          // name_@ agent aliases skip sovereign path → fall through to AGENT block.
+          const isAgentAlias = !isAgent && inputName.endsWith('_');
           if (!isAgent && !isAgentAlias) {
             // First: validate against ENS × Email character intersection
             if (!isValidSovereignName(inputName)) {
@@ -3479,8 +3474,8 @@ export default {
           // ── AGENT (underscore suffix) ──
           // Validate prefix: alphanumeric only (dots allowed for collection patterns)
           const resolvedName = agentName;
-          // Strip trailing _ (nftmail alias) or - (ghostmail alias) to get base name
-          const resolvedBaseName = resolvedName.replace(/[_-]+$/, '');
+          // Strip trailing _ (agent alias) to get base name for TLD/tier fallback
+          const resolvedBaseName = resolvedName.replace(/_+$/, '');
 
           // Check existence signals in KV (+ tld, on-chain linkage, acct-tier, heartbeat)
           const [blindIndex, eciesKey, zohoSeat, privacyStatus, tldValue, baseTldValue, acctTierRaw, baseAcctTierRaw, nftmailGnoRaw, cronHeartbeat, erc8004GnosisChain, erc8004GnosisLegacy, erc8004BaseMainnet, erc8004BaseSepoliaRaw] = await Promise.all([
