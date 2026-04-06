@@ -1562,12 +1562,41 @@ export default {
                 // Match on controller field OR safe address
                 if (c !== controller && s !== controller) return;
                 const isAgent = name.endsWith('.agent');
-                const tldRaw = await env.INBOX_KV.get(`tld:${name}`);
-                const tld = tldRaw || 'nftmail.gno';
+                const isAlias = name.endsWith('_');
+                // TLD: prefer record's tld field, then tld: KV key, then parse from origin_nft
+                const recordTld: string | null = g.tld || null;
+                let tld = recordTld;
+                if (!tld) {
+                  const tldRaw = await env.INBOX_KV.get(`tld:${name}`);
+                  tld = tldRaw || null;
+                }
+                if (!tld && g.origin_nft) {
+                  const dotIdx = (g.origin_nft as string).indexOf('.');
+                  if (dotIdx > 0) tld = (g.origin_nft as string).slice(dotIdx + 1);
+                }
+                // If still no TLD and it's an alias, check base agent's nftmailgno record
+                if (!tld && isAlias) {
+                  const aliasBase = name.replace(/_+$/, '');
+                  const baseRaw = await env.INBOX_KV.get(`nftmailgno:${aliasBase}`);
+                  if (baseRaw) {
+                    try {
+                      const bg = JSON.parse(baseRaw);
+                      tld = bg.tld || null;
+                      if (!tld && bg.origin_nft) {
+                        const dotIdx = (bg.origin_nft as string).indexOf('.');
+                        if (dotIdx > 0) tld = (bg.origin_nft as string).slice(dotIdx + 1);
+                      }
+                    } catch {}
+                  }
+                }
+                tld = tld || 'nftmail.gno';
+                // gnoName: use origin_nft directly if available, otherwise baseName.tld (never include underscore)
+                const baseName = isAlias ? name.replace(/_+$/, '') : name;
+                const gnoName = g.origin_nft || `${baseName}.${tld}`;
                 results.push({
                   name,
                   email: `${name}@nftmail.box`,
-                  gnoName: `${name}.${tld}`,
+                  gnoName,
                   tld,
                   tokenId: g.minted_tokenId || null,
                   isAgent,
