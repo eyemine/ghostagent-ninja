@@ -83,26 +83,27 @@ nft-token:{sld}:{tokenId}
 
 ---
 
-## Mailgun Integration (IN PROGRESS)
+## Mailgun Integration (ACTIVE)
 
-**Sending domain:** `mg.nftmail.box`  
-**API base:** `https://api.eu.mailgun.net/v3`
+**Sending domains:** `nftmail.box` (37 sent ✓) and `ghostmail.box` (6 sent ✓)  
+**API base:** `https://api.eu.mailgun.net/v3`  
+**Note:** `mg.nftmail.box` is configured in Mailgun but has 0 traffic — NOT the active sending domain.
 
 ### What's done
-- `app/api/send-email/route.ts` — rewritten to send via Mailgun for all tiers except Imago (Zoho seat). `From: label@nftmail.box` direct, no ghostagent relay.
-- `app/api/send/route.ts` — rewritten, Mailgun only.
+- `app/api/send/route.ts` — Mailgun only. Default domain `nftmail.box`, ghostmail.box sends via `ghostmail.box` domain.
 - Worker `mailgunInbound` action — HMAC-SHA256 signature verification, normalises to `ghostRoute` path.
+- Ghost-domain separation: ghostmail.box inbound stored under `blind-index:ghostmail:{name}` prefix.
 - `MAILGUN_API_KEY` set in Netlify (nftmailbox).
 
 ### Still needed (user action)
 1. **Netlify env vars** (nftmailbox-netlify deployment):
-   - `MAILGUN_DOMAIN=mg.nftmail.box`
+   - `MAILGUN_DOMAIN=nftmail.box` (or leave unset — default is correct)
    - `NEXT_PUBLIC_APP_URL=https://nftmail.box`
    - `ETH_RPC_URL=<mainnet rpc>` (for ENS verification; defaults to publicnode)
 2. **Cloudflare worker secrets**:
    - `MAILGUN_API_KEY` (secret)
-   - `MAILGUN_DOMAIN=mg.nftmail.box`
-3. **DNS records** in `.box` registrar panel for `mg.nftmail.box`:
+   - `MAILGUN_DOMAIN=nftmail.box`
+3. **DNS records** (if `mg.nftmail.box` was intended — skip if using root domains directly):
    - TXT `mg` → Mailgun SPF value
    - TXT `s1._domainkey.mg` → Mailgun DKIM value
    - MX `mg` → `mxa.eu.mailgun.org` (priority 10) + `mxb.eu.mailgun.org` (priority 10)
