@@ -104,8 +104,6 @@ export function NFTLogin() {
     return () => window.removeEventListener('walletconnect_session', handleWalletConnectSession);
   }, []);
 
-  if (!ready) return null;
-
   // Detect if connected wallet is a Safe (for Privy-authenticated wallets)
   const [detectedSafe, setDetectedSafe] = useState(false);
   useEffect(() => {
@@ -115,6 +113,8 @@ export function NFTLogin() {
       setDetectedSafe(false);
     }
   }, [authenticated, safeWallets, preferredWallet?.address]);
+
+  if (!ready) return null;
 
   // Show connected state for either Privy auth or Safe auth
   if ((authenticated && safeWallets.length > 0) || isSafeAuth) {
