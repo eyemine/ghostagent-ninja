@@ -538,7 +538,11 @@ async function updateBlindIndex(env: Env, agentName: string, blindId: string, do
     if (raw) blindIndex = JSON.parse(raw);
   } catch {}
   blindIndex.push(blindId);
-  if (blindIndex.length > 50) blindIndex = blindIndex.slice(-50);
+  const INBOX_CAP = 100;
+  if (blindIndex.length > INBOX_CAP) {
+    const evicted = blindIndex.splice(0, blindIndex.length - INBOX_CAP);
+    await Promise.all(evicted.map(id => env.INBOX_KV.delete(`blind:${keyName}:${id}`)));
+  }
   const putOpts = ttlSecs != null ? { expirationTtl: ttlSecs } : {};
   await env.INBOX_KV.put(blindIndexKey, JSON.stringify(blindIndex), putOpts);
 }
@@ -2916,6 +2920,138 @@ export default {
           }), request);
         }
 
+        // --- Trial Registration: KV-only entry for freemium agents ---
+        // Called by /api/register-trial to create shadow mint without NFT.
+        // No auth required - rate limited and IP-keyed.
+        if (email.action === 'registerTrial') {
+          const name: string = ((email as any).name || '').toLowerCase().trim();
+          const claimCode: string = (email as any).claimCode || '';
+          if (!name || !claimCode) {
+            return corsify(Response.json({ error: 'Missing name or claimCode' }, { status: 400 }), request);
+          }
+
+          // Check if name already exists
+          const kvKey = name.replace(/_$/, ''); // Remove trailing underscore for KV lookup
+          const existing = await env.INBOX_KV.get(`nftmailgno:${kvKey}`);
+          if (existing) {
+            return corsify(Response.json({ error: 'Name already exists' }, { status: 409 }), request);
+          }
+
+          // Store claim code
+          const claimKey = `claim:${claimCode}`;
+          const existingClaim = await env.INBOX_KV.get(claimKey);
+          if (existingClaim) {
+            return corsify(Response.json({ error: 'Claim code already used' }, { status: 409 }), request);
+          }
+
+          // Create trial KV entries
+          const trialEntry = JSON.stringify({
+            status: 'trial',
+            claimCode,
+            emailsSent: 0,
+            registeredAt: Date.now(),
+            controller: null,
+            originNft: null,
+            mintedTokenId: null,
+          });
+
+          const tierEntry = JSON.stringify({
+            tier: 'basic',
+            expiresAt: null, // Trial never expires, just message history window
+            upgradedAt: null,
+            safe: null,
+            retention: '8-day',
+            storyIp: null,
+          });
+
+          await Promise.all([
+            env.INBOX_KV.put(`nftmailgno:${kvKey}`, trialEntry),
+            env.INBOX_KV.put(`acct-tier:${kvKey}`, tierEntry),
+            env.INBOX_KV.put(`claim:${claimCode}`, JSON.stringify({ name: kvKey, createdAt: Date.now() })),
+          ]);
+
+          return corsify(Response.json({
+            status: 'trial_created',
+            name: kvKey,
+            email: `${name}@nftmail.box`,
+            claimCode,
+          }), request);
+        }
+
+        // --- Verify Claim Code ---
+        // Called by /claim/[claimCode] page and /api/claim-inbox
+        if (email.action === 'verifyClaim') {
+          const claimCode: string = (email as any).claimCode || '';
+          if (!claimCode) {
+            return corsify(Response.json({ error: 'Missing claimCode' }, { status: 400 }), request);
+          }
+
+          const claimKey = `claim:${claimCode}`;
+          const claimData = await env.INBOX_KV.get(claimKey);
+          
+          if (!claimData) {
+            return corsify(Response.json({ error: 'Claim code not found' }, { status: 404 }), request);
+          }
+
+          const claim = JSON.parse(claimData);
+          const kvKey = claim.name;
+          
+          // Check if already claimed (has NFT data)
+          const inboxData = await env.INBOX_KV.get(`nftmailgno:${kvKey}`);
+          if (inboxData) {
+            const inbox = JSON.parse(inboxData);
+            if (inbox.mintedTokenId !== null) {
+              return corsify(Response.json({ 
+                claimed: true, 
+                name: kvKey,
+                wallet: inbox.controller 
+              }), request);
+            }
+          }
+
+          return corsify(Response.json({ 
+            claimed: false, 
+            name: kvKey,
+            createdAt: claim.createdAt 
+          }), request);
+        }
+
+        // --- Mark Claim as Used ---
+        // Called by /api/claim-inbox after successful NFT mint
+        if (email.action === 'markClaimUsed') {
+          const claimCode: string = (email as any).claimCode || '';
+          const walletAddress: string = (email as any).walletAddress || '';
+          const mintData: any = (email as any).mintData || {};
+
+          if (!claimCode || !walletAddress) {
+            return corsify(Response.json({ error: 'Missing claimCode or walletAddress' }, { status: 400 }), request);
+          }
+
+          const claimKey = `claim:${claimCode}`;
+          const claimData = await env.INBOX_KV.get(claimKey);
+          
+          if (!claimData) {
+            return corsify(Response.json({ error: 'Claim code not found' }, { status: 404 }), request);
+          }
+
+          const claim = JSON.parse(claimData);
+          const kvKey = claim.name;
+
+          // Update claim with mint info
+          await env.INBOX_KV.put(claimKey, JSON.stringify({
+            ...claim,
+            claimedAt: Date.now(),
+            walletAddress,
+            mintData
+          }));
+
+          return corsify(Response.json({ 
+            status: 'claimed',
+            name: kvKey,
+            walletAddress 
+          }), request);
+        }
+
         // --- Sovereign Registration: write nftmailgno KV entry post-mint ---
         // Called by /api/gasless-mint after on-chain Gnosis mint succeeds.
         // Secured by WEBHOOK_SECRET so only trusted server-side callers can register.
@@ -2929,6 +3065,22 @@ export default {
             return corsify(Response.json({ error: 'Missing label' }, { status: 400 }), request);
           }
           const controller: string = (email as any).controller || '';
+
+          // ── 10-account limit per controller/IP ────────────────────────────
+          const ACCT_LIMIT = 10;
+          const acctKey = controller
+            ? `acct-count:${controller.toLowerCase()}`
+            : `acct-count:ip:${request.headers.get('CF-Connecting-IP') || 'unknown'}`;
+          const acctRaw = await env.INBOX_KV.get(acctKey);
+          const acctCount = acctRaw ? parseInt(acctRaw, 10) : 0;
+          if (acctCount >= ACCT_LIMIT) {
+            return corsify(Response.json({
+              error: `Account limit reached (${ACCT_LIMIT} inboxes per ${controller ? 'wallet' : 'IP'}). Connect a wallet or upgrade to create more.`,
+              count: acctCount,
+              limit: ACCT_LIMIT,
+            }, { status: 429 }), request);
+          }
+          // ─────────────────────────────────────────────────────────────────
           const originNft: string = (email as any).originNft || `${label}.nftmail.gno`;
           const legacyIdentity: string | null = (email as any).legacyIdentity || null;
           const mintedTokenId: number | null = (email as any).mintedTokenId || null;
@@ -2973,6 +3125,8 @@ export default {
             kvWrites.push(env.INBOX_KV.put(`nft-token:${sldFromOrigin}:${mintedTokenId}`, JSON.stringify({ label, sld: sldFromOrigin, mintedAt: Date.now() })));
           }
           await Promise.all(kvWrites);
+          // Increment account counter after successful registration
+          await env.INBOX_KV.put(acctKey, String(acctCount + 1));
           return corsify(Response.json({
             status: 'registered',
             label,
@@ -2982,6 +3136,8 @@ export default {
             privacyTier,
             accountTier,
             expiresAt,
+            accountsUsed: acctCount + 1,
+            accountLimit: ACCT_LIMIT,
           }), request);
         }
 
@@ -3879,6 +4035,80 @@ export default {
           // Also remove IPFS CID if present
           await env.INBOX_KV.delete(`ipfs:${agent}:${messageId}`);
           return corsify(Response.json({ status: 'deleted', agent, messageId }), request);
+        }
+
+        // Check freemium send allowance and increment counter atomically
+        if (email.action === 'checkAndIncrementSendCount') {
+          const agent = (email as any).localPart || '';
+          const tier = ((email as any).tier || 'basic').toLowerCase();
+          const FREEMIUM_LIMIT = 10;
+          if (!agent) {
+            return corsify(Response.json({ error: 'Missing localPart' }, { status: 400 }), request);
+          }
+          const countKey = `send-count:${agent}`;
+          const raw = await env.INBOX_KV.get(countKey);
+          const count = raw ? parseInt(raw, 10) : 0;
+          if (tier === 'basic' && count >= FREEMIUM_LIMIT) {
+            return corsify(Response.json({ allowed: false, count, limit: FREEMIUM_LIMIT, remaining: 0 }), request);
+          }
+          await env.INBOX_KV.put(countKey, String(count + 1));
+          const remaining = tier === 'basic' ? Math.max(0, FREEMIUM_LIMIT - (count + 1)) : null;
+          return corsify(Response.json({ allowed: true, count: count + 1, limit: tier === 'basic' ? FREEMIUM_LIMIT : null, remaining }), request);
+        }
+
+        // Store a sent message in the sender's sent folder
+        if (email.action === 'storeSentMessage') {
+          const agent = (email as any).localPart || '';
+          const payload = (email as any).payload as Record<string, unknown> | undefined;
+          if (!agent || !payload) {
+            return corsify(Response.json({ error: 'Missing localPart or payload' }, { status: 400 }), request);
+          }
+          const sentId = `sent-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+          const entry = { ...payload, sentAt: Date.now() };
+          // TTL mirrors inbox: 30 days default (premium gets longer server-side if needed)
+          await env.INBOX_KV.put(`sent:${agent}:${sentId}`, JSON.stringify(entry), { expirationTtl: 30 * 24 * 60 * 60 });
+          const idxKey = `sent-index:${agent}`;
+          const idxRaw = await env.INBOX_KV.get(idxKey);
+          const ids: string[] = idxRaw ? JSON.parse(idxRaw) : [];
+          ids.push(sentId);
+          await env.INBOX_KV.put(idxKey, JSON.stringify(ids), { expirationTtl: 30 * 24 * 60 * 60 });
+          return corsify(Response.json({ status: 'stored', sentId }), request);
+        }
+
+        // Retrieve sent messages for an agent
+        if (email.action === 'getSentMessages') {
+          const agent = (email as any).localPart || '';
+          if (!agent) {
+            return corsify(Response.json({ error: 'Missing localPart' }, { status: 400 }), request);
+          }
+          const idxRaw = await env.INBOX_KV.get(`sent-index:${agent}`);
+          const sentIds: string[] = idxRaw ? JSON.parse(idxRaw) : [];
+          const messages: unknown[] = [];
+          await Promise.all(sentIds.map(async (id) => {
+            const raw = await env.INBOX_KV.get(`sent:${agent}:${id}`);
+            if (raw) {
+              try { messages.push({ id, ...JSON.parse(raw) }); } catch {}
+            }
+          }));
+          (messages as any[]).sort((a, b) => (b.sentAt || 0) - (a.sentAt || 0));
+          return corsify(Response.json({ agent, messages, count: messages.length }), request);
+        }
+
+        // Delete a sent message
+        if (email.action === 'deleteSentMessage') {
+          const agent = (email as any).localPart || '';
+          const sentId = (email as any).sentId || '';
+          if (!agent || !sentId) {
+            return corsify(Response.json({ error: 'Missing localPart or sentId' }, { status: 400 }), request);
+          }
+          await env.INBOX_KV.delete(`sent:${agent}:${sentId}`);
+          const idxKey = `sent-index:${agent}`;
+          const idxRaw = await env.INBOX_KV.get(idxKey);
+          if (idxRaw) {
+            const ids: string[] = JSON.parse(idxRaw);
+            await env.INBOX_KV.put(idxKey, JSON.stringify(ids.filter(i => i !== sentId)), { expirationTtl: 30 * 24 * 60 * 60 });
+          }
+          return corsify(Response.json({ status: 'deleted', sentId }), request);
         }
 
         // Payment tx double-spend check: has this txHash been used before?
