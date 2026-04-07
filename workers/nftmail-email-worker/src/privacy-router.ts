@@ -2,12 +2,12 @@
 /// Domain-aware privacy routing for ghostagent.ninja namespaces
 ///
 /// TLD rules:
-///   molt.gno     → default Glassbox; Private = $0.20/email (billed downstream)
-///   picoclaw.gno → default Glassbox; Private = free toggle
-///   openclaw.gno → default Glassbox; Private = free toggle
-///   agent.gno    → default Private;  Glassbox = free toggle
-///   nftmail.gno  → default Private;  Hard-Privacy = paid (10 xDAI/month)
-///   vault.gno    → default Private;  Hard-Privacy = paid (10 xDAI/month)
+///   molt.gno     → default Glassbox (exposed); Private = $0.20/email (billed downstream)
+///   openclaw.gno → default Private; Exposed = free toggle
+///   picoclaw.gno → default Private; Exposed = free toggle
+///   agent.gno    → default Private; Exposed = free toggle
+///   nftmail.gno  → default Private; Hard-Privacy = paid (10 xDAI/month)
+///   vault.gno    → default Private; Hard-Privacy = paid (10 xDAI/month)
 
 export type PrivacyTier = 'exposed' | 'private' | 'hard-privacy';
 
@@ -31,8 +31,8 @@ export interface PrivacyRouterResult {
 // Per-TLD defaults and allowed tiers
 const TLD_DEFAULTS: Record<string, { defaultTier: PrivacyTier; allowed: PrivacyTier[] }> = {
   'molt.gno':     { defaultTier: 'exposed', allowed: ['exposed', 'private'] },
-  'picoclaw.gno': { defaultTier: 'exposed', allowed: ['exposed', 'private'] },
-  'openclaw.gno': { defaultTier: 'exposed', allowed: ['exposed', 'private'] },
+  'picoclaw.gno': { defaultTier: 'private', allowed: ['exposed', 'private'] },
+  'openclaw.gno': { defaultTier: 'private', allowed: ['exposed', 'private'] },
   'agent.gno':    { defaultTier: 'private', allowed: ['exposed', 'private'] },
   'nftmail.gno':  { defaultTier: 'private', allowed: ['exposed', 'private', 'hard-privacy'] },
   'vault.gno':    { defaultTier: 'private', allowed: ['exposed', 'private', 'hard-privacy'] },
