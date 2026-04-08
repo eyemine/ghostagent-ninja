@@ -5,5 +5,8 @@
   "dependencies": {
     "@noble/hashes": "^1.4.0",
     "@noble/secp256k1": "^2.1.0"
+  },
+  "devDependencies": {
+    "wrangler": "^4.81.0"
   }
 }
