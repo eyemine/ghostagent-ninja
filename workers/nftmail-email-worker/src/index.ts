@@ -726,9 +726,8 @@ async function handleMailgunPayload(
   const timestamp = Date.now();
   const rawRecipient = String(mgEmail['recipient'] || mgEmail['to'] || '');
   const recipientLocal = rawRecipient.split('@')[0] || '';
-  const normalisedRecipient = (recipientLocal && !recipientLocal.includes('.') && !recipientLocal.endsWith('.agent'))
-    ? `${recipientLocal}.agent@nftmail.box`
-    : rawRecipient;
+  // Only add a default domain if we have no @ at all — never rewrite the local-part
+  const normalisedRecipient = rawRecipient.includes('@') ? rawRecipient : `${rawRecipient}@nftmail.box`;
 
   let recipient = normalisedRecipient.replace(/&lt;/g, '<').replace(/&gt;/g, '>');
   recipient = recipient.replace(/.*</, '').replace(/>.*/, '').trim();
