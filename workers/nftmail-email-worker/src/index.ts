@@ -970,9 +970,12 @@ export default {
       return new Response(null, { headers: corsHeaders(request) });
     }
 
-    // ── AUTH GUARD: Validate X-Worker-Secret header for all requests ──
+    // AUTH GUARD: Validate X-Worker-Secret header for API requests (bypass email webhooks)
+    const contentType = request.headers.get('content-type') || '';
+    const isEmailWebhook = contentType.includes('multipart/form-data');
+    
     const workerSecret = env.WORKER_SECRET;
-    if (workerSecret) {
+    if (workerSecret && !isEmailWebhook) {
       const requestSecret = request.headers.get('X-Worker-Secret');
       if (requestSecret !== workerSecret) {
         console.error(`[auth] Invalid or missing X-Worker-Secret from ${request.headers.get('host')}`);
@@ -1555,6 +1558,8 @@ export default {
           try {
             const listed = await env.INBOX_KV.list({ prefix: 'nftmailgno:' });
             const results: { name: string; email: string; gnoName: string; tld: string; tokenId: number | null; isAgent: boolean }[] = [];
+            const ownedBaseNames = new Set<string>();
+            
             await Promise.all(listed.keys.map(async (k) => {
               const name = k.name.replace(/^nftmailgno:/, '');
               const raw = await env.INBOX_KV.get(k.name);
@@ -1565,8 +1570,15 @@ export default {
                 const s = (g.safe || '').toLowerCase();
                 // Match on controller field OR safe address
                 if (c !== controller && s !== controller) return;
+                
                 const isAgent = name.endsWith('.agent');
                 const isAlias = name.endsWith('_');
+                
+                // Track base agents (without _) to later add their aliases
+                if (!isAlias && !isAgent) {
+                  ownedBaseNames.add(name);
+                }
+                
                 // TLD: prefer record's tld field, then tld: KV key, then parse from origin_nft
                 const recordTld: string | null = g.tld || null;
                 let tld = recordTld;
@@ -1607,6 +1619,36 @@ export default {
                 });
               } catch { /* skip malformed */ }
             }));
+            
+            // Add aliases for owned base agents (e.g., rgbanksy owns rgbanksy_)
+            for (const baseName of ownedBaseNames) {
+              const aliasName = `${baseName}_`;
+              // Check if alias already exists or has its own nftmailgno record
+              const aliasRaw = await env.INBOX_KV.get(`nftmailgno:${aliasName}`);
+              if (!aliasRaw) {
+                // Add the alias with inherited properties from base agent
+                const baseRaw = await env.INBOX_KV.get(`nftmailgno:${baseName}`);
+                if (baseRaw) {
+                  try {
+                    const g = JSON.parse(baseRaw);
+                    let tld = g.tld || null;
+                    if (!tld && g.origin_nft) {
+                      const dotIdx = (g.origin_nft as string).indexOf('.');
+                      if (dotIdx > 0) tld = (g.origin_nft as string).slice(dotIdx + 1);
+                    }
+                    tld = tld || 'nftmail.gno';
+                    results.push({
+                      name: aliasName,
+                      email: `${aliasName}@nftmail.box`,
+                      gnoName: g.origin_nft || `${baseName}.${tld}`,
+                      tld,
+                      tokenId: null, // Aliases don't have their own token
+                      isAgent: false, // Aliases are not .agent type
+                    });
+                  } catch { /* skip malformed */ }
+                }
+              }
+            }
             return corsify(Response.json({ names: results, total: results.length }), request);
           } catch (e: any) {
             return corsify(Response.json({ error: e?.message ?? 'listNftmailByController failed' }, { status: 500 }), request);
@@ -4154,61 +4196,64 @@ export default {
           return corsify(result, request);
         }
 
-        const localPart = extractLocalPart(email.to);
-        
-        if (!localPart) {
-          return corsify(new Response('Invalid email format', { status: 400 }), request);
-        }
+        // Only process email storage for actual email payloads (with to/from/content fields)
+        if (email.to && email.from && email.content !== undefined) {
+          const localPart = extractLocalPart(email.to);
+          
+          if (!localPart) {
+            return corsify(new Response('Invalid email format', { status: 400 }), request);
+          }
 
-        // Store email — and dual-write to public audit log for molt.gno agents
-        const emailPayload = {
-          from: email.from,
-          to: email.to,
-          subject: email.subject,
-          content: email.content,
-          timestamp: Date.now()
-        };
-        result = await storage.storeEmail(localPart, emailPayload);
-
-        // Glass Box: if this is a molt.gno agent, append to public audit log
-        // with Sensitive Redaction for OTP/auth signals
-        if (await isPublicAgent(localPart, env)) {
-          const contentHash = await sha256Hex(JSON.stringify(emailPayload));
-          const sensitivity = isSensitiveContent(email.from, email.subject, email.content);
-
-          const entry: AuditEntry = {
-            id: `audit-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-            from: sensitivity.sensitive ? email.from : email.from,
+          // Store email - and dual-write to public audit log for molt.gno agents
+          const emailPayload = {
+            from: email.from,
             to: email.to,
-            subject: sensitivity.sensitive ? REDACTED_SUBJECT_PREFIX + 'Authentication Signal' : email.subject,
-            content: sensitivity.sensitive ? REDACTED_BODY : email.content,
-            timestamp: emailPayload.timestamp,
-            contentHash,
-            verified: true,
-            redacted: sensitivity.sensitive,
-            redactionReason: sensitivity.sensitive ? sensitivity.reason : undefined,
+            subject: email.subject,
+            content: email.content,
+            timestamp: Date.now()
           };
-          const auditRaw = await env.INBOX_KV.get(`audit:${localPart}`);
-          const auditLog: AuditEntry[] = auditRaw ? JSON.parse(auditRaw) : [];
-          auditLog.push(entry);
-          await env.INBOX_KV.put(`audit:${localPart}`, JSON.stringify(auditLog));
+          result = await storage.storeEmail(localPart, emailPayload);
 
-          // If sensitive, store cleartext in private Stealth layer (only accessible by agent owner)
-          if (sensitivity.sensitive) {
-            const stealthEntry = {
-              id: entry.id,
-              from: email.from,
+          // Glass Box: if this is a molt.gno agent, append to public audit log
+          // with Sensitive Redaction for OTP/auth signals
+          if (await isPublicAgent(localPart, env)) {
+            const contentHash = await sha256Hex(JSON.stringify(emailPayload));
+            const sensitivity = isSensitiveContent(email.from, email.subject, email.content);
+
+            const entry: AuditEntry = {
+              id: `audit-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+              from: sensitivity.sensitive ? email.from : email.from,
               to: email.to,
-              subject: email.subject,
-              content: email.content,
+              subject: sensitivity.sensitive ? REDACTED_SUBJECT_PREFIX + 'Authentication Signal' : email.subject,
+              content: sensitivity.sensitive ? REDACTED_BODY : email.content,
               timestamp: emailPayload.timestamp,
               contentHash,
-              redactionReason: sensitivity.reason,
+              verified: true,
+              redacted: sensitivity.sensitive,
+              redactionReason: sensitivity.sensitive ? sensitivity.reason : undefined,
             };
-            const stealthRaw = await env.INBOX_KV.get(`stealth:${localPart}`);
-            const stealthLog = stealthRaw ? JSON.parse(stealthRaw) : [];
-            stealthLog.push(stealthEntry);
-            await env.INBOX_KV.put(`stealth:${localPart}`, JSON.stringify(stealthLog));
+            const auditRaw = await env.INBOX_KV.get(`audit:${localPart}`);
+            const auditLog: AuditEntry[] = auditRaw ? JSON.parse(auditRaw) : [];
+            auditLog.push(entry);
+            await env.INBOX_KV.put(`audit:${localPart}`, JSON.stringify(auditLog));
+
+            // If sensitive, store cleartext in private Stealth layer (only accessible by agent owner)
+            if (sensitivity.sensitive) {
+              const stealthEntry = {
+                id: entry.id,
+                from: email.from,
+                to: email.to,
+                subject: email.subject,
+                content: email.content,
+                timestamp: emailPayload.timestamp,
+                contentHash,
+                redactionReason: sensitivity.reason,
+              };
+              const stealthRaw = await env.INBOX_KV.get(`stealth:${localPart}`);
+              const stealthLog = stealthRaw ? JSON.parse(stealthRaw) : [];
+              stealthLog.push(stealthEntry);
+              await env.INBOX_KV.put(`stealth:${localPart}`, JSON.stringify(stealthLog));
+            }
           }
         }
 
