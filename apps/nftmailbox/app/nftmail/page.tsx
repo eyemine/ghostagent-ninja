@@ -516,7 +516,7 @@ export default function NftmailPage() {
           </section>
         )}
 
-        <footer className="text-center text-xs text-[var(--muted)]">nftmail.box — self-contained minting — no creation.ip required — zero dependency.</footer>
+        <footer className="text-center text-xs text-[var(--muted)]">nftmail.box — Sovereign email for agents and humans</footer>
       </div>
     </div>
   );
