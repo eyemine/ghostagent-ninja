@@ -1076,6 +1076,46 @@ export default {
           }
           // Normalize: strip .agent suffix since KV stores under identity name (no .agent)
           const agent = rawAgent.endsWith('.agent') ? rawAgent.slice(0, -6) : rawAgent;
+          const inboxDomain: string = ((email as any).domain || 'nftmail').toLowerCase();
+          const domainPfx = inboxDomain === 'ghostmail' ? 'ghostmail' : '';
+          const kvKeyName = domainPfx ? `${domainPfx}:${agent}` : agent;
+
+          // Primary: read from blind-index (current storage format)
+          const blindIdxRaw = await env.INBOX_KV.get(`blind-index:${kvKeyName}`);
+          if (blindIdxRaw) {
+            const blindIds: string[] = JSON.parse(blindIdxRaw);
+            const messages: any[] = [];
+            await Promise.all(blindIds.map(async (id) => {
+              const data = await env.INBOX_KV.get(`blind:${kvKeyName}:${id}`);
+              if (data) {
+                try {
+                  const parsed = JSON.parse(data);
+                  const cid = await env.INBOX_KV.get(`ipfs:${agent}:${id}`);
+                  if (cid) parsed.ipfsCid = cid;
+                  // Flatten cleartext payload fields to top level for frontend compatibility
+                  const payload = parsed.payload || {};
+                  messages.push({
+                    id,
+                    from: payload.from || parsed.from || '',
+                    subject: payload.subject || parsed.subject || '(no subject)',
+                    content: payload.body || parsed.content || '',
+                    receivedAt: parsed.receivedAt || payload.timestamp || 0,
+                    encrypted: !!parsed.encrypted,
+                    type: parsed.type || 'email',
+                    channel: parsed.channel,
+                    plaintextHash: parsed.plaintextHash,
+                    warning: parsed.warning,
+                    envelope: parsed.encrypted ? parsed.envelope : undefined,
+                    ipfsCid: cid ?? undefined,
+                  });
+                } catch {}
+              }
+            }));
+            messages.sort((a: any, b: any) => (b.receivedAt || 0) - (a.receivedAt || 0));
+            return corsify(Response.json({ agent, messages, count: messages.length }), request);
+          }
+
+          // Fallback: legacy index format
           result = await storage.getInbox(agent);
           return corsify(result, request);
         }
