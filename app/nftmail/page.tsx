@@ -26,7 +26,7 @@ type Tier = 'none' | 'free' | 'premium';
  * Full features available at nftmail.box:
  * - Identity card with full ERC-8004 details
  * - Stealth alias management
- * - Zoho mailbox provisioning
+ * - Imago tier upgrade (persistent storage, calendar + tasks)
  * - Molt to full GhostAgent
  * 
  * This version keeps the codebase minimal for agents who just need
@@ -244,7 +244,7 @@ export default function NftmailPage() {
               {tier === 'premium' ? (
                 <div className="flex items-center gap-2 rounded-xl border border-violet-500/30 bg-violet-500/8 px-4 py-3">
                   <div className="h-2 w-2 rounded-full bg-violet-400" />
-                  <span className="text-sm text-violet-300">Zoho mailbox provisioned</span>
+                  <span className="text-sm text-violet-300">Imago tier activated</span>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -313,7 +313,7 @@ export default function NftmailPage() {
             </span>
             <span className="text-[var(--muted)]">→</span>
             <span className={`rounded px-2 py-1 ${tier === 'premium' ? 'bg-violet-500/10 text-violet-300' : 'bg-white/5 text-[var(--muted)]'}`}>
-              Zoho Premium
+              Imago Tier
             </span>
             <span className="text-[var(--muted)]">→</span>
             <span className="rounded bg-white/5 px-2 py-1 text-[var(--muted)]">

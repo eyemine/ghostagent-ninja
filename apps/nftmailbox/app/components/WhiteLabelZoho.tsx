@@ -50,7 +50,7 @@ export function WhiteLabelZoho({ agentName, email, tbaAddress }: WhiteLabelZohoP
       });
       setStep('done');
     } catch (err: any) {
-      setError(err?.message || 'Failed to provision Zoho mailbox');
+      setError(err?.message || 'Failed to upgrade to Imago tier');
       setStep('error');
     }
   }, [agentName, email, tbaAddress]);
@@ -60,7 +60,7 @@ export function WhiteLabelZoho({ agentName, email, tbaAddress }: WhiteLabelZohoP
       <div className="flex items-center justify-between border-b border-[var(--border)] px-5 py-3">
         <div className="flex items-center gap-2">
           <span className="text-[10px] font-bold tracking-[0.18em] text-violet-300/70">PAID TIER</span>
-          <span className="rounded-full bg-violet-500/10 px-2 py-0.5 text-[10px] font-semibold text-violet-300 ring-1 ring-violet-500/20">ZOHO MAIL</span>
+          <span className="rounded-full bg-violet-500/10 px-2 py-0.5 text-[10px] font-semibold text-violet-300 ring-1 ring-violet-500/20">IMAGO TIER</span>
         </div>
         {step === 'done' && (
           <span className="flex items-center gap-1 text-[10px] font-semibold text-emerald-300">
@@ -102,7 +102,7 @@ export function WhiteLabelZoho({ agentName, email, tbaAddress }: WhiteLabelZohoP
             disabled={step === 'provisioning'}
             className="flex w-full items-center justify-center gap-2 rounded-xl border border-violet-500/30 bg-violet-500/8 px-5 py-3 text-sm font-semibold text-violet-300 transition hover:bg-violet-500/15 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {step === 'provisioning' ? 'Provisioning Zoho Mailbox...' : 'Upgrade to Zoho Mail'}
+            {step === 'provisioning' ? 'Upgrading to Imago Tier...' : 'Upgrade to Imago Tier'}
           </button>
         )}
 
