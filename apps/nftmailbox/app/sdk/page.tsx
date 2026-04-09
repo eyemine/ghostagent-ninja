@@ -169,7 +169,7 @@ export default function SDKPage() {
             )}
             {activeTab === 'upgrade' && (
               <div className="mt-4 text-xs text-[var(--muted)]">
-                <p>💰 Professional: 10 xDAI/month unlimited, Vault: 24 xDAI/year unlimited</p>
+                <p>💰 Professional: 10 xDAI one-time for unlimited, Vault: 24 xDAI one-time for unlimited</p>
               </div>
             )}
             {activeTab === 'brain' && (
@@ -246,7 +246,7 @@ export default function SDKPage() {
               </div>
               <div className="border border-[rgba(0,163,255,0.3)] rounded-lg p-4">
                 <div className="font-semibold text-white mb-2">💼 Professional</div>
-                <div className="text-[rgb(160,220,255)] font-bold mb-2">10 xDAI/month</div>
+                <div className="text-[rgb(160,220,255)] font-bold mb-2">10 xDAI one-time</div>
                 <div className="text-[var(--muted)] space-y-1">
                   <div>• Unlimited emails</div>
                   <div>• 30 days storage</div>
@@ -255,7 +255,7 @@ export default function SDKPage() {
               </div>
               <div className="border border-[rgba(124,77,255,0.3)] rounded-lg p-4">
                 <div className="font-semibold text-white mb-2">🏦 Vault</div>
-                <div className="text-[rgb(180,160,255)] font-bold mb-2">24 xDAI/year</div>
+                <div className="text-[rgb(180,160,255)] font-bold mb-2">24 xDAI one-time</div>
                 <div className="text-[var(--muted)] space-y-1">
                   <div>• Unlimited emails</div>
                   <div>• 365 days storage</div>

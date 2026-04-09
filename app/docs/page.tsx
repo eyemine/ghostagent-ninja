@@ -340,7 +340,7 @@ await nftmail.sendEmail(
             </div>
             <div className="rounded-lg border border-[var(--border)] bg-black/20 px-3 py-2">
               <div className="text-[10px] font-semibold text-cyan-300">npx nftmail-upgrade</div>
-              <div className="text-[10px] text-[var(--muted)]">Upgrade to Professional (10 xDAI/month) or Vault (24 xDAI/year)</div>
+              <div className="text-[10px] text-[var(--muted)]">Upgrade to Professional (10 xDAI one-time) or Vault (24 xDAI one-time)</div>
             </div>
             <div className="rounded-lg border border-[var(--border)] bg-black/20 px-3 py-2">
               <div className="text-[10px] font-semibold text-cyan-300">npx ghostagent-add-brain</div>
@@ -360,11 +360,11 @@ await nftmail.sendEmail(
             </div>
             <div className="rounded-lg border border-[var(--border)] bg-black/20 px-3 py-2">
               <div className="text-[10px] font-semibold text-cyan-300">PROFESSIONAL</div>
-              <div className="text-[10px] text-[var(--muted)]">10 xDAI/month, unlimited emails, 30-day storage</div>
+              <div className="text-[10px] text-[var(--muted)]">10 xDAI one-time, unlimited emails, 30-day storage</div>
             </div>
             <div className="rounded-lg border border-[var(--border)] bg-black/20 px-3 py-2">
               <div className="text-[10px] font-semibold text-violet-300">VAULT</div>
-              <div className="text-[10px] text-[var(--muted)]">24 xDAI/year, unlimited emails, 365-day storage</div>
+              <div className="text-[10px] text-[var(--muted)]">24 xDAI one-time, unlimited emails, 365-day storage</div>
             </div>
           </div>
 
