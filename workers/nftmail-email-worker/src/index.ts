@@ -746,7 +746,8 @@ async function handleMailgunPayload(
 
   const sender = String(mgEmail['sender'] || mgEmail['from'] || '');
   const subject = String(mgEmail['subject'] || '');
-  const body = String(mgEmail['strippedText'] || mgEmail['bodyPlain'] || mgEmail['bodyHtml'] || '');
+  const bodyHtmlRaw = String(mgEmail['bodyHtml'] || '');
+  const body = String(mgEmail['strippedText'] || mgEmail['bodyPlain'] || bodyHtmlRaw || '');
 
   console.log(`[mailgunInbound] recipient=${recipient} agentName=${agentName} stream=${stream}`);
   const mgTtlSecs = await getAgentTtlSecs(env, agentName);
@@ -763,11 +764,12 @@ async function handleMailgunPayload(
       }
     }
     const blindId = `blind-${timestamp}-${crypto.randomUUID().slice(0, 8)}`;
-    const plaintextPayload = JSON.stringify({ from: sender, to: recipient, subject, body, timestamp });
+    const payloadObj = { from: sender, to: recipient, subject, body, ...(bodyHtmlRaw ? { bodyHtml: bodyHtmlRaw } : {}), timestamp };
+    const plaintextPayload = JSON.stringify(payloadObj);
     const plaintextHash = await sha256Hex(plaintextPayload);
     const envelope = {
       type: 'human-cleartext', encrypted: false,
-      payload: JSON.parse(plaintextPayload), plaintextHash,
+      payload: payloadObj, plaintextHash,
       recipient: agentName, receivedAt: timestamp,
     };
     const mgPutOpts = mgTtlSecs != null ? { expirationTtl: mgTtlSecs } : {};
@@ -781,7 +783,7 @@ async function handleMailgunPayload(
     const isGlassbox = await isPublicAgent(agentName, env);
     if (isGlassbox) {
       const blindId = `blind-${timestamp}-${crypto.randomUUID().slice(0, 8)}`;
-      const plaintextPayload = JSON.stringify({ from: sender, to: recipient, subject, body, timestamp });
+      const plaintextPayload = JSON.stringify({ from: sender, to: recipient, subject, body, ...(bodyHtmlRaw ? { bodyHtml: bodyHtmlRaw } : {}), timestamp });
       const plaintextHash = await sha256Hex(plaintextPayload);
       const envelope = { type: 'agent-glassbox-cleartext', encrypted: false, payload: JSON.parse(plaintextPayload), plaintextHash, recipient: agentName, receivedAt: timestamp };
       await env.INBOX_KV.put(`blind:${storeKeyName(agentName)}:${blindId}`, JSON.stringify(envelope), mgPutOpts);
