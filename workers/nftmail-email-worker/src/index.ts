@@ -496,6 +496,10 @@ function classifyRecipient(emailAddr: string): ClassifiedRecipient {
     if (lp.endsWith('.agent')) {
       return { stream: 'agent', localPart: lp, agentName: lp.slice(0, -6) };
     }
+    // Agent alias: ends with _ (e.g., ghostagent_ -> ghostagent base identity)
+    if (lp.endsWith('_')) {
+      return { stream: 'agent', localPart: lp, agentName: lp.slice(0, -1) };
+    }
     return { stream: 'human', localPart: lp, agentName: lp };
   }
 
