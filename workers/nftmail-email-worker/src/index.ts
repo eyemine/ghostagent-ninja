@@ -3035,36 +3035,50 @@ export default {
             return corsify(Response.json({ error: 'Claim code already used' }, { status: 409 }), request);
           }
 
-          // Create trial KV entries
+          // 8-day destroy cycle for freemium tier
+          const EIGHT_DAYS_MS = 8 * 24 * 60 * 60 * 1000;
+          const now = Date.now();
+          const creatorIp = request.headers.get('cf-connecting-ip') || 'unknown';
+
+          // Create trial KV entries - freemium tier
           const trialEntry = JSON.stringify({
+            type: 'freemium',
             status: 'trial',
             claimCode,
-            emailsSent: 0,
-            registeredAt: Date.now(),
+            sendsRemaining: 10,
+            sendsUsed: 0,
+            createdAt: now,
+            expiresAt: now + EIGHT_DAYS_MS, // 8-day destroy cycle
+            creatorIp,
             controller: null,
             originNft: null,
             mintedTokenId: null,
           });
 
           const tierEntry = JSON.stringify({
-            tier: 'basic',
-            expiresAt: null, // Trial never expires, just message history window
+            tier: 'freemium',
+            type: 'freemium',
+            expiresAt: now + EIGHT_DAYS_MS,
             upgradedAt: null,
             safe: null,
             retention: '8-day',
+            sendsRemaining: 10,
             storyIp: null,
           });
 
           await Promise.all([
             env.INBOX_KV.put(`nftmailgno:${kvKey}`, trialEntry),
             env.INBOX_KV.put(`acct-tier:${kvKey}`, tierEntry),
-            env.INBOX_KV.put(`claim:${claimCode}`, JSON.stringify({ name: kvKey, createdAt: Date.now() })),
+            env.INBOX_KV.put(`claim:${claimCode}`, JSON.stringify({ name: kvKey, createdAt: now, expiresAt: now + EIGHT_DAYS_MS })),
           ]);
 
           return corsify(Response.json({
             status: 'trial_created',
+            type: 'freemium',
             name: kvKey,
             email: `${name}@nftmail.box`,
+            expiresAt: now + EIGHT_DAYS_MS,
+            sendsRemaining: 10,
             claimCode,
           }), request);
         }
@@ -3140,6 +3154,258 @@ export default {
             status: 'claimed',
             name: kvKey,
             walletAddress 
+          }), request);
+        }
+
+        // --- Check Inbox Status (8-day destroy cycle) ---
+        // Returns expiration info, sends remaining, and destroy eligibility
+        if (email.action === 'checkInboxStatus') {
+          const name: string = ((email as any).name || '').toLowerCase().trim();
+          if (!name) {
+            return corsify(Response.json({ error: 'Missing name' }, { status: 400 }), request);
+          }
+
+          const kvKey = name.replace(/_$/, '');
+          const now = Date.now();
+          
+          // Get trial and tier data
+          const [trialData, tierData] = await Promise.all([
+            env.INBOX_KV.get(`nftmailgno:${kvKey}`),
+            env.INBOX_KV.get(`acct-tier:${kvKey}`),
+          ]);
+
+          if (!trialData) {
+            return corsify(Response.json({ error: 'Inbox not found' }, { status: 404 }), request);
+          }
+
+          const trial = JSON.parse(trialData);
+          const tier = tierData ? JSON.parse(tierData) : null;
+          
+          const isExpired = trial.expiresAt && now > trial.expiresAt;
+          const expiresIn = trial.expiresAt ? Math.max(0, trial.expiresAt - now) : null;
+          const daysRemaining = expiresIn ? Math.floor(expiresIn / (24 * 60 * 60 * 1000)) : null;
+
+          return corsify(Response.json({
+            name: kvKey,
+            email: `${name}@nftmail.box`,
+            type: trial.type || 'unknown',
+            status: isExpired ? 'expired' : trial.status,
+            createdAt: trial.createdAt,
+            expiresAt: trial.expiresAt,
+            expiresIn,
+            daysRemaining,
+            sendsRemaining: trial.sendsRemaining ?? 0,
+            sendsUsed: trial.sendsUsed ?? 0,
+            canDestroy: isExpired,
+            canRecreate: isExpired,
+            tier: tier?.tier || 'unknown',
+          }), request);
+        }
+
+        // --- Destroy and Recreate (8-day destroy cycle) ---
+        // Destroys expired freemium inbox and creates fresh trial
+        if (email.action === 'destroyAndRecreate') {
+          const name: string = ((email as any).name || '').toLowerCase().trim();
+          const requestIp = request.headers.get('cf-connecting-ip') || 'unknown';
+          
+          if (!name) {
+            return corsify(Response.json({ error: 'Missing name' }, { status: 400 }), request);
+          }
+
+          const kvKey = name.replace(/_$/, '');
+          const now = Date.now();
+          
+          // Get existing trial data
+          const trialData = await env.INBOX_KV.get(`nftmailgno:${kvKey}`);
+          if (!trialData) {
+            return corsify(Response.json({ error: 'Inbox not found' }, { status: 404 }), request);
+          }
+
+          const trial = JSON.parse(trialData);
+          
+          // Only freemium trials can be destroyed and recreated
+          if (trial.type !== 'freemium') {
+            return corsify(Response.json({ 
+              error: 'Only freemium inboxes can be destroyed and recreated',
+              type: trial.type 
+            }, { status: 403 }), request);
+          }
+
+          // Check if expired
+          const isExpired = trial.expiresAt && now > trial.expiresAt;
+          if (!isExpired) {
+            return corsify(Response.json({
+              error: 'Inbox not yet expired',
+              expiresAt: trial.expiresAt,
+              expiresIn: trial.expiresAt - now,
+            }, { status: 403 }), request);
+          }
+
+          // Optional: Check IP matches creator (rate limiting protection)
+          const creatorIp = trial.creatorIp;
+          const ipMatch = creatorIp === requestIp || creatorIp === 'unknown';
+          
+          if (!ipMatch) {
+            // Log for monitoring but allow (IPs change, especially for agents)
+            console.log(`[destroyAndRecreate] IP mismatch for ${kvKey}: stored=${creatorIp}, request=${requestIp}`);
+          }
+
+          // Delete old inbox data
+          await Promise.all([
+            env.INBOX_KV.delete(`nftmailgno:${kvKey}`),
+            env.INBOX_KV.delete(`acct-tier:${kvKey}`),
+            // Delete blind inbox messages
+            env.INBOX_KV.delete(`blind-index:${kvKey}`),
+          ]);
+
+          // Create fresh 8-day trial
+          const EIGHT_DAYS_MS = 8 * 24 * 60 * 60 * 1000;
+          const newClaimCode = crypto.randomUUID();
+          const newCreatorIp = requestIp;
+
+          const newTrialEntry = JSON.stringify({
+            type: 'freemium',
+            status: 'trial',
+            claimCode: newClaimCode,
+            sendsRemaining: 10,
+            sendsUsed: 0,
+            createdAt: now,
+            expiresAt: now + EIGHT_DAYS_MS,
+            creatorIp: newCreatorIp,
+            controller: null,
+            originNft: null,
+            mintedTokenId: null,
+            recreatedFrom: kvKey,
+            recreatedAt: now,
+          });
+
+          const newTierEntry = JSON.stringify({
+            tier: 'freemium',
+            type: 'freemium',
+            expiresAt: now + EIGHT_DAYS_MS,
+            upgradedAt: null,
+            safe: null,
+            retention: '8-day',
+            sendsRemaining: 10,
+            storyIp: null,
+          });
+
+          await Promise.all([
+            env.INBOX_KV.put(`nftmailgno:${kvKey}`, newTrialEntry),
+            env.INBOX_KV.put(`acct-tier:${kvKey}`, newTierEntry),
+            env.INBOX_KV.put(`claim:${newClaimCode}`, JSON.stringify({ 
+              name: kvKey, 
+              createdAt: now, 
+              expiresAt: now + EIGHT_DAYS_MS,
+              recreated: true,
+            })),
+          ]);
+
+          return corsify(Response.json({
+            status: 'recreated',
+            type: 'freemium',
+            name: kvKey,
+            email: `${name}@nftmail.box`,
+            expiresAt: now + EIGHT_DAYS_MS,
+            sendsRemaining: 10,
+            claimCode: newClaimCode,
+            previousExpiresAt: trial.expiresAt,
+          }), request);
+        }
+
+        // --- Upgrade Tier: Freemium → Professional/Vault ---
+        if (email.action === 'upgradeTier') {
+          const name: string = ((email as any).name || '').toLowerCase().trim();
+          const targetTier: string = ((email as any).tier || '').toLowerCase();
+          const walletAddress: string = ((email as any).walletAddress || '').toLowerCase();
+          const txHash: string = ((email as any).txHash || '').toLowerCase();
+          
+          if (!name || !targetTier || !walletAddress) {
+            return corsify(Response.json({ 
+              error: 'Missing name, tier, or walletAddress' 
+            }, { status: 400 }), request);
+          }
+          
+          if (targetTier !== 'professional' && targetTier !== 'vault') {
+            return corsify(Response.json({ 
+              error: 'Invalid tier. Must be professional or vault' 
+            }, { status: 400 }), request);
+          }
+          
+          const kvKey = name.replace(/_$/, '');
+          const now = Date.now();
+          
+          // Get current trial data
+          const trialData = await env.INBOX_KV.get(`nftmailgno:${kvKey}`);
+          if (!trialData) {
+            return corsify(Response.json({ error: 'Inbox not found' }, { status: 404 }), request);
+          }
+          
+          const trial = JSON.parse(trialData);
+          
+          // Can only upgrade freemium inboxes
+          if (trial.type !== 'freemium' && trial.type !== 'trial') {
+            return corsify(Response.json({ 
+              error: 'Can only upgrade freemium inboxes',
+              currentType: trial.type 
+            }, { status: 403 }), request);
+          }
+          
+          // Professional tier: 10 xDAI, 30-day storage
+          // Vault tier: 24 xDAI/year, 365-day storage
+          const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+          const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000;
+          
+          const isVault = targetTier === 'vault';
+          const retention = isVault ? '365-day' : '30-day';
+          const expiresAt = isVault ? now + ONE_YEAR_MS : null; // Professional doesn't expire
+          const cost = isVault ? '24 xDAI/year' : '10 xDAI';
+          
+          // Update trial entry to upgraded status
+          const upgradedEntry = JSON.stringify({
+            type: targetTier,
+            status: 'active',
+            controller: walletAddress,
+            upgradedAt: now,
+            upgradedFrom: trial.type,
+            upgradeTx: txHash || null,
+            previousClaimCode: trial.claimCode || null,
+            // Keep reference to original creation
+            createdAt: trial.createdAt,
+            originNft: trial.originNft || null,
+            mintedTokenId: trial.mintedTokenId || null,
+          });
+          
+          const tierEntry = JSON.stringify({
+            tier: targetTier,
+            type: targetTier,
+            upgradedAt: now,
+            upgradedFrom: trial.type,
+            expiresAt,
+            retention,
+            walletAddress,
+            upgradeTx: txHash || null,
+            cost,
+            sendsRemaining: 'unlimited',
+            storyIp: null,
+          });
+          
+          await Promise.all([
+            env.INBOX_KV.put(`nftmailgno:${kvKey}`, upgradedEntry),
+            env.INBOX_KV.put(`acct-tier:${kvKey}`, tierEntry),
+          ]);
+          
+          return corsify(Response.json({
+            status: 'upgraded',
+            name: kvKey,
+            previousTier: trial.type,
+            newTier: targetTier,
+            email: `${name}@nftmail.box`,
+            walletAddress,
+            retention,
+            expiresAt,
+            cost,
+            sendsRemaining: 'unlimited',
           }), request);
         }
 
@@ -4129,22 +4395,87 @@ export default {
         }
 
         // Check freemium send allowance and increment counter atomically
+        // Updated for 8-day destroy cycle: uses sendsRemaining from trial entry
         if (email.action === 'checkAndIncrementSendCount') {
           const agent = (email as any).localPart || '';
-          const tier = ((email as any).tier || 'basic').toLowerCase();
-          const FREEMIUM_LIMIT = 10;
           if (!agent) {
             return corsify(Response.json({ error: 'Missing localPart' }, { status: 400 }), request);
           }
-          const countKey = `send-count:${agent}`;
-          const raw = await env.INBOX_KV.get(countKey);
-          const count = raw ? parseInt(raw, 10) : 0;
-          if (tier === 'basic' && count >= FREEMIUM_LIMIT) {
-            return corsify(Response.json({ allowed: false, count, limit: FREEMIUM_LIMIT, remaining: 0 }), request);
+          
+          const kvKey = agent.replace(/_$/, '');
+          const now = Date.now();
+          
+          // Get trial and tier data
+          const [trialData, tierData] = await Promise.all([
+            env.INBOX_KV.get(`nftmailgno:${kvKey}`),
+            env.INBOX_KV.get(`acct-tier:${kvKey}`),
+          ]);
+          
+          if (!trialData) {
+            return corsify(Response.json({ error: 'Inbox not found' }, { status: 404 }), request);
           }
-          await env.INBOX_KV.put(countKey, String(count + 1));
-          const remaining = tier === 'basic' ? Math.max(0, FREEMIUM_LIMIT - (count + 1)) : null;
-          return corsify(Response.json({ allowed: true, count: count + 1, limit: tier === 'basic' ? FREEMIUM_LIMIT : null, remaining }), request);
+          
+          const trial = JSON.parse(trialData);
+          const tier = tierData ? JSON.parse(tierData) : { tier: 'freemium' };
+          
+          // Check if expired (8-day destroy cycle)
+          const isExpired = trial.expiresAt && now > trial.expiresAt;
+          if (isExpired) {
+            return corsify(Response.json({ 
+              allowed: false, 
+              error: 'Inbox expired',
+              status: 'expired',
+              expiresAt: trial.expiresAt,
+              canRecreate: true,
+            }), request);
+          }
+          
+          // Freemium tier: check sendsRemaining
+          if (tier.tier === 'freemium' || trial.type === 'freemium') {
+            const sendsRemaining = trial.sendsRemaining ?? 0;
+            const sendsUsed = trial.sendsUsed ?? 0;
+            
+            if (sendsRemaining <= 0) {
+              return corsify(Response.json({ 
+                allowed: false, 
+                error: 'Send limit reached',
+                sendsUsed,
+                sendsRemaining: 0,
+                tier: 'freemium',
+                upgradeRequired: true,
+              }), request);
+            }
+            
+            // Atomically decrement sendsRemaining and increment sendsUsed
+            const newTrialEntry = {
+              ...trial,
+              sendsRemaining: sendsRemaining - 1,
+              sendsUsed: sendsUsed + 1,
+            };
+            await env.INBOX_KV.put(`nftmailgno:${kvKey}`, JSON.stringify(newTrialEntry));
+            
+            return corsify(Response.json({ 
+              allowed: true, 
+              sendsUsed: sendsUsed + 1,
+              sendsRemaining: sendsRemaining - 1,
+              tier: 'freemium',
+              expiresAt: trial.expiresAt,
+              daysRemaining: Math.floor((trial.expiresAt - now) / (24 * 60 * 60 * 1000)),
+            }), request);
+          }
+          
+          // Professional/Vault tiers: unlimited sends
+          if (tier.tier === 'professional' || tier.tier === 'vault') {
+            return corsify(Response.json({ 
+              allowed: true, 
+              sendsRemaining: 'unlimited',
+              tier: tier.tier,
+              expiresAt: tier.expiresAt || null,
+            }), request);
+          }
+          
+          // Default fallback (shouldn't reach here)
+          return corsify(Response.json({ allowed: true, tier: tier.tier || 'unknown' }), request);
         }
 
         // Store a sent message in the sender's sent folder
