@@ -777,22 +777,26 @@ async function handleMailgunPayload(
       recipient: agentName, receivedAt: timestamp,
     };
     const mgPutOpts = mgTtlSecs != null ? { expirationTtl: mgTtlSecs } : {};
-    await env.INBOX_KV.put(`blind:${storeKeyName(agentName)}:${blindId}`, JSON.stringify(envelope), mgPutOpts);
-    await updateBlindIndex(env, agentName, blindId, storeDomainPrefix, mgTtlSecs);
-    return corsify(Response.json({ status: 'received', stream: 'human', blindId, plaintextHash, recipient: agentName }), request);
+    // Use localPart for storage key (preserves _ suffix for agent aliases)
+    const storageName = localPart || agentName;
+    await env.INBOX_KV.put(`blind:${storeKeyName(storageName)}:${blindId}`, JSON.stringify(envelope), mgPutOpts);
+    await updateBlindIndex(env, storageName, blindId, storeDomainPrefix, mgTtlSecs);
+    return corsify(Response.json({ status: 'received', stream: 'human', blindId, plaintextHash, recipient: storageName }), request);
   }
 
   if (stream === 'agent') {
     const mgPutOpts = mgTtlSecs != null ? { expirationTtl: mgTtlSecs } : {};
+    // Use localPart for storage key (preserves _ suffix for agent aliases)
+    const storageName = localPart || agentName;
     const isGlassbox = await isPublicAgent(agentName, env);
     if (isGlassbox) {
       const blindId = `blind-${timestamp}-${crypto.randomUUID().slice(0, 8)}`;
       const plaintextPayload = JSON.stringify({ from: sender, to: recipient, subject, body, ...(bodyHtmlRaw ? { bodyHtml: bodyHtmlRaw } : {}), timestamp });
       const plaintextHash = await sha256Hex(plaintextPayload);
-      const envelope = { type: 'agent-glassbox-cleartext', encrypted: false, payload: JSON.parse(plaintextPayload), plaintextHash, recipient: agentName, receivedAt: timestamp };
-      await env.INBOX_KV.put(`blind:${storeKeyName(agentName)}:${blindId}`, JSON.stringify(envelope), mgPutOpts);
-      await updateBlindIndex(env, agentName, blindId, storeDomainPrefix, mgTtlSecs);
-      return corsify(Response.json({ status: 'received', stream: 'agent', agentType: 'glassbox', blindId, plaintextHash, recipient: agentName }), request);
+      const envelope = { type: 'agent-glassbox-cleartext', encrypted: false, payload: JSON.parse(plaintextPayload), plaintextHash, recipient: storageName, receivedAt: timestamp };
+      await env.INBOX_KV.put(`blind:${storeKeyName(storageName)}:${blindId}`, JSON.stringify(envelope), mgPutOpts);
+      await updateBlindIndex(env, storageName, blindId, storeDomainPrefix, mgTtlSecs);
+      return corsify(Response.json({ status: 'received', stream: 'agent', agentType: 'glassbox', blindId, plaintextHash, recipient: storageName }), request);
     }
 
     const pubKeyHex = await env.INBOX_KV.get(`ecies-pubkey:${agentName}`);
@@ -800,9 +804,9 @@ async function handleMailgunPayload(
       const blindId = `blind-${timestamp}-${crypto.randomUUID().slice(0, 8)}`;
       const plaintextPayload = JSON.stringify({ from: sender, to: recipient, subject, body, timestamp });
       const plaintextHash = await sha256Hex(plaintextPayload);
-      const envelope = { type: 'agent-cleartext-warning', encrypted: false, warning: 'No ECIES key registered.', payload: JSON.parse(plaintextPayload), plaintextHash, recipient: agentName, receivedAt: timestamp };
-      await env.INBOX_KV.put(`blind:${storeKeyName(agentName)}:${blindId}`, JSON.stringify(envelope), mgPutOpts);
-      await updateBlindIndex(env, agentName, blindId, storeDomainPrefix, mgTtlSecs);
+      const envelope = { type: 'agent-cleartext-warning', encrypted: false, warning: 'No ECIES key registered.', payload: JSON.parse(plaintextPayload), plaintextHash, recipient: storageName, receivedAt: timestamp };
+      await env.INBOX_KV.put(`blind:${storeKeyName(storageName)}:${blindId}`, JSON.stringify(envelope), mgPutOpts);
+      await updateBlindIndex(env, storageName, blindId, storeDomainPrefix, mgTtlSecs);
       return corsify(Response.json({ status: 'received', stream: 'agent', agentType: 'blackbox', encrypted: false, blindId, plaintextHash, warning: 'No ECIES key — stored unencrypted.' }), request);
     }
 
@@ -812,10 +816,10 @@ async function handleMailgunPayload(
     let recoveryEnvelope: EncryptedEnvelope | null = null;
     if (env.MASTER_SAFE_PUBKEY) { try { recoveryEnvelope = await eciesEncrypt(plaintextPayload, env.MASTER_SAFE_PUBKEY); } catch {} }
     const blindId = `blind-${timestamp}-${crypto.randomUUID().slice(0, 8)}`;
-    const blindEnvelope = { type: 'agent-ecies-blind', encrypted: true, envelope: encEnvelope, recoveryEnvelope: recoveryEnvelope || undefined, plaintextHash, recipient: agentName, receivedAt: timestamp };
-    await env.INBOX_KV.put(`blind:${storeKeyName(agentName)}:${blindId}`, JSON.stringify(blindEnvelope), mgPutOpts);
-    await updateBlindIndex(env, agentName, blindId, storeDomainPrefix, mgTtlSecs);
-    return corsify(Response.json({ status: 'received', stream: 'agent', agentType: 'blackbox', encrypted: true, blindId, plaintextHash, hasRecoveryKey: !!recoveryEnvelope, recipient: agentName }), request);
+    const blindEnvelope = { type: 'agent-ecies-blind', encrypted: true, envelope: encEnvelope, recoveryEnvelope: recoveryEnvelope || undefined, plaintextHash, recipient: storageName, receivedAt: timestamp };
+    await env.INBOX_KV.put(`blind:${storeKeyName(storageName)}:${blindId}`, JSON.stringify(blindEnvelope), mgPutOpts);
+    await updateBlindIndex(env, storageName, blindId, storeDomainPrefix, mgTtlSecs);
+    return corsify(Response.json({ status: 'received', stream: 'agent', agentType: 'blackbox', encrypted: true, blindId, plaintextHash, hasRecoveryKey: !!recoveryEnvelope, recipient: storageName }), request);
   }
 
   return corsify(Response.json({ error: 'Unclassified stream' }, { status: 400 }), request);
