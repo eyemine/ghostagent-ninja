@@ -551,6 +551,178 @@ async function updateBlindIndex(env: Env, agentName: string, blindId: string, do
   await env.INBOX_KV.put(blindIndexKey, JSON.stringify(blindIndex), putOpts);
 }
 
+// ── ENS existence check on Ethereum Mainnet ────────────────────────────────
+// Checks if `label.eth` is registered on mainnet ENS.
+// Uses ENS BaseRegistrar at 0x57f1887a8BF19b14fC0dF6Fd9B2acc9Af147eA85
+const ETH_RPC = 'https://ethereum.publicnode.com';
+const ENS_BASE_REGISTRAR = '0x57f1887a8BF19b14fC0dF6Fd9B2acc9Af147eA85';
+
+// Keccak-256 implementation for ENS labelhash (FIPS 202 SHA3 variant)
+// Based on the keccak-f[1600] permutation
+class Keccak256 {
+  private static readonly RC = [
+    0x0000000000000001n, 0x0000000000008082n, 0x800000000000808an, 0x8000000080008000n,
+    0x000000000000808bn, 0x0000000080000001n, 0x8000000080008081n, 0x8000000000008009n,
+    0x000000000000008an, 0x0000000000000088n, 0x0000000080008009n, 0x000000008000000an,
+    0x000000008000808bn, 0x800000000000008bn, 0x8000000000008089n, 0x8000000000008003n,
+    0x8000000000008002n, 0x8000000000000080n, 0x000000000000800an, 0x800000008000000an,
+    0x8000000080008081n, 0x8000000000008080n, 0x0000000080000001n, 0x8000000080008008n
+  ];
+
+  private static readonly R = [
+    0, 1, 62, 28, 27, 36, 44, 6, 55, 20, 3, 10, 43, 25, 39, 41, 45, 15, 21, 8, 18, 2, 61, 56, 14
+  ];
+
+  static hash(input: Uint8Array): Uint8Array {
+    const state = new BigUint64Array(25);
+    const blockSize = 136; // r = 1088 bits = 136 bytes for keccak-256
+
+    // Absorb
+    for (let i = 0; i < input.length; i += blockSize) {
+      const block = input.slice(i, i + blockSize);
+      for (let j = 0; j < block.length; j++) {
+        state[j >> 3] ^= BigInt(block[j]) << BigInt((j & 7) * 8);
+      }
+      this.keccakF(state);
+    }
+
+    // Final block with padding (10*1 pattern for keccak)
+    const lastBlock = new Uint8Array(blockSize);
+    const remaining = input.length % blockSize;
+    for (let i = 0; i < remaining; i++) {
+      lastBlock[i] = input[input.length - remaining + i];
+    }
+    lastBlock[remaining] = 0x01; // Padding start
+    lastBlock[blockSize - 1] |= 0x80; // Padding end
+    for (let j = 0; j < blockSize; j++) {
+      state[j >> 3] ^= BigInt(lastBlock[j]) << BigInt((j & 7) * 8);
+    }
+    this.keccakF(state);
+
+    // Squeeze (256 bits = 32 bytes)
+    const output = new Uint8Array(32);
+    for (let i = 0; i < 32; i++) {
+      output[i] = Number((state[i >> 3] >> BigInt((i & 7) * 8)) & 0xffn);
+    }
+    return output;
+  }
+
+  private static keccakF(state: BigUint64Array): void {
+    const temp = new BigUint64Array(25);
+    const C = new BigUint64Array(5);
+
+    for (let round = 0; round < 24; round++) {
+      // Theta
+      for (let i = 0; i < 5; i++) {
+        C[i] = state[i] ^ state[i + 5] ^ state[i + 10] ^ state[i + 15] ^ state[i + 20];
+      }
+      for (let i = 0; i < 5; i++) {
+        const D = C[(i + 4) % 5] ^ ((C[(i + 1) % 5] << 1n) | (C[(i + 1) % 5] >> 63n));
+        for (let j = 0; j < 25; j += 5) {
+          state[i + j] ^= D;
+        }
+      }
+
+      // Rho and Pi
+      temp[0] = state[0];
+      for (let i = 1; i < 25; i++) {
+        const r = this.R[i];
+        temp[i] = (state[i] << BigInt(r)) | (state[i] >> BigInt(64 - r));
+      }
+      for (let i = 0; i < 25; i++) {
+        state[i] = temp[(i * 7) % 25]; // Pi permutation
+      }
+
+      // Chi
+      for (let j = 0; j < 25; j += 5) {
+        for (let i = 0; i < 5; i++) {
+          C[i] = state[j + i];
+        }
+        for (let i = 0; i < 5; i++) {
+          state[j + i] ^= (~C[(i + 1) % 5]) & C[(i + 2) % 5];
+        }
+      }
+
+      // Iota
+      state[0] ^= this.RC[round];
+    }
+  }
+}
+
+// Compute labelhash (keccak256 of the label)
+function labelhash(label: string): string {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(label.toLowerCase());
+  const hash = Keccak256.hash(data);
+  return '0x' + Array.from(hash).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// Compute ENS namehash
+function namehash(name: string): string {
+  let node = '0x0000000000000000000000000000000000000000000000000000000000000000';
+  if (!name) return node;
+
+  const labels = name.split('.');
+  for (let i = labels.length - 1; i >= 0; i--) {
+    const hash = labelhash(labels[i]);
+    // keccak256(node + labelhash)
+    const nodeBytes = hexToBytes(node.slice(2));
+    const hashBytes = hexToBytes(hash.slice(2));
+    const combined = new Uint8Array(nodeBytes.length + hashBytes.length);
+    combined.set(nodeBytes);
+    combined.set(hashBytes, nodeBytes.length);
+    const newHash = Keccak256.hash(combined);
+    node = '0x' + Array.from(newHash).map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+  return node;
+}
+
+function hexToBytes(hex: string): Uint8Array {
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < hex.length; i += 2) {
+    bytes[i / 2] = parseInt(hex.slice(i, i + 2), 16);
+  }
+  return bytes;
+}
+
+async function ensNameExists(label: string): Promise<{ exists: boolean; owner: string | null }> {
+  try {
+    // Use ownerOf(uint256 tokenId) on BaseRegistrar
+    // tokenId = uint256(keccak256(label)) = labelhash
+    const lh = labelhash(label.toLowerCase());
+    const tokenId = BigInt(lh).toString(16).padStart(64, '0');
+
+    // ownerOf(uint256) selector = 0x6352211e
+    const data = '0x6352211e' + tokenId;
+
+    const resp = await fetch(ETH_RPC, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'eth_call',
+        params: [{ to: ENS_BASE_REGISTRAR, data }, 'latest']
+      }),
+    });
+    const json: any = await resp.json();
+    const result: string = json.result || '0x';
+
+    if (json.error || !result || result === '0x' || result === '0x' + '0'.repeat(64)) {
+      return { exists: false, owner: null };
+    }
+
+    const owner = '0x' + result.slice(-40);
+    return {
+      exists: owner !== '0x0000000000000000000000000000000000000000',
+      owner: owner !== '0x0000000000000000000000000000000000000000' ? owner : null
+    };
+  } catch (e) {
+    console.error('[ensNameExists] Error checking ENS:', e);
+    return { exists: false, owner: null };
+  }
+}
+
 // ── ENS subname existence check on Gnosis ──────────────────────────────────
 // Checks if `label.nftmail.gno` is owned (non-zero) on the Gnosis ENS registry.
 // Namehashes precomputed offline via viem namehash() — deterministic, no runtime keccak needed.
@@ -3026,6 +3198,16 @@ export default {
           const existing = await env.INBOX_KV.get(`nftmailgno:${kvKey}`);
           if (existing) {
             return corsify(Response.json({ error: 'Name already exists' }, { status: 409 }), request);
+          }
+
+          // Check if name is registered on ENS mainnet (ENS reserved)
+          const ensCheck = await ensNameExists(kvKey);
+          if (ensCheck.exists) {
+            return corsify(Response.json({
+              error: 'Name reserved by ENS',
+              message: `${kvKey}.eth is registered on Ethereum mainnet. Only the ENS holder may mint this name.`,
+              ensOwner: ensCheck.owner,
+            }, { status: 409 }), request);
           }
 
           // Store claim code
