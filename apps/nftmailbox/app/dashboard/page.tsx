@@ -264,9 +264,8 @@ export default function DashboardPage() {
   };
 
   const formatTimeAgo = (ts: string) => {
-    const raw = parseInt(ts, 10);
-    // Unix seconds if < 1e11 (year ~5138), else treat as ms or ISO string
-    const epoch = !isNaN(raw) ? (raw < 1e11 ? raw * 1000 : raw) : (Date.parse(ts) || Date.now());
+    // Handle both ISO strings and numeric timestamps
+    const epoch = Date.parse(ts) || parseInt(ts, 10) || Date.now();
     const ms = Date.now() - epoch;
     const mins = Math.floor(ms / 60000);
     if (mins < 60) return `${mins}m ago`;
