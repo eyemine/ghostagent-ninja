@@ -52,49 +52,23 @@ export default function NftmailPage() {
     <div className="min-h-screen bg-[radial-gradient(1200px_circle_at_20%_-10%,rgba(0,163,255,0.16),transparent_45%),radial-gradient(900px_circle_at_90%_10%,rgba(124,77,255,0.14),transparent_40%),linear-gradient(180deg,var(--background),#03040a)]">
       <div className="mx-auto flex min-h-screen max-w-3xl flex-col gap-8 px-4 py-10 md:px-6">
 
-        {/* Hero */}
+        {/* Hero - Agent focus */}
         <section className="text-center">
-          <h1 className="text-4xl font-bold tracking-tight" style={{ fontFamily: "Ayuthaya, 'Courier New', monospace" }}>nftmail.box</h1>
+          <h1 className="text-3xl font-bold tracking-tight" style={{ fontFamily: "Ayuthaya, 'Courier New', monospace" }}>Agent Email</h1>
           <p className="mx-auto mt-3 max-w-lg text-sm text-[var(--muted)]">
-            Agent mint is 2 xDAI. Human NFTmail minting opens at official launch — April 2026.
+            Mint <code>[name]_@nftmail.box</code> for your agent. 2 xDAI. Self-contained. Zero dependency.
           </p>
         </section>
 
-        {/* Journey tracker */}
-        <div className="flex items-center justify-center gap-3">
-          {[
-            { key: 'free', label: 'Mint', icon: '1' },
-            { key: 'premium', label: 'Upgrade', icon: '2' },
-          ].map((s, i) => {
-            const tierOrder: Tier[] = ['none', 'free', 'premium'];
-            const currentIdx = tierOrder.indexOf(tier);
-            const stepIdx = tierOrder.indexOf(s.key as Tier);
-            const isDone = currentIdx >= stepIdx;
-            const isCurrent = currentIdx === stepIdx - 1;
-            return (
-              <div key={s.key} className="flex items-center gap-3">
-                <div className="flex items-center gap-2">
-                  <div className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-all ${
-                    isDone
-                      ? 'bg-emerald-500/20 text-emerald-400 ring-1 ring-emerald-500/30'
-                      : isCurrent
-                      ? 'bg-[rgba(0,163,255,0.15)] text-[rgb(160,220,255)] ring-1 ring-[rgba(0,163,255,0.4)] animate-pulse'
-                      : 'bg-white/5 text-[var(--muted)] ring-1 ring-[var(--border)]'
-                  }`}>
-                    {isDone ? '✓' : s.icon}
-                  </div>
-                  <span className={`text-xs font-medium ${
-                    isDone ? 'text-emerald-400' : isCurrent ? 'text-[rgb(160,220,255)]' : 'text-[var(--muted)]'
-                  }`}>
-                    {s.label}
-                  </span>
-                </div>
-                {i < 1 && (
-                  <div className={`h-px w-8 ${isDone ? 'bg-emerald-500/40' : 'bg-[var(--border)]'}`} />
-                )}
-              </div>
-            );
-          })}
+        {/* Simple status */}
+        <div className="flex items-center justify-center">
+          <div className={`flex items-center gap-2 rounded-full px-4 py-2 text-xs ${
+            tier !== 'none'
+              ? 'bg-emerald-500/10 text-emerald-300 ring-1 ring-emerald-500/20'
+              : 'bg-white/5 text-[var(--muted)] ring-1 ring-[var(--border)]'
+          }`}>
+            <span>{tier !== 'none' ? '✓ Agent email active' : 'Connect wallet to mint'}</span>
+          </div>
         </div>
 
         {/* Step 1: Login */}
@@ -247,67 +221,36 @@ export default function NftmailPage() {
         ) : null}
         */}
 
-        {/* Handoff to GhostAgent.ninja */}
-        {(tier === 'free' || tier === 'premium') && (
+        {/* Next step for agents */}
+        {tier !== 'none' && (
           <section className="rounded-2xl border border-amber-500/20 bg-[var(--card)] p-5">
-            <div className="mb-4">
-              <div className="flex items-center gap-2">
-                <svg className="h-5 w-5 text-amber-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 2L2 7l10 5 10-5-10-5z" />
-                  <path d="M2 17l10 5 10-5" />
-                  <path d="M2 12l10 5 10-5" />
-                </svg>
-                <h2 className="text-lg font-semibold text-white">Want a full autonomous agent?</h2>
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-sm font-semibold text-white">Need a full agent stack?</h2>
+                <p className="text-[10px] text-[var(--muted)]">
+                  Same TBA, same email — add Safe + Brain for autonomous execution.
+                </p>
               </div>
-              <p className="mt-1 ml-7 text-xs text-[var(--muted)]">
-                Your nftmail.gno identity can molt into a full GhostAgent — same TBA, same email, plus a Gnosis Safe + Brain module for autonomous execution.
-              </p>
-            </div>
-            <div className="ml-7">
               <Link
                 href="/"
-                className="group inline-flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/8 px-5 py-3 text-sm font-semibold text-amber-200 transition-all hover:bg-amber-500/15 hover:shadow-[0_0_24px_rgba(245,158,11,0.1)]"
+                className="rounded-lg border border-amber-500/30 bg-amber-500/8 px-4 py-2 text-xs font-semibold text-amber-200 transition hover:bg-amber-500/15"
               >
-                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 2L2 7l10 5 10-5-10-5z" />
-                  <path d="M2 17l10 5 10-5" />
-                  <path d="M2 12l10 5 10-5" />
-                </svg>
-                Molt to Agent on GhostAgent.ninja
-                <svg className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M5 12h14" />
-                  <path d="m12 5 7 7-7 7" />
-                </svg>
+                Molt →
               </Link>
-              <p className="mt-2 text-[10px] text-[var(--muted)]">
-                GhostAgent.ninja is the standalone dApp for deploying Safe + Brain + A2A wire.
-              </p>
             </div>
           </section>
         )}
 
-        {/* Journey summary */}
-        <div className="rounded-2xl border border-[var(--border)] bg-black/20 px-6 py-4">
-          <div className="flex items-center justify-center gap-2 text-xs">
-            <span className={`rounded px-2 py-1 ${tier !== 'none' ? 'bg-emerald-500/10 text-emerald-300' : 'bg-white/5 text-[var(--muted)]'}`}>
-              nftmail.gno
-            </span>
-            <span className="text-[var(--muted)]">→</span>
-            <span className={`rounded px-2 py-1 ${tier === 'premium' ? 'bg-violet-500/10 text-violet-300' : 'bg-white/5 text-[var(--muted)]'}`}>
-              Imago Tier
-            </span>
-            <span className="text-[var(--muted)]">→</span>
-            <span className="rounded bg-white/5 px-2 py-1 text-[var(--muted)]">
-              GhostAgent.ninja ↗
-            </span>
+        {/* Identity anchor note */}
+        {tier !== 'none' && (
+          <div className="text-center text-[10px] text-[var(--muted)]">
+            <p>TBA: <code className="text-zinc-400">{mintedTba}</code></p>
+            <p className="mt-1">Your identity anchor — molts, never migrates.</p>
           </div>
-          <p className="mt-2 text-center text-[10px] text-[var(--muted)]">
-            Same TBA address at every step — your identity molts, never migrates.
-          </p>
-        </div>
+        )}
 
-        <footer className="text-center text-xs text-[var(--muted)]">
-          nftmail.box — Sovereign email for agents and humans
+        <footer className="text-center text-[10px] text-[var(--muted)]">
+          <a href="https://nftmail.box" className="hover:text-[rgb(160,220,255)] transition">Full features at nftmail.box ↗</a>
         </footer>
       </div>
     </div>
