@@ -74,7 +74,11 @@ export async function GET(req: NextRequest) {
         kvMessages = (workerData.messages || []).map((m: any) => {
           const isEnc = m.encrypted === true;
           const now = Date.now();
-          const receivedMs = m.receivedAt || now;
+          // Defensive timestamp parsing: handle seconds (Unix), milliseconds, or ISO string
+          let rawRa = m.receivedAt || m.timestamp || m.createdAt || 0;
+          if (typeof rawRa === 'string') rawRa = Date.parse(rawRa) || 0;
+          // If < year 2000 in ms (≈946684800000), treat as seconds and convert
+          const receivedMs = rawRa > 0 && rawRa < 946684800000 ? rawRa * 1000 : (rawRa || now);
           const frozen = m.frozen === true;
           // Frozen emails never decay; use per-message decayDays if available, else account default
           const msgDecayDays = m.decayDays ?? acctDecayDays ?? 8;
