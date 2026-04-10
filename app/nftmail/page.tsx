@@ -52,25 +52,6 @@ export default function NftmailPage() {
     <div className="min-h-screen bg-[radial-gradient(1200px_circle_at_20%_-10%,rgba(0,163,255,0.16),transparent_45%),radial-gradient(900px_circle_at_90%_10%,rgba(124,77,255,0.14),transparent_40%),linear-gradient(180deg,var(--background),#03040a)]">
       <div className="mx-auto flex min-h-screen max-w-3xl flex-col gap-8 px-4 py-10 md:px-6">
 
-        {/* Header */}
-        <header className="flex items-center justify-between">
-          <div className="text-xs font-semibold tracking-[0.18em] text-[rgb(160,220,255)]">NFTMAIL.BOX</div>
-          <div className="flex items-center gap-3">
-            <Link
-              href="/dashboard"
-              className="rounded-full border border-[var(--border)] bg-black/20 px-4 py-2 text-xs font-semibold text-[var(--foreground)] transition hover:bg-black/30"
-            >
-              Dashboard
-            </Link>
-            <Link
-              href="/"
-              className="rounded-full border border-[var(--border)] bg-black/20 px-4 py-2 text-xs font-semibold text-[var(--foreground)] transition hover:bg-black/30"
-            >
-              GhostAgent.ninja
-            </Link>
-          </div>
-        </header>
-
         {/* Hero */}
         <section className="text-center">
           <h1 className="text-4xl font-bold tracking-tight" style={{ fontFamily: "Ayuthaya, 'Courier New', monospace" }}>nftmail.box</h1>
