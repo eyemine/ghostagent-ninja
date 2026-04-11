@@ -35,71 +35,78 @@ function AgentLandingPage({ onClaim }: { onClaim: () => void }) {
 
   return (
     <div className="min-h-screen bg-[radial-gradient(1200px_circle_at_20%_-10%,rgba(0,163,255,0.12),transparent_45%),radial-gradient(900px_circle_at_90%_10%,rgba(124,77,255,0.10),transparent_40%),linear-gradient(180deg,var(--background),#03040a)]">
-      <div className="mx-auto flex min-h-screen max-w-xl flex-col gap-6 px-4 py-10 md:px-6">
-        <header className="flex items-center justify-between">
-          <Link href="/" className="flex items-baseline gap-2">
-            <span style={{ fontFamily: "'Ayuthaya', serif", color: '#d8d4cf' }} className="text-xl tracking-wide">nftmail.box</span>
-            <span className="text-[rgb(160,220,255)]/60 text-xs">[for-agents]</span>
-          </Link>
-          <span className="text-[10px] text-[var(--muted)]">GHOSTAGENT.NINJA <span className="text-emerald-400/60">BETA</span></span>
-        </header>
-
-        <p className="text-center text-sm text-[var(--muted)]">Claim a free agent email inbox. No credit card. No personal data.</p>
-
-        <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)]/50 p-5 space-y-3">
-          <h2 className="text-sm font-semibold text-white">Check an Agent Inbox</h2>
-          <div className="flex gap-2">
-            <div className="flex-1 relative">
-              <input
-                type="text"
-                value={checkName}
-                onChange={(e) => setCheckName(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ''))}
-                placeholder="agentname_"
-                className="w-full rounded-lg border border-[var(--border)] bg-black/40 px-3 py-2.5 pr-28 text-sm text-white placeholder-zinc-600 outline-none focus:border-[rgba(0,163,255,0.5)]"
-              />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[var(--muted)]">@nftmail.box</span>
+      <div className="mx-auto flex min-h-screen max-w-5xl flex-col px-4 pb-10 pt-8 md:px-6">
+        <div className="mx-auto w-full max-w-[820px] border-x border-white/5 bg-[rgba(6,10,26,0.45)] px-4 pb-8 pt-6 md:px-8">
+          <header className="mb-3 flex items-center gap-4">
+            <span className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-white/5 text-white/90">
+              @
+            </span>
+            <div className="flex items-baseline gap-3">
+              <span style={{ fontFamily: "'Ayuthaya', serif", color: '#d8d4cf' }} className="text-5xl leading-none tracking-wide md:text-6xl">nftmail.box</span>
+              <span className="text-3xl font-medium text-zinc-300/85 md:text-5xl">[for-agents]</span>
             </div>
-            <button
-              onClick={handleCheck}
-              disabled={!checkName || checkName.length < 2 || checkStatus === 'checking'}
-              className="rounded-lg border border-[rgba(0,163,255,0.3)] bg-[rgba(0,163,255,0.1)] px-4 py-2 text-xs font-semibold text-[rgb(160,220,255)] hover:bg-[rgba(0,163,255,0.2)] disabled:opacity-40"
-            >
-              {checkStatus === 'checking' ? '...' : 'Check →'}
-            </button>
-          </div>
-          {checkStatus === 'available' && <p className="text-[10px] text-emerald-400">✓ Available — {checkName}@nftmail.box is free to claim</p>}
-          {checkStatus === 'taken' && <p className="text-[10px] text-amber-400">⚠ Taken — {checkName}@nftmail.box is already registered</p>}
-          <div className="flex items-center justify-between pt-1">
-            <span className="text-[10px] text-[var(--muted)]">Manage all your inboxes</span>
-            <Link href="/dashboard" className="rounded-lg border border-[var(--border)] bg-black/20 px-3 py-1.5 text-[10px] font-semibold text-[var(--muted)] hover:text-white">Your Dashboard →</Link>
-          </div>
-        </div>
+          </header>
 
-        <div className="flex items-center justify-center gap-2 text-[11px]">
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-          <span className="text-emerald-400">Free — no wallet required to start*</span>
-        </div>
+          <p className="mb-8 text-center text-[29px] leading-tight text-zinc-300/80 md:text-[31px]">Claim a free agent email inbox. No Credit Card. No personal data.</p>
 
-        <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)]/50 p-5 space-y-4">
-          <div>
-            <h2 className="text-sm font-semibold text-white">Get your inbox</h2>
-            <p className="text-[11px] text-[var(--muted)] mt-1">Your address will be <span className="text-[rgb(160,220,255)]">agent_@nftmail.box</span></p>
-          </div>
-          <div className="flex gap-2">
-            <button onClick={onClaim} className="flex-1 rounded-lg bg-[rgba(0,163,255,0.15)] px-4 py-2.5 text-sm font-semibold text-[rgb(160,220,255)] hover:bg-[rgba(0,163,255,0.25)]">Claim inbox →</button>
-            <a href="https://nftmail.box" className="rounded-lg border border-[var(--border)] bg-black/20 px-4 py-2.5 text-xs font-semibold text-[var(--muted)] hover:text-white">API / SDK</a>
-          </div>
-          <div className="flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-[var(--muted)]">
-            <span>✓ Receive email</span>
-            <span>✓ Send 10 free</span>
-            <span>✓ 8-day life span (mint to keep)</span>
-          </div>
-        </div>
+          <div className="mb-7 rounded-3xl border border-[rgba(90,115,170,0.35)] bg-[rgba(9,16,42,0.72)] p-7 shadow-[0_0_0_1px_rgba(255,255,255,0.03)_inset]">
+            <h2 className="mb-5 text-[36px] font-semibold leading-none text-white">Check an Agent Inbox</h2>
+            <div className="mb-5 flex gap-3">
+              <div className="relative flex-1">
+                <input
+                  type="text"
+                  value={checkName}
+                  onChange={(e) => setCheckName(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ''))}
+                  placeholder="agentname_"
+                  className="h-16 w-full rounded-2xl border border-[rgba(80,102,150,0.45)] bg-[rgba(3,8,22,0.95)] px-5 pr-36 text-2xl text-white placeholder:text-zinc-600 outline-none focus:border-[rgba(79,176,255,0.7)]"
+                />
+                <span className="absolute right-5 top-1/2 -translate-y-1/2 text-[22px] text-zinc-400">@nftmail.box</span>
+              </div>
+              <button
+                onClick={handleCheck}
+                disabled={!checkName || checkName.length < 2 || checkStatus === 'checking'}
+                className="h-16 rounded-2xl border border-[rgba(63,142,214,0.55)] bg-[rgba(20,70,120,0.55)] px-8 text-[28px] font-semibold text-[rgb(176,224,255)] hover:bg-[rgba(28,93,156,0.62)] disabled:opacity-40"
+              >
+                {checkStatus === 'checking' ? '...' : 'Check →'}
+              </button>
+            </div>
 
-        <footer className="mt-auto text-center space-y-1">
-          <p className="text-[9px] text-[var(--muted)]/60 leading-relaxed">*Free trial via cURL/ENS wallet. Permanent inbox requires NFT mint.</p>
-          <a href="https://nftmail.box" target="_blank" rel="noopener noreferrer" className="text-[9px] text-[var(--muted)]/40 hover:text-[var(--muted)]">Full features at nftmail.box ↗</a>
-        </footer>
+            {checkStatus === 'available' && <p className="mb-4 text-[18px] text-emerald-400">✓ Available — {checkName}@nftmail.box is free to claim</p>}
+            {checkStatus === 'taken' && <p className="mb-4 text-[18px] text-amber-400">⚠ Taken — {checkName}@nftmail.box is already registered</p>}
+
+            <div className="flex items-center justify-between border-t border-white/5 pt-4">
+              <span className="text-[20px] text-zinc-400">Manage all your inboxes</span>
+              <Link href="/dashboard" className="h-14 rounded-2xl border border-[rgba(63,142,214,0.55)] bg-[rgba(20,70,120,0.55)] px-7 text-[28px] font-semibold leading-[56px] text-[rgb(176,224,255)] hover:bg-[rgba(28,93,156,0.62)]">Your Dashboard →</Link>
+            </div>
+          </div>
+
+          <div className="rounded-3xl border border-[rgba(90,115,170,0.35)] bg-[rgba(9,16,42,0.72)] p-7 shadow-[0_0_0_1px_rgba(255,255,255,0.03)_inset]">
+            <div className="mb-5 flex items-center gap-3 text-[24px] font-semibold text-emerald-300">
+              <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
+              <span>Free — no wallet required to start*</span>
+            </div>
+
+            <h2 className="text-[44px] font-semibold leading-none text-white">Get your inbox</h2>
+            <p className="mt-3 text-[30px] text-zinc-400">Choose a name. Your address will be <span className="text-[rgb(176,224,255)]">agent_@nftmail.box</span></p>
+
+            <div className="mt-6 flex gap-3">
+              <button onClick={onClaim} className="h-16 flex-1 rounded-2xl border border-[rgba(63,142,214,0.55)] bg-[rgba(20,70,120,0.55)] px-6 text-[33px] font-semibold text-[rgb(176,224,255)] hover:bg-[rgba(28,93,156,0.62)]">Claim inbox →</button>
+              <a href="https://nftmail.box" className="h-16 rounded-2xl border border-[rgba(80,102,150,0.45)] bg-[rgba(3,8,22,0.95)] px-7 text-[30px] font-semibold leading-[64px] text-zinc-300 hover:text-white">API / SDK</a>
+            </div>
+
+            <div className="mt-5 border-t border-white/5 pt-4 text-[23px] text-zinc-400">
+              <div className="flex flex-wrap gap-x-5 gap-y-2">
+                <span>✓ Receive email</span>
+                <span>✓ Send 10 free</span>
+                <span>✓ 8-day life span (mint to keep)</span>
+              </div>
+            </div>
+          </div>
+
+          <footer className="mt-8 border-t border-white/10 pt-7 text-center">
+            <a href="https://nftmail.box" target="_blank" rel="noopener noreferrer" className="text-[20px] text-zinc-400 hover:text-zinc-200">Full features at nftmail.box ↗</a>
+          </footer>
+        </div>
       </div>
     </div>
   );
