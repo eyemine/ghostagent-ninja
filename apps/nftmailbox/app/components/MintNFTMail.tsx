@@ -9,7 +9,7 @@ import NamespaceRegistrarABI from '../abi/NamespaceRegistrar.json';
 
 type MintStep = 'idle' | 'minting' | 'done' | 'error';
 type MintMode = 'gasless' | 'wallet';
-type NameStatus = 'idle' | 'checking' | 'available' | 'taken';
+type NameStatus = 'idle' | 'checking' | 'available' | 'taken' | 'ens-reserved';
 
 const GNS_REGISTRY = '0xA505e447474bd1774977510e7a7C9459DA79c4b9' as const;
 const NFTMAIL_GNO_NAMEHASH = namehash('nftmail.gno');
@@ -110,6 +110,16 @@ export function MintNFTMail({ initialName }: { initialName?: string }) {
           });
           const data = await res.json() as any;
           if (data.exists) { setNameStatus('taken'); return; }
+        } catch {}
+
+        // Check 3: ENS mainnet — if name.eth is registered, reserve for ENS holder
+        try {
+          const ensRes = await fetch(`/api/check-ens?name=${encodeURIComponent(label)}`);
+          const ensData = await ensRes.json() as { registered?: boolean; owner?: string };
+          if (ensData.registered) {
+            setNameStatus('ens-reserved');
+            return;
+          }
         } catch {}
 
         setNameStatus('available');
@@ -354,6 +364,9 @@ export function MintNFTMail({ initialName }: { initialName?: string }) {
                 {nameStatus === 'taken' && (
                   <span className="text-[10px] text-red-400 font-semibold">✗ already taken</span>
                 )}
+                {nameStatus === 'ens-reserved' && (
+                  <span className="text-[10px] text-amber-400 font-semibold">⚠ ENS reserved — {label}.eth is registered. Only the ENS holder can mint this name.</span>
+                )}
               </div>
               <p className="text-[10px] text-[var(--muted)]">Free — 8-day history window, inbox address permanent. Upgrade to Lite to send &amp; molt.</p>
             </div>
@@ -389,7 +402,7 @@ export function MintNFTMail({ initialName }: { initialName?: string }) {
 
         <button
           onClick={mint}
-          disabled={!label || name1.length < 2 || (!isSingleName && name2.length < 2) || step === 'minting' || step === 'done' || nameStatus === 'taken' || nameStatus === 'checking'}
+          disabled={!label || name1.length < 2 || (!isSingleName && name2.length < 2) || step === 'minting' || step === 'done' || nameStatus === 'taken' || nameStatus === 'checking' || nameStatus === 'ens-reserved'}
           className={`flex w-full items-center justify-center gap-2 rounded-xl border px-5 py-3 text-sm font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-40 ${
             mintMode === 'gasless'
               ? 'border-emerald-500/35 bg-emerald-500/8 text-emerald-300 hover:bg-emerald-500/16 hover:shadow-[0_0_24px_rgba(16,185,129,0.12)]'
