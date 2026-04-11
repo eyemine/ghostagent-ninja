@@ -14,6 +14,142 @@ const TREASURY = '0xb7e493e3d226f8fE722CC9916fF164B793af13F4';
 const TIER_XDAI: Record<string, number> = { lite: 10, pro: 24 };
 const TIER_EURE: Record<string, number> = { lite: 10, pro: 22 };
 
+// ─── Simplified Landing Page for Agents ───
+function AgentLandingPage({ onClaim }: { onClaim: () => void }) {
+  const [checkName, setCheckName] = useState('');
+  const [checkStatus, setCheckStatus] = useState<'idle' | 'checking' | 'available' | 'taken'>('idle');
+
+  const handleCheck = async () => {
+    if (!checkName || checkName.length < 2) return;
+    setCheckStatus('checking');
+    try {
+      const res = await fetch(`/api/check-ens?name=${encodeURIComponent(checkName)}`);
+      const data = await res.json() as { registered?: boolean };
+      setCheckStatus(data.registered ? 'taken' : 'available');
+    } catch {
+      setCheckStatus('idle');
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-[radial-gradient(1200px_circle_at_20%_-10%,rgba(0,163,255,0.12),transparent_45%),radial-gradient(900px_circle_at_90%_10%,rgba(124,77,255,0.10),transparent_40%),linear-gradient(180deg,var(--background),#03040a)]">
+      <div className="mx-auto flex min-h-screen max-w-xl flex-col gap-6 px-4 py-10 md:px-6">
+        {/* Header */}
+        <header className="flex items-center justify-between">
+          <Link href="/" className="flex items-center gap-2 hover:opacity-90 transition">
+            <svg className="h-8 w-8 text-[rgb(160,220,255)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" />
+              <path d="M12 6v6l4 2" />
+              <circle cx="12" cy="12" r="3" />
+            </svg>
+            <div className="flex items-baseline gap-2">
+              <span style={{ fontFamily: "'Ayuthaya', serif", color: '#d8d4cf' }} className="text-xl tracking-wide">nftmail.box</span>
+              <span className="text-[rgb(160,220,255)]/60 text-sm">[for-agents]</span>
+            </div>
+          </Link>
+          <a
+            href="https://ghostagent.ninja"
+            className="text-[10px] text-[var(--muted)] hover:text-white transition"
+          >
+            GHOSTAGENT.NINJA <span className="text-emerald-400/60">BETA</span>
+          </a>
+        </header>
+
+        {/* Tagline */}
+        <p className="text-center text-sm text-[var(--muted)]">
+          Claim a free agent email inbox. No Credit Card. No personal data.
+        </p>
+
+        {/* Check an Agent Inbox */}
+        <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)]/50 p-5">
+          <h2 className="text-sm font-semibold text-white mb-3">Check an Agent Inbox</h2>
+          <div className="flex gap-2">
+            <div className="flex-1 relative">
+              <input
+                type="text"
+                value={checkName}
+                onChange={(e) => setCheckName(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ''))}
+                placeholder="agentname_"
+                className="w-full rounded-lg border border-[var(--border)] bg-black/40 px-3 py-2.5 text-sm text-white placeholder-zinc-600 outline-none focus:border-[rgba(0,163,255,0.5)]"
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[var(--muted)]">@nftmail.box</span>
+            </div>
+            <button
+              onClick={handleCheck}
+              disabled={!checkName || checkName.length < 2 || checkStatus === 'checking'}
+              className="rounded-lg border border-[rgba(0,163,255,0.3)] bg-[rgba(0,163,255,0.1)] px-4 py-2 text-xs font-semibold text-[rgb(160,220,255)] transition hover:bg-[rgba(0,163,255,0.2)] disabled:opacity-40"
+            >
+              {checkStatus === 'checking' ? '...' : 'Check →'}
+            </button>
+          </div>
+          {checkStatus === 'available' && (
+            <p className="mt-2 text-[10px] text-emerald-400">✓ Available — {checkName}@nftmail.box is free to claim</p>
+          )}
+          {checkStatus === 'taken' && (
+            <p className="mt-2 text-[10px] text-amber-400">⚠ Taken — {checkName}@nftmail.box is already registered</p>
+          )}
+          <div className="mt-4 flex items-center justify-between">
+            <span className="text-[10px] text-[var(--muted)]">Manage all your inboxes</span>
+            <Link
+              href="/dashboard"
+              className="rounded-lg border border-[var(--border)] bg-black/20 px-3 py-1.5 text-[10px] font-semibold text-[var(--muted)] transition hover:text-white"
+            >
+              Your Dashboard →
+            </Link>
+          </div>
+        </div>
+
+        {/* Free indicator */}
+        <div className="flex items-center justify-center gap-2 text-[11px]">
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+          <span className="text-emerald-400">Free — no wallet required to start*</span>
+        </div>
+
+        {/* Get your inbox */}
+        <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)]/50 p-5">
+          <h2 className="text-sm font-semibold text-white mb-1">Get your inbox</h2>
+          <p className="text-[11px] text-[var(--muted)] mb-4">
+            Choose a name. Your address will be <span className="text-[rgb(160,220,255)]">agent_@nftmail.box</span>
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={onClaim}
+              className="flex-1 rounded-lg bg-[rgba(0,163,255,0.15)] px-4 py-2.5 text-sm font-semibold text-[rgb(160,220,255)] transition hover:bg-[rgba(0,163,255,0.25)]"
+            >
+              Claim inbox →
+            </button>
+            <button className="rounded-lg border border-[var(--border)] bg-black/20 px-4 py-2.5 text-xs font-semibold text-[var(--muted)] transition hover:text-white">
+              API / SDK
+            </button>
+          </div>
+          <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-[var(--muted)]">
+            <span>✓ Receive email</span>
+            <span>✓ Send 10 free</span>
+            <span>✓ 8-day life span (mint to keep)</span>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <footer className="mt-auto text-center">
+          <p className="text-[9px] text-[var(--muted)]/60 max-w-md mx-auto leading-relaxed">
+            *Free trial via cURL/ENS wallet. Permanent inbox requires NFT mint.
+            <br />
+            nftmail.box — Sovereign email for agents and humans
+          </p>
+          <a
+            href="https://nftmail.box"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-2 inline-block text-[9px] text-[var(--muted)]/40 hover:text-[var(--muted)] transition"
+          >
+            Full features at nftmail.box ↗
+          </a>
+        </footer>
+      </div>
+    </div>
+  );
+}
+
 // ─── Tier Upgrade Panel ───
 function UpgradeTierPanel({ label, defaultTier }: { label: string; defaultTier: string }) {
   const { user } = usePrivy();
@@ -268,7 +404,9 @@ function UpgradeTierPanel({ label, defaultTier }: { label: string; defaultTier: 
   );
 }
 
+// ─── Main Page Component ───
 export default function NftmailPage() {
+  const [showMintFlow, setShowMintFlow] = useState(false);
   const { authenticated } = usePrivy();
   const searchParams = useSearchParams();
 
@@ -282,6 +420,11 @@ export default function NftmailPage() {
   const [tier, setTier] = useState<Tier>('none');
 
   const email = mintedName ? `${mintedName}@nftmail.box` : '';
+
+  // ── Show simplified landing page first ──
+  if (!showMintFlow && !isUpgradeFlow) {
+    return <AgentLandingPage onClaim={() => setShowMintFlow(true)} />;
+  }
 
   // ── Upgrade flow: show tier upgrade panel directly ──
   if (isUpgradeFlow) {
@@ -338,6 +481,7 @@ export default function NftmailPage() {
     );
   }
 
+  // ── Full Mint Flow ──
   return (
     <div className="min-h-screen bg-[radial-gradient(1200px_circle_at_20%_-10%,rgba(0,163,255,0.16),transparent_45%),radial-gradient(900px_circle_at_90%_10%,rgba(124,77,255,0.14),transparent_40%),linear-gradient(180deg,var(--background),#03040a)]">
       <div className="mx-auto flex min-h-screen max-w-3xl flex-col gap-8 px-4 py-10 md:px-6">
@@ -347,6 +491,12 @@ export default function NftmailPage() {
             <span style={{ fontFamily: "'Ayuthaya', serif", color: '#d8d4cf' }} className="text-base tracking-wide">nftmail.box</span>
           </div>
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowMintFlow(false)}
+              className="text-[10px] text-[var(--muted)] hover:text-white transition"
+            >
+              ← Back
+            </button>
             <a
               href="https://ghostagent.ninja"
               target="_blank"
@@ -530,17 +680,15 @@ function MintNFTMailWithCallback({ onMinted, initialName }: { onMinted: (name: s
   const handleNameChange = (val: string) => {
     const lower = val.toLowerCase();
     if (nameType === 'agent') {
-      // agent: allow letters, numbers, dots, hyphens, one trailing underscore
       setManualName(lower.replace(/[^a-z0-9._-]/g, ''));
     } else {
-      // human: no underscore
       setManualName(lower.replace(/[^a-z0-9.-]/g, ''));
     }
   };
 
   const isValid = nameType === 'agent'
-    ? /^[a-z0-9][a-z0-9._-]*_$/.test(manualName)   // must end with _
-    : /^[a-z0-9][a-z0-9.-]+$/.test(manualName);      // standard human name
+    ? /^[a-z0-9][a-z0-9._-]*_$/.test(manualName)
+    : /^[a-z0-9][a-z0-9.-]+$/.test(manualName);
 
   return (
     <div className="space-y-4">
