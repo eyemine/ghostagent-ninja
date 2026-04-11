@@ -45,6 +45,39 @@ function stripHtml(html: unknown): string {
     .trim();
 }
 
+function MsgBodyView({ body, bodyHtml }: { body: string; bodyHtml: string }) {
+  const [tab, setTab] = useState<'text' | 'html'>('text');
+  const hasHtml = bodyHtml && bodyHtml.includes('<');
+  const plainText = stripHtml(body || bodyHtml || '');
+  return (
+    <div className="rounded-lg border border-[var(--border)] bg-black/20 overflow-hidden">
+      {hasHtml && (
+        <div className="flex border-b border-[var(--border)]">
+          {(['text', 'html'] as const).map(t => (
+            <button key={t} onClick={() => setTab(t)}
+              className={`px-3 py-1 text-[10px] font-semibold tracking-wider transition ${tab === t ? 'bg-white/5 text-white' : 'text-[var(--muted)] hover:text-white'}`}>
+              {t.toUpperCase()}
+            </button>
+          ))}
+        </div>
+      )}
+      {tab === 'html' && hasHtml ? (
+        <iframe
+          srcDoc={bodyHtml}
+          sandbox="allow-same-origin"
+          className="w-full min-h-[200px] bg-white"
+          style={{ border: 'none' }}
+          title="Email HTML"
+        />
+      ) : (
+        <p className="px-4 py-3 text-xs text-[var(--muted)] leading-relaxed whitespace-pre-wrap break-words">
+          {plainText || '(no content)'}
+        </p>
+      )}
+    </div>
+  );
+}
+
 interface InboxMessage {
   id: string;
   subject: string;
@@ -52,6 +85,8 @@ interface InboxMessage {
   fromAddress: string;
   receivedTime: string;
   summary: string;
+  body: string;
+  bodyHtml: string;
   encrypted: boolean;
   contentHash: string;
   type: string;
@@ -280,19 +315,25 @@ export default function InboxPage() {
           });
           if (kvRes.ok) {
             const kvData = await kvRes.json() as { messages?: any[] };
-            const kvMessages = (kvData.messages || []).map((m: any) => ({
-              id: m.id || `msg-${Math.random().toString(36).slice(2)}`,
-              subject: m.subject || '(no subject)',
-              sender: m.from || m.senderAgent || 'unknown',
-              fromAddress: m.from || '',
-              receivedTime: m.receivedAt ? new Date(m.receivedAt).toISOString() : '',
-              summary: m.content || '',
-              encrypted: !!m.encrypted,
-              contentHash: '',
-              type: m.channel || 'a2a',
-              decayPct: 0,
-              expiresAt: '',
-            }));
+            const kvMessages = (kvData.messages || []).map((m: any) => {
+              const rawRa = m.receivedAt || 0;
+              const receivedMs = rawRa > 0 && rawRa < 1e12 ? rawRa * 1000 : rawRa;
+              return {
+                id: m.id || `msg-${Math.random().toString(36).slice(2)}`,
+                subject: m.subject || '(no subject)',
+                sender: m.from || m.senderAgent || 'unknown',
+                fromAddress: m.from || '',
+                receivedTime: receivedMs ? new Date(receivedMs).toISOString() : '',
+                summary: m.content || (m.payload?.body ? stripHtml(m.payload.body).slice(0, 200) : ''),
+                body: m.payload?.body || m.content || '',
+                bodyHtml: m.payload?.bodyHtml || (m.payload?.body?.includes('<') ? m.payload.body : ''),
+                encrypted: !!m.encrypted,
+                contentHash: m.plaintextHash || '',
+                type: m.channel || m.type || 'a2a',
+                decayPct: 0,
+                expiresAt: '',
+              };
+            });
             setMessages(kvMessages);
           }
         } catch {}
@@ -316,6 +357,8 @@ export default function InboxPage() {
           fromAddress: m.fromAddress || '',
           receivedTime: m.receivedTime || '',
           summary: stripHtml(m.summary || ''),
+          body: m.body || m.summary || '',
+          bodyHtml: m.bodyHtml || '',
           encrypted: m.encrypted ?? false,
           contentHash: m.contentHash || '',
           type: m.type || '',
@@ -485,10 +528,10 @@ export default function InboxPage() {
               <span className="text-sm font-medium text-amber-300">8-day history window — inbox address is permanent</span>
             </div>
             <p className="text-center text-sm text-[var(--muted)] max-w-md">
-              <p className="text-center text-sm text-[var(--muted)] max-w-md">
-                Your <strong className="text-white">{name}@nftmail.box</strong> is permanent — free tier messages clear after 8 days.
-                Upgrade to {''}<strong className="text-amber-300">Lite ($10)</strong> for 30-day retention,
-                sending, and a <strong className="text-white">Gnosis Safe body</strong>.
+              Your <strong className="text-white">{name}@nftmail.box</strong> is permanent — free tier messages clear after 8 days.
+              Upgrade to <strong className="text-amber-300">Lite ($10)</strong> for 30-day retention,
+              sending, and a <strong className="text-white">Gnosis Safe body</strong>.
+            </p>
             <div className="flex flex-col gap-3 w-full max-w-xs">
               <Link
                 href={`/nftmail?upgrade=lite&label=${name}`}
@@ -1312,11 +1355,7 @@ export default function InboxPage() {
                               <span className="text-white/70">{msg.receivedTime ? formatTimestamp(msg.receivedTime) : ''}</span>
                             </div>
                           </div>
-                          <div className="rounded-lg border border-[var(--border)] bg-black/20 px-4 py-3">
-                            <p className="text-xs text-[var(--muted)] leading-relaxed whitespace-pre-wrap break-words">
-                              {stripHtml(msg.summary || '(no content)')}
-                            </p>
-                          </div>
+                          <MsgBodyView body={msg.body || ''} bodyHtml={msg.bodyHtml || ''} />
                         </>
                       )}
 
