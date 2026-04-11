@@ -7,6 +7,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { NFTLogin } from '../components/NFTLogin';
 import { MintNFTMail } from '../components/MintNFTMail';
@@ -36,21 +37,21 @@ function AgentLandingPage({ onClaim }: { onClaim: () => void }) {
   return (
     <div className="min-h-screen bg-[radial-gradient(1200px_circle_at_20%_-10%,rgba(0,163,255,0.12),transparent_45%),radial-gradient(900px_circle_at_90%_10%,rgba(124,77,255,0.10),transparent_40%),linear-gradient(180deg,var(--background),#03040a)]">
       <div className="mx-auto flex min-h-screen max-w-5xl flex-col px-4 pb-10 pt-8 md:px-6">
-        <div className="mx-auto w-full max-w-[820px] border-x border-white/5 bg-[rgba(6,10,26,0.45)] px-4 pb-8 pt-6 md:px-8">
+        <div className="mx-auto w-full max-w-[760px] border-x border-white/5 bg-[rgba(6,10,26,0.45)] px-4 pb-8 pt-6 md:px-8">
           <header className="mb-3 flex items-center gap-4">
-            <span className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-white/5 text-white/90">
-              @
+            <span className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-white/5">
+              <Image src="https://nftmail.box/_next/image?url=%2Fnftmail-logo.png&w=96&q=75" alt="NFTMail" width={34} height={34} className="h-8 w-8" unoptimized />
             </span>
             <div className="flex items-baseline gap-3">
-              <span style={{ fontFamily: "'Ayuthaya', serif", color: '#d8d4cf' }} className="text-5xl leading-none tracking-wide md:text-6xl">nftmail.box</span>
-              <span className="text-3xl font-medium text-zinc-300/85 md:text-5xl">[for-agents]</span>
+              <span style={{ fontFamily: "'Ayuthaya', serif", color: '#d8d4cf' }} className="text-4xl font-bold leading-none tracking-wide md:text-5xl">nftmail.box</span>
+              <span className="text-2xl font-bold text-zinc-300/85 md:text-4xl">[for-agents]</span>
             </div>
           </header>
 
-          <p className="mb-8 text-center text-[29px] leading-tight text-zinc-300/80 md:text-[31px]">Claim a free agent email inbox. No Credit Card. No personal data.</p>
+          <p className="mb-8 text-center text-[22px] leading-tight text-zinc-300/80 md:text-[24px]">Claim a free agent email inbox. No Credit Card. No personal data.</p>
 
           <div className="mb-7 rounded-3xl border border-[rgba(90,115,170,0.35)] bg-[rgba(9,16,42,0.72)] p-7 shadow-[0_0_0_1px_rgba(255,255,255,0.03)_inset]">
-            <h2 className="mb-5 text-[36px] font-semibold leading-none text-white">Check an Agent Inbox</h2>
+            <h2 className="mb-5 text-[30px] font-semibold leading-none text-white">Check an Agent Inbox</h2>
             <div className="mb-5 flex gap-3">
               <div className="relative flex-1">
                 <input
@@ -58,14 +59,14 @@ function AgentLandingPage({ onClaim }: { onClaim: () => void }) {
                   value={checkName}
                   onChange={(e) => setCheckName(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ''))}
                   placeholder="agentname_"
-                  className="h-16 w-full rounded-2xl border border-[rgba(80,102,150,0.45)] bg-[rgba(3,8,22,0.95)] px-5 pr-36 text-2xl text-white placeholder:text-zinc-600 outline-none focus:border-[rgba(79,176,255,0.7)]"
+                  className="h-16 w-full rounded-2xl border border-[rgba(80,102,150,0.45)] bg-[rgba(3,8,22,0.95)] px-5 pr-36 text-xl text-white placeholder:text-zinc-600 outline-none focus:border-[rgba(79,176,255,0.7)]"
                 />
-                <span className="absolute right-5 top-1/2 -translate-y-1/2 text-[22px] text-zinc-400">@nftmail.box</span>
+                <span className="absolute right-5 top-1/2 -translate-y-1/2 text-[19px] text-zinc-400">@nftmail.box</span>
               </div>
               <button
                 onClick={handleCheck}
                 disabled={!checkName || checkName.length < 2 || checkStatus === 'checking'}
-                className="h-16 rounded-2xl border border-[rgba(63,142,214,0.55)] bg-[rgba(20,70,120,0.55)] px-8 text-[28px] font-semibold text-[rgb(176,224,255)] hover:bg-[rgba(28,93,156,0.62)] disabled:opacity-40"
+                className="h-16 rounded-2xl border border-[rgba(63,142,214,0.55)] bg-[rgba(20,70,120,0.55)] px-8 text-[22px] font-semibold text-[rgb(176,224,255)] hover:bg-[rgba(28,93,156,0.62)] disabled:opacity-40"
               >
                 {checkStatus === 'checking' ? '...' : 'Check →'}
               </button>
@@ -75,8 +76,8 @@ function AgentLandingPage({ onClaim }: { onClaim: () => void }) {
             {checkStatus === 'taken' && <p className="mb-4 text-[18px] text-amber-400">⚠ Taken — {checkName}@nftmail.box is already registered</p>}
 
             <div className="flex items-center justify-between border-t border-white/5 pt-4">
-              <span className="text-[20px] text-zinc-400">Manage all your inboxes</span>
-              <Link href="/dashboard" className="h-14 rounded-2xl border border-[rgba(63,142,214,0.55)] bg-[rgba(20,70,120,0.55)] px-7 text-[28px] font-semibold leading-[56px] text-[rgb(176,224,255)] hover:bg-[rgba(28,93,156,0.62)]">Your Dashboard →</Link>
+              <span className="text-[18px] text-zinc-400">Manage all your inboxes</span>
+              <Link href="/dashboard" className="h-14 rounded-2xl border border-[rgba(63,142,214,0.55)] bg-[rgba(20,70,120,0.55)] px-7 text-[22px] font-semibold leading-[56px] text-[rgb(176,224,255)] hover:bg-[rgba(28,93,156,0.62)]">Your Dashboard →</Link>
             </div>
           </div>
 
@@ -86,15 +87,15 @@ function AgentLandingPage({ onClaim }: { onClaim: () => void }) {
               <span>Free — no wallet required to start*</span>
             </div>
 
-            <h2 className="text-[44px] font-semibold leading-none text-white">Get your inbox</h2>
-            <p className="mt-3 text-[30px] text-zinc-400">Choose a name. Your address will be <span className="text-[rgb(176,224,255)]">agent_@nftmail.box</span></p>
+            <h2 className="text-[38px] font-semibold leading-none text-white">Get your inbox</h2>
+            <p className="mt-3 text-[24px] text-zinc-400">Choose a name. Your address will be <span className="text-[rgb(176,224,255)]">agent_@nftmail.box</span></p>
 
             <div className="mt-6 flex gap-3">
-              <button onClick={onClaim} className="h-16 flex-1 rounded-2xl border border-[rgba(63,142,214,0.55)] bg-[rgba(20,70,120,0.55)] px-6 text-[33px] font-semibold text-[rgb(176,224,255)] hover:bg-[rgba(28,93,156,0.62)]">Claim inbox →</button>
-              <a href="https://nftmail.box" className="h-16 rounded-2xl border border-[rgba(80,102,150,0.45)] bg-[rgba(3,8,22,0.95)] px-7 text-[30px] font-semibold leading-[64px] text-zinc-300 hover:text-white">API / SDK</a>
+              <button onClick={onClaim} className="h-16 flex-1 rounded-2xl border border-[rgba(63,142,214,0.55)] bg-[rgba(20,70,120,0.55)] px-6 text-[26px] font-semibold text-[rgb(176,224,255)] hover:bg-[rgba(28,93,156,0.62)]">Claim inbox →</button>
+              <a href="https://nftmail.box" className="h-16 rounded-2xl border border-[rgba(80,102,150,0.45)] bg-[rgba(3,8,22,0.95)] px-7 text-[23px] font-semibold leading-[64px] text-zinc-300 hover:text-white">API / SDK</a>
             </div>
 
-            <div className="mt-5 border-t border-white/5 pt-4 text-[23px] text-zinc-400">
+            <div className="mt-5 border-t border-white/5 pt-4 text-[20px] text-zinc-400">
               <div className="flex flex-wrap gap-x-5 gap-y-2">
                 <span>✓ Receive email</span>
                 <span>✓ Send 10 free</span>
@@ -104,7 +105,7 @@ function AgentLandingPage({ onClaim }: { onClaim: () => void }) {
           </div>
 
           <footer className="mt-8 border-t border-white/10 pt-7 text-center">
-            <a href="https://nftmail.box" target="_blank" rel="noopener noreferrer" className="text-[20px] text-zinc-400 hover:text-zinc-200">Full features at nftmail.box ↗</a>
+            <a href="https://nftmail.box" target="_blank" rel="noopener noreferrer" className="text-[16px] text-zinc-400 hover:text-zinc-200">Full features at nftmail.box ↗</a>
           </footer>
         </div>
       </div>
