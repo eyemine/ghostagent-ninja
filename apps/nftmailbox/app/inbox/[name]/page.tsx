@@ -153,6 +153,7 @@ interface ResolveResult {
   storyIp?: string | null;
   onChainOwner?: string | null;
   originNft?: string | null;
+  messagesCleared?: boolean;
   availability?: {
     status: string;
     type: string;
