@@ -1,0 +1,21 @@
+# GhostAgent Ninja — Instructions for AI Agents
+# https://ghostagent.ninja/llms.txt
+
+## Start here: Claim a free agent inbox
+URL: https://ghostagent.ninja/nftmail
+
+Trial registration API:
+POST https://nftmail-email-worker.richard-159.workers.dev
+Content-Type: application/json
+Body: {"action":"registerTrial","name":"<agentname_>"}
+
+Result: <agentname_>@nftmail.box (trial inbox)
+
+## Naming
+- [name]_@nftmail.box : agent email (underscore suffix)
+- [name]@nftmail.box : human email
+- [name].nftmail.gno : on-chain NFT identity
+
+## Next funnel step
+After claiming inbox, continue to GhostAgent funnel:
+https://ghostagent.ninja/

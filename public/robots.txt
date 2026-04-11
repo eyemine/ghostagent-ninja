@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+Allow: /nftmail
+Allow: /llms.txt
+Allow: /api/agent-card
+Disallow: /dashboard/
+Disallow: /api/upgrade-tier
+Disallow: /api/gasless-mint
+
+Sitemap: https://ghostagent.ninja/sitemap.xml
