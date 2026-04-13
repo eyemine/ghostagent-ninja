@@ -161,6 +161,9 @@ function feeLabel(fee: number | 'free') {
   return fee === 'free' ? 'Free' : `${fee} xDAI`;
 }
 
+// Deployer EOA — only this wallet may register 1-2 character agent names
+const DEPLOYER_WALLET = '0x1c63C3d9d211641e15cd3aF46De76b4bc84CC382';
+
 export default function MintTab() {
   const { authenticated } = usePrivy();
   const { wallets } = useWallets();
@@ -200,8 +203,13 @@ export default function MintTab() {
 
   const ns = NAMESPACES.find(n => n.key === selected)!;
 
+  const isShortName = agentName.length > 0 && agentName.length <= 2;
+  const isDeployer = connectedWallet?.toLowerCase() === DEPLOYER_WALLET.toLowerCase();
+  const shortNameBlocked = isShortName && !isDeployer;
+
   const checkAvailability = useCallback(async () => {
-    if (!agentName || agentName.length < 2) return;
+    if (!agentName || agentName.length < 1) return;
+    if (agentName.length <= 2 && connectedWallet?.toLowerCase() !== DEPLOYER_WALLET.toLowerCase()) return;
     setCheckStatus('checking');
     setCheckResult(null);
     try {
@@ -357,10 +365,10 @@ export default function MintTab() {
             className="flex-1 bg-transparent text-sm text-[#f2eee4] outline-none placeholder:text-[var(--muted)]"
           />
           <span className="shrink-0 text-sm text-[var(--muted)]">.{ns.domain}</span>
-          {agentName.length >= 2 && (
+          {agentName.length >= 1 && (
             <button
               onClick={checkAvailability}
-              disabled={checkStatus === 'checking'}
+              disabled={checkStatus === 'checking' || shortNameBlocked}
               className="ml-3 shrink-0 rounded-lg border px-3 py-1.5 text-xs font-semibold transition disabled:opacity-50"
               style={{ color: 'rgb(176,128,92)', borderColor: 'rgba(176,128,92,0.4)', background: 'rgba(176,128,92,0.1)' }}
             >
@@ -373,6 +381,13 @@ export default function MintTab() {
             </button>
           )}
         </div>
+
+        {/* Short name restriction warning */}
+        {shortNameBlocked && (
+          <div className="rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-2.5 text-[11px] text-red-300/80">
+            1–2 character names are reserved for the deployer wallet only.
+          </div>
+        )}
 
         {/* Name preview panel */}
         {agentName.length >= 1 && (

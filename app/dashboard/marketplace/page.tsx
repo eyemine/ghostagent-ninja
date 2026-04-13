@@ -9,6 +9,9 @@ import A2ACardModal from '../../../components/A2ACardModal';
 
 const GHOST_LOGO = '/ghost-logo.png';
 
+// ── Admin flag: set to true to re-enable marketplace payments ──
+const MARKETPLACE_PAYMENTS_ENABLED = false;
+
 type ItemType = 'all' | 'service' | 'body' | 'bundle';
 type ItemCategory = 'all' | 'data' | 'defi' | 'social' | 'content';
 type EvolveLevel = 'larva' | 'pupa' | 'imago' | 'ghost';
@@ -286,8 +289,9 @@ function ItemCard({ item, onViewA2A, onBuy, isBuying }: { item: MarketItem; onVi
               </Link>
               <button
                 onClick={onBuy}
-                disabled={isBuying}
-                className="rounded-lg border px-3 py-1.5 text-xs font-semibold transition disabled:opacity-50" style={{ color: 'rgb(176,128,92)', borderColor: 'rgba(176,128,92,0.4)', background: 'rgba(176,128,92,0.1)' }}
+                disabled={isBuying || !MARKETPLACE_PAYMENTS_ENABLED}
+                title={!MARKETPLACE_PAYMENTS_ENABLED ? 'Payments temporarily disabled' : undefined}
+                className="rounded-lg border px-3 py-1.5 text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed" style={{ color: 'rgb(176,128,92)', borderColor: 'rgba(176,128,92,0.4)', background: 'rgba(176,128,92,0.1)' }}
               >
                 {isBuying ? '...' : item.type === 'service' ? 'Hire' : 'Buy'}
               </button>
@@ -326,6 +330,10 @@ export default function MarketplacePage() {
   });
 
   async function handleBuy(item: MarketItem) {
+    if (!MARKETPLACE_PAYMENTS_ENABLED) {
+      alert('Marketplace payments are temporarily disabled. These are demo listings only.');
+      return;
+    }
     setBuying(item.agent);
     try {
       if (typeof window !== 'undefined' && (window as any).ethereum) {
@@ -366,15 +374,6 @@ export default function MarketplacePage() {
             </p>
           </div>
         </div>
-        <a
-          href="https://nftmail.box/"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="shrink-0 rounded-lg border border-[rgba(176,128,92,0.3)] bg-[rgba(176,128,92,0.08)] px-4 py-1.5 text-xs font-semibold transition hover:bg-[rgba(176,128,92,0.14)]"
-          style={{ fontFamily: "Ayuthaya, 'Courier New', monospace", color: '#d9d9d8' }}
-        >
-          nftmail.box ↗
-        </a>
       </div>
 
       {/* Filters */}

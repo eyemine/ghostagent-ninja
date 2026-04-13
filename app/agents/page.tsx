@@ -279,15 +279,6 @@ export default function AgentsPage() {
             >
               nftmail.box [for-agents] →
             </Link>
-            <a
-              href="https://nftmail.box/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="rounded-lg border border-[rgba(176,128,92,0.3)] bg-[rgba(176,128,92,0.08)] px-4 py-1.5 text-xs font-semibold transition hover:bg-[rgba(176,128,92,0.14)]"
-              style={{ fontFamily: "Ayuthaya, 'Courier New', monospace", color: '#d9d9d8' }}
-            >
-              nftmail.box ↗
-            </a>
           </div>
         </div>
 

@@ -535,15 +535,6 @@ export default function HostTokenPage() {
             <p className="mt-0.5 text-sm text-[var(--muted)]">GhostAgent.ninja utility token — bonding curve on Base via SURGE. Agent-launched. Agent-governed.</p>
           </div>
         </div>
-        <a
-          href="https://nftmail.box/"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="shrink-0 rounded-lg border border-[rgba(176,128,92,0.3)] bg-[rgba(176,128,92,0.08)] px-4 py-1.5 text-xs font-semibold transition hover:bg-[rgba(176,128,92,0.14)]"
-          style={{ fontFamily: "Ayuthaya, 'Courier New', monospace", color: '#d9d9d8' }}
-        >
-          NFTmail.box ↗
-        </a>
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
