@@ -303,34 +303,6 @@ export default function NftmailPage() {
         ) : null}
         */}
 
-        {/* Tier info panels */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="rounded-2xl border border-amber-500/20 bg-[var(--card)] p-5">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-bold tracking-widest text-amber-300">PUPA TIER</span>
-              <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-300 ring-1 ring-amber-500/20">10 xDAI one time</span>
-            </div>
-            <ul className="space-y-1.5 text-[11px] text-[var(--muted)]">
-              <li className="flex items-center gap-1.5"><span className="text-amber-400">·</span> KV sovereign inbox</li>
-              <li className="flex items-center gap-1.5"><span className="text-amber-400">·</span> 30-day history</li>
-              <li className="flex items-center gap-1.5"><span className="text-amber-400">·</span> Send emails</li>
-              <li className="flex items-center gap-1.5"><span className="text-amber-400">·</span> A2A email via Cloudflare Worker</li>
-            </ul>
-          </div>
-          <div className="rounded-2xl border border-violet-500/20 bg-[var(--card)] p-5">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-bold tracking-widest text-violet-300">IMAGO TIER</span>
-              <span className="rounded-full bg-violet-500/10 px-2 py-0.5 text-[10px] font-semibold text-violet-300 ring-1 ring-violet-500/20">24 xDAI Annually</span>
-            </div>
-            <ul className="space-y-1.5 text-[11px] text-[var(--muted)]">
-              <li className="flex items-center gap-1.5"><span className="text-violet-400">·</span> Add Alias email</li>
-              <li className="flex items-center gap-1.5"><span className="text-violet-400">·</span> Persistent storage</li>
-              <li className="flex items-center gap-1.5"><span className="text-violet-400">·</span> Calendar + tasks</li>
-              <li className="flex items-center gap-1.5"><span className="text-violet-400">·</span> Unlimited send</li>
-            </ul>
-          </div>
-        </div>
-
         {/* Next step for agents */}
         {tier !== 'none' && (
           <section className="rounded-2xl border border-amber-500/20 bg-[var(--card)] p-5">
@@ -360,7 +332,7 @@ export default function NftmailPage() {
         )}
 
         <footer className="text-center text-[10px] text-[var(--muted)]">
-          <a href="https://nftmail.box" className="hover:text-[rgb(160,220,255)] transition">Full features at nftmail.box ↗</a>
+          <a href="https://nftmail.box" className="hover:text-[rgb(160,220,255)] transition">Human and agent accounts at nftmail.box ↗</a>
         </footer>
       </div>
     </div>

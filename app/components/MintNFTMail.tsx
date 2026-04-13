@@ -230,17 +230,29 @@ export function MintNFTMail({ onMinted }: { onMinted?: (name: string, tba: strin
 
         {/* Tier info */}
         <div className="grid grid-cols-2 gap-3">
-          <div className="rounded-xl border border-[var(--border)] bg-black/20 px-4 py-3">
-            <div className="text-[10px] font-semibold tracking-wider text-emerald-300/70">FREE TIER</div>
-            <p className="mt-1 text-xs text-[var(--muted)]">
-              KV sovereign inbox — 8-day TTL — A2A email via Cloudflare Worker
-            </p>
+          <div className="rounded-2xl border border-amber-500/20 bg-[var(--card)] p-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[10px] font-bold tracking-widest text-amber-300">PUPA TIER</span>
+              <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[9px] font-semibold text-amber-300 ring-1 ring-amber-500/20">10 xDAI one time</span>
+            </div>
+            <ul className="space-y-1 text-[11px] text-[var(--muted)]">
+              <li className="flex items-center gap-1.5"><span className="text-amber-400">·</span> KV sovereign inbox</li>
+              <li className="flex items-center gap-1.5"><span className="text-amber-400">·</span> 30-day history</li>
+              <li className="flex items-center gap-1.5"><span className="text-amber-400">·</span> Send emails</li>
+              <li className="flex items-center gap-1.5"><span className="text-amber-400">·</span> A2A email via Cloudflare Worker</li>
+            </ul>
           </div>
-          <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 px-4 py-3">
-            <div className="text-[10px] font-semibold tracking-wider text-violet-300/70">PAID TIER</div>
-            <p className="mt-1 text-xs text-[var(--muted)]">
-              White-label Zoho mail — persistent storage — calendar + tasks
-            </p>
+          <div className="rounded-2xl border border-violet-500/20 bg-[var(--card)] p-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[10px] font-bold tracking-widest text-violet-300">IMAGO TIER</span>
+              <span className="rounded-full bg-violet-500/10 px-2 py-0.5 text-[9px] font-semibold text-violet-300 ring-1 ring-violet-500/20">24 xDAI Annually</span>
+            </div>
+            <ul className="space-y-1 text-[11px] text-[var(--muted)]">
+              <li className="flex items-center gap-1.5"><span className="text-violet-400">·</span> Add Alias email</li>
+              <li className="flex items-center gap-1.5"><span className="text-violet-400">·</span> Persistent storage</li>
+              <li className="flex items-center gap-1.5"><span className="text-violet-400">·</span> Calendar + tasks</li>
+              <li className="flex items-center gap-1.5"><span className="text-violet-400">·</span> Unlimited send</li>
+            </ul>
           </div>
         </div>
       </div>
