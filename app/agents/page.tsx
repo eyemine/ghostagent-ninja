@@ -260,14 +260,34 @@ export default function AgentsPage() {
       <div className="mx-auto max-w-5xl px-4 py-8 md:px-8">
 
         {/* Header */}
-        <div className="mb-6 flex items-center gap-4">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={GHOST_LOGO} alt="GhostAgent" className="h-28 w-28 object-contain drop-shadow-[0_0_18px_rgba(184,134,97,0.4)]" />
-          <div>
-            <h1 className="text-2xl font-bold text-[#f2eee4]">Agent Namespaces</h1>
-            <p className="mt-1 text-sm text-[var(--muted)]">
-              6 namespaces · zero lock-in · transfer or burn your NFT at any time
-            </p>
+        <div className="mb-6 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={GHOST_LOGO} alt="GhostAgent" className="h-28 w-28 object-contain drop-shadow-[0_0_18px_rgba(184,134,97,0.4)]" />
+            <div>
+              <h1 className="text-2xl font-bold text-[#f2eee4]">Agent Namespaces</h1>
+              <p className="mt-1 text-sm text-[var(--muted)]">
+                6 namespaces · zero lock-in · transfer or burn your NFT at any time
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/nftmail"
+              className="rounded-lg border border-[rgba(176,128,92,0.3)] bg-[rgba(176,128,92,0.08)] px-4 py-1.5 text-xs font-semibold transition hover:bg-[rgba(176,128,92,0.14)]"
+              style={{ fontFamily: "Ayuthaya, 'Courier New', monospace", color: '#d9d9d8' }}
+            >
+              nftmail.box [for-agents] →
+            </Link>
+            <a
+              href="https://nftmail.box/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-lg border border-[rgba(176,128,92,0.3)] bg-[rgba(176,128,92,0.08)] px-4 py-1.5 text-xs font-semibold transition hover:bg-[rgba(176,128,92,0.14)]"
+              style={{ fontFamily: "Ayuthaya, 'Courier New', monospace", color: '#d9d9d8' }}
+            >
+              nftmail.box ↗
+            </a>
           </div>
         </div>
 

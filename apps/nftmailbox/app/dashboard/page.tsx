@@ -95,6 +95,14 @@ export default function DashboardPage() {
 
   const searchParams = useSearchParams();
   const emailParam = searchParams?.get('email') || null;
+  const walletParam = searchParams?.get('wallet') || null;
+
+  // Auto-connect wallet if param provided and not authenticated
+  useEffect(() => {
+    if (ready && !authenticated && walletParam) {
+      login();
+    }
+  }, [ready, authenticated, walletParam, login]);
 
   // Derive wallet address safely from Privy session (avoids useWallets() crash)
   const walletAddress = user?.wallet?.address ||

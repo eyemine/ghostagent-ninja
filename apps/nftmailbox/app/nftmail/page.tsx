@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useSearchParams } from 'next/navigation';
@@ -24,10 +24,14 @@ function AgentLandingPage({ onClaim }: { onClaim: () => void }) {
     setCheckStatus('checking');
     try {
       const res = await fetch(`/api/check-ens?name=${encodeURIComponent(checkName)}`);
-      const data = await res.json() as { registered?: boolean };
+      const data = await res.json() as { checked?: boolean; registered?: boolean | null };
+      if (!res.ok || data.checked === false || data.registered === null || typeof data.registered !== 'boolean') {
+        setCheckStatus('taken');
+        return;
+      }
       setCheckStatus(data.registered ? 'taken' : 'available');
     } catch {
-      setCheckStatus('idle');
+      setCheckStatus('taken');
     }
   };
 
@@ -406,7 +410,7 @@ function UpgradeTierPanel({ label, defaultTier }: { label: string; defaultTier: 
 
 // ─── Main Page Component ───
 export default function NftmailPage() {
-  const [showMintFlow, setShowMintFlow] = useState(false);
+  const [showMintFlow, setShowMintFlow] = useState(true);
   const { authenticated } = usePrivy();
   const searchParams = useSearchParams();
 
@@ -418,11 +422,13 @@ export default function NftmailPage() {
   const [mintedName, setMintedName] = useState('');
   const [mintedTba, setMintedTba] = useState('');
   const [tier, setTier] = useState<Tier>('none');
+  const [nameType, setNameType] = useState<'human' | 'ens' | 'agent'>('human');
 
   const email = mintedName ? `${mintedName}@nftmail.box` : '';
 
-  // ── Show simplified landing page first ──
-  if (!showMintFlow && !isUpgradeFlow) {
+  // ── Show simplified landing page first (only if explicitly requested via ?landing=true) ──
+  const showLanding = searchParams?.get('landing') === 'true';
+  if (!showMintFlow && !isUpgradeFlow && showLanding) {
     return <AgentLandingPage onClaim={() => setShowMintFlow(true)} />;
   }
 
@@ -486,72 +492,36 @@ export default function NftmailPage() {
     <div className="min-h-screen bg-[radial-gradient(1200px_circle_at_20%_-10%,rgba(0,163,255,0.16),transparent_45%),radial-gradient(900px_circle_at_90%_10%,rgba(124,77,255,0.14),transparent_40%),linear-gradient(180deg,var(--background),#03040a)]">
       <div className="mx-auto flex min-h-screen max-w-3xl flex-col gap-8 px-4 py-10 md:px-6">
         <header className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
+          <a href="/" className="flex items-center gap-2">
             <Image src="/nftmail-logo.png" alt="NFTMail" width={36} height={36} className="opacity-95" />
             <span style={{ fontFamily: "'Ayuthaya', serif", color: '#d8d4cf' }} className="text-base tracking-wide">nftmail.box</span>
-          </div>
+          </a>
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => setShowMintFlow(false)}
+            <a
+              href="/"
               className="text-[10px] text-[var(--muted)] hover:text-white transition"
             >
               ← Back
-            </button>
+            </a>
             <a
               href="https://ghostagent.ninja"
               target="_blank"
               rel="noopener noreferrer"
-              className="rounded-full border border-[var(--border)] bg-black/20 px-4 py-2 text-xs font-semibold text-[var(--foreground)] transition hover:bg-black/30"
+              style={{ backgroundColor: '#0a0a0a', fontFamily: "'Ayuthaya', serif" }}
+              className="rounded-full border border-[rgba(220,40,40,0.35)] px-4 py-2 text-xs font-semibold tracking-wider text-[#d8d4cf] transition hover:brightness-125"
             >
-              GhostAgent.ninja
+              GHOSTAGENT.NINJA
             </a>
           </div>
         </header>
 
         <section className="text-center">
-          <h1 className="text-4xl font-bold tracking-tight">nftmail.box</h1>
+          <h1 style={{ fontFamily: "'Ayuthaya', serif", color: '#d8d4cf' }} className="text-4xl font-bold tracking-tight">your nftmail.box</h1>
           <p className="mx-auto mt-3 max-w-lg text-sm text-[var(--muted)]">
-            Mint a self-contained email identity on Gnosis. You are born a Larva. Don't let your identity decay into the void.
+            Mint a self-contained email identity on Gnosis. Level-up, molt from Larva to Pupa to Imago.
           </p>
         </section>
 
-        <div className="flex items-center justify-center gap-3">
-          {[
-            { key: 'free', label: 'Mint', icon: '1' },
-            { key: 'pro', label: 'Evolve', icon: '2' },
-          ].map((s, i) => {
-            const tierOrder: Tier[] = ['none', 'free', 'pro'];
-            const currentIdx = tierOrder.indexOf(tier);
-            const stepIdx = tierOrder.indexOf(s.key as Tier);
-            const isDone = currentIdx >= stepIdx;
-            const isCurrent = currentIdx === stepIdx - 1;
-            return (
-              <div key={s.key} className="flex items-center gap-3">
-                <div className="flex items-center gap-2">
-                  <div
-                    className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-all ${
-                      isDone
-                        ? 'bg-emerald-500/20 text-emerald-400 ring-1 ring-emerald-500/30'
-                        : isCurrent
-                        ? 'bg-[rgba(0,163,255,0.15)] text-[rgb(160,220,255)] ring-1 ring-[rgba(0,163,255,0.4)] animate-pulse'
-                        : 'bg-white/5 text-[var(--muted)] ring-1 ring-[var(--border)]'
-                    }`}
-                  >
-                    {isDone ? '✓' : s.icon}
-                  </div>
-                  <span
-                    className={`text-xs font-medium ${
-                      isDone ? 'text-emerald-400' : isCurrent ? 'text-[rgb(160,220,255)]' : 'text-[var(--muted)]'
-                    }`}
-                  >
-                    {s.label}
-                  </span>
-                </div>
-                {i < 1 && <div className={`h-px w-8 ${isDone ? 'bg-emerald-500/40' : 'bg-[var(--border)]'}`} />}
-              </div>
-            );
-          })}
-        </div>
 
         <section className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5">
           <div className="mb-4">
@@ -565,6 +535,16 @@ export default function NftmailPage() {
           </div>
           <div className="ml-8">
             <NFTLogin />
+            {authenticated && (
+              <div className="mt-3 flex justify-end">
+                <a
+                  href="/dashboard"
+                  className="px-4 py-2 text-xs font-semibold text-white bg-[rgba(0,163,255,0.12)] border border-[rgba(0,163,255,0.3)] rounded-lg hover:bg-[rgba(0,163,255,0.2)] transition"
+                >
+                  Your Dashboard →
+                </a>
+              </div>
+            )}
           </div>
         </section>
 
@@ -579,10 +559,16 @@ export default function NftmailPage() {
                 >
                   {tier !== 'none' ? '✓' : '2'}
                 </div>
-                <h2 className="text-lg font-semibold text-white">Mint NFTmail</h2>
-                <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-300 ring-1 ring-emerald-500/20">FREE</span>
+                <h2 className="text-lg font-semibold text-white">Mint an @nftmail.box</h2>
+                <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ${
+                  nameType === 'agent'
+                    ? 'bg-amber-500/10 text-amber-300 ring-amber-500/20'
+                    : 'bg-emerald-500/10 text-emerald-300 ring-emerald-500/20'
+                }`}>{nameType === 'agent' ? '2 xDAI' : 'FREE'}</span>
+                {nameType === 'ens' && (
+                  <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-300 ring-1 ring-emerald-500/20">ENS</span>
+                )}
               </div>
-              <p className="mt-1 ml-8 text-xs text-[var(--muted)]">Mint [name1]-[name2].nftmail.gno → get [name1]-[name2]@nftmail.box. Free — you are born a Larva. 8-day history, receive only. Cycle to Pupa for a 30-day window.</p>
             </div>
             <div className="ml-8">
               {tier !== 'none' ? (
@@ -594,6 +580,8 @@ export default function NftmailPage() {
               ) : (
                 <MintNFTMailWithCallback
                   initialName={claimName}
+                  nameType={nameType}
+                  onNameTypeChange={setNameType}
                   onMinted={(name, tba) => {
                     setMintedName(name);
                     setMintedTba(tba);
@@ -672,10 +660,54 @@ export default function NftmailPage() {
   );
 }
 
-function MintNFTMailWithCallback({ onMinted, initialName }: { onMinted: (name: string, tba: string) => void; initialName?: string }) {
+function MintNFTMailWithCallback({ onMinted, initialName, nameType, onNameTypeChange }: { onMinted: (name: string, tba: string) => void; initialName?: string; nameType: 'human' | 'ens' | 'agent'; onNameTypeChange: (t: 'human' | 'ens' | 'agent') => void }) {
   const [manualName, setManualName] = useState('');
   const [showManual, setShowManual] = useState(false);
-  const [nameType, setNameType] = useState<'human' | 'agent'>('human');
+  const [selectedEns, setSelectedEns] = useState<string | null>(null);
+  const [ensNames, setEnsNames] = useState<{ label: string; name: string }[]>([]);
+  const [ensLoading, setEnsLoading] = useState(false);
+  const [chipStatuses, setChipStatuses] = useState<Record<string, 'checking' | 'available' | 'taken'>>({});
+  const { user } = usePrivy();
+  const walletAddress = user?.wallet?.address ?? '';
+  const ensLabel = selectedEns ?? '';
+  const ensName = ensLabel ? `${ensLabel}.eth` : '';
+
+  useEffect(() => {
+    if (nameType !== 'ens' || !walletAddress) return;
+    setEnsLoading(true);
+    setEnsNames([]);
+    setSelectedEns(null);
+    setChipStatuses({});
+    fetch(`/api/ens-names?address=${walletAddress}`)
+      .then((r) => r.json())
+      .then((d: any) => { setEnsNames(d.names ?? []); return d.names ?? []; })
+      .catch(() => [])
+      .finally(() => setEnsLoading(false));
+  }, [nameType, walletAddress]);
+
+  useEffect(() => {
+    if (ensNames.length === 0) return;
+    const init: Record<string, 'checking'> = {};
+    ensNames.forEach((e) => { init[e.label] = 'checking'; });
+    setChipStatuses(init);
+    const workerUrl = process.env.NEXT_PUBLIC_WORKER_URL || 'https://nftmail-email-worker.richard-159.workers.dev';
+    Promise.all(
+      ensNames.map(async (e) => {
+        try {
+          const emailLocal = e.label.replace(/-/g, '.');
+          const res = await fetch(workerUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'resolveAddress', name: emailLocal }),
+          });
+          const data = await res.json() as { exists?: boolean };
+          return [e.label, data.exists ? 'taken' : 'available'] as [string, 'taken' | 'available'];
+        } catch {
+          return [e.label, 'available'] as [string, 'available'];
+        }
+      })
+    ).then((results) => setChipStatuses(Object.fromEntries(results)));
+  }, [ensNames]);
 
   const handleNameChange = (val: string) => {
     const lower = val.toLowerCase();
@@ -692,16 +724,22 @@ function MintNFTMailWithCallback({ onMinted, initialName }: { onMinted: (name: s
 
   return (
     <div className="space-y-4">
-      {/* Human / Agent tab selector */}
+      {/* Human / ENS / Agent tab selector */}
       <div className="flex rounded-lg border border-[var(--border)] overflow-hidden text-[10px] font-semibold">
         <button
-          onClick={() => { setNameType('human'); setManualName(''); }}
+          onClick={() => { onNameTypeChange('human'); setManualName(''); }}
           className={`flex-1 px-3 py-2 transition ${nameType === 'human' ? 'bg-[rgba(0,163,255,0.15)] text-[rgb(160,220,255)]' : 'bg-black/20 text-[var(--muted)] hover:text-white'}`}
         >
           Human
         </button>
         <button
-          onClick={() => { setNameType('agent'); setManualName(''); }}
+          onClick={() => { onNameTypeChange('ens'); setManualName(''); }}
+          className={`flex-1 px-3 py-2 transition ${nameType === 'ens' ? 'bg-emerald-500/15 text-emerald-300' : 'bg-black/20 text-[var(--muted)] hover:text-white'}`}
+        >
+          ENS Holder
+        </button>
+        <button
+          onClick={() => { onNameTypeChange('agent'); setManualName(''); }}
           className={`flex-1 px-3 py-2 transition ${nameType === 'agent' ? 'bg-amber-500/15 text-amber-300' : 'bg-black/20 text-[var(--muted)] hover:text-white'}`}
         >
           Agent (NFTmail.gno)
@@ -709,10 +747,51 @@ function MintNFTMailWithCallback({ onMinted, initialName }: { onMinted: (name: s
       </div>
 
       {nameType === 'human' ? (
-        <MintNFTMail initialName={initialName} />
+        <div className="space-y-3">
+          <div className="rounded-lg border border-[rgba(0,163,255,0.2)] bg-[rgba(0,163,255,0.05)] px-3 py-2 text-[10px] text-[rgb(160,220,255)]/80">
+            Mint {'{name1}'}-{'{name2}'}.nftmail.gno → get {'{name1}'}.{'{name2}'}@nftmail.box. Free — born a Larva. 8-day history, send 10 emails. Molt to Pupa for a 30-day window and unlimited send.
+          </div>
+          <MintNFTMail initialName={initialName} />
+        </div>
+      ) : nameType === 'ens' ? (
+        <div className="space-y-3">
+          <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 text-[10px] text-emerald-300/80">
+            Mint {'{ENSname}'}.nftmail.gno → get {'{ENSname}'}@nftmail.box. Free — born a Larva. 8-day history, send 10 emails. Molt to Pupa for a 30-day window and unlimited send.
+          </div>
+          {ensLoading ? (
+            <p className="text-[10px] text-[var(--muted)] animate-pulse">Loading your ENS names...</p>
+          ) : ensNames.length === 0 ? (
+            <p className="text-[10px] text-amber-400">No .eth names found in this wallet.</p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {ensNames.map((e) => (
+                <button
+                  key={e.label}
+                  onClick={() => setSelectedEns(selectedEns === e.label ? null : e.label)}
+                  className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition ${
+                    selectedEns === e.label
+                      ? 'border-emerald-500/50 bg-emerald-500/15 text-emerald-300'
+                      : chipStatuses[e.label] === 'taken'
+                      ? 'border-red-500/20 bg-black/20 text-[var(--muted)]'
+                      : 'border-[var(--border)] bg-black/20 text-[var(--muted)] hover:text-white'
+                  }`}
+                >
+                  {e.name}
+                  {chipStatuses[e.label] === 'checking' && <span className="text-[9px] animate-pulse opacity-60">…</span>}
+                  {chipStatuses[e.label] === 'available' && <span className="text-[9px] text-emerald-400">✓</span>}
+                  {chipStatuses[e.label] === 'taken' && <span className="text-[9px] text-red-400">✗</span>}
+                </button>
+              ))}
+            </div>
+          )}
+          {ensLabel && <MintNFTMail key={ensLabel} initialName={ensLabel} ensName={ensName} hideName={true} />}
+        </div>
       ) : (
         <>
-          <MintNFTMail initialName={initialName} />
+          <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-[10px] text-amber-300/80">
+            Mint {'{name}'}.nftmail.gno → get {'{name}'}_@nftmail.box. 2 xDAI — born a Pupa. 30-day history, send 10 emails via API. Molt to Imago for aliases, persistent history and unlimited send.
+          </div>
+          <MintNFTMail initialName={initialName} agentMode={true} />
           {!showManual ? (
             <button
               onClick={() => setShowManual(true)}

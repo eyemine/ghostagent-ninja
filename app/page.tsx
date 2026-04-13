@@ -71,17 +71,6 @@ export default function Home() {
             Get a free Agent NFTmail.box address
           </Link>
 
-          <Link
-            href="https://nftmail.box/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="w-full rounded-xl px-6 py-3 text-center text-sm font-semibold transition"
-            style={{ color: '#9b9b9b', border: '1px solid rgba(133,147,207,0.4)', background: '#0f1323' }}
-            onMouseEnter={e => (e.currentTarget.style.background = '#161b31')}
-            onMouseLeave={e => (e.currentTarget.style.background = '#0f1323')}
-          >
-            Get a free Personal NFTmail.box address
-          </Link>
         </div>
 
         {/* Tagline */}

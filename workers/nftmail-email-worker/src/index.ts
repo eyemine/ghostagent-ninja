@@ -1842,7 +1842,15 @@ export default {
             }));
             
             // Add aliases for owned base agents (e.g., rgbanksy owns rgbanksy_)
+            // Only for pupa (lite) tier or above — larva (basic) does not get a _ alias
             for (const baseName of ownedBaseNames) {
+              const tierRaw = await env.INBOX_KV.get(`acct-tier:${baseName}`);
+              if (tierRaw) {
+                try {
+                  const tierData = JSON.parse(tierRaw) as { tier?: string };
+                  if (tierData.tier === 'basic') continue;
+                } catch { /* malformed tier — skip alias */ continue; }
+              }
               const aliasName = `${baseName}_`;
               // Check if alias already exists or has its own nftmailgno record
               const aliasRaw = await env.INBOX_KV.get(`nftmailgno:${aliasName}`);
@@ -3620,6 +3628,12 @@ export default {
             }, { status: 429 }), request);
           }
           // ─────────────────────────────────────────────────────────────────
+          // Prevent duplicate registration
+          const existingReg = await env.INBOX_KV.get(`nftmailgno:${(email as any).legacyIdentity || label}`);
+          if (existingReg) {
+            return corsify(Response.json({ error: `${label} is already registered`, status: 'already_registered' }, { status: 409 }), request);
+          }
+
           const originNft: string = (email as any).originNft || `${label}.nftmail.gno`;
           const legacyIdentity: string | null = (email as any).legacyIdentity || null;
           const mintedTokenId: number | null = (email as any).mintedTokenId || null;
@@ -4178,7 +4192,7 @@ export default {
                 decayDays: sDecayDays,
                 safe: sSafe,
                 storyIp: sStoryIp,
-                canSend: sAccountTier !== 'basic',
+                canSend: true,
                 onChainOwner: sGnoController,
                 originNft: sGnoOriginNft,
                 legacyIdentity: sGnoLegacyIdentity,
@@ -4327,7 +4341,7 @@ export default {
               agentSafe = td.safe || null;
               storyIp = td.story_ip || null;
               expiresAt = td.expires_at || null;
-              if (!isAlias) canSend = (td.tier || 'basic') !== 'basic';
+              if (!isAlias) canSend = true; // send limit enforced by checkAndIncrementSendCount
             } catch {}
           }
 
@@ -4612,6 +4626,30 @@ export default {
             }), request);
           }
           
+          // Basic/Larva tier: 10-send lifetime limit tracked in send-count: KV
+          if (!tier.tier || tier.tier === 'basic') {
+            const BASIC_SEND_LIMIT = 10;
+            const countRaw = await env.INBOX_KV.get(`send-count:${kvKey}`);
+            const sendCount = countRaw ? parseInt(countRaw, 10) : 0;
+            if (sendCount >= BASIC_SEND_LIMIT) {
+              return corsify(Response.json({
+                allowed: false,
+                error: 'Send limit reached',
+                sendsUsed: sendCount,
+                sendsRemaining: 0,
+                tier: 'basic',
+                upgradeRequired: true,
+              }), request);
+            }
+            await env.INBOX_KV.put(`send-count:${kvKey}`, String(sendCount + 1));
+            return corsify(Response.json({
+              allowed: true,
+              sendsUsed: sendCount + 1,
+              sendsRemaining: BASIC_SEND_LIMIT - sendCount - 1,
+              tier: 'basic',
+            }), request);
+          }
+
           // Freemium tier: check sendsRemaining
           if (tier.tier === 'freemium' || trial.type === 'freemium') {
             const sendsRemaining = trial.sendsRemaining ?? 0;

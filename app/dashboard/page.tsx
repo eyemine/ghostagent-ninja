@@ -419,6 +419,13 @@ export default function DashboardHome() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <Link
+            href="/nftmail"
+            className="rounded-lg border border-[rgba(176,128,92,0.3)] bg-[rgba(176,128,92,0.08)] px-4 py-1.5 text-xs font-semibold transition hover:bg-[rgba(176,128,92,0.14)]"
+            style={{ fontFamily: "Ayuthaya, 'Courier New', monospace", color: '#d9d9d8' }}
+          >
+            nftmail.box [for-agents] →
+          </Link>
           <a
             href="https://nftmail.box/"
             target="_blank"
