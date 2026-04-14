@@ -3614,13 +3614,15 @@ export default {
           const controller: string = (email as any).controller || '';
 
           // ── 10-account limit per controller/IP ────────────────────────────
+          // Bypass limit when called with valid webhook secret (trusted server-side BYO molt etc.)
+          const isTrustedCall = !!(env.WEBHOOK_SECRET && secret === env.WEBHOOK_SECRET);
           const ACCT_LIMIT = 10;
           const acctKey = controller
             ? `acct-count:${controller.toLowerCase()}`
             : `acct-count:ip:${request.headers.get('CF-Connecting-IP') || 'unknown'}`;
           const acctRaw = await env.INBOX_KV.get(acctKey);
           const acctCount = acctRaw ? parseInt(acctRaw, 10) : 0;
-          if (acctCount >= ACCT_LIMIT) {
+          if (!isTrustedCall && acctCount >= ACCT_LIMIT) {
             return corsify(Response.json({
               error: `Account limit reached (${ACCT_LIMIT} inboxes per ${controller ? 'wallet' : 'IP'}). Connect a wallet or upgrade to create more.`,
               count: acctCount,
@@ -3628,9 +3630,9 @@ export default {
             }, { status: 429 }), request);
           }
           // ─────────────────────────────────────────────────────────────────
-          // Prevent duplicate registration
+          // Prevent duplicate registration (trusted calls skip this — they may update existing)
           const existingReg = await env.INBOX_KV.get(`nftmailgno:${(email as any).legacyIdentity || label}`);
-          if (existingReg) {
+          if (existingReg && !isTrustedCall) {
             return corsify(Response.json({ error: `${label} is already registered`, status: 'already_registered' }, { status: 409 }), request);
           }
 
@@ -3692,6 +3694,29 @@ export default {
             accountsUsed: acctCount + 1,
             accountLimit: ACCT_LIMIT,
           }), request);
+        }
+
+        // --- Delete nftmailgno account (admin cleanup) ---
+        // Secured by WEBHOOK_SECRET. Removes nftmailgno:, privacy:, acct-tier: KV entries.
+        if (email.action === 'deleteNftmailAccount') {
+          const secret = (email as any).secret || request.headers.get('X-Webhook-Secret') || '';
+          if (env.WEBHOOK_SECRET && secret !== env.WEBHOOK_SECRET) {
+            return corsify(Response.json({ error: 'Invalid secret' }, { status: 401 }), request);
+          }
+          const label: string = ((email as any).label || '').toLowerCase().trim();
+          if (!label) {
+            return corsify(Response.json({ error: 'Missing label' }, { status: 400 }), request);
+          }
+          const existing = await env.INBOX_KV.get(`nftmailgno:${label}`);
+          if (!existing) {
+            return corsify(Response.json({ error: 'Not found', label }, { status: 404 }), request);
+          }
+          await Promise.all([
+            env.INBOX_KV.delete(`nftmailgno:${label}`),
+            env.INBOX_KV.delete(`privacy:${label}`),
+            env.INBOX_KV.delete(`acct-tier:${label}`),
+          ]);
+          return corsify(Response.json({ status: 'deleted', label }), request);
         }
 
         // --- Tier Upgrade: promote account from basic → lite → premium → ghost ---

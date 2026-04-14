@@ -24,11 +24,16 @@ import { WORKER_URL } from '../../utils/config';
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://ghostagent.ninja';
 const NFTMAIL_WORKER_URL = process.env.NFTMAIL_WORKER_URL || 'https://nftmail-email-worker.richard-159.workers.dev';
 
+const ALCHEMY_KEY = process.env.ALCHEMY_API_KEY ?? '';
+const ETH_RPC = ALCHEMY_KEY
+  ? `https://eth-mainnet.g.alchemy.com/v2/${ALCHEMY_KEY}`
+  : 'https://ethereum.publicnode.com';
+
 const NFT_CONTRACTS: Record<string, { contract: string; rpc: string; chain: string }> = {
   chonk:  { contract: '0x07152bfde079b5319e5308C43fB1DBc9C76CB4f9', rpc: 'https://mainnet.base.org', chain: 'base' },
-  ens:    { contract: '0x57f1887a8BF19b14fC0dF6Fd9B2acc9Af147eA85', rpc: 'https://ethereum.publicnode.com', chain: 'mainnet' },
-  pownft: { contract: '0x3B3ee1931Dc30C1957379FAc9aba94D1C48a5405', rpc: 'https://ethereum.publicnode.com', chain: 'mainnet' },
-  normie: { contract: '0x7Bc1C072742D8391817EB4Eb2317F98dc72C61dB', rpc: 'https://mainnet.base.org', chain: 'base' },
+  ens:    { contract: '0x57f1887a8BF19b14fC0dF6Fd9B2acc9Af147eA85', rpc: ETH_RPC, chain: 'mainnet' },
+  pownft: { contract: '0x9abb7bddc43fa67c76a62d8c016513827f59be1b', rpc: ETH_RPC, chain: 'mainnet' },
+  normie: { contract: '0x9eb6e2025b64f340691e424b7fe7022ffde12438', rpc: ETH_RPC, chain: 'mainnet' },
 };
 
 async function verifyGenericOwnership(
@@ -238,6 +243,39 @@ export async function POST(req: NextRequest) {
       ]);
     } catch {
       // Non-fatal — aliases are cosmetic
+    }
+
+    // ── Step 4b: Register nftmailgno accounts so emails appear in nftmail.box dropdown ──
+    // Uses registerSovereign with WEBHOOK_SECRET which bypasses the account limit.
+    try {
+      await Promise.all([
+        fetch(NFTMAIL_WORKER_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'registerSovereign',
+            secret: webhookSecret,
+            label: humanLocalPart,
+            controller: ownerWallet.toLowerCase(),
+            originNft: beacon.beaconNft,
+            accountTier: 'lite',
+          }),
+        }),
+        fetch(NFTMAIL_WORKER_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'registerSovereign',
+            secret: webhookSecret,
+            label: agentLocalPart,
+            controller: ownerWallet.toLowerCase(),
+            originNft: beacon.beaconNft,
+            accountTier: 'lite',
+          }),
+        }),
+      ]);
+    } catch {
+      // Non-fatal — nftmailgno registration failure doesn't block molt completion
     }
 
     // ── Step 5: Record molt + upgrade tier ──
