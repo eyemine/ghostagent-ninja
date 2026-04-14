@@ -220,6 +220,51 @@ export async function POST(req: NextRequest) {
     // ── Step 5: Record molt + upgrade tier ──
     await recordChonkMolt(finalPrimaryName, tokenId, ownerWallet, beacon.beaconNft!, beacon.txHash!, webhookSecret);
 
+    // ── Step 6 (non-fatal): Fetch + store origin NFT image URL for agent card display ──
+    // Stored under KV key byo-origin-image:{agentName} — read by /api/agent-card to override default genome image.
+    try {
+      let originImageUrl: string | null = null;
+      if (type === 'ens') {
+        const ENS_META_URL = `https://metadata.ens.domains/mainnet/0x57f1887a8BF19b14fC0dF6Fd9B2acc9Af147eA85/${tokenId}`;
+        const imgRes = await fetch(ENS_META_URL);
+        if (imgRes.ok) {
+          const meta = await imgRes.json() as { image?: string; image_url?: string };
+          originImageUrl = meta.image ?? meta.image_url ?? null;
+        }
+      } else {
+        const alchemyKey = process.env.ALCHEMY_API_KEY ?? '';
+        const alchemyBase = type === 'chonk' || type === 'normie'
+          ? `https://base-mainnet.g.alchemy.com/nft/v3/${alchemyKey}/getNFTMetadata`
+          : `https://eth-mainnet.g.alchemy.com/nft/v3/${alchemyKey}/getNFTMetadata`;
+        const alchemyContract = NFT_CONTRACTS[type]?.contract ?? contractAddress;
+        if (alchemyKey && alchemyContract) {
+          const imgRes = await fetch(`${alchemyBase}?contractAddress=${alchemyContract}&tokenId=${tokenId}&refreshCache=false`);
+          if (imgRes.ok) {
+            const data = await imgRes.json() as { image?: { cachedUrl?: string; originalUrl?: string; pngUrl?: string; contentType?: string } };
+            const isVideo = data?.image?.contentType?.startsWith('video/');
+            originImageUrl = isVideo
+              ? (data?.image?.pngUrl ?? null)
+              : (data?.image?.cachedUrl ?? data?.image?.originalUrl ?? null);
+          }
+        }
+      }
+      if (originImageUrl) {
+        await fetch(NFTMAIL_WORKER_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'kvPut',
+            key: `byo-origin-image:${finalPrimaryName}`,
+            value: JSON.stringify({ imageUrl: originImageUrl, nftType: type, storedAt: Date.now() }),
+            ownerAddress: ownerWallet.toLowerCase(),
+            webhookSecret,
+          }),
+        });
+      }
+    } catch {
+      // Non-fatal — image storage is best-effort
+    }
+
     return NextResponse.json({
       status: 'ok',
       primaryEmail: `${finalPrimaryName}_@nftmail.box`,

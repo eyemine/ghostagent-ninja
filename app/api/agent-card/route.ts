@@ -137,6 +137,26 @@ export async function GET(req: NextRequest) {
     // Non-fatal — serve base file without profile overrides
   }
 
+  // BYO NFT molt: override image with origin NFT image if stored
+  try {
+    const imgKv = await fetch(WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'kvGet', key: `byo-origin-image:${agentName}` }),
+    });
+    if (imgKv.ok) {
+      const { value } = await imgKv.json() as { value?: string | null };
+      if (value) {
+        const parsed = JSON.parse(value) as { imageUrl?: string };
+        if (parsed.imageUrl) {
+          regFile = { ...regFile, image: parsed.imageUrl };
+        }
+      }
+    }
+  } catch {
+    // Non-fatal
+  }
+
   // Content negotiation: browsers get a human-readable agent profile page;
   // API clients / A2A agents get the raw JSON.
   const accept = req.headers.get('accept') ?? '';
