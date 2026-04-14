@@ -253,16 +253,16 @@ export async function recordChonkMolt(
       }),
     });
 
-    // Upgrade tier from larva → pupa (lite) if not already higher
-    // Non-fatal: tier check is best-effort
+    // Upgrade tier from larva → pupa (lite)
+    // Non-fatal: tier upgrade is best-effort
     await fetch(NFTMAIL_WORKER_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        action: 'upgradeTierIfBelow',
+        action: 'upgradeTier',
         secret: webhookSecret,
         label: primaryName,
-        minTier: 'lite',
+        newTier: 'lite',
         retention: '30-day',
       }),
     });
