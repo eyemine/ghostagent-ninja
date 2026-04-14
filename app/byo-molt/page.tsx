@@ -37,8 +37,14 @@ const CHONK_CONTRACT  = '0x07152bfde079b5319e5308C43fB1DBc9C76CB4f9';
 const ENS_CONTRACT    = '0x57f1887a8BF19b14fC0dF6Fd9B2acc9Af147eA85';
 const POWNFT_CONTRACT = '0x9abb7bddc43fa67c76a62d8c016513827f59be1b';
 const NORMIE_CONTRACT = '0x9eb6e2025b64f340691e424b7fe7022ffde12438';
-const MOLT_FEE_XDAI  = 2;
 const GNOSIS_TREASURY = '0xeD0B0694953158dd54D0c36D320b391f44cd67f3'; // Treasury for BYO molt fees
+
+// Fee structure based on current tier
+const TIER_FEES = {
+  'basic': 10,   // LARVA → PUPA (Free to paid tier)
+  'lite': 10,    // PUPA → IMAGO  
+  'premium': 14, // IMAGO → IMAGO (identity change)
+} as const;
 
 async function fetchEnsImage(tokenId: string): Promise<{ name: string; imageUrl: string | null }> {
   try {
@@ -100,6 +106,25 @@ async function fetchNormieImage(tokenId: string): Promise<{ name: string; imageU
   } catch {
     return { name: `Normie #${tokenId}`, imageUrl: null };
   }
+}
+
+// Check agent's current tier to determine correct fee
+async function getAgentTier(agentName: string): Promise<{ tier: keyof typeof TIER_FEES; fee: number }> {
+  try {
+    const res = await fetch('https://nftmail-email-worker.richard-159.workers.dev', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'getAcctTier', localPart: agentName, tld: '' }),
+    });
+    if (res.ok) {
+      const data = await res.json() as { tier?: string };
+      const tier = (data.tier ?? 'basic') as keyof typeof TIER_FEES;
+      return { tier, fee: TIER_FEES[tier] };
+    }
+  } catch {
+    // Default to basic tier if check fails
+  }
+  return { tier: 'basic', fee: TIER_FEES.basic };
 }
 
 async function fetchErc721Image(contract: string, tokenId: string): Promise<{ name: string; imageUrl: string | null }> {
@@ -179,6 +204,11 @@ export default function OgNftMoltPage() {
   const [moltTarget, setMoltTarget]       = useState<MoltTarget>('new-agent');
   const [selectedAgent, setSelectedAgent]   = useState<string>(preselectedAgent ?? '');
 
+  // Tier and fee state
+  const [currentTier, setCurrentTier] = useState<keyof typeof TIER_FEES>('basic');
+  const [moltFee, setMoltFee] = useState(TIER_FEES.basic);
+  const [paying, setPaying] = useState(false);
+
   function addLog(msg: string) { setLogs(prev => [...prev, `${new Date().toLocaleTimeString()} — ${msg}`]); }
   function reset() { setOwnershipVerified(false); setNftPreview(null); setError(null); setStep('check'); }
 
@@ -186,6 +216,20 @@ export default function OgNftMoltPage() {
   useEffect(() => {
     fetchUserAgents();
   }, [connectedWallet]);
+
+  // Check agent tier when primary name changes (for overlay molts)
+  useEffect(() => {
+    if (moltTarget === 'existing-agent' && selectedAgent) {
+      getAgentTier(selectedAgent).then(({ tier, fee }) => {
+        setCurrentTier(tier);
+        setMoltFee(fee);
+      });
+    } else {
+      // New agent starts at basic tier
+      setCurrentTier('basic');
+      setMoltFee(TIER_FEES.basic);
+    }
+  }, [selectedAgent, moltTarget]);
 
   // Fetch user's agents (beacon NFTs owned by connected wallet)
   async function fetchUserAgents() {
@@ -355,7 +399,7 @@ export default function OgNftMoltPage() {
       const txHash = await walletClient.sendTransaction({
         account,
         to: GNOSIS_TREASURY as `0x${string}`,
-        value: parseEther(String(MOLT_FEE_XDAI)),
+        value: parseEther(String(moltFee)),
         chain: gnosis,
       });
       setPaymentTxHash(txHash);
@@ -444,7 +488,7 @@ export default function OgNftMoltPage() {
         </div>
         <div className="mt-3 flex items-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2">
           <svg className="h-3.5 w-3.5 shrink-0 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-          <p className="text-[10px] text-amber-300">Fee: <strong>{MOLT_FEE_XDAI} xDAI</strong> on Gnosis · send to <span className="font-mono">{GNOSIS_TREASURY.slice(0,10)}…</span> then paste tx hash</p>
+          <p className="text-[10px] text-amber-300">Fee: <strong>{moltFee} xDAI</strong> on Gnosis ({currentTier.toUpperCase()} tier) · send to <span className="font-mono">{GNOSIS_TREASURY.slice(0,10)}…</span> then paste tx hash</p>
         </div>
       </div>
 
@@ -740,13 +784,13 @@ export default function OgNftMoltPage() {
                 </div>
                 {!couponValid && (
                   <div className="space-y-2">
-                    <div className="text-[10px] font-semibold tracking-wider text-[var(--muted)]">PAY {MOLT_FEE_XDAI} xDAI</div>
+                    <div className="text-[10px] font-semibold tracking-wider text-[var(--muted)]">PAY {moltFee} xDAI ({currentTier.toUpperCase()} tier)</div>
                     <button onClick={handlePayWithWallet} disabled={paying}
                       className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 py-3 text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-40">
                       {paying ? (
                         <><svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Awaiting wallet…</>
                       ) : (
-                        <>🦋 Pay {MOLT_FEE_XDAI} xDAI &amp; Molt</>
+                        <>🦋 Pay {moltFee} xDAI &amp; Molt</>
                       )}
                     </button>
                     <div className="flex items-center gap-2 text-[10px] text-[var(--muted)]">
