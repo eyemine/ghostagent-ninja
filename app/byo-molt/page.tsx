@@ -206,7 +206,7 @@ export default function OgNftMoltPage() {
 
   // Tier and fee state
   const [currentTier, setCurrentTier] = useState<keyof typeof TIER_FEES>('basic');
-  const [moltFee, setMoltFee] = useState(TIER_FEES.basic);
+  const [moltFee, setMoltFee] = useState<number>(TIER_FEES.basic);
   const [paying, setPaying] = useState(false);
 
   function addLog(msg: string) { setLogs(prev => [...prev, `${new Date().toLocaleTimeString()} — ${msg}`]); }
@@ -386,8 +386,6 @@ export default function OgNftMoltPage() {
     } catch { setError('Could not verify ownership — check your connection.'); }
     finally { setChecking(false); }
   }
-
-  const [paying, setPaying] = useState(false);
 
   async function handlePayWithWallet() {
     setPaying(true); setError(null);
@@ -801,10 +799,10 @@ export default function OgNftMoltPage() {
                     <MercuryoButton
                       walletAddress={GNOSIS_TREASURY}
                       defaultAmount={3}
-                      label={`💳 Pay with Card (~$${MOLT_FEE_XDAI} USD)`}
+                      label={`💳 Pay with Card (~$${moltFee} USD)`}
                     />
                     <p className="text-[9px] text-[var(--muted)] text-center">
-                      Wallet payment sends {MOLT_FEE_XDAI} xDAI on Gnosis to Treasury{' '}
+                      Wallet payment sends {moltFee} xDAI on Gnosis to Treasury{' '}
                       <span className="font-mono text-amber-300/60">{GNOSIS_TREASURY.slice(0,10)}…</span>
                     </p>
                   </div>
