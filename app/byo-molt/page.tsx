@@ -378,6 +378,7 @@ export default function OgNftMoltPage() {
           primaryName, tokenId, ownerWallet, paymentTxHash: txHash,
           nftType, contractAddress: resolvedContract(), nftName: nftPreview?.name,
           moltTarget, targetAgent: moltTarget === 'existing-agent' ? selectedAgent : undefined,
+          targetTld: 'molt.gno', // Target molt.gno for BYO molt
           ...(couponValid ? { couponCode: couponCode.trim() } : {}),
         }),
       });
