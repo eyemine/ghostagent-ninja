@@ -25,6 +25,8 @@ interface NftPreview {
 
 interface MoltResult {
   primaryEmail: string;
+  humanEmail: string;
+  agentEmail: string;
   aliasEmail: string;
   beaconNft: string;
   beaconTxHash: string;
@@ -859,9 +861,9 @@ export default function OgNftMoltPage() {
             </div>
             <div className="grid gap-2">
               {[
-                { label: 'PRIMARY (agent brain)', value: result.primaryEmail, color: 'text-[#f2eee4]' },
-                { label: 'ALIAS (NFT identity)',  value: result.aliasEmail,   color: 'text-fuchsia-300' },
-                { label: 'BEACON NFT',            value: result.beaconNft,    color: 'text-cyan-300' },
+                { label: 'PRIMARY (human inbox)', value: result.primaryEmail, color: 'text-[#f2eee4]' },
+                { label: 'AGENT (A2A email)',      value: result.agentEmail ?? result.aliasEmail, color: 'text-fuchsia-300' },
+                { label: 'BEACON NFT',             value: result.beaconNft,   color: 'text-cyan-300' },
               ].map(({label,value,color}) => (
                 <div key={label} className="rounded-lg border border-[rgba(176,128,92,0.2)] bg-black/20 px-3 py-2">
                   <p className="text-[9px] font-semibold tracking-wider text-[var(--muted)] mb-0.5">{label}</p>

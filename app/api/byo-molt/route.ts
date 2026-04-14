@@ -218,8 +218,10 @@ export async function POST(req: NextRequest) {
     const humanEmail = `${humanLocalPart}@nftmail.box`;
     const agentEmail = `${agentLocalPart}@nftmail.box`;
 
-    // For overlays, the primaryName is the existing agent (targetAgent); for new agents, it's the NFT-derived name
-    const finalPrimaryName = isOverlay ? targetAgent! : cleanName;
+    // For overlays, the primaryName is the existing agent (targetAgent)
+    // For new-agent BYO molts, the primary is the dot-format NFT name (atom.158, chonk.676)
+    // NOT the base cleanName (atom, chonk) which belongs to the original agent brain
+    const finalPrimaryName = isOverlay ? targetAgent! : humanLocalPart;
 
     // Register both human and agent aliases
     try {
@@ -328,7 +330,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       status: 'ok',
-      primaryEmail: `${finalPrimaryName}_@nftmail.box`,
+      primaryEmail: isOverlay ? `${finalPrimaryName}_@nftmail.box` : `${humanLocalPart}@nftmail.box`,
       humanEmail,
       agentEmail,
       aliasEmail: agentEmail,
