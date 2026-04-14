@@ -147,7 +147,14 @@ export async function POST(req: NextRequest) {
 
     // ── Step 2: Verify payment OR redeem coupon ──
     if (hasCoupon) {
+      console.log('COUPON DEBUG:', { 
+        couponCode: couponCode!.trim(), 
+        targetTld, 
+        targetNamespace,
+        'Are they equal?': targetTld === targetNamespace 
+      });
       const couponResult = await redeemCoupon(couponCode!.trim(), targetNamespace);
+      console.log('COUPON RESULT:', couponResult);
       if (!couponResult.ok) {
         return NextResponse.json({ status: 'error', step: 'fee', error: couponResult.error ?? 'Coupon invalid or already used' }, { status: 402 });
       }
