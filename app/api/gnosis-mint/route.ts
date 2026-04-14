@@ -93,8 +93,9 @@ export async function POST(req: NextRequest) {
       legacyIdentity?: string;
       privacyTier?: string;
       tld?: string;
+      skipInboxRegistration?: boolean;
     };
-    const { label, ownerWallet, legacyIdentity, privacyTier = 'private', tld = 'nftmail.gno' } = body;
+    const { label, ownerWallet, legacyIdentity, privacyTier = 'private', tld = 'nftmail.gno', skipInboxRegistration = false } = body;
 
     // Validate and get registrar contract for the TLD
     const registrarContract = REGISTRAR_CONTRACTS[tld];
@@ -150,6 +151,14 @@ export async function POST(req: NextRequest) {
     const email = `${label}@nftmail.box`;
 
     // ─── Register sovereign inbox in KV via worker ───
+    // Skip for BYO molt beacon mints — they register their own dot-separated inbox
+    if (skipInboxRegistration) {
+      return NextResponse.json({
+        success: true, txHash: hash, tokenId: mintedTokenId, email: `${label}@nftmail.box`,
+        originNft, controller: ownerWallet, tbaAddress, privacyTier, kvRegistered: false,
+        explorer: `https://gnosisscan.io/tx/${hash}`,
+      });
+    }
     const workerRes = await fetch(NFTMAIL_WORKER_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

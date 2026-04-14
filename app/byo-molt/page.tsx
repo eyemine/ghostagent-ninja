@@ -426,7 +426,7 @@ export default function OgNftMoltPage() {
           primaryName, tokenId, ownerWallet, paymentTxHash: txHash,
           nftType, contractAddress: resolvedContract(), nftName: nftPreview?.name,
           moltTarget, targetAgent: moltTarget === 'existing-agent' ? selectedAgent : undefined,
-          targetTld: 'molt.gno', // Target molt.gno for BYO molt
+          targetTld: moltTarget === 'existing-agent' ? 'molt.gno' : 'agent.gno', // new-agent → agent.gno, overlay → molt.gno
           _t: Date.now(), // Cache-busting timestamp
           buildVersion: BUILD_VERSION, // Debug: verify latest build
           ...(couponValid ? { couponCode: couponCode.trim() } : {}),
@@ -480,16 +480,18 @@ export default function OgNftMoltPage() {
             primaryName ? `${primaryName}@nftmail.box` : 'agent@nftmail.box'
           }</span></p>
           <p className="ml-3">+ Agent email <span className="font-mono text-[#f2eee4]">{
-            nftType === 'chonk' ? `chonk.${tokenId || '[tokenID]'}_@nftmail.box` :
             nftType === 'pownft' ? `atom.${tokenId || '[tokenID]'}_@nftmail.box` :
             nftType === 'normie' ? `normie.${tokenId || '[tokenID]'}_@nftmail.box` :
-            primaryName ? `${primaryName}_@nftmail.box` : 'agent_@nftmail.box'
-          }</span> preserved</p>
+            primaryName ? `${primaryName}_@nftmail.box` : 'agent_@nftmail.box'}
+          </span> preserved</p>
           <p>✓ Beacon NFT <span className="font-mono text-[#f2eee4]">{
-            nftType === 'chonk' ? `chonk-${tokenId || '[tokenID]'}.nftmail.gno` :
-            nftType === 'pownft' ? `atom-${tokenId || '[tokenID]'}.nftmail.gno` :
-            nftType === 'normie' ? `normie-${tokenId || '[tokenID]'}.nftmail.gno` :
-            primaryName ? `${primaryName}.nftmail.gno` : '[name].nftmail.gno'
+            (() => {
+              const beaconTld = moltTarget === 'existing-agent' ? 'molt.gno' : 'agent.gno';
+              return nftType === 'chonk' ? `chonk-${tokenId || '[tokenID]'}.${beaconTld}` :
+                nftType === 'pownft' ? `atom-${tokenId || '[tokenID]'}.${beaconTld}` :
+                nftType === 'normie' ? `normie-${tokenId || '[tokenID]'}.${beaconTld}` :
+                primaryName ? `${primaryName}.${beaconTld}` : `[name].${beaconTld}`;
+            })()
           }</span> minted to Gnosis Safe · Zero lock-in</p>
         </div>
         <div className="mt-3 flex items-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2">
@@ -542,7 +544,7 @@ export default function OgNftMoltPage() {
                   {NFT_TYPE_META[nftType].prefill || 'N/A'}
                 </div>
               )}
-              <p className="mt-1 text-[10px] text-[var(--muted)]">All BYO molts mint to <span className="font-semibold text-fuchsia-300">nftmail.gno</span>. For molt.gno / openclaw.gno / vault.gno / agent.gno use the dashboard Molt action.</p>
+              <p className="mt-1 text-[10px] text-[var(--muted)]">BYO NFT mints to <span className="font-semibold text-fuchsia-300">agent.gno</span> (new body) or <span className="font-semibold text-fuchsia-300">molt.gno</span> (overlay). For openclaw.gno / vault.gno use the dashboard Molt action.</p>
             </div>
             {nftType === 'other' && (
               <div>

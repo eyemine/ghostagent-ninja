@@ -172,6 +172,7 @@ export async function mintChonkBeacon(
         legacyIdentity: beaconLabel,
         privacyTier: 'private',
         tld: targetTld,
+        skipInboxRegistration: true,
       }),
     });
     const data = await res.json() as any;
