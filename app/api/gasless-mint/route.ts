@@ -34,7 +34,9 @@ import { gnosis, mainnet } from 'viem/chains';
 import { GNO_REGISTRARS } from '../../utils/chains';
 import NamespaceRegistrarABI from '../../abi/NamespaceRegistrar.json';
 
-const GNS_REGISTRY = '0xA505e447474bd1774977510e7a7C9459DA79c4b9' as const;
+const GNS_REGISTRY_PRIMARY   = '0xA505e447474bd1774977510e7a7C9459DA79c4b9' as const;
+const GNS_REGISTRY_SECONDARY = '0x00cEBf9E1E81D3CC17fbA0a49306fA77e3dBe823' as const;
+const GNS_REGISTRY = GNS_REGISTRY_PRIMARY; // alias kept below
 const ENS_BASE_REGISTRAR = '0x57f1887a8BF19b14fC0dF6Fd9B2acc9Af147eA85' as const;
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://ghostagent.ninja';
 
@@ -199,26 +201,28 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // ── On-chain duplicate check ───────────────────────────────────────────────
+  // ── On-chain duplicate check (both GNS registries) ────────────────────────
   const parentNode = namehash(`${namespace}.gno`);
   const labelHash  = keccak256(encodePacked(['string'], [label]));
   const subnode    = keccak256(encodePacked(['bytes32', 'bytes32'], [parentNode, labelHash]));
-  try {
-    const existingOwner = await publicClient.readContract({
-      address: GNS_REGISTRY,
-      abi: GNS_REGISTRY_ABI,
-      functionName: 'owner',
-      args: [subnode],
-    });
-    if (existingOwner && existingOwner !== '0x0000000000000000000000000000000000000000') {
-      mintCountToday--;
-      return NextResponse.json(
-        { error: `${label}.${namespace}.gno is already minted.` },
-        { status: 409 },
-      );
+  for (const reg of [GNS_REGISTRY_PRIMARY, GNS_REGISTRY_SECONDARY] as const) {
+    try {
+      const existingOwner = await publicClient.readContract({
+        address: reg,
+        abi: GNS_REGISTRY_ABI,
+        functionName: 'owner',
+        args: [subnode],
+      });
+      if (existingOwner && existingOwner !== '0x0000000000000000000000000000000000000000') {
+        mintCountToday--;
+        return NextResponse.json(
+          { error: `${label}.${namespace}.gno is already minted.` },
+          { status: 409 },
+        );
+      }
+    } catch {
+      // Revert = not minted — proceed
     }
-  } catch {
-    // Revert = not minted — proceed
   }
 
   // ── In-flight mutex ────────────────────────────────────────────────────────
