@@ -301,7 +301,7 @@ export default function OgNftMoltPage() {
       const res = await fetch('/api/coupons/validate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: couponCode.trim(), tld: 'nftmail.gno' }),
+        body: JSON.stringify({ code: couponCode.trim() }),
       });
       const data = await res.json() as { valid: boolean; reason?: string };
       if (data.valid) { setCouponValid(true); }

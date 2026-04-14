@@ -52,12 +52,12 @@ async function verifyGenericOwnership(
   }
 }
 
-async function redeemCoupon(code: string, tld: string = 'nftmail.gno'): Promise<{ ok: boolean; error?: string }> {
+async function redeemCoupon(code: string): Promise<{ ok: boolean; error?: string }> {
   try {
     const res = await fetch(NFTMAIL_WORKER_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'redeemCoupon', code: code.toUpperCase(), tld }),
+      body: JSON.stringify({ action: 'redeemCoupon', code: code.toUpperCase() }),
     });
     return await res.json() as { ok: boolean; error?: string };
   } catch {
@@ -153,7 +153,7 @@ export async function POST(req: NextRequest) {
         targetNamespace,
         'Are they equal?': targetTld === targetNamespace 
       });
-      const couponResult = await redeemCoupon(couponCode!.trim(), targetNamespace);
+      const couponResult = await redeemCoupon(couponCode!.trim());
       console.log('COUPON RESULT:', couponResult);
       if (!couponResult.ok) {
         return NextResponse.json({ status: 'error', step: 'fee', error: couponResult.error ?? 'Coupon invalid or already used' }, { status: 402 });
