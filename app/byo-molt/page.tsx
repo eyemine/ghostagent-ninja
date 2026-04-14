@@ -59,8 +59,11 @@ async function fetchEnsImage(tokenId: string): Promise<{ name: string; imageUrl:
 
 async function fetchChonkImage(tokenId: string): Promise<{ name: string; imageUrl: string | null }> {
   try {
+    const alchemyKey = process.env.NEXT_PUBLIC_ALCHEMY_API_KEY;
+    if (!alchemyKey) return { name: `Chonk #${tokenId}`, imageUrl: null };
+    
     // Use Alchemy NFT API to get the image
-    const res = await fetch(`https://base-mainnet.g.alchemy.com/nft/v3/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY || 'demo'}/getNFTMetadata?contractAddress=${CHONK_CONTRACT}&tokenId=${tokenId}&refreshCache=false`);
+    const res = await fetch(`https://base-mainnet.g.alchemy.com/nft/v3/${alchemyKey}/getNFTMetadata?contractAddress=${CHONK_CONTRACT}&tokenId=${tokenId}&refreshCache=false`);
     if (!res.ok) return { name: `Chonk #${tokenId}`, imageUrl: null };
     const data = await res.json() as any;
     // For video NFTs, use pngUrl (thumbnail), otherwise use cachedUrl
@@ -317,8 +320,8 @@ export default function OgNftMoltPage() {
     return contractAddr;
   };
   const resolvedRpc = () => {
-    if (nftType === 'chonk') return 'https://mainnet.base.org';
-    return 'https://ethereum.publicnode.com';
+    if (nftType === 'chonk') return `https://base-mainnet.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY || 'demo'}`;
+    return `https://eth-mainnet.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY || 'demo'}`;
   };
 
   const [ensResolving, setEnsResolving] = useState(false);
