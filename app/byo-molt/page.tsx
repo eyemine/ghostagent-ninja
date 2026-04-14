@@ -42,8 +42,8 @@ const GNOSIS_TREASURY = '0xeD0B0694953158dd54D0c36D320b391f44cd67f3'; // Treasur
 // Fee structure based on current tier
 const TIER_FEES = {
   'basic': 10,   // LARVA → PUPA (Free to paid tier)
-  'lite': 10,    // PUPA → IMAGO  
-  'premium': 14, // IMAGO → IMAGO (identity change)
+  'lite': 14,    // PUPA → IMAGO  
+  'premium': 2,  // IMAGO → IMAGO (identity change)
 } as const;
 
 async function fetchEnsImage(tokenId: string): Promise<{ name: string; imageUrl: string | null }> {
