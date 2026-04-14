@@ -164,6 +164,33 @@ export async function POST(req: NextRequest) {
         // Non-fatal — tier upgrade already committed
         larvaToPupaIPResult = { success: false, ipType: 'creation.ip', error: 'IP mint deferred' };
       }
+
+      // Step 2a.1: Larva → Pupa — register ERC-8004 identity (agent brain)
+      // This gives the body its agent identity and email account
+      try {
+        const sld = tld.replace('.gno', '');
+        const erc8004Body = { agentName: name, sld, ownerWallet: walletAddress };
+        // Register on all three chains (fire-and-forget)
+        await Promise.allSettled([
+          fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'https://ghostagent.ninja'}/api/erc8004/register`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(erc8004Body),
+          }),
+          fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'https://ghostagent.ninja'}/api/erc8004/register`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ...erc8004Body, network: 'base' }),
+          }),
+          fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'https://ghostagent.ninja'}/api/erc8004/register`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ...erc8004Body, network: 'baseSepolia' }),
+          }),
+        ]);
+      } catch {
+        // Non-fatal — tier upgrade already committed
+      }
     }
 
     // Step 2b: Pupa → Imago — deploy Story .ip asset via gasless-ip-mint

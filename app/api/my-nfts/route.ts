@@ -116,18 +116,18 @@ async function getTotalSupply(contract: string): Promise<number> {
   }
 }
 
-// Check worker KV to see if an agent name has ERC-8004 registration (= has brain)
+// Check worker KV to see if a body has evolved to PUPA (agent with brain)
 async function isAgentRegistered(name: string): Promise<boolean> {
   try {
     const res = await fetch(WORKER_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'getAgentIdentity', agentName: name }),
+      body: JSON.stringify({ action: 'getAcctTier', localPart: name, tld: '' }),
     });
     if (!res.ok) return false;
-    const data = await res.json() as { erc8004?: Record<string, any>; error?: string };
-    // Only true if ERC-8004 registration exists (has brain)
-    return !!(data.erc8004 && Object.keys(data.erc8004).length > 0 && !data.error);
+    const data = await res.json() as { tier?: string; error?: string };
+    // Agent = PUPA (lite) tier or above; basic = larva (body only)
+    return !!(data.tier && data.tier !== 'basic' && !data.error);
   } catch {
     return false;
   }

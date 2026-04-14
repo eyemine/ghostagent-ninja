@@ -36,30 +36,8 @@ export async function POST(request: Request) {
     // Free tier email: [name]_@nftmail.box is already routed by CF worker → KV inbox
     const email = `${agentName}_@nftmail.box`;
 
-    // ── ERC-8004 registration — fire-and-forget on all three chains ──
-    const erc8004Owner = ownerWallet ?? tbaAddress;
-    const erc8004Body = { agentName, sld, ownerWallet: erc8004Owner };
-    // Gnosis mainnet (chainId 100) — primary identity
-    fetch(`${APP_URL}/api/erc8004/register`, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify(erc8004Body),
-    }).catch(() => { /* non-fatal */ });
-    // Base mainnet (chainId 8453) — Synthesis hackathon
-    fetch(`${APP_URL}/api/erc8004/register`, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ ...erc8004Body, network: 'base' }),
-    }).catch(() => { /* non-fatal */ });
-    // Base Sepolia (chainId 84532) — Trustless Agents hackathon / trading competition
-    fetch(`${APP_URL}/api/erc8004/register`, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ ...erc8004Body, network: 'baseSepolia' }),
-    }).catch(() => { /* non-fatal */ });
-
-    // ── NFTMail sovereign registration — makes email visible on nftmail.box ──
-    // Writes nftmailgno:{agentName} KV so listNftmailByController returns cross-TLD agents
+    // ── Basic email routing (larva tier) ───────────────────────────────────────
+    // Sets up nftmailgno KV so email works at basic tier (10 sends, 8-day history)
     fetch(WORKER_URL, {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -73,6 +51,8 @@ export async function POST(request: Request) {
         secret:    WEBHOOK_SECRET,
       }),
     }).catch(() => { /* non-fatal */ });
+
+    // Note: ERC-8004 registration (agent brain) happens at PUPA molt upgrade
 
     return NextResponse.json({
       success: true,
