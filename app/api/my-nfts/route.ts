@@ -39,9 +39,10 @@ const BEACON_CONTRACTS: Record<string, string> = {
 };
 
 // Decode mintSubname(string label, ...) calldata — ABI string starts at offset pointer in head
+// Selector: keccak256("mintSubname(string,address,bytes,bytes32)") = 0xa253cc39
 function decodeLabelFromCalldata(input: string): string | null {
   try {
-    if (input.slice(0, 10) !== '0x8a5f6a4e') return null; // mintSubname selector
+    if (input.slice(0, 10) !== '0xa253cc39') return null; // mintSubname selector
     // Head word 0 (input[10..74]): byte offset to string data within params
     const strByteOffset = parseInt(input.slice(10, 74), 16); // typically 128 (4 params × 32)
     const strDataStart = 10 + strByteOffset * 2;            // hex index into input
@@ -66,7 +67,8 @@ async function buildLabelMap(contract: string): Promise<Map<number, string>> {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         jsonrpc: '2.0', id: 1, method: 'eth_getLogs',
-        params: [{ address: contract, fromBlock: 'earliest', toBlock: 'latest' }],
+        // Filter to SubnameMinted topic only: keccak256("SubnameMinted(bytes32,bytes32,bytes32,uint256,address)")
+        params: [{ address: contract, topics: ['0xe6468e1dbe999d7ba9f42b63f066848683db5dfec327d25e627f6da2a9d3980f'], fromBlock: 'earliest', toBlock: 'latest' }],
       }),
     });
     const logsData = await logsRes.json() as { result?: any[] };
@@ -94,12 +96,11 @@ async function buildLabelMap(contract: string): Promise<Map<number, string>> {
     for (const log of logsData.result) {
       const label = hashToLabel.get((log.transactionHash ?? '').toLowerCase());
       if (!label) continue;
-      // tokenId: try topic[3] first (indexed), then third 32-byte word of data
+      // SubnameMinted: topics[1..3] are indexed (parentNode,labelhash,subnode)
+      // data = abi.encode(uint256 tokenId, address owner) — tokenId is first 32 bytes
       let tokenId: number | null = null;
-      if (log.topics?.[3] && log.topics[3] !== '0x') {
-        tokenId = Number(BigInt(log.topics[3]));
-      } else if (log.data && log.data.length >= 2 + 192) {
-        tokenId = Number(BigInt('0x' + log.data.slice(2 + 128, 2 + 192)));
+      if (log.data && log.data.length >= 2 + 64) {
+        tokenId = Number(BigInt('0x' + log.data.slice(2, 2 + 64)));
       }
       if (tokenId && tokenId > 0) labelMap.set(tokenId, label);
     }
