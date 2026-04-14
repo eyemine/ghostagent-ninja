@@ -115,7 +115,7 @@ export async function POST(req: NextRequest) {
     const gnosisWallet = createWalletClient({ chain: gnosis, transport: http(), account });
 
     // ─── Build Story IPA metadata ───
-    const sld = tld.replace('.gno', '');
+    const sld = tld.replace('.gno', '') as 'agent' | 'openclaw' | 'molt' | 'picoclaw' | 'vault' | 'nftmail';
     const ipaMeta = buildIpaMetadata({
       agentName: label,
       sld,
