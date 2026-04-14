@@ -9,12 +9,33 @@ import { NextRequest, NextResponse } from 'next/server';
 const GNOSIS_RPC = 'https://rpc.gnosischain.com';
 const WORKER_URL = process.env.NEXT_PUBLIC_WORKER_URL ?? 'https://nftmail-email-worker.richard-159.workers.dev';
 
+// For ERC-6551 TBAs: call owner() to find the controlling EOA
+async function tbaOwner(address: string): Promise<string | null> {
+  try {
+    const res = await fetch(GNOSIS_RPC, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0', id: 1, method: 'eth_call',
+        params: [{ to: address, data: '0x8da5cb5b' }, 'latest'], // owner()
+      }),
+    });
+    const data = await res.json() as { result?: string };
+    if (!data.result || data.result.length < 66) return null;
+    return ('0x' + data.result.slice(26)).toLowerCase();
+  } catch {
+    return null;
+  }
+}
+
 // Known beacon NFT contracts (agent body NFTs)
 const BEACON_CONTRACTS: Record<string, string> = {
-  'nftmail.gno': '0x46c37365572C9994812AAA41fD04eB56D05469D0', // NFTMail registrar
-  'molt.gno': '0x4b54213c1e5826497ff39ba8c87a7b75d2bc3c50', // Molt registrar
+  'nftmail.gno':  '0x46c37365572C9994812AAA41fD04eB56D05469D0', // NFTMail registrar
+  'molt.gno':     '0x4b54213c1e5826497ff39ba8c87a7b75d2bc3c50', // Molt registrar
   'openclaw.gno': '0xbD8285A8455CCEC4bE671D9eE3924Ab1264fcbbe', // OpenClaw registrar
   'picoclaw.gno': '0xe5fd65562698f46ea9762bd38141535b1fd875b5', // PicoClaw registrar
+  'vault.gno':    '0xc6b184a38da64d1d535674dafb9ce2440058ec4e', // Vault registrar
+  'agent.gno':    '0x608071875bcc0ef0b934f8a2367672d8c472cacf', // Agent registrar
 };
 
 async function fetchTokenMetadata(contract: string, namespace: string, tokenId: number, wallet: string): Promise<NftBody | null> {
@@ -85,7 +106,7 @@ async function fetchNftsForContract(wallet: string, contract: string, namespace:
         jsonrpc: '2.0',
         id: 1,
         method: 'eth_call',
-        params: [{ to: contract, data: '0x00fdd58e' + wallet.slice(2).padStart(64, '0') }, 'latest'], // balanceOf
+        params: [{ to: contract, data: '0x70a08231' + wallet.slice(2).padStart(64, '0') }, 'latest'], // balanceOf(address) ERC721
       }),
     });
     const balanceData = await balanceRes.json() as { result?: string };
@@ -124,7 +145,14 @@ async function fetchNftsForContract(wallet: string, contract: string, namespace:
           console.log(`[my-nfts] Token 6 owner: ${owner}, wallet: ${wallet}`);
           console.log(`[my-nfts] Match: ${owner.toLowerCase() === wallet.toLowerCase()}`);
           
-          if (owner.toLowerCase() === wallet.toLowerCase()) {
+          const ownerLower = owner.toLowerCase();
+          const walletLower = wallet.toLowerCase();
+          const directMatch = ownerLower === walletLower;
+          // ERC-6551 TBA: owner of the TBA contract may be the wallet
+          const tbaMatch = !directMatch && ownerLower !== '0x0000000000000000000000000000000000000000'
+            ? (await tbaOwner(owner)) === walletLower
+            : false;
+          if (directMatch || tbaMatch) {
             const nft = await fetchTokenMetadata(contract, namespace, 6, wallet);
             console.log(`[my-nfts] Found token 6 metadata:`, nft);
             if (nft) return [nft];
@@ -151,8 +179,13 @@ async function fetchNftsForContract(wallet: string, contract: string, namespace:
           });
           const ownerData = await ownerRes.json() as { result?: string };
           if (ownerData.result && ownerData.result !== '0x') {
-            const owner = ('0x' + ownerData.result.slice(26)).toLowerCase();
-            if (owner === wallet.toLowerCase()) {
+            const ownerAddr = ('0x' + ownerData.result.slice(26)).toLowerCase();
+            const walletLower = wallet.toLowerCase();
+            const directMatch = ownerAddr === walletLower;
+            const tbaMatch = !directMatch && ownerAddr !== '0x0000000000000000000000000000000000000000'
+              ? (await tbaOwner(ownerAddr)) === walletLower
+              : false;
+            if (directMatch || tbaMatch) {
               const nft = await fetchTokenMetadata(contract, namespace, tokenId, wallet);
               if (nft) nfts.push(nft);
             }

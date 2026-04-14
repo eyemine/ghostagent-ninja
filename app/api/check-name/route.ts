@@ -27,7 +27,10 @@ const ethClient = createPublicClient({
 });
 
 // GNS Registry on Gnosis mainnet — authoritative on-chain subname ownership
-const GNS_REGISTRY = '0xA505e447474bd1774977510e7a7C9459DA79c4b9' as const;
+// Check both known deployments; registrar may write to either.
+const GNS_REGISTRY_PRIMARY   = '0xA505e447474bd1774977510e7a7C9459DA79c4b9' as const;
+const GNS_REGISTRY_SECONDARY = '0x00cEBf9E1E81D3CC17fbA0a49306fA77e3dBe823' as const;
+const GNS_REGISTRY = GNS_REGISTRY_PRIMARY; // kept for gasless-mint compat
 const GNS_REGISTRY_ABI = [{
   name: 'owner',
   type: 'function',
@@ -79,35 +82,36 @@ export async function GET(req: NextRequest) {
   }
 
   // ── 1. On-chain GNS Registry: is this subname already minted? ─────────────
-  // This is the authoritative check — queries the Gnosis chain registry directly.
-  try {
-    const node = namehash(`${name}.${tld}`);
-    console.log(`[check-name] GNS lookup: ${name}.${tld} → node ${node}`);
-    const existingOwner = await gnosisClient.readContract({
-      address: GNS_REGISTRY,
-      abi: GNS_REGISTRY_ABI,
-      functionName: 'owner',
-      args: [node],
-    });
-    console.log(`[check-name] GNS owner for ${name}.${tld}: ${existingOwner}`);
-    if (existingOwner && existingOwner !== '0x0000000000000000000000000000000000000000') {
-      return NextResponse.json({
-        available: false,
-        reason: 'taken',
-        message: `${name}.${tld} is already minted on Gnosis Chain.`,
+  // Query both known GNS registry deployments; registrar may write to either.
+  const node = namehash(`${name}.${tld}`);
+  for (const reg of [GNS_REGISTRY_PRIMARY, GNS_REGISTRY_SECONDARY]) {
+    try {
+      const existingOwner = await gnosisClient.readContract({
+        address: reg,
+        abi: GNS_REGISTRY_ABI,
+        functionName: 'owner',
+        args: [node],
       });
+      console.log(`[check-name] GNS ${reg} owner for ${name}.${tld}: ${existingOwner}`);
+      if (existingOwner && existingOwner !== '0x0000000000000000000000000000000000000000') {
+        return NextResponse.json({
+          available: false,
+          reason: 'taken',
+          message: `${name}.${tld} is already minted on Gnosis Chain.`,
+        });
+      }
+    } catch (err) {
+      console.error(`[check-name] GNS Registry ${reg} check failed for ${name}.${tld}:`, err);
     }
-  } catch (err) {
-    console.error(`[check-name] GNS Registry check failed for ${name}.${tld}:`, err);
   }
 
-  // ── 1b. Worker KV fallback: check acct-tier + tld keys ────────────────────
+  // ── 1b. Worker KV fallback: getAgentIdentity + tld keys ─────────────────
   try {
-    const [acctRes, tldRes] = await Promise.all([
+    const [identityRes, tldRes] = await Promise.all([
       fetch(WORKER_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'getAcctTier', localPart: name }),
+        body: JSON.stringify({ action: 'getAgentIdentity', name }),
       }),
       fetch(WORKER_URL, {
         method: 'POST',
@@ -117,16 +121,23 @@ export async function GET(req: NextRequest) {
     ]);
     let kvTaken = false;
     let kvTld: string | null = null;
-    if (acctRes.ok) {
-      const data = await acctRes.json() as { tier?: string | null; raw?: string | null; error?: string };
-      kvTaken = !!(data.raw && !data.error);
+    // getAgentIdentity: if an identity exists with ANY data, name is registered
+    if (identityRes.ok) {
+      const identity = await identityRes.json() as { name?: string; tld?: string; error?: string };
+      if (identity.name && !identity.error) {
+        // Match by TLD — normalise: 'molt' or 'molt.gno' both match 'molt.gno'
+        const identityTld = identity.tld ?? '';
+        const normalised = identityTld.includes('.') ? identityTld : `${identityTld}.gno`;
+        kvTaken = normalised.toLowerCase() === tld.toLowerCase();
+      }
     }
     if (!kvTaken && tldRes.ok) {
       const tldData = await tldRes.json() as { tld?: string | null };
       if (tldData.tld) {
         kvTld = tldData.tld;
-        // Only mark as taken if the KV TLD matches the requested TLD
-        kvTaken = tldData.tld.toLowerCase() === tld.toLowerCase();
+        // Normalise: handle both 'molt' and 'molt.gno'
+        const normKvTld = kvTld.includes('.') ? kvTld : `${kvTld}.gno`;
+        kvTaken = normKvTld.toLowerCase() === tld.toLowerCase();
       }
     }
     if (kvTaken) {
@@ -136,7 +147,6 @@ export async function GET(req: NextRequest) {
         message: `${name}.${tld} is already registered.`,
       });
     }
-    // If KV has a different TLD, log it for debugging but don't block
     if (kvTld && kvTld.toLowerCase() !== tld.toLowerCase()) {
       console.log(`[check-name] Name ${name} exists with different TLD: ${kvTld} (requested: ${tld})`);
     }

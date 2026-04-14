@@ -77,7 +77,7 @@ export function GenomeEditor({
           </div>
           <button
             type="button"
-            onClick={() => setImgTs(() => Date.now())}
+            onClick={() => { setImgTs(() => Date.now()); onChange(defaultGenomeMetadata(agentName, sld)); }}
             className="rounded-lg border border-[rgba(176,128,92,0.3)] bg-[rgba(176,128,92,0.08)] px-2.5 py-1 text-[10px] font-semibold text-[#b0805c] hover:bg-[rgba(176,128,92,0.14)] transition-colors"
           >
             Refresh preview

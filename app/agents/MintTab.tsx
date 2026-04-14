@@ -291,7 +291,7 @@ export default function MintTab() {
             return (
               <button
                 key={n.key}
-                onClick={() => { setSelected(n.key); setCheckStatus('idle'); setCheckResult(null); }}
+                onClick={() => { setSelected(n.key); setCheckStatus('idle'); setCheckResult(null); setGenomeMeta(agentName ? defaultGenomeMetadata(agentName, n.key as Namespace) : null); }}
                 className={`group relative flex flex-col gap-1 rounded-xl border p-4 text-left transition-all ${
                   isSelected
                     ? `${nsC.selectedBorder} ${nsC.selectedBg}`
