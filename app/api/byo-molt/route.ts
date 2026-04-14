@@ -52,12 +52,12 @@ async function verifyGenericOwnership(
   }
 }
 
-async function redeemCoupon(code: string): Promise<{ ok: boolean; error?: string }> {
+async function redeemCoupon(code: string, tld: string = 'nftmail.gno'): Promise<{ ok: boolean; error?: string }> {
   try {
     const res = await fetch(NFTMAIL_WORKER_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'redeemCoupon', code: code.toUpperCase(), tld: 'nftmail.gno' }),
+      body: JSON.stringify({ action: 'redeemCoupon', code: code.toUpperCase(), tld }),
     });
     return await res.json() as { ok: boolean; error?: string };
   } catch {
@@ -88,11 +88,13 @@ export async function POST(req: NextRequest) {
       nftName?: string;
       moltTarget?: string;
       targetAgent?: string;
+      targetTld?: string;
     };
 
-    const { primaryName, tokenId, ownerWallet, paymentTxHash, couponCode, nftType, contractAddress, nftName, moltTarget, targetAgent } = body;
+    const { primaryName, tokenId, ownerWallet, paymentTxHash, couponCode, nftType, contractAddress, nftName, moltTarget, targetAgent, targetTld } = body;
     const type = nftType ?? 'chonk';
     const isOverlay = moltTarget === 'existing-agent' && targetAgent;
+    const targetNamespace = targetTld ?? 'nftmail.gno';
 
     if (!primaryName || typeof primaryName !== 'string') {
       return NextResponse.json({ error: 'Missing primaryName' }, { status: 400 });
@@ -131,7 +133,7 @@ export async function POST(req: NextRequest) {
 
     // ── Step 2: Verify payment OR redeem coupon ──
     if (hasCoupon) {
-      const couponResult = await redeemCoupon(couponCode!.trim());
+      const couponResult = await redeemCoupon(couponCode!.trim(), targetNamespace);
       if (!couponResult.ok) {
         return NextResponse.json({ status: 'error', step: 'fee', error: couponResult.error ?? 'Coupon invalid or already used' }, { status: 402 });
       }
@@ -167,13 +169,13 @@ export async function POST(req: NextRequest) {
       } catch {
         // Safe lookup failed, mint to owner wallet instead
       }
-      beacon = await mintChonkBeacon(tokenId, ownerWallet, APP_URL, webhookSecret, beaconLabel, safeAddress);
+      beacon = await mintChonkBeacon(tokenId, ownerWallet, APP_URL, webhookSecret, beaconLabel, safeAddress, targetNamespace);
       if (!beacon.success) {
         return NextResponse.json({ status: 'error', step: 'beacon-mint', error: beacon.error ?? 'Beacon mint failed' }, { status: 502 });
       }
     } else {
       // New agent: mint fresh beacon to owner wallet
-      beacon = await mintChonkBeacon(tokenId, ownerWallet, APP_URL, webhookSecret, beaconLabel);
+      beacon = await mintChonkBeacon(tokenId, ownerWallet, APP_URL, webhookSecret, beaconLabel, undefined, targetNamespace);
       if (!beacon.success) {
         return NextResponse.json({ status: 'error', step: 'beacon-mint', error: beacon.error ?? 'Beacon mint failed' }, { status: 502 });
       }

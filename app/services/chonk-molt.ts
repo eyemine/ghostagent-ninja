@@ -148,6 +148,7 @@ export async function mintChonkBeacon(
   webhookSecret: string,
   label?: string,
   recipient?: string,
+  tld?: string,
 ): Promise<{
   success: boolean;
   txHash?: string;
@@ -159,6 +160,7 @@ export async function mintChonkBeacon(
   // Default label format: chonk-{tokenId} (hyphenated to avoid sub.sub.name)
   const beaconLabel = label ?? `chonk-${tokenId}`;
   const mintTo = recipient ?? ownerWallet;
+  const targetTld = tld ?? 'nftmail.gno';
 
   try {
     const res = await fetch(`${appUrl}/api/gnosis-mint`, {
@@ -169,6 +171,7 @@ export async function mintChonkBeacon(
         ownerWallet: mintTo,
         legacyIdentity: beaconLabel,
         privacyTier: 'private',
+        tld: targetTld,
       }),
     });
     const data = await res.json() as any;
@@ -179,7 +182,7 @@ export async function mintChonkBeacon(
       success: true,
       txHash: data.txHash,
       beaconTokenId: data.tokenId ?? null,
-      beaconNft: `${beaconLabel}.nftmail.gno`,
+      beaconNft: `${beaconLabel}.${targetTld}`,
       email: data.email,
     };
   } catch (err: any) {

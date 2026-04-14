@@ -28,8 +28,17 @@ const gnosis = defineChain({
   blockExplorers: { default: { name: 'Gnosisscan', url: 'https://gnosisscan.io' } },
 });
 
-const NFTMAIL_GNO_REGISTRAR = '0x46c37365572C9994812AAA41fD04eB56D05469D0' as Address;
 const NFTMAIL_WORKER_URL = process.env.NFTMAIL_WORKER_URL || 'https://nftmail-email-worker.richard-159.workers.dev';
+
+// Registrar contracts per TLD
+const REGISTRAR_CONTRACTS: Record<string, Address> = {
+  'nftmail.gno': '0x46c37365572C9994812AAA41fD04eB56D05469D0',
+  'molt.gno': '0x4b54213c1e5826497ff39ba8c87a7b75d2bc3c50',
+  'openclaw.gno': '0xbD8285A8455CCEC4bE671D9eE3924Ab1264fcbbe',
+  'picoclaw.gno': '0xe5fd65562698f46ea9762bd38141535b1fd875b5',
+  'vault.gno': '0xc6b184a38da64d1d535674dafb9ce2440058ec4e',
+  'agent.gno': '0x608071875bcc0ef0b934f8a2367672d8c472cacf',
+};
 
 const MintSubnameABI = [
   {
@@ -83,8 +92,15 @@ export async function POST(req: NextRequest) {
       ownerWallet?: string;
       legacyIdentity?: string;
       privacyTier?: string;
+      tld?: string;
     };
-    const { label, ownerWallet, legacyIdentity, privacyTier = 'private' } = body;
+    const { label, ownerWallet, legacyIdentity, privacyTier = 'private', tld = 'nftmail.gno' } = body;
+
+    // Validate and get registrar contract for the TLD
+    const registrarContract = REGISTRAR_CONTRACTS[tld];
+    if (!registrarContract) {
+      return NextResponse.json({ error: `Unsupported TLD: ${tld}. Supported: ${Object.keys(REGISTRAR_CONTRACTS).join(', ')}` }, { status: 400 });
+    }
 
     if (!label || typeof label !== 'string' || !isValidLabel(label)) {
       return NextResponse.json({ error: 'Invalid label — must be lowercase alphanumeric with optional dots/hyphens, min 3 chars, no underscore' }, { status: 400 });
@@ -99,9 +115,10 @@ export async function POST(req: NextRequest) {
     const gnosisWallet = createWalletClient({ chain: gnosis, transport: http(), account });
 
     // ─── Build Story IPA metadata ───
+    const sld = tld.replace('.gno', '');
     const ipaMeta = buildIpaMetadata({
       agentName: label,
-      sld: 'nftmail',
+      sld,
       ownerAddress: ownerWallet,
     });
     const ipaMetaBytes = `0x${Buffer.from(JSON.stringify(ipaMeta)).toString('hex')}` as `0x${string}`;
@@ -109,7 +126,7 @@ export async function POST(req: NextRequest) {
     // ─── Mint on Gnosis via treasury wallet ───
     const tbaSalt = `0x${'0'.repeat(64)}` as `0x${string}`;
     const hash = await gnosisWallet.writeContract({
-      address: NFTMAIL_GNO_REGISTRAR,
+      address: registrarContract,
       abi: MintSubnameABI,
       functionName: 'mintSubname',
       args: [label, ownerWallet as Address, ipaMetaBytes, tbaSalt],
@@ -129,7 +146,7 @@ export async function POST(req: NextRequest) {
       } catch {}
     }
 
-    const originNft = `${label}.nftmail.gno`;
+    const originNft = `${label}.${tld}`;
     const email = `${label}@nftmail.box`;
 
     // ─── Register sovereign inbox in KV via worker ───
@@ -141,10 +158,9 @@ export async function POST(req: NextRequest) {
         secret: webhookSecret,
         label,
         controller: ownerWallet,
-        originNft,
-        legacyIdentity: legacyIdentity || null,
-        mintedTokenId,
-        privacyTier,
+        origin_nft: `${label}.${tld}`,
+        tld,
+        tier: privacyTier,
       }),
     });
     const workerJson = await workerRes.json() as any;
