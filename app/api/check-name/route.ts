@@ -120,35 +120,32 @@ export async function GET(req: NextRequest) {
       }),
     ]);
     let kvTaken = false;
-    let kvTld: string | null = null;
-    // getAgentIdentity: if an identity exists with ANY data, name is registered
+    let registeredTld: string | null = null;
+    // getAgentIdentity: if an identity exists the name is globally reserved (cross-TLD)
     if (identityRes.ok) {
       const identity = await identityRes.json() as { name?: string; tld?: string; error?: string };
       if (identity.name && !identity.error) {
-        // Match by TLD — normalise: 'molt' or 'molt.gno' both match 'molt.gno'
-        const identityTld = identity.tld ?? '';
-        const normalised = identityTld.includes('.') ? identityTld : `${identityTld}.gno`;
-        kvTaken = normalised.toLowerCase() === tld.toLowerCase();
+        kvTaken = true;
+        registeredTld = identity.tld ?? null;
       }
     }
+    // getAgentTLD: tld:{name} KV key set by gasless-mint after every mint
     if (!kvTaken && tldRes.ok) {
       const tldData = await tldRes.json() as { tld?: string | null };
       if (tldData.tld) {
-        kvTld = tldData.tld;
-        // Normalise: handle both 'molt' and 'molt.gno'
-        const normKvTld = kvTld.includes('.') ? kvTld : `${kvTld}.gno`;
-        kvTaken = normKvTld.toLowerCase() === tld.toLowerCase();
+        kvTaken = true;
+        registeredTld = tldData.tld;
       }
     }
     if (kvTaken) {
+      const regLabel = registeredTld
+        ? `${name}.${registeredTld.includes('.') ? registeredTld : registeredTld + '.gno'}`
+        : name;
       return NextResponse.json({
         available: false,
         reason: 'taken',
-        message: `${name}.${tld} is already registered.`,
+        message: `"${name}" is already registered as ${regLabel}. Agent names are reserved across all namespaces to protect ${name}_@nftmail.box.`,
       });
-    }
-    if (kvTld && kvTld.toLowerCase() !== tld.toLowerCase()) {
-      console.log(`[check-name] Name ${name} exists with different TLD: ${kvTld} (requested: ${tld})`);
     }
   } catch {
     // worker unreachable — proceed optimistically

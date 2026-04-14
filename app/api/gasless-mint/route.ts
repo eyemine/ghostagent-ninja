@@ -271,6 +271,14 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify({ agentName: label, tbaAddress, sld: namespace, ownerWallet: owner }),
     }).catch(() => {});
 
+    // ── Reserve name globally in KV (cross-TLD protection) ──────────────────
+    // Blocks chonk676.agent.gno if chonk676.molt.gno is already minted.
+    fetch(WORKER_URL, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ action: 'setTld', agentName: label, tld: `${namespace}.gno` }),
+    }).catch(() => {});
+
     // ── Redeem coupon after successful mint (non-fatal) ───────────────────────
     if (isCouponMint) {
       fetch(WORKER_URL, {
