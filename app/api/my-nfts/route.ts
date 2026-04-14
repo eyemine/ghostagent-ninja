@@ -94,182 +94,97 @@ interface NftBody {
   tokenId: number;
   tba: string;
   minted: string;
+  isAgent?: boolean;  // true if ERC-8004 registered (has brain)
+}
+
+// Get total supply of an ERC721 contract (totalSupply selector 0x18160ddd)
+async function getTotalSupply(contract: string): Promise<number> {
+  try {
+    const res = await fetch(GNOSIS_RPC, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0', id: 1, method: 'eth_call',
+        params: [{ to: contract, data: '0x18160ddd' }, 'latest'],
+      }),
+    });
+    const data = await res.json() as { result?: string };
+    if (!data.result || data.result === '0x') return 0;
+    return parseInt(data.result, 16);
+  } catch {
+    return 0;
+  }
+}
+
+// Check worker KV to see if an agent name has ERC-8004 registration (= has brain)
+async function isAgentRegistered(name: string): Promise<boolean> {
+  try {
+    const res = await fetch(WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'getAgentIdentity', name }),
+    });
+    if (!res.ok) return false;
+    const data = await res.json() as { agentId?: string | number; error?: string };
+    return !!(data.agentId && !data.error);
+  } catch {
+    return false;
+  }
 }
 
 async function fetchNftsForContract(wallet: string, contract: string, namespace: string): Promise<NftBody[]> {
   try {
-    // Get token balance (number of NFTs owned)
-    const balanceRes = await fetch(GNOSIS_RPC, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'eth_call',
-        params: [{ to: contract, data: '0x70a08231' + wallet.slice(2).padStart(64, '0') }, 'latest'], // balanceOf(address) ERC721
-      }),
-    });
-    const balanceData = await balanceRes.json() as { result?: string };
-    if (!balanceData.result) return [];
+    // ── Step 1: how many tokens have been minted? ─────────────────────────────
+    // Registrars may not implement ERC721Enumerable (tokenOfOwnerByIndex),
+    // so we scan 1..totalSupply via ownerOf instead.
+    const totalSupply = await getTotalSupply(contract);
+    // Always scan at least 1-20 as a safety net even if totalSupply is 0
+    const upperBound = Math.min(Math.max(totalSupply, 20), 200);
 
-    const balance = parseInt(balanceData.result, 16);
-    
-    // If balance is 0, still check specific token IDs since some contracts
-    // don't properly track balanceOf but do track ownerOf
+    const walletLower = wallet.toLowerCase();
+    const ZERO = '0x0000000000000000000000000000000000000000';
     const nfts: NftBody[] = [];
-    
-    if (balance === 0) {
-      // Specific check for rgbanksy token #6 on nftmail.gno
-      console.log(`[my-nfts] Checking ${namespace} for wallet ${wallet}`);
-      
-      // Check token #6 specifically first
+
+    // ── Step 2: ownerOf scan ──────────────────────────────────────────────────
+    for (let tokenId = 1; tokenId <= upperBound; tokenId++) {
       try {
-        const tokenIdHex = BigInt(6).toString(16).padStart(64, '0');
-        console.log(`[my-nfts] Checking token 6 with hex: ${tokenIdHex}`);
-        
+        const tokenIdHex = BigInt(tokenId).toString(16).padStart(64, '0');
         const ownerRes = await fetch(GNOSIS_RPC, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            jsonrpc: '2.0',
-            id: 1,
-            method: 'eth_call',
-            params: [{ to: contract, data: '0x6352211e' + tokenIdHex }, 'latest'],
+            jsonrpc: '2.0', id: 1, method: 'eth_call',
+            params: [{ to: contract, data: '0x6352211e' + tokenIdHex }, 'latest'], // ownerOf
           }),
         });
-        const ownerData = await ownerRes.json() as { result?: string; error?: any };
-        console.log(`[my-nfts] Token 6 owner response:`, JSON.stringify(ownerData));
-        
-        if (ownerData.result) {
-          const owner = '0x' + ownerData.result.slice(26);
-          console.log(`[my-nfts] Token 6 owner: ${owner}, wallet: ${wallet}`);
-          console.log(`[my-nfts] Match: ${owner.toLowerCase() === wallet.toLowerCase()}`);
-          
-          const ownerLower = owner.toLowerCase();
-          const walletLower = wallet.toLowerCase();
-          const directMatch = ownerLower === walletLower;
-          // ERC-6551 TBA: owner of the TBA contract may be the wallet
-          const tbaMatch = !directMatch && ownerLower !== '0x0000000000000000000000000000000000000000'
-            ? (await tbaOwner(owner)) === walletLower
-            : false;
-          if (directMatch || tbaMatch) {
-            const nft = await fetchTokenMetadata(contract, namespace, 6, wallet);
-            console.log(`[my-nfts] Found token 6 metadata:`, nft);
-            if (nft) return [nft];
-          }
-        }
-      } catch (err) {
-        console.log(`[my-nfts] Error checking token 6:`, err);
-      }
-      
-      // Check tokens 1-10 if #6 wasn't found
-      for (let tokenId = 1; tokenId <= 10; tokenId++) {
-        if (tokenId === 6) continue; // Skip 6 since we checked it
-        try {
-          const tokenIdHex = BigInt(tokenId).toString(16).padStart(64, '0');
-          const ownerRes = await fetch(GNOSIS_RPC, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              jsonrpc: '2.0',
-              id: 1,
-              method: 'eth_call',
-              params: [{ to: contract, data: '0x6352211e' + tokenIdHex }, 'latest'],
-            }),
-          });
-          const ownerData = await ownerRes.json() as { result?: string };
-          if (ownerData.result && ownerData.result !== '0x') {
-            const ownerAddr = ('0x' + ownerData.result.slice(26)).toLowerCase();
-            const walletLower = wallet.toLowerCase();
-            const directMatch = ownerAddr === walletLower;
-            const tbaMatch = !directMatch && ownerAddr !== '0x0000000000000000000000000000000000000000'
-              ? (await tbaOwner(ownerAddr)) === walletLower
-              : false;
-            if (directMatch || tbaMatch) {
-              const nft = await fetchTokenMetadata(contract, namespace, tokenId, wallet);
-              if (nft) nfts.push(nft);
-            }
-          }
-        } catch {
-          // Continue to next token
-        }
-      }
-      console.log(`[my-nfts] Found ${nfts.length} NFTs for ${namespace}`);
-      return nfts;
-    }
+        const ownerData = await ownerRes.json() as { result?: string };
+        if (!ownerData.result || ownerData.result.length < 66) continue;
 
-    // For each token owned, get its token ID and metadata
-    for (let i = 0; i < balance; i++) {
-      try {
-        // Get token ID by index for this owner (tokenOfOwnerByIndex)
-        const ownerPadded = wallet.slice(2).padStart(64, '0');
-        const indexPadded = i.toString(16).padStart(64, '0');
-        const tokenByIndexRes = await fetch(GNOSIS_RPC, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            jsonrpc: '2.0',
-            id: 1,
-            method: 'eth_call',
-            params: [{ to: contract, data: '0x2f745c59' + ownerPadded + indexPadded }, 'latest'], // tokenOfOwnerByIndex
-          }),
-        });
-        const tokenData = await tokenByIndexRes.json() as { result?: string };
-        if (!tokenData.result) continue;
+        const ownerAddr = ('0x' + ownerData.result.slice(26)).toLowerCase();
+        if (ownerAddr === ZERO.toLowerCase()) continue;
 
-        const tokenId = parseInt(tokenData.result, 16);
-        
-        // Get token URI to fetch metadata
-        const tokenUriRes = await fetch(GNOSIS_RPC, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            jsonrpc: '2.0',
-            id: 1,
-            method: 'eth_call',
-            params: [{ to: contract, data: '0xc87b56dd' + tokenId.toString(16).padStart(64, '0') }, 'latest'], // tokenURI
-          }),
-        });
-        const uriData = await tokenUriRes.json() as { result?: string };
-        
-        let name = `Token #${tokenId}`;
-        let minted = new Date().toLocaleDateString('en-GB');
-        
-        if (uriData.result && uriData.result !== '0x') {
-          try {
-            const uri = uriData.result.startsWith('0x') 
-              ? Buffer.from(uriData.result.slice(2), 'hex').toString()
-              : uriData.result;
-            
-            if (uri.startsWith('http')) {
-              const metaRes = await fetch(uri);
-              if (metaRes.ok) {
-                const metadata = await metaRes.json() as any;
-                name = metadata.name || name;
-                // Try to extract mint date from metadata if available
-                if (metadata.created_at) {
-                  minted = new Date(metadata.created_at).toLocaleDateString('en-GB');
-                }
-              }
-            }
-          } catch {
-            // Metadata fetch failed, use defaults
-          }
+        const directMatch = ownerAddr === walletLower;
+        // ERC-6551 TBA: if owner is a contract, check if wallet controls it
+        const tbaMatch = !directMatch
+          ? (await tbaOwner(ownerAddr)) === walletLower
+          : false;
+
+        if (directMatch || tbaMatch) {
+          const nft = await fetchTokenMetadata(contract, namespace, tokenId, wallet);
+          if (nft) nfts.push(nft);
         }
-
-        nfts.push({
-          name: name.replace(/\s+/g, '-').toLowerCase(),
-          namespace,
-          tokenId,
-          tba: wallet.slice(0, 8) + '...' + wallet.slice(-4),
-          minted,
-        });
       } catch {
-        // Skip this token if there's an error
-        continue;
+        // ownerOf reverted (token doesn't exist) — stop scanning
+        if (tokenId > totalSupply) break;
       }
     }
 
+    // ── Step 3: flag agents (ERC-8004 registered = has brain) ────────────────
+    await Promise.all(nfts.map(async (nft) => {
+      nft.isAgent = await isAgentRegistered(nft.name);
+    }));
+
+    console.log(`[my-nfts] ${namespace}: found ${nfts.length} NFTs (supply=${totalSupply})`);
     return nfts;
   } catch {
     return [];
@@ -290,7 +205,11 @@ export async function GET(req: NextRequest) {
       onChainNfts.push(...nfts);
     }
 
-    return NextResponse.json({ nfts: onChainNfts });
+    // Partition: agents (ERC-8004 registered) vs bodies (NFTs without brain)
+    const agents = onChainNfts.filter(n => n.isAgent);
+    const bodies = onChainNfts.filter(n => !n.isAgent);
+
+    return NextResponse.json({ nfts: onChainNfts, agents, bodies });
   } catch (err: any) {
     console.error('[my-nfts]', err);
     return NextResponse.json(

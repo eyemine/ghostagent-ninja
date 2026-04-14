@@ -10,6 +10,8 @@ import { mintCreationIP } from '../../lib/story-mint';
 /// Body: { agentName: string, tbaAddress: `0x${string}`, sld?: string, ownerWallet?: string }
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://ghostagent.ninja';
+const WORKER_URL = process.env.NEXT_PUBLIC_WORKER_URL ?? 'https://nftmail-email-worker.richard-159.workers.dev';
+const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET ?? '';
 
 export async function POST(request: Request) {
   try {
@@ -54,6 +56,22 @@ export async function POST(request: Request) {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({ ...erc8004Body, network: 'baseSepolia' }),
+    }).catch(() => { /* non-fatal */ });
+
+    // ── NFTMail sovereign registration — makes email visible on nftmail.box ──
+    // Writes nftmailgno:{agentName} KV so listNftmailByController returns cross-TLD agents
+    fetch(WORKER_URL, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({
+        action:    'registerSovereign',
+        label:     agentName,
+        controller: ownerWallet ?? tbaAddress,
+        origin_nft:`${agentName}.${sld}.gno`,
+        tld:       `${sld}.gno`,
+        tier:      'basic',
+        secret:    WEBHOOK_SECRET,
+      }),
     }).catch(() => { /* non-fatal */ });
 
     return NextResponse.json({
