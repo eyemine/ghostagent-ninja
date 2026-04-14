@@ -38,7 +38,7 @@ const ENS_CONTRACT    = '0x57f1887a8BF19b14fC0dF6Fd9B2acc9Af147eA85';
 const POWNFT_CONTRACT = '0x9abb7bddc43fa67c76a62d8c016513827f59be1b';
 const NORMIE_CONTRACT = '0x9eb6e2025b64f340691e424b7fe7022ffde12438';
 const MOLT_FEE_XDAI  = 2;
-const GHOSTAGENT_SAFE = '0xb7e493e3d226f8fE722CC9916fF164B793af13F4'; // GhostAgent Ninja Safe (revenue)
+const GNOSIS_TREASURY = '0xeD0B0694953158dd54D0c36D320b391f44cd67f3'; // Treasury for BYO molt fees
 
 async function fetchEnsImage(tokenId: string): Promise<{ name: string; imageUrl: string | null }> {
   try {
@@ -354,7 +354,7 @@ export default function OgNftMoltPage() {
       const [account] = await walletClient.requestAddresses();
       const txHash = await walletClient.sendTransaction({
         account,
-        to: GHOSTAGENT_SAFE as `0x${string}`,
+        to: GNOSIS_TREASURY as `0x${string}`,
         value: parseEther(String(MOLT_FEE_XDAI)),
         chain: gnosis,
       });
@@ -444,7 +444,7 @@ export default function OgNftMoltPage() {
         </div>
         <div className="mt-3 flex items-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2">
           <svg className="h-3.5 w-3.5 shrink-0 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-          <p className="text-[10px] text-amber-300">Fee: <strong>{MOLT_FEE_XDAI} xDAI</strong> on Gnosis · send to <span className="font-mono">{GHOSTAGENT_SAFE.slice(0,10)}…</span> then paste tx hash</p>
+          <p className="text-[10px] text-amber-300">Fee: <strong>{MOLT_FEE_XDAI} xDAI</strong> on Gnosis · send to <span className="font-mono">{GNOSIS_TREASURY.slice(0,10)}…</span> then paste tx hash</p>
         </div>
       </div>
 
@@ -755,14 +755,13 @@ export default function OgNftMoltPage() {
                       <span className="flex-1 border-t border-[rgba(176,128,92,0.15)]" />
                     </div>
                     <MercuryoButton
-                      walletAddress={GHOSTAGENT_SAFE}
+                      walletAddress={GNOSIS_TREASURY}
                       defaultAmount={3}
                       label={`💳 Pay with Card (~$${MOLT_FEE_XDAI} USD)`}
-                      onSuccess={(txId) => { setPaymentTxHash(txId); }}
                     />
                     <p className="text-[9px] text-[var(--muted)] text-center">
-                      Wallet payment sends {MOLT_FEE_XDAI} xDAI on Gnosis to GhostAgent Safe{' '}
-                      <span className="font-mono text-amber-300/60">{GHOSTAGENT_SAFE.slice(0,10)}…</span>
+                      Wallet payment sends {MOLT_FEE_XDAI} xDAI on Gnosis to Treasury{' '}
+                      <span className="font-mono text-amber-300/60">{GNOSIS_TREASURY.slice(0,10)}…</span>
                     </p>
                   </div>
                 )}
