@@ -122,11 +122,12 @@ async function isAgentRegistered(name: string): Promise<boolean> {
     const res = await fetch(WORKER_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'getAgentIdentity', name }),
+      body: JSON.stringify({ action: 'getAgentIdentity', agentName: name }),
     });
     if (!res.ok) return false;
-    const data = await res.json() as { agentId?: string | number; error?: string };
-    return !!(data.agentId && !data.error);
+    const data = await res.json() as { erc8004?: Record<string, any>; error?: string };
+    // Only true if ERC-8004 registration exists (has brain)
+    return !!(data.erc8004 && Object.keys(data.erc8004).length > 0 && !data.error);
   } catch {
     return false;
   }
