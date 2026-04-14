@@ -413,7 +413,7 @@ export default function OgNftMoltPage() {
     addLog(`Verifying ${nftPreview?.name ?? 'NFT'} ownership on-chain…`);
     addLog(txHash ? 'Verifying 2 xDAI fee payment on Gnosis…' : 'Coupon applied — fee waived');
     try {
-      const res = await fetch('/api/byo-molt', {
+      const res = await fetch(`/api/byo-molt?v=${Date.now()}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
