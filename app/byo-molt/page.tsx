@@ -178,6 +178,9 @@ async function checkOwner(contract: string, tokenId: string, rpc: string): Promi
   return ('0x' + data.result.slice(26)).toLowerCase();
 }
 
+// Build version to force cache invalidation
+const BUILD_VERSION = '2024-04-14-22-10-fix-targetTld';
+
 export default function OgNftMoltPage() {
   const { authenticated } = usePrivy();
   const { wallets } = useWallets();
@@ -424,7 +427,8 @@ export default function OgNftMoltPage() {
           nftType, contractAddress: resolvedContract(), nftName: nftPreview?.name,
           moltTarget, targetAgent: moltTarget === 'existing-agent' ? selectedAgent : undefined,
           targetTld: 'molt.gno', // Target molt.gno for BYO molt
-        _t: Date.now(), // Cache-busting timestamp
+          _t: Date.now(), // Cache-busting timestamp
+          buildVersion: BUILD_VERSION, // Debug: verify latest build
           ...(couponValid ? { couponCode: couponCode.trim() } : {}),
         }),
       });

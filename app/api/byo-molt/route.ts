@@ -89,9 +89,23 @@ export async function POST(req: NextRequest) {
       moltTarget?: string;
       targetAgent?: string;
       targetTld?: string;
+      buildVersion?: string;
     };
 
-    const { primaryName, tokenId, ownerWallet, paymentTxHash, couponCode, nftType, contractAddress, nftName, moltTarget, targetAgent, targetTld } = body;
+    const {
+      primaryName, tokenId, ownerWallet, paymentTxHash, couponCode,
+      nftType = 'chonk', contractAddress, nftName, moltTarget = 'new-agent', targetAgent, targetTld, buildVersion
+    } = body as any;
+
+    // Debug: Log targetTld to verify it's being sent
+    console.log('BYO MOLT DEBUG:', { 
+      primaryName, 
+      targetTld, 
+      couponCode: couponCode ? 'PRESENT' : 'NONE',
+      buildVersion,
+      timestamp: new Date().toISOString()
+    });
+
     const type = nftType ?? 'chonk';
     const isOverlay = moltTarget === 'existing-agent' && targetAgent;
     const targetNamespace = targetTld ?? 'nftmail.gno';
