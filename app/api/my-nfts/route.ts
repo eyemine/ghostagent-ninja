@@ -38,8 +38,88 @@ const BEACON_CONTRACTS: Record<string, string> = {
   'agent.gno':    '0x608071875bcc0ef0b934f8a2367672d8c472cacf', // Agent registrar
 };
 
+// Resolve subname label from SubnameMinted event transaction calldata
+async function resolveLabelFromEvent(contract: string, tokenId: number): Promise<string | null> {
+  try {
+    // Get SubnameMinted events for this tokenId
+    const logsRes = await fetch(GNOSIS_RPC, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'eth_getLogs',
+        params: [{
+          address: contract,
+          topics: [
+            '0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925', // SubnameMinted signature
+            null,
+            null,
+            null
+          ],
+          fromBlock: 'earliest',
+          toBlock: 'latest'
+        }],
+      }),
+    });
+    const logsData = await logsRes.json() as { result?: any[] };
+    if (!logsData.result) return null;
+
+    // Find the event with matching tokenId
+    for (const log of logsData.result) {
+      const data = log.data;
+      if (!data || data.length < 130) continue; // Minimum length for tokenId (32 bytes) + other fields
+      
+      // tokenId is the third 32-byte chunk (offset 64)
+      const eventTokenId = BigInt('0x' + data.slice(128, 128 + 64));
+      if (eventTokenId === BigInt(tokenId)) {
+        const txHash = log.transactionHash;
+        if (!txHash) continue;
+
+        // Get transaction to extract label from calldata
+        const txRes = await fetch(GNOSIS_RPC, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            jsonrpc: '2.0',
+            id: 1,
+            method: 'eth_getTransactionByHash',
+            params: [txHash],
+          }),
+        });
+        const txData = await txRes.json() as { result?: { input: string } };
+        if (!txData.result?.input || txData.result.input.length < 10) continue;
+
+        // Decode mintSubname(string label, address owner, bytes storyData, bytes32 tbaSalt)
+        const input = txData.result.input;
+        if (input.slice(0, 10) !== '0x8a5f6a4e') continue; // mintSubname selector
+
+        // Extract string label (dynamic type, first 32 bytes = offset, then length, then data)
+        const paramsOffset = parseInt(input.slice(10, 74), 16);
+        const labelOffset = parseInt(input.slice(10 + paramsOffset * 2, 10 + paramsOffset * 2 + 64), 16);
+        const labelLength = parseInt(input.slice(10 + paramsOffset * 2 + 64, 10 + paramsOffset * 2 + 128), 16);
+        const labelData = input.slice(10 + paramsOffset * 2 + 128 + labelOffset * 2, 10 + paramsOffset * 2 + 128 + labelOffset * 2 + labelLength * 2);
+        
+        // Convert hex to string
+        let label = '';
+        for (let i = 0; i < labelLength * 2; i += 2) {
+          label += String.fromCharCode(parseInt(labelData.slice(i, i + 2), 16));
+        }
+        
+        return label || null;
+      }
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 async function fetchTokenMetadata(contract: string, namespace: string, tokenId: number, wallet: string): Promise<NftBody | null> {
   try {
+    // Try to resolve subname from events first
+    const subname = await resolveLabelFromEvent(contract, tokenId);
+    
     const tokenUriRes = await fetch(GNOSIS_RPC, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -52,7 +132,7 @@ async function fetchTokenMetadata(contract: string, namespace: string, tokenId: 
     });
     const uriData = await tokenUriRes.json() as { result?: string };
     
-    let name = `Token #${tokenId}`;
+    let name = subname || `Token #${tokenId}`;
     let minted = new Date().toLocaleDateString('en-GB');
     
     if (uriData.result && uriData.result !== '0x') {
