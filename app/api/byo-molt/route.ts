@@ -223,28 +223,34 @@ export async function POST(req: NextRequest) {
     // NOT the base cleanName (atom, chonk) which belongs to the original agent brain
     const finalPrimaryName = isOverlay ? targetAgent! : humanLocalPart;
 
-    // Register both human and agent aliases
-    try {
-      await Promise.all([
-        fetch(NFTMAIL_WORKER_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'createAlias', primaryName: finalPrimaryName, aliasLocalPart: humanLocalPart,
-            collectionName: type, tokenId, ownerAddress: ownerWallet.toLowerCase(), displayEmail: 'human',
+    // For overlay molts: createAlias so the NFT identity (atom.158, atom.158_) forwards
+    // into the existing target agent's inbox.
+    // For new-agent molts: skip createAlias — registerSovereign (step 4b) creates two
+    // standalone inbox accounts (atom.158@ and atom.158_@) owned by the EOA wallet,
+    // exactly like ghostagent@ and ghostagent_@ are separate accounts.
+    if (isOverlay) {
+      try {
+        await Promise.all([
+          fetch(NFTMAIL_WORKER_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'createAlias', primaryName: finalPrimaryName, aliasLocalPart: humanLocalPart,
+              collectionName: type, tokenId, ownerAddress: ownerWallet.toLowerCase(), displayEmail: 'human',
+            }),
           }),
-        }),
-        fetch(NFTMAIL_WORKER_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'createAlias', primaryName: finalPrimaryName, aliasLocalPart: agentLocalPart,
-            collectionName: type, tokenId, ownerAddress: ownerWallet.toLowerCase(), displayEmail: 'agent',
+          fetch(NFTMAIL_WORKER_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'createAlias', primaryName: finalPrimaryName, aliasLocalPart: agentLocalPart,
+              collectionName: type, tokenId, ownerAddress: ownerWallet.toLowerCase(), displayEmail: 'agent',
+            }),
           }),
-        }),
-      ]);
-    } catch {
-      // Non-fatal — aliases are cosmetic
+        ]);
+      } catch {
+        // Non-fatal
+      }
     }
 
     // ── Step 4b: Register nftmailgno accounts so emails appear in nftmail.box dropdown ──
