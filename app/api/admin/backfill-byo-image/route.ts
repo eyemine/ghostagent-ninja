@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const alchemyKey = process.env.ALCHEMY_API_KEY ?? process.env.NEXT_PUBLIC_ALCHEMY_KEY ?? '';
+  const alchemyKey = process.env.ALCHEMY_API_KEY ?? process.env.NEXT_PUBLIC_ALCHEMY_API_KEY ?? process.env.NEXT_PUBLIC_ALCHEMY_KEY ?? '';
   if (!alchemyKey) {
     return NextResponse.json({ error: 'ALCHEMY_API_KEY not set' }, { status: 503 });
   }
