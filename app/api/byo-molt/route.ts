@@ -301,7 +301,7 @@ export async function POST(req: NextRequest) {
           originImageUrl = meta.image ?? meta.image_url ?? null;
         }
       } else {
-        const alchemyKey = process.env.ALCHEMY_API_KEY ?? '';
+        const alchemyKey = process.env.ALCHEMY_API_KEY ?? process.env.NEXT_PUBLIC_ALCHEMY_KEY ?? '';
         const alchemyBase = type === 'chonk' || type === 'normie'
           ? `https://base-mainnet.g.alchemy.com/nft/v3/${alchemyKey}/getNFTMetadata`
           : `https://eth-mainnet.g.alchemy.com/nft/v3/${alchemyKey}/getNFTMetadata`;
