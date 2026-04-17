@@ -272,7 +272,7 @@ function generateSvgDataUri(
 // ─── IPFS Pinning via Lighthouse ──────────────────────────────────────────────
 
 const LIGHTHOUSE_UPLOAD_URL = 'https://node.lighthouse.storage/api/v0/add';
-const IPFS_GATEWAY = 'https://gateway.lighthouse.storage/ipfs';
+const IPFS_GATEWAY = 'https://cloudflare-ipfs.com/ipfs';
 
 /**
  * Pin JSON metadata to IPFS via Lighthouse.

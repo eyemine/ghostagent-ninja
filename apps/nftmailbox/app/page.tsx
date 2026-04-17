@@ -41,7 +41,7 @@ export default function Home() {
             <span className="flex items-center gap-1.5">
               <span style={{ fontFamily: "'Ayuthaya', serif", color: '#d8d4cf' }} className="text-base tracking-wide">nftmail.box</span>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="https://gateway.lighthouse.storage/ipfs/bafkreiftxujbfvz4t73rkcmisobkxasuj7tpblu4zrro2lnamftbxclhay" alt="beta" style={{ height: '1rem', width: 'auto', opacity: 0.85 }} />
+              <img src="https://cloudflare-ipfs.com/ipfs/bafkreiftxujbfvz4t73rkcmisobkxasuj7tpblu4zrro2lnamftbxclhay" alt="beta" style={{ height: '1rem', width: 'auto', opacity: 0.85 }} />
             </span>
           </div>
           <div className="flex items-center gap-3">
@@ -62,7 +62,7 @@ export default function Home() {
           <h1 style={{ fontFamily: "'Ayuthaya', serif", color: '#d8d4cf' }} className="text-5xl font-bold tracking-tight flex items-center justify-center gap-3">
             nftmail.box
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="https://gateway.lighthouse.storage/ipfs/bafkreiftxujbfvz4t73rkcmisobkxasuj7tpblu4zrro2lnamftbxclhay" alt="beta" style={{ height: '2.4rem', width: 'auto', opacity: 0.85, marginTop: '0.4rem' }} />
+            <img src="https://cloudflare-ipfs.com/ipfs/bafkreiftxujbfvz4t73rkcmisobkxasuj7tpblu4zrro2lnamftbxclhay" alt="beta" style={{ height: '2.4rem', width: 'auto', opacity: 0.85, marginTop: '0.4rem' }} />
           </h1>
           <p className="mx-auto mt-3 max-w-md text-sm text-[var(--muted)]">
             Claim a free email inbox. No credit card. No personal data.

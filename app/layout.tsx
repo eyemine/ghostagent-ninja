@@ -22,7 +22,7 @@ export const metadata: Metadata = {
   title: "GhostAgent Ninja",
   description: "GhostAgent control surface",
   icons: {
-    icon: 'https://gateway.lighthouse.storage/ipfs/bafkreicx5r5qfonzdmnhkeblrfbhaj7gcbgc34g6kvkh7hbxypd54qqx3a',
+    icon: 'https://cloudflare-ipfs.com/ipfs/bafkreicx5r5qfonzdmnhkeblrfbhaj7gcbgc34g6kvkh7hbxypd54qqx3a',
   },
 };
 
@@ -34,7 +34,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <link rel="icon" href="https://gateway.lighthouse.storage/ipfs/bafkreicx5r5qfonzdmnhkeblrfbhaj7gcbgc34g6kvkh7hbxypd54qqx3a" type="image/png" />
+        <link rel="icon" href="https://cloudflare-ipfs.com/ipfs/bafkreicx5r5qfonzdmnhkeblrfbhaj7gcbgc34g6kvkh7hbxypd54qqx3a" type="image/png" />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
