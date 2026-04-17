@@ -37,11 +37,11 @@ export default function Home() {
         {/* Header */}
         <header className="flex w-full items-center justify-between">
           <div className="flex items-center gap-2">
-            <Image src="/nftmail-logo.png" alt="NFTMail" width={48} height={48} className="opacity-95" />
+            <Image src="/nftmail-logo.png" alt="NFTMail" width={36} height={36} className="opacity-95 md:w-12 md:h-12" />
             <span className="flex items-center gap-1.5">
-              <span style={{ fontFamily: "'Ayuthaya', serif", color: '#d8d4cf' }} className="text-base tracking-wide">nftmail.box</span>
+              <span style={{ fontFamily: "'Ayuthaya", serif", color: '#d8d4cf' }} className="text-sm tracking-wide md:text-base">nftmail.box</span>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/beta-badge.svg" alt="beta" style={{ height: '1rem', width: 'auto', opacity: 0.85 }} />
+              <img src="/beta-badge.svg" alt="beta" style={{ height: '0.6rem', width: 'auto', opacity: 0.85 }} />
             </span>
           </div>
           <div className="flex items-center gap-3">
@@ -59,10 +59,10 @@ export default function Home() {
 
         {/* Hero */}
         <section className="text-center">
-          <h1 style={{ fontFamily: "'Ayuthaya', serif", color: '#d8d4cf' }} className="text-5xl font-bold tracking-tight flex items-center justify-center gap-3">
+          <h1 style={{ fontFamily: "'Ayuthaya", serif", color: '#d8d4cf' }} className="text-3xl md:text-5xl font-bold tracking-tight flex flex-col md:flex-row items-center justify-center gap-2 md:gap-3">
             nftmail.box
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/beta-badge.svg" alt="beta" style={{ height: '2.4rem', width: 'auto', opacity: 0.85, marginTop: '0.4rem' }} />
+            <img src="/beta-badge.svg" alt="beta" style={{ height: '1rem', width: 'auto', opacity: 0.85, marginTop: '0.2rem' }} className="md:mt-0.4" />
           </h1>
           <p className="mx-auto mt-3 max-w-md text-sm text-[var(--muted)]">
             Claim a free email inbox. No credit card. No personal data.
