@@ -115,7 +115,7 @@ export function AgentIdentityCard({ name: initialName }: AgentIdentityCardProps)
   }, [initialName]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const gnosis = 'https://gnosisscan.io/address/';
-  const ipfsGw = 'https://gateway.lighthouse.storage/ipfs/';
+  const ipfsGw = 'https://cloudflare-ipfs.com/ipfs/';
 
   return (
     <div className="rounded-xl border border-[rgba(176,128,92,0.35)] bg-[var(--card)] overflow-hidden">
