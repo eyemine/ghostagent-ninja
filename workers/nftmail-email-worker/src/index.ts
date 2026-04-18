@@ -2830,6 +2830,44 @@ export default {
           return corsify(Response.json({ alive, lastAlive: Number(ts), ageMs }), request);
         }
 
+        // Glassbox: Get parsed email data for Agent JSON tab
+        if (email.action === 'getParsedEmail') {
+          const agentName = ((email as any).agentName || '').toLowerCase().trim();
+          const messageId = ((email as any).messageId || '').trim();
+          
+          if (!agentName || !messageId) {
+            return corsify(Response.json({ error: 'Missing agentName or messageId' }, { status: 400 }), request);
+          }
+          
+          const parsedKey = `parsed:${agentName}:${messageId}`;
+          const parsedData = await env.INBOX_KV.get(parsedKey);
+          
+          return corsify(Response.json({
+            agentName,
+            messageId,
+            parsed: parsedData ? JSON.parse(parsedData) : null
+          }), request);
+        }
+
+        // Glassbox: Get original message for encryption check
+        if (email.action === 'getMessage') {
+          const agentName = ((email as any).agentName || '').toLowerCase().trim();
+          const messageId = ((email as any).messageId || '').trim();
+          
+          if (!agentName || !messageId) {
+            return corsify(Response.json({ error: 'Missing agentName or messageId' }, { status: 400 }), request);
+          }
+          
+          const msgKey = `msg:${agentName}:${messageId}`;
+          const messageData = await env.INBOX_KV.get(msgKey);
+          
+          return corsify(Response.json({
+            agentName,
+            messageId,
+            message: messageData ? JSON.parse(messageData) : null
+          }), request);
+        }
+
         // EIP-712 HandshakeCertificate: store bilateral P2P mutual-auth proof
         if (email.action === 'storeHandshakeCertificate') {
           const agentName     = ((email as any).agentName     || '').toLowerCase().trim();

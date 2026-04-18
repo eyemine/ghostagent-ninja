@@ -1,5 +1,7 @@
 /// <reference types="@cloudflare/workers-types" />
 
+import { parseEmailForGlassbox, storeParsedEmail } from './email-parser';
+
 // Constants
 export const SIG_BALANCE_OF = '0x70a08231';
 export const SIG_GET_IDENTITY = '0x4f5c3a99';
@@ -269,6 +271,22 @@ export class MailStorageAdapter {
     await kv.put(msgKey, JSON.stringify(envelope), {
       expirationTtl: SOVEREIGN_TTL_SECONDS
     });
+
+    // Glassbox: Parse and store structured data for search/intelligence
+    // This is the key competitive feature vs agentmail.to
+    try {
+      const parsed = parseEmailForGlassbox({
+        from: email.from,
+        subject: email.subject,
+        content: email.content,
+        timestamp: email.timestamp
+      });
+      
+      await storeParsedEmail(this.config, agentName, parsed, msgId);
+    } catch (error) {
+      // Non-fatal - parsing should never break email delivery
+      console.error('Failed to parse email for Glassbox:', error);
+    }
 
     // Update the inbox index (list of message IDs)
     let index: string[] = [];
