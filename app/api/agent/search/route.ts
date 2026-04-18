@@ -89,7 +89,7 @@ export async function GET(request: NextRequest) {
 
   // Forward to POST endpoint
   return POST(
-    new Request(request.url, {
+    new NextRequest(request.url, {
       method: 'POST',
       body: JSON.stringify({
         agentName,
