@@ -1,6 +1,7 @@
 /// <reference types="@cloudflare/workers-types" />
 
 import { parseEmailForGlassbox, storeParsedEmail } from './email-parser';
+import { forwardEmail } from './forwarding';
 
 // Constants
 export const SIG_BALANCE_OF = '0x70a08231';
@@ -100,6 +101,12 @@ export interface AgentStatus {
   heartbeat: {
     lastBeat?: number;
     isActive: boolean;
+  };
+  forwarding?: {
+    enabled: boolean;
+    targetEmail: string;
+    level: 'imago' | 'ghost';
+  };
     nextScheduled?: number;
   };
   metadata?: Record<string, any>;
@@ -274,18 +281,31 @@ export class MailStorageAdapter {
 
     // Glassbox: Parse and store structured data for search/intelligence
     // This is the key competitive feature vs agentmail.to
+    let parsedData = null;
     try {
-      const parsed = parseEmailForGlassbox({
+      parsedData = parseEmailForGlassbox({
         from: email.from,
         subject: email.subject,
         content: email.content,
         timestamp: email.timestamp
       });
       
-      await storeParsedEmail(this.config, agentName, parsed, msgId);
+      await storeParsedEmail(this.config, agentName, parsedData, msgId);
     } catch (error) {
       // Non-fatal - parsing should never break email delivery
       console.error('Failed to parse email for Glassbox:', error);
+    }
+
+    // Imago Forwarding: Forward email for Imago level accounts
+    // This is a premium feature that adds value to the Imago tier
+    try {
+      const forwarded = await forwardEmail(this.config, agentName, email, parsedData);
+      if (forwarded) {
+        console.log(`Email forwarded for Imago agent: ${agentName}`);
+      }
+    } catch (error) {
+      // Non-fatal - forwarding should never break email delivery
+      console.error('Failed to forward email for Imago agent:', error);
     }
 
     // Update the inbox index (list of message IDs)

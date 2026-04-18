@@ -2868,6 +2868,111 @@ export default {
           }), request);
         }
 
+        // Imago Forwarding: Get forwarding configuration
+        if (email.action === 'getForwardingConfig') {
+          const agentName = ((email as any).agentName || '').toLowerCase().trim();
+          
+          if (!agentName) {
+            return corsify(Response.json({ error: 'Missing agentName' }, { status: 400 }), request);
+          }
+          
+          const configKey = `forwarding:${agentName}`;
+          const configData = await env.INBOX_KV.get(configKey);
+          
+          // Check acct-tier for Imago level default forwarding
+          if (!configData) {
+            const acctTierKey = `acct-tier:${agentName}`;
+            const acctTierData = await env.INBOX_KV.get(acctTierKey);
+            
+            if (acctTierData) {
+              const acctTier = JSON.parse(acctTierData);
+              if (acctTier.tier === 'imago' && acctTier.forwardingEmail) {
+                return corsify(Response.json({
+                  agentName,
+                  config: {
+                    enabled: true,
+                    targetEmail: acctTier.forwardingEmail,
+                    level: 'imago'
+                  }
+                }), request);
+              }
+            }
+          }
+          
+          return corsify(Response.json({
+            agentName,
+            config: configData ? JSON.parse(configData) : null
+          }), request);
+        }
+
+        // Imago Forwarding: Set forwarding configuration
+        if (email.action === 'setForwardingConfig') {
+          const agentName = ((email as any).agentName || '').toLowerCase().trim();
+          const config = (email as any).config;
+          
+          if (!agentName || !config) {
+            return corsify(Response.json({ error: 'Missing agentName or config' }, { status: 400 }), request);
+          }
+          
+          // Validate agent is Imago level
+          const acctTierKey = `acct-tier:${agentName}`;
+          const acctTierData = await env.INBOX_KV.get(acctTierKey);
+          
+          if (!acctTierData) {
+            return corsify(Response.json({ error: 'Agent not found' }, { status: 404 }), request);
+          }
+          
+          const acctTier = JSON.parse(acctTierData);
+          if (acctTier.tier !== 'imago' && acctTier.tier !== 'ghost') {
+            return corsify(Response.json({ error: 'Forwarding only available for Imago and Ghost level agents' }, { status: 403 }), request);
+          }
+          
+          const configKey = `forwarding:${agentName}`;
+          await env.INBOX_KV.put(configKey, JSON.stringify(config), {
+            expirationTtl: 365 * 24 * 60 * 60 // 1 year
+          });
+          
+          return corsify(Response.json({
+            agentName,
+            config,
+            message: 'Forwarding configuration updated'
+          }), request);
+        }
+
+        // Imago Forwarding: Delete forwarding configuration
+        if (email.action === 'deleteForwardingConfig') {
+          const agentName = ((email as any).agentName || '').toLowerCase().trim();
+          
+          if (!agentName) {
+            return corsify(Response.json({ error: 'Missing agentName' }, { status: 400 }), request);
+          }
+          
+          const configKey = `forwarding:${agentName}`;
+          await env.INBOX_KV.delete(configKey);
+          
+          return corsify(Response.json({
+            agentName,
+            message: 'Forwarding configuration removed'
+          }), request);
+        }
+
+        // Imago Forwarding: Get forwarding log
+        if (email.action === 'getForwardingLog') {
+          const agentName = ((email as any).agentName || '').toLowerCase().trim();
+          
+          if (!agentName) {
+            return corsify(Response.json({ error: 'Missing agentName' }, { status: 400 }), request);
+          }
+          
+          const logKey = `forwarding-log:${agentName}`;
+          const logData = await env.INBOX_KV.get(logKey);
+          
+          return corsify(Response.json({
+            agentName,
+            log: logData ? JSON.parse(logData) : []
+          }), request);
+        }
+
         // EIP-712 HandshakeCertificate: store bilateral P2P mutual-auth proof
         if (email.action === 'storeHandshakeCertificate') {
           const agentName     = ((email as any).agentName     || '').toLowerCase().trim();
