@@ -1,14 +1,14 @@
-/// Utility function to get total registered nftmail.box accounts from on-chain registry
-/// Uses viem to query the nftmail registrar contracts on Gnosis
+/// Utility function to get total registered ERC-8004 agents from on-chain registry
+/// Uses viem to query the ERC-8004 Identity Registry on Gnosis
 
 import { createPublicClient, http } from 'viem';
 import { gnosis } from 'viem/chains';
 
-// nftmail.gno registrar contract on Gnosis mainnet (chain 100)
-const NFTMAIL_REGISTRAR_ADDRESS = '0x4b54213c1e5826497ff39ba8c87a7b75d2bc3c50' as `0x${string}`;
+// ERC-8004 Identity Registry on Gnosis mainnet (chain 100)
+const IDENTITY_REGISTRY_ADDRESS = '0x8004A169FB4a3325136EB29fA0ceB6D2e539a432' as `0x${string}`;
 
-// Minimal ABI for nftmail registrar
-const REGISTRAR_ABI = [
+// Minimal ABI for ERC-8004 Identity Registry
+const REGISTRY_ABI = [
   {
     inputs: [],
     name: 'totalSupply',
@@ -31,15 +31,15 @@ export interface RegistryStats {
 }
 
 /**
- * Get the total number of registered nftmail.box accounts from the on-chain registrar
- * This is the single source of truth for account count
+ * Get the total number of registered ERC-8004 agents from the Identity Registry
+ * This is the single source of truth for agent count
  */
 export async function getRegistryCount(): Promise<RegistryStats> {
   try {
-    console.log('Fetching nftmail registrar count from contract:', NFTMAIL_REGISTRAR_ADDRESS);
+    console.log('Fetching ERC-8004 agent count from contract:', IDENTITY_REGISTRY_ADDRESS);
     const totalAccounts = await publicClient.readContract({
-      address: NFTMAIL_REGISTRAR_ADDRESS,
-      abi: REGISTRAR_ABI,
+      address: IDENTITY_REGISTRY_ADDRESS,
+      abi: REGISTRY_ABI,
       functionName: 'totalSupply',
     });
 

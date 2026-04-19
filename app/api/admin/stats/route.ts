@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
       on_chain: {
         total_minted: onChainStats.formattedTotal,
         chain_id: onChainStats.chainId,
-        contract: '0x4b54213c1e5826497ff39ba8c87a7b75d2bc3c50',
+        contract: '0x8004A169FB4a3325136EB29fA0ceB6D2e539a432',
         last_updated: onChainStats.lastUpdated
       },
       off_chain: {
