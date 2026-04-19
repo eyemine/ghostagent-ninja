@@ -36,12 +36,14 @@ export interface RegistryStats {
  */
 export async function getRegistryCount(): Promise<RegistryStats> {
   try {
+    console.log('Fetching registry count from contract:', IDENTITY_REGISTRY_ADDRESS);
     const totalAccounts = await publicClient.readContract({
       address: IDENTITY_REGISTRY_ADDRESS,
       abi: REGISTRY_ABI,
       functionName: 'totalSupply',
     });
 
+    console.log('Registry count result:', totalAccounts.toString());
     return {
       totalAccounts,
       formattedTotal: totalAccounts.toString(),
