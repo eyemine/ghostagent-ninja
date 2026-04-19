@@ -602,7 +602,7 @@ export default function DashboardPage() {
                           <rect x="2" y="6" width="20" height="12" rx="2" /><path d="M22 8l-10 5L2 8" />
                         </svg>
                         <p className="text-sm text-[var(--muted)]">Select a message to read</p>
-                        <Link href={`/inbox/${encodeURIComponent(selectedName?.email?.replace('@nftmail.box', '') || '')}`} className="mt-1 text-[10px] text-[rgba(0,163,255,0.6)] hover:text-[rgb(160,220,255)] transition">Open full inbox →</Link>
+                        <Link href={`/inbox/${encodeURIComponent(selectedName?.email?.replace('@nftmail.box', '') || '')}`} className="mt-1 text-[10px] text-[rgba(0,163,255,0.6)] hover:text-[rgb(160,220,255)] transition">Open public inbox →</Link>
                       </div>
                     )}
                   </div>
