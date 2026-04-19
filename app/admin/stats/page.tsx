@@ -70,7 +70,10 @@ export default function AdminStats() {
         headers['Authorization'] = `Bearer ${secret}`;
       }
       
+      console.log('Fetching admin stats from API...');
       const response = await fetch('/api/admin/stats', { headers });
+      
+      console.log('API response status:', response.status);
       
       if (!response.ok) {
         if (response.status === 401) {
@@ -82,6 +85,7 @@ export default function AdminStats() {
       }
       
       const data = await response.json();
+      console.log('API response data:', data);
       setStats(data);
     } catch (err) {
       setError('Failed to load statistics');
@@ -218,7 +222,7 @@ export default function AdminStats() {
         {/* Growth Chart */}
         <div className="bg-gray-800 rounded-lg p-6 border border-gray-700 mb-8">
           <h3 className="text-lg font-semibold mb-4">Account Growth (Last 30 Days)</h3>
-          <div className="h-80">
+          <div className="h-80 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={growthData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
