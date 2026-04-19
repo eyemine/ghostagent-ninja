@@ -2973,6 +2973,46 @@ export default {
           }), request);
         }
 
+        // Email Forwarding: Get forwarding configuration for an agent
+        if (email.action === 'getForwarding') {
+          const agentName = ((email as any).agentName || '').toLowerCase().trim();
+          if (!agentName) {
+            return corsify(Response.json({ error: 'Missing agentName' }, { status: 400 }), request);
+          }
+          
+          const key = `forwarding:${agentName}`;
+          const configRaw = await env.INBOX_KV.get(key);
+          const config = configRaw ? JSON.parse(configRaw) : { enabled: false, targetEmail: '', level: 'imago' };
+          
+          return corsify(Response.json(config), request);
+        }
+
+        // Email Forwarding: Set forwarding configuration for an agent
+        // SECURITY: Store owner address to verify ownership on each email
+        if (email.action === 'setForwarding') {
+          const agentName = ((email as any).agentName || '').toLowerCase().trim();
+          const config = (email as any).config;
+          const ownerAddress = ((email as any).ownerAddress || '').toLowerCase().trim();
+          
+          if (!agentName || !config || !ownerAddress) {
+            return corsify(Response.json({ error: 'Missing agentName, config, or ownerAddress' }, { status: 400 }), request);
+          }
+          
+          // Store owner address with forwarding config for security verification
+          const configWithOwner = {
+            ...config,
+            ownerAddress,
+            setupDate: Date.now()
+          };
+          
+          const key = `forwarding:${agentName}`;
+          await env.INBOX_KV.put(key, JSON.stringify(configWithOwner));
+          
+          console.log(`Forwarding configured for ${agentName} by owner ${ownerAddress}`);
+          
+          return corsify(Response.json({ success: true, agentName, config: configWithOwner }), request);
+        }
+
         // Stats: Get account tracking metrics (on-chain + KV usage)
         if (email.action === 'getStats') {
           const activeInboxes = await env.INBOX_KV.get('stats:active_inboxes');

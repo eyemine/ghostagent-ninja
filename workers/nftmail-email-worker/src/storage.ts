@@ -72,6 +72,8 @@ interface MailStorageConfig {
   backend: 'KV';
   surgeToken: string;
   ghostRegistry: string;
+  registryAddress?: string;
+  ownerOfSelector?: string;
   inboxKV?: KVNamespace;
   calendarKV?: KVNamespace;
 }
@@ -141,6 +143,32 @@ export class MailStorageAdapter {
   private async checkReputation(safeAddress: string): Promise<boolean> {
     const balance = await this.getReputation(safeAddress);
     return balance >= MIN_REPUTATION;
+  }
+
+  private async getNFTOwner(agentName: string): Promise<string> {
+    if (!this.config.registryAddress) {
+      return '';
+    }
+
+    try {
+      // Query the registrar contract for the owner of the agent name
+      const data = this.config.ownerOfSelector + agentName.padStart(64, '0');
+      const response = await fetch('https://rpc.gnosis.gateway.fm', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: 1,
+          method: 'eth_call',
+          params: [{ to: this.config.registryAddress, data }, 'latest']
+        })
+      });
+      const result = await response.json() as { result?: string };
+      return result.result || '';
+    } catch (error) {
+      console.error('Failed to get NFT owner:', error);
+      return '';
+    }
   }
 
   private async calculateSurgeScore(agent: string): Promise<number> {
@@ -296,11 +324,43 @@ export class MailStorageAdapter {
     }
 
     // Imago Forwarding: Forward email for Imago level accounts
-    // This is a premium feature that adds value to the Imago tier
+    // SECURITY: Verify NFT ownership before forwarding to prevent unauthorized access
     try {
-      const forwarded = await forwardEmail(this.config, agentName, email, parsedData);
-      if (forwarded) {
-        console.log(`Email forwarded for Imago agent: ${agentName}`);
+      // Get current forwarding configuration
+      const forwardingKey = `forwarding:${agentName}`;
+      const forwardingConfigRaw = await kv.get(forwardingKey);
+      
+      if (forwardingConfigRaw) {
+        const forwardingConfig = JSON.parse(forwardingConfigRaw);
+        
+        if (forwardingConfig.enabled) {
+          // Verify current NFT ownership matches the owner who set up forwarding
+          const currentOwner = await this.getNFTOwner(agentName);
+          
+          if (currentOwner !== forwardingConfig.ownerAddress) {
+            // Ownership changed - disable forwarding for security
+            console.warn(`Ownership changed for ${agentName}, disabling forwarding for security`);
+            forwardingConfig.enabled = false;
+            await kv.put(forwardingKey, JSON.stringify(forwardingConfig));
+            
+            // Log security event
+            const securityLog = {
+              event: 'forwarding_disabled',
+              agentName,
+              reason: 'ownership_changed',
+              previousOwner: forwardingConfig.ownerAddress,
+              currentOwner,
+              timestamp: Date.now()
+            };
+            await kv.put(`security:${agentName}:${Date.now()}`, JSON.stringify(securityLog), { expirationTtl: 90 * 24 * 60 * 60 });
+          } else {
+            // Ownership verified - proceed with forwarding
+            const forwarded = await forwardEmail(this.config, agentName, email, parsedData);
+            if (forwarded) {
+              console.log(`Email forwarded for Imago agent: ${agentName}`);
+            }
+          }
+        }
       }
     } catch (error) {
       // Non-fatal - forwarding should never break email delivery

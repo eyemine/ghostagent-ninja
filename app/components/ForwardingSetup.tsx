@@ -9,15 +9,18 @@ interface ForwardingConfig {
   enabled: boolean;
   targetEmail: string;
   level: 'imago' | 'ghost';
+  ownerAddress?: string;
+  setupDate?: number;
 }
 
 interface ForwardingSetupProps {
   agentName: string;
+  ownerAddress: string;
   currentConfig?: ForwardingConfig;
   onSave: (config: ForwardingConfig) => Promise<void>;
 }
 
-export default function ForwardingSetup({ agentName, currentConfig, onSave }: ForwardingSetupProps) {
+export default function ForwardingSetup({ agentName, ownerAddress, currentConfig, onSave }: ForwardingSetupProps) {
   const [enabled, setEnabled] = useState(currentConfig?.enabled || false);
   const [targetEmail, setTargetEmail] = useState(currentConfig?.targetEmail || '');
   const [level, setLevel] = useState<'imago' | 'ghost'>(currentConfig?.level || 'imago');
@@ -47,7 +50,8 @@ export default function ForwardingSetup({ agentName, currentConfig, onSave }: Fo
       await onSave({
         enabled,
         targetEmail,
-        level
+        level,
+        ownerAddress
       });
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
@@ -73,6 +77,21 @@ export default function ForwardingSetup({ agentName, currentConfig, onSave }: Fo
             : 'bg-gray-500/20 text-gray-400 border border-gray-500/30'
         }`}>
           {enabled ? 'Active' : 'Disabled'}
+        </div>
+      </div>
+
+      {/* Security Notice */}
+      <div className="p-3 bg-blue-900/20 border border-blue-500/20 rounded-lg">
+        <div className="flex items-start gap-2">
+          <svg className="h-5 w-5 text-blue-400 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+          </svg>
+          <div>
+            <p className="text-sm font-semibold text-blue-200">Security Feature</p>
+            <p className="text-xs text-blue-200/80 mt-1">
+              Forwarding is automatically disabled if NFT ownership is transferred. Your wallet address is verified on each email to prevent unauthorized access.
+            </p>
+          </div>
         </div>
       </div>
 
