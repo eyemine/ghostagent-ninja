@@ -8,26 +8,34 @@ const WORKER_URL = process.env.NEXT_PUBLIC_WORKER_URL || 'https://nftmail-email-
 
 export async function GET(request: NextRequest) {
   try {
-    // Simple auth check - in production, use proper authentication
-    const authHeader = request.headers.get('authorization');
-    if (authHeader !== `Bearer ${process.env.ADMIN_SECRET}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // Optional auth check - if ADMIN_SECRET is set, require it
+    if (process.env.ADMIN_SECRET) {
+      const authHeader = request.headers.get('authorization');
+      if (authHeader !== `Bearer ${process.env.ADMIN_SECRET}`) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
     }
 
     // Fetch on-chain registry count
     const onChainStats = await getCachedRegistryCount();
 
     // Fetch Cloudflare KV usage stats
-    const workerResponse = await fetch(`${WORKER_URL}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.WEBHOOK_SECRET || ''}`
-      },
-      body: JSON.stringify({ action: 'getStats' })
-    });
-
-    const workerStats = workerResponse.ok ? await workerResponse.json() : null;
+    let workerStats = null;
+    try {
+      const workerResponse = await fetch(`${WORKER_URL}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.WEBHOOK_SECRET || ''}`
+        },
+        body: JSON.stringify({ action: 'getStats' })
+      });
+      if (workerResponse.ok) {
+        workerStats = await workerResponse.json();
+      }
+    } catch (workerError) {
+      console.error('Failed to fetch worker stats:', workerError);
+    }
 
     // Aggregate stats
     const aggregatedStats = {
@@ -52,6 +60,25 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(aggregatedStats);
   } catch (error) {
     console.error('Failed to fetch admin stats:', error);
-    return NextResponse.json({ error: 'Failed to fetch stats' }, { status: 500 });
+    // Return fallback data instead of error
+    return NextResponse.json({
+      on_chain: {
+        total_minted: '0',
+        chain_id: 100,
+        contract: '0x8004A169FB4a3325136EB29fA0ceB6D2e539a432',
+        last_updated: new Date()
+      },
+      off_chain: {
+        active_inboxes: 0,
+        tracked_via_kv: true,
+        tracking_period: '30_days'
+      },
+      revenue: {
+        total_revenue: '0',
+        currency: 'xDAI'
+      },
+      last_updated: Date.now(),
+      error: 'Failed to fetch live stats, showing fallback data'
+    });
   }
 }
