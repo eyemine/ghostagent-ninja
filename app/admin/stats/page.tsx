@@ -29,6 +29,9 @@ export default function AdminStats() {
   const [stats, setStats] = useState<AggregatedStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [secret, setSecret] = useState('');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   // Generate growth data based on actual stats (simulated historical growth)
   const totalMinted = parseInt(stats?.on_chain?.total_minted || '0');
@@ -45,15 +48,39 @@ export default function AdminStats() {
 
   useEffect(() => {
     loadStats();
-  }, []);
+  }, [isAuthenticated]);
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError(null);
+    setIsAuthenticated(true);
+    await loadStats();
+  };
 
   const loadStats = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/admin/stats');
+      setError(null);
+      
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json'
+      };
+      
+      if (secret) {
+        headers['Authorization'] = `Bearer ${secret}`;
+      }
+      
+      const response = await fetch('/api/admin/stats', { headers });
+      
       if (!response.ok) {
+        if (response.status === 401) {
+          setAuthError('Invalid admin secret');
+          setIsAuthenticated(false);
+          return;
+        }
         throw new Error('Failed to fetch stats');
       }
+      
       const data = await response.json();
       setStats(data);
     } catch (err) {
@@ -64,7 +91,7 @@ export default function AdminStats() {
     }
   };
 
-  if (loading) {
+  if (loading && !isAuthenticated) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
@@ -72,12 +99,63 @@ export default function AdminStats() {
     );
   }
 
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center p-8">
+        <div className="max-w-md w-full">
+          <div className="bg-gray-800 rounded-lg p-8 border border-gray-700">
+            <h1 className="text-2xl font-bold mb-6 text-center">Admin Login</h1>
+            <form onSubmit={handleLogin}>
+              <div className="mb-4">
+                <label htmlFor="secret" className="block text-sm font-medium mb-2 text-gray-300">
+                  Admin Secret
+                </label>
+                <input
+                  type="password"
+                  id="secret"
+                  value={secret}
+                  onChange={(e) => setSecret(e.target.value)}
+                  placeholder="Enter admin secret"
+                  className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                  required
+                />
+              </div>
+              {authError && (
+                <div className="mb-4 p-3 bg-red-900/30 border border-red-700 rounded text-red-400 text-sm">
+                  {authError}
+                </div>
+              )}
+              <button
+                type="submit"
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition"
+              >
+                Access Dashboard
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-900 text-white p-8">
       <div className="max-w-7xl mx-auto">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Admin Statistics Dashboard</h1>
-          <p className="text-gray-400">Real-time account tracking and revenue metrics</p>
+        <div className="mb-8 flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold mb-2">Admin Statistics Dashboard</h1>
+            <p className="text-gray-400">Real-time account tracking and revenue metrics</p>
+          </div>
+          <button
+            onClick={() => {
+              setIsAuthenticated(false);
+              setSecret('');
+              setStats(null);
+            }}
+            className="px-4 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg text-sm transition"
+          >
+            Logout
+          </button>
         </div>
 
         {error && (
