@@ -107,8 +107,7 @@ export interface AgentStatus {
     targetEmail: string;
     level: 'imago' | 'ghost';
   };
-    nextScheduled?: number;
-  };
+  nextScheduled?: number;
   metadata?: Record<string, any>;
 }
 
@@ -308,6 +307,30 @@ export class MailStorageAdapter {
       console.error('Failed to forward email for Imago agent:', error);
     }
 
+    // Track active inbox usage for analytics
+    // This tracks "Active Communication" vs just "Minted NFTs"
+    try {
+      const activeInboxesKey = 'stats:active_inboxes';
+      const seenKey = `stats:seen_inbox:${agentName}`;
+      
+      // Check if this inbox has been seen before
+      const seenBefore = await kv.get(seenKey);
+      if (!seenBefore) {
+        // Mark as seen with 30-day TTL
+        await kv.put(seenKey, Date.now().toString(), { expirationTtl: 30 * 24 * 60 * 60 });
+        
+        // Increment active inbox counter
+        const currentTotal = await kv.get(activeInboxesKey);
+        const newTotal = currentTotal ? (parseInt(currentTotal) + 1) : 1;
+        await kv.put(activeInboxesKey, newTotal.toString());
+        
+        console.log(`New active inbox tracked: ${agentName} (total: ${newTotal})`);
+      }
+    } catch (error) {
+      // Non-fatal - tracking should never break email delivery
+      console.error('Failed to track active inbox:', error);
+    }
+
     // Update the inbox index (list of message IDs)
     let index: string[] = [];
     try {
@@ -444,8 +467,7 @@ export class MailStorageAdapter {
       },
       heartbeat: {
         lastBeat,
-        isActive: lastBeat ? (now - lastBeat) < 24 * 60 * 60 * 1000 : false,
-        nextScheduled: nextEvent?.type === 'HEARTBEAT' ? nextEvent.startTime : undefined
+        isActive: lastBeat ? (now - lastBeat) < 24 * 60 * 60 * 1000 : false
       }
     };
 

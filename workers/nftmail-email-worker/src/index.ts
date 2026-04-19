@@ -2973,6 +2973,26 @@ export default {
           }), request);
         }
 
+        // Stats: Get account tracking metrics (on-chain + KV usage)
+        if (email.action === 'getStats') {
+          const activeInboxes = await env.INBOX_KV.get('stats:active_inboxes');
+          const totalActive = activeInboxes ? parseInt(activeInboxes) : 0;
+          
+          return corsify(Response.json({
+            on_chain: {
+              total_minted: 'Query ERC-8004 contract directly',
+              chain_id: 100,
+              contract: '0x8004A169FB4a3325136EB29fA0ceB6D2e539a432'
+            },
+            off_chain: {
+              active_inboxes: totalActive,
+              tracked_via_kv: true,
+              tracking_period: '30_days'
+            },
+            last_updated: Date.now()
+          }), request);
+        }
+
         // EIP-712 HandshakeCertificate: store bilateral P2P mutual-auth proof
         if (email.action === 'storeHandshakeCertificate') {
           const agentName     = ((email as any).agentName     || '').toLowerCase().trim();
