@@ -941,7 +941,15 @@ async function handleMailgunPayload(
   const storeDomainPrefix = '';
   const storeKeyName = (name: string) => name;
 
-  const sender = String(mgEmail['sender'] || mgEmail['from'] || '');
+  // Mailgun provides two sender fields:
+  //   'from'   = header From (what the user wrote, e.g. '"Victor" <victor@nftmail.box>')
+  //   'sender' = envelope Return-Path, often a VERP bounce address like
+  //              'bounce+xxxx-agent=ghostmail.box@nftmail.box'
+  // Prefer 'from' for display/reply, fall back to 'sender'. Strip display name + angle brackets
+  // so the stored value is a clean reply-to address (e.g. 'victor@nftmail.box').
+  const rawSender = String(mgEmail['from'] || mgEmail['sender'] || '');
+  const senderEmailMatch = rawSender.match(/<([^>]+@[^>]+)>/) || rawSender.match(/([^\s<>,]+@[^\s<>,]+)/);
+  const sender = senderEmailMatch ? senderEmailMatch[1].trim() : rawSender.trim();
   const subject = String(mgEmail['subject'] || '');
   const bodyHtmlRaw = String(mgEmail['bodyHtml'] || '');
   const body = String(mgEmail['strippedText'] || mgEmail['bodyPlain'] || bodyHtmlRaw || '');
