@@ -81,8 +81,10 @@ export async function GET(req: NextRequest) {
           const receivedMs = rawRa > 0 && rawRa < 946684800000 ? rawRa * 1000 : (rawRa || now);
           const frozen = m.frozen === true;
           // Frozen emails never decay; use per-message decayDays if available, else account default
-          const msgDecayDays = m.decayDays ?? acctDecayDays ?? 8;
-          const decayMs = msgDecayDays * 24 * 60 * 60 * 1000;
+          // Imago/Agent accounts have acctDecayDays = null (no decay)
+          const msgDecayDays = m.decayDays ?? acctDecayDays; // No fallback - null means no decay
+          const hasDecay = msgDecayDays !== null && msgDecayDays > 0;
+          const decayMs = hasDecay ? msgDecayDays * 24 * 60 * 60 * 1000 : 0;
           const ageMs = now - receivedMs;
 
           return {
@@ -101,10 +103,10 @@ export async function GET(req: NextRequest) {
             type: m.type || '',
             contentHash: m.envelope?.contentHash || m.plaintextHash || '',
             frozen,
-            decayDays: frozen ? null : msgDecayDays,
-            decayPct: frozen ? 0 : Math.min(100, Math.round((ageMs / decayMs) * 100)),
-            expiresAt: frozen ? null : new Date(receivedMs + decayMs).toISOString(),
-            expired: !frozen && ageMs >= decayMs,
+            decayDays: frozen || !hasDecay ? null : msgDecayDays,
+            decayPct: frozen || !hasDecay ? 0 : Math.min(100, Math.round((ageMs / decayMs) * 100)),
+            expiresAt: frozen || !hasDecay ? null : new Date(receivedMs + decayMs).toISOString(),
+            expired: !frozen && hasDecay && ageMs >= decayMs,
           };
         });
       } else {
