@@ -3,6 +3,7 @@
 import MailStorageAdapter, { CalendarInvite } from './storage';
 import { buildDirectMessageTopic, createWakuEnvelope } from './waku';
 import { encrypt as eciesEncrypt, generateKeyPair, EncryptedEnvelope } from './ecies';
+import { forwardEmail } from './forwarding';
 import {
   PrivacyTier as PrivacyTierType,
   routeSetPrivacy,
@@ -964,6 +965,20 @@ async function handleMailgunPayload(
     const storageName = localPart || agentName;
     await env.INBOX_KV.put(`blind:${storeKeyName(storageName)}:${blindId}`, JSON.stringify(envelope), mgPutOpts);
     await updateBlindIndex(env, storageName, blindId, storeDomainPrefix, mgTtlSecs);
+
+    // Fire email forwarding for Imago human inboxes (non-fatal — storage already succeeded).
+    // Keyed by agentName (base identity), not storageName — forwarding config is tied to the
+    // on-chain NFT identity, not the @-local-part variant.
+    try {
+      const forwarded = await forwardEmail(env as any, agentName, {
+        from: sender, to: recipient, subject,
+        content: body, timestamp,
+      });
+      if (forwarded) console.log(`[forwarding] human ${agentName} → forwarded`);
+    } catch (err) {
+      console.error(`[forwarding] human ${agentName} failed (non-fatal):`, err);
+    }
+
     return corsify(Response.json({ status: 'received', stream: 'human', blindId, plaintextHash, recipient: storageName }), request);
   }
 
