@@ -1398,6 +1398,9 @@ export default {
             env.INBOX_KV.get(`acct-tier:${agentName}`),
           ]);
 
+          // Fetch explicit principal override (if set via setPrincipal action)
+          const principalRaw = await env.INBOX_KV.get(`principal:${agentName}`);
+
           // Parse identity NFT record (nftmailgno: key)
           let originNft: string | null = null;
           let tokenId: number | null = null;
@@ -1420,6 +1423,9 @@ export default {
 
           const tld = tldRaw ?? null;
 
+          // ERC-8226 principal: explicit KV override > controller (minter wallet)
+          const principal = principalRaw || onChainOwner || null;
+
           const gnosis      = gnosisRaw      ? JSON.parse(gnosisRaw)      : null;
           const base        = baseRaw         ? JSON.parse(baseRaw)         : null;
           const baseSepolia = baseSepoliaRaw  ? JSON.parse(baseSepoliaRaw)  : null;
@@ -1434,6 +1440,8 @@ export default {
               owner:   onChainOwner,
               tld:     tld,
             } : null,
+            // ERC-8226 principal (human responsible for agent)
+            principal: principal,
             // Safe (multisig treasury)
             safe: safe ?? null,
             // Story Protocol IP

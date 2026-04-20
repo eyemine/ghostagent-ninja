@@ -24,6 +24,7 @@ interface DemoAgent {
   ipDomain?: string;
   brainType?: BrainType;
   imageUrl?: string;
+  principal?: string;
 }
 
 interface DemoBody {
@@ -173,6 +174,12 @@ function AgentCard({ agent, onSelect, selected }: { agent: DemoAgent; onSelect: 
             </div>
             <span className={`text-[11px] font-medium ${ns.text}`}>{agent.namespace}</span>
             <code className="mt-1 block truncate text-[10px] text-[var(--muted)]">{agent.tba}</code>
+            {agent.principal && (
+              <div className="mt-1 flex items-center gap-1">
+                <span className="text-[9px] text-[var(--muted)]">Principal:</span>
+                <code className="truncate text-[10px] text-amber-300/70">{agent.principal.slice(0, 6)}…{agent.principal.slice(-4)}</code>
+              </div>
+            )}
           </div>
 
           {/* Badges */}
@@ -306,6 +313,7 @@ export default function DashboardHome() {
               const identity = await idRes.json() as {
                 onChainOwner?: string;
                 identityNft?: { owner?: string; tld?: string | null } | null;
+                principal?: string | null;
                 safe?: string | null;
                 tld?: string | null;
                 accountTier?: string;
@@ -351,6 +359,7 @@ export default function DashboardHome() {
                 events:    0,
                 active:    true,
                 imageUrl,
+                principal: identity.principal ?? identity.identityNft?.owner ?? undefined,
               };
             } catch {
               return null;

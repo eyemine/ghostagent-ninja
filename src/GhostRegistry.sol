@@ -13,6 +13,7 @@ import { IGnosisSafe } from "./interfaces/IGnosisSafe.sol";
 ///   3. Sets TBA as sole owner of user's Safe
 ///
 /// @dev Non-custodial guarantee: only NFT owner can molt() to swap Safe signers
+/// @dev ERC-8226 forward-compat: principalOf tracks the human responsible for each agent
 contract GhostRegistry is ERC721, Ownable {
     IERC6551Registry public immutable erc6551Registry;
     address public erc6551Implementation;
@@ -30,6 +31,9 @@ contract GhostRegistry is ERC721, Ownable {
     mapping(uint256 => address) public accountOf;   // tokenId → TBA address
     mapping(uint256 => address) public safeOf;      // tokenId → Safe address
 
+    // ERC-8226 forward-compat: beneficial owner / human responsible for agent actions
+    mapping(uint256 => address) public principalOf; // tokenId → principal address
+
     event Registered(
         uint256 indexed tokenId,
         string name,
@@ -43,6 +47,11 @@ contract GhostRegistry is ERC721, Ownable {
         address indexed oldTba,
         address indexed newTba,
         address safe
+    );
+
+    event PrincipalSet(
+        uint256 indexed agentId,
+        address indexed principal
     );
 
     function _execFromModule(
@@ -107,6 +116,10 @@ contract GhostRegistry is ERC721, Ownable {
         names[tokenId] = name;
         nameToId[name] = tokenId;
 
+        // ERC-8226: set principal to msg.sender (the human who registered)
+        principalOf[tokenId] = msg.sender;
+        emit PrincipalSet(tokenId, msg.sender);
+
         // 2. Create TBA for the NFT
         address tba = erc6551Registry.createAccount(
             erc6551Implementation,
@@ -142,6 +155,7 @@ contract GhostRegistry is ERC721, Ownable {
 
     /// @notice Molt: swap Safe signers by creating a new TBA
     /// @dev Only callable by NFT owner (non-custodial guarantee)
+    /// @dev Principal is intentionally NOT changed — molting preserves responsibility
     function molt(uint256 tokenId) external {
         require(ownerOf(tokenId) == msg.sender, "Not owner");
         
@@ -168,19 +182,30 @@ contract GhostRegistry is ERC721, Ownable {
         emit Molted(tokenId, oldTba, newTba, safe);
     }
 
+    /// @notice Transfer principal responsibility to a new address
+    /// @dev Only callable by the current principal
+    function setPrincipal(uint256 tokenId, address newPrincipal) external {
+        require(newPrincipal != address(0), "Invalid principal");
+        require(principalOf[tokenId] == msg.sender, "Not principal");
+        principalOf[tokenId] = newPrincipal;
+        emit PrincipalSet(tokenId, newPrincipal);
+    }
+
     /// @notice Get full agent info by tokenId
     function agentInfo(uint256 tokenId) external view returns (
         string memory name,
         address owner,
         address tba,
-        address safe
+        address safe,
+        address principal
     ) {
         require(ownerOf(tokenId) != address(0), "Token doesn't exist");
         return (
             names[tokenId],
             ownerOf(tokenId),
             accountOf[tokenId],
-            safeOf[tokenId]
+            safeOf[tokenId],
+            principalOf[tokenId]
         );
     }
 
@@ -189,7 +214,8 @@ contract GhostRegistry is ERC721, Ownable {
         uint256 tokenId,
         address owner,
         address tba,
-        address safe
+        address safe,
+        address principal
     ) {
         tokenId = nameToId[name];
         require(ownerOf(tokenId) != address(0), "Name not registered");
@@ -197,7 +223,8 @@ contract GhostRegistry is ERC721, Ownable {
             tokenId,
             ownerOf(tokenId),
             accountOf[tokenId],
-            safeOf[tokenId]
+            safeOf[tokenId],
+            principalOf[tokenId]
         );
     }
 }
