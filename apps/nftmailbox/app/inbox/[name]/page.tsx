@@ -288,8 +288,10 @@ export default function InboxPage() {
 
   const agentName = name?.endsWith('_') ? name.slice(0, -1) : name;
 
-  // ECIES decrypt: only active for agent inboxes where owner is authenticated
-  const eciesAgent = isAgent && isOwner ? agentName : null;
+  // ECIES decrypt: only active for agent inboxes where owner is authenticated.
+  // Pass the full route name (with trailing _) so the hook reads the agent inbox
+  // KV key distinct from the human inbox. The hook internally strips _ for pubkey/privkey.
+  const eciesAgent = isAgent && isOwner ? name : null;
   const {
     keyState,
     hasKey,

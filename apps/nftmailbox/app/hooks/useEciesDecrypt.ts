@@ -74,10 +74,15 @@ export function useEciesDecrypt(agentName: string | null): UseEciesDecryptReturn
   const [decryptError, setDecryptError] = useState<string | null>(null);
   const [decryptingCount, setDecryptingCount] = useState(0);
 
+  // agentName may carry a trailing `_` to denote the agent inbox (e.g. ghostagent_).
+  // Blind-inbox reads use the full name (distinct KV key from the human inbox),
+  // but ECIES pub/priv keys are tied to the base on-chain identity (no trailing _).
+  const baseName = agentName ? agentName.replace(/_+$/, '') : null;
+
   // On mount / agentName change: check localStorage for existing key
   useEffect(() => {
-    if (!agentName) { setKeyState('missing'); return; }
-    const stored = loadPrivateKey(agentName);
+    if (!baseName) { setKeyState('missing'); return; }
+    const stored = loadPrivateKey(baseName);
     if (stored) {
       setPrivKey(stored);
       setKeyState('loaded');
@@ -173,35 +178,37 @@ export function useEciesDecrypt(agentName: string | null): UseEciesDecryptReturn
 
   // Load a key from hex string (user pastes it in)
   const loadKey = useCallback((privKeyHex: string) => {
-    if (!agentName) return;
+    if (!baseName) return;
     const clean = privKeyHex.trim().replace(/^0x/, '');
     if (clean.length !== 64) {
       setDecryptError('Invalid private key — expected 32-byte hex (64 chars)');
       setKeyState('error');
       return;
     }
-    storePrivateKey(agentName, clean);
+    storePrivateKey(baseName, clean);
     setPrivKey(clean);
     setKeyState('loaded');
     setDecryptError(null);
-  }, [agentName]);
+  }, [baseName]);
 
   // Generate a fresh P-256 key pair, store private key locally, register public key with worker
   const generateAndRegisterKey = useCallback(async (agent: string) => {
     if (!agent) return null;
+    // ECIES keys are tied to the base on-chain identity (strip any trailing _).
+    const base = agent.replace(/_+$/, '');
     setKeyState('generating');
     try {
       const kp = await generateEciesKeyPair();
-      storePrivateKey(agent, kp.privateKey);
+      storePrivateKey(base, kp.privateKey);
       setPrivKey(kp.privateKey);
 
-      // Register public key with the worker KV
+      // Register public key with the worker KV under the base identity
       await fetch(WORKER_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'registerEciesKey',
-          localPart: agent,
+          localPart: base,
           eciesPublicKey: kp.publicKey,
         }),
       });
@@ -217,12 +224,12 @@ export function useEciesDecrypt(agentName: string | null): UseEciesDecryptReturn
 
   // Remove key from localStorage
   const forgetKey = useCallback(() => {
-    if (!agentName) return;
-    clearPrivateKey(agentName);
+    if (!baseName) return;
+    clearPrivateKey(baseName);
     setPrivKey(null);
     setKeyState('missing');
     setDecryptedMessages([]);
-  }, [agentName]);
+  }, [baseName]);
 
   return {
     keyState,

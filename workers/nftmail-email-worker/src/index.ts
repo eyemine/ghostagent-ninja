@@ -927,10 +927,19 @@ async function handleMailgunPayload(
     return corsify(Response.json({ error: 'Invalid recipient format', recipient }, { status: 400 }), request);
   }
 
-  // Domain-keyed storage: ghostmail.box emails stored under ghostmail:{agentName} prefix to avoid
-  // contaminating nftmail.box inboxes when two domains share the same local-part
-  const storeDomainPrefix = recipient.toLowerCase().includes('@ghostmail.box') ? 'ghostmail' : '';
-  const storeKeyName = (name: string) => storeDomainPrefix ? `${storeDomainPrefix}:${name}` : name;
+  // Unified inbox: nftmail.box and ghostmail.box deliver to the SAME blind-index key per agent.
+  // The recipient-to domain is preserved inside each envelope's payload.to, so the UI can show
+  // which address the message was sent to and the Reply flow can auto-select matching send domain.
+  // Ghostmail is human-only: agent suffixes (_ or .agent) on @ghostmail.box are rejected below.
+  const isGhostmailDomain = recipient.toLowerCase().includes('@ghostmail.box');
+  if (isGhostmailDomain && (stream === 'agent' || localPart.endsWith('_') || localPart.endsWith('.agent'))) {
+    return corsify(Response.json({
+      error: 'Agent suffixes are not allowed on ghostmail.box — use @nftmail.box for agent traffic',
+      recipient,
+    }, { status: 400 }), request);
+  }
+  const storeDomainPrefix = '';
+  const storeKeyName = (name: string) => name;
 
   const sender = String(mgEmail['sender'] || mgEmail['from'] || '');
   const subject = String(mgEmail['subject'] || '');
