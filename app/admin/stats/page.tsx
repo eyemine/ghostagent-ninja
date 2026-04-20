@@ -6,9 +6,17 @@
 import { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
+interface AgentInfo {
+  name: string;
+  sld: string;
+  agentId: number;
+}
+
 interface AggregatedStats {
-  on_chain: {
-    total_minted: string;
+  agents: {
+    total_registered: number;
+    known_agents: AgentInfo[];
+    from_kv: any[];
     chain_id: number;
     contract: string;
     last_updated: Date;
@@ -23,6 +31,7 @@ interface AggregatedStats {
     currency: string;
   };
   last_updated: number;
+  error?: string;
 }
 
 export default function AdminStats() {
@@ -33,18 +42,10 @@ export default function AdminStats() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
 
-  // Generate growth data based on actual stats (simulated historical growth)
-  const totalMinted = parseInt(stats?.on_chain?.total_minted || '0');
+  // Stats data
+  const totalAgents = stats?.agents?.total_registered || 0;
   const activeInboxes = stats?.off_chain?.active_inboxes || 0;
-  
-  const growthData = Array.from({ length: 30 }, (_, i) => {
-    const progress = (i + 1) / 30;
-    return {
-      day: i + 1,
-      minted: Math.floor(totalMinted * progress * 0.95 + Math.random() * (totalMinted * 0.05)),
-      active: Math.floor(activeInboxes * progress * 0.9 + Math.random() * (activeInboxes * 0.1))
-    };
-  });
+  const knownAgents = stats?.agents?.known_agents || [];
 
   useEffect(() => {
     loadStats();
@@ -172,17 +173,17 @@ export default function AdminStats() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">Total Minted</h3>
+              <h3 className="text-lg font-semibold">Registered Agents</h3>
               <div className="flex items-center gap-2 px-3 py-1 bg-blue-900/20 border border-blue-500/30 rounded-full">
                 <div className="h-2 w-2 rounded-full bg-emerald-400" />
-                <span className="text-xs text-blue-300">Verified on Gnosis</span>
+                <span className="text-xs text-blue-300">ERC-8004</span>
               </div>
             </div>
             <div className="text-4xl font-bold text-white mb-2">
-              {stats?.on_chain?.total_minted || '0'}
+              {totalAgents}
             </div>
             <p className="text-sm text-gray-400">
-              ERC-8004 Identity Registry
+              GhostAgent Ninja Agents
             </p>
           </div>
 
@@ -219,39 +220,25 @@ export default function AdminStats() {
           </div>
         </div>
 
-        {/* Growth Chart */}
+        {/* Registered Agents */}
         <div className="bg-gray-800 rounded-lg p-6 border border-gray-700 mb-8">
-          <h3 className="text-lg font-semibold mb-4">Account Growth (Last 30 Days)</h3>
-          <div className="h-80 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={growthData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                <XAxis dataKey="day" stroke="#9CA3AF" />
-                <YAxis stroke="#9CA3AF" />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #374151' }}
-                  labelStyle={{ color: '#F3F4F6' }}
-                />
-                <Legend />
-                <Line 
-                  type="monotone" 
-                  dataKey="minted" 
-                  stroke="#3B82F6" 
-                  strokeWidth={2}
-                  name="Total Minted"
-                  dot={false}
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="active" 
-                  stroke="#A855F7" 
-                  strokeWidth={2}
-                  name="Active Inboxes"
-                  dot={false}
-                />
-              </LineChart>
-            </ResponsiveContainer>
+          <h3 className="text-lg font-semibold mb-4">Registered Agents</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {knownAgents.map((agent) => (
+              <div key={agent.name} className="p-4 bg-gray-900/50 rounded border border-gray-700">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-semibold text-white capitalize">{agent.name}</span>
+                  <span className="text-xs px-2 py-1 bg-blue-900/30 text-blue-300 rounded">ID: {agent.agentId}</span>
+                </div>
+                <p className="text-sm text-gray-400">{agent.sld}</p>
+              </div>
+            ))}
           </div>
+          {stats?.error && (
+            <div className="mt-4 p-3 bg-amber-900/20 border border-amber-500/30 rounded text-amber-300 text-sm">
+              Note: {stats.error}
+            </div>
+          )}
         </div>
 
         {/* Data Sources */}
@@ -261,9 +248,9 @@ export default function AdminStats() {
             <div className="flex items-center justify-between p-3 bg-gray-900/50 rounded">
               <div className="flex items-center gap-3">
                 <div className="h-3 w-3 rounded-full bg-blue-400" />
-                <span className="text-gray-300">On-chain Registry</span>
+                <span className="text-gray-300">ERC-8004 Registry</span>
               </div>
-              <span className="text-sm text-gray-400">Gnosis Chain ID: 100</span>
+              <span className="text-sm text-gray-400">{knownAgents.length} known agents</span>
             </div>
             <div className="flex items-center justify-between p-3 bg-gray-900/50 rounded">
               <div className="flex items-center gap-3">
