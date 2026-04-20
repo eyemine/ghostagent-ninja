@@ -3064,22 +3064,42 @@ export default {
           return corsify(Response.json({ success: true, agentName, config: configWithOwner }), request);
         }
 
-        // Stats: Get account tracking metrics (on-chain + KV usage)
+        // Stats: Get account tracking metrics across all KV prefixes
         if (email.action === 'getStats') {
-          const activeInboxes = await env.INBOX_KV.get('stats:active_inboxes');
-          const totalActive = activeInboxes ? parseInt(activeInboxes) : 0;
-          
+          const uniqueAgents = new Set<string>();
+          const activeInboxAgents = new Set<string>();
+
+          // Count from tld: prefix (registered agents)
+          const tldKeys = await env.INBOX_KV.list({ prefix: 'tld:' });
+          for (const k of tldKeys.keys) uniqueAgents.add(k.name.replace(/^tld:/, ''));
+
+          // Count from erc8004:gnosis: prefix (on-chain registered)
+          const erc8004Keys = await env.INBOX_KV.list({ prefix: 'erc8004:gnosis:' });
+          for (const k of erc8004Keys.keys) uniqueAgents.add(k.name.replace(/^erc8004:gnosis:/, ''));
+
+          // Count from blind-index: prefix (agents that have/had mail)
+          const blindIndexKeys = await env.INBOX_KV.list({ prefix: 'blind-index:' });
+          for (const k of blindIndexKeys.keys) {
+            const name = k.name.replace(/^blind-index:/, '').replace(/^ghostmail:/, '');
+            if (name) {
+              uniqueAgents.add(name);
+              activeInboxAgents.add(name);
+            }
+          }
+
+          // Count from acct-tier: prefix (accounts created via mint/npx/curl)
+          const acctTierKeys = await env.INBOX_KV.list({ prefix: 'acct-tier:' });
+          for (const k of acctTierKeys.keys) uniqueAgents.add(k.name.replace(/^acct-tier:/, ''));
+
+          // Count from nftmailgno: prefix (minted NFT registrations)
+          const nftmailgnoKeys = await env.INBOX_KV.list({ prefix: 'nftmailgno:' });
+          for (const k of nftmailgnoKeys.keys) uniqueAgents.add(k.name.replace(/^nftmailgno:/, ''));
+
           return corsify(Response.json({
-            on_chain: {
-              total_minted: 'Query ERC-8004 contract directly',
-              chain_id: 100,
-              contract: '0x8004A169FB4a3325136EB29fA0ceB6D2e539a432'
-            },
-            off_chain: {
-              active_inboxes: totalActive,
-              tracked_via_kv: true,
-              tracking_period: '30_days'
-            },
+            total_accounts: uniqueAgents.size,
+            active_inboxes: activeInboxAgents.size,
+            agents: Array.from(uniqueAgents).sort(),
+            chain_id: 100,
             last_updated: Date.now()
           }), request);
         }

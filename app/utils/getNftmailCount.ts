@@ -1,35 +1,10 @@
-/// Utility function to get total registered nftmail.box accounts from on-chain registrars
-/// Uses viem to query the BaseRegistrar contracts on Gnosis using nextTokenId()
-/// Registrars: molt.gno, nftmail.gno, openclaw.gno, picoclaw.gno, vault.gno, agent.gno
+/// Utility function to get total registered nftmail.box accounts
+/// Queries the Cloudflare Worker KV (listAgents) which is the source of truth
+/// On-chain registrars have ABI mismatches on deployed contracts; KV is reliable
 
-import { createPublicClient, http } from 'viem';
-import { gnosis } from 'viem/chains';
+const WORKER_URL = process.env.NEXT_PUBLIC_WORKER_URL || 'https://nftmail-email-worker.richard-159.workers.dev';
 
-// nftmail BaseRegistrar contracts on Gnosis mainnet (chain 100)
-const NFTMAIL_REGISTRARS = {
-  molt_gno: '0x4b54213c1e5826497ff39ba8c87a7b75d2bc3c50' as `0x${string}`,
-  nftmail_gno: '0x46c37365572C9994812AAA41fD04eB56D05469D0' as `0x${string}`,
-  openclaw_gno: '0xbD8285A8455CCEC4bE671D9eE3924Ab1264fcbbe' as `0x${string}`,
-  picoclaw_gno: '0xe5fd65562698f46ea9762bd38141535b1fd875b5' as `0x${string}`,
-  vault_gno: '0xc6b184a38da64d1d535674dafb9ce2440058ec4e' as `0x${string}`,
-  agent_gno: '0x608071875bcc0ef0b934f8a2367672d8c472cacf' as `0x${string}`,
-} as const;
-
-// BaseRegistrar uses nextTokenId() — token count = nextTokenId - 1 (tokens start at 1)
-const REGISTRAR_ABI = [
-  {
-    inputs: [],
-    name: 'nextTokenId',
-    outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }],
-    stateMutability: 'view',
-    type: 'function'
-  },
-] as const;
-
-const publicClient = createPublicClient({
-  chain: gnosis,
-  transport: http(process.env.NEXT_PUBLIC_GNOSIS_RPC || 'https://rpc.gnosischain.com'),
-});
+const TLD_LIST = ['molt.gno', 'nftmail.gno', 'openclaw.gno', 'picoclaw.gno', 'vault.gno', 'agent.gno'] as const;
 
 export interface NftmailStats {
   totalAccounts: bigint;
@@ -46,69 +21,74 @@ export interface NftmailStats {
   chainId: number;
 }
 
-/**
- * Get token count from a BaseRegistrar by calling nextTokenId().
- * Tokens start at 1, so count = nextTokenId - 1.
- */
-async function getRegistrarCount(address: `0x${string}`): Promise<bigint> {
-  try {
-    const nextId = await publicClient.readContract({
-      address,
-      abi: REGISTRAR_ABI,
-      functionName: 'nextTokenId',
-    });
-    return nextId > 0n ? nextId - 1n : 0n;
-  } catch (err) {
-    console.error(`Failed to read nextTokenId from ${address}:`, err);
-    return 0n;
-  }
+interface WorkerAgent {
+  name: string;
+  tld: string | null;
 }
 
 /**
- * Get the total number of registered nftmail.box accounts from all registrar contracts
- * Queries: molt.gno, nftmail.gno, openclaw.gno, picoclaw.gno, vault.gno, agent.gno
+ * Get total registered nftmail.box accounts from the Worker KV via listAgents.
+ * Groups results by TLD for the breakdown display.
  */
 export async function getNftmailCount(): Promise<NftmailStats> {
   try {
-    console.log('Fetching nftmail registrar counts from contracts');
+    console.log('Fetching nftmail agent counts from worker KV');
 
-    const [moltCount, nftmailCount, openclawCount, picoclawCount, vaultCount, agentCount] = await Promise.all([
-      getRegistrarCount(NFTMAIL_REGISTRARS.molt_gno),
-      getRegistrarCount(NFTMAIL_REGISTRARS.nftmail_gno),
-      getRegistrarCount(NFTMAIL_REGISTRARS.openclaw_gno),
-      getRegistrarCount(NFTMAIL_REGISTRARS.picoclaw_gno),
-      getRegistrarCount(NFTMAIL_REGISTRARS.vault_gno),
-      getRegistrarCount(NFTMAIL_REGISTRARS.agent_gno),
-    ]);
+    const response = await fetch(WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'listAgents' }),
+    });
 
-    const totalAccounts = moltCount + nftmailCount + openclawCount + picoclawCount + vaultCount + agentCount;
+    if (!response.ok) {
+      throw new Error(`Worker listAgents returned ${response.status}`);
+    }
 
-    console.log('Nftmail count results:', {
-      molt_gno: moltCount.toString(),
-      nftmail_gno: nftmailCount.toString(),
-      openclaw_gno: openclawCount.toString(),
-      picoclaw_gno: picoclawCount.toString(),
-      vault_gno: vaultCount.toString(),
-      agent_gno: agentCount.toString(),
-      total: totalAccounts.toString(),
+    const data = await response.json() as { agents: WorkerAgent[]; total: number };
+    const agents = data.agents || [];
+
+    // Group by TLD
+    const counts: Record<string, number> = {};
+    for (const tld of TLD_LIST) counts[tld] = 0;
+
+    for (const agent of agents) {
+      const tld = agent.tld || '';
+      if (tld in counts) {
+        counts[tld]++;
+      } else {
+        // Agent with unknown/missing TLD still counts toward total
+        counts[tld] = (counts[tld] || 0) + 1;
+      }
+    }
+
+    const total = agents.length;
+
+    console.log('Nftmail count results (from KV):', {
+      molt_gno: counts['molt.gno'],
+      nftmail_gno: counts['nftmail.gno'],
+      openclaw_gno: counts['openclaw.gno'],
+      picoclaw_gno: counts['picoclaw.gno'],
+      vault_gno: counts['vault.gno'],
+      agent_gno: counts['agent.gno'],
+      total,
     });
 
     return {
-      totalAccounts,
-      formattedTotal: totalAccounts.toString(),
+      totalAccounts: BigInt(total),
+      formattedTotal: total.toString(),
       breakdown: {
-        molt_gno: moltCount.toString(),
-        nftmail_gno: nftmailCount.toString(),
-        openclaw_gno: openclawCount.toString(),
-        picoclaw_gno: picoclawCount.toString(),
-        vault_gno: vaultCount.toString(),
-        agent_gno: agentCount.toString(),
+        molt_gno: (counts['molt.gno'] || 0).toString(),
+        nftmail_gno: (counts['nftmail.gno'] || 0).toString(),
+        openclaw_gno: (counts['openclaw.gno'] || 0).toString(),
+        picoclaw_gno: (counts['picoclaw.gno'] || 0).toString(),
+        vault_gno: (counts['vault.gno'] || 0).toString(),
+        agent_gno: (counts['agent.gno'] || 0).toString(),
       },
       lastUpdated: new Date(),
-      chainId: gnosis.id,
+      chainId: 100,
     };
   } catch (error) {
-    console.error('Failed to fetch nftmail count:', error);
+    console.error('Failed to fetch nftmail count from worker:', error);
     return {
       totalAccounts: 0n,
       formattedTotal: '0',
@@ -121,14 +101,13 @@ export async function getNftmailCount(): Promise<NftmailStats> {
         agent_gno: '0',
       },
       lastUpdated: new Date(),
-      chainId: gnosis.id,
+      chainId: 100,
     };
   }
 }
 
 /**
  * Get formatted count with caching (5 minutes)
- * Reduces on-chain calls for performance
  */
 let cachedStats: NftmailStats | null = null;
 let cacheExpiry: number = 0;
