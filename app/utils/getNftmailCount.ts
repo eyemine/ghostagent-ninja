@@ -27,43 +27,57 @@ interface WorkerAgent {
 }
 
 /**
- * Get total registered nftmail.box accounts from the Worker KV via listAgents.
- * Groups results by TLD for the breakdown display.
+ * Get total registered nftmail.box accounts from the Worker KV via getStats.
+ * getStats returns tld_breakdown + total_accounts covering all KV prefixes.
+ * Agents without a TLD assignment default to nftmail.gno (BYO mints).
  */
 export async function getNftmailCount(): Promise<NftmailStats> {
   try {
-    console.log('Fetching nftmail agent counts from worker KV');
+    console.log('Fetching nftmail agent counts from worker KV (getStats)');
 
     const response = await fetch(WORKER_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'listAgents' }),
+      body: JSON.stringify({ action: 'getStats' }),
     });
 
     if (!response.ok) {
-      throw new Error(`Worker listAgents returned ${response.status}`);
+      throw new Error(`Worker getStats returned ${response.status}`);
     }
 
-    const data = await response.json() as { agents: WorkerAgent[]; total: number };
-    const agents = data.agents || [];
+    const data = await response.json() as {
+      total_accounts: number;
+      nft_accounts: number;
+      sandbox_accounts: number;
+      active_inboxes: number;
+      agents: string[];
+      tld_breakdown: Record<string, string[]>;
+    };
 
-    // Group by TLD
+    const total = data.total_accounts || 0;
+    const tldBreakdown = data.tld_breakdown || {};
+
+    // Count agents per TLD from the worker's tld_breakdown
     const counts: Record<string, number> = {};
     for (const tld of TLD_LIST) counts[tld] = 0;
 
-    for (const agent of agents) {
-      const tld = agent.tld || '';
-      if (tld in counts) {
-        counts[tld]++;
-      } else {
-        // Agent with unknown/missing TLD still counts toward total
-        counts[tld] = (counts[tld] || 0) + 1;
+    let assignedCount = 0;
+    for (const [tld, agents] of Object.entries(tldBreakdown)) {
+      const key = tld as string;
+      const count = Array.isArray(agents) ? agents.length : 0;
+      if (key in counts) {
+        counts[key] = count;
       }
+      assignedCount += count;
     }
 
-    const total = agents.length;
+    // Agents without a TLD are BYO mints → count as nftmail.gno
+    const unassigned = total - assignedCount;
+    if (unassigned > 0) {
+      counts['nftmail.gno'] += unassigned;
+    }
 
-    console.log('Nftmail count results (from KV):', {
+    console.log('Nftmail count results (from getStats):', {
       molt_gno: counts['molt.gno'],
       nftmail_gno: counts['nftmail.gno'],
       openclaw_gno: counts['openclaw.gno'],
@@ -71,6 +85,7 @@ export async function getNftmailCount(): Promise<NftmailStats> {
       vault_gno: counts['vault.gno'],
       agent_gno: counts['agent.gno'],
       total,
+      unassigned,
     });
 
     return {
