@@ -873,8 +873,19 @@ async function sha256Hex(text: string): Promise<string> {
   return [...new Uint8Array(hash)].map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-function corsHeaders(request: Request): Headers {
-  const origin = request.headers.get('Origin') || '*';
+function corsHeaders(request?: Request): Headers {
+  // Defensive: some code paths invoke corsify without a request reference in scope.
+  // Fall back to wildcard origin so we never throw from here.
+  let origin = '*';
+  try {
+    if (request && request.headers && typeof request.headers.get === 'function') {
+      origin = request.headers.get('Origin') || '*';
+    } else if (request) {
+      console.warn('[corsHeaders] request passed without .headers — falling back to *');
+    }
+  } catch (err) {
+    console.warn('[corsHeaders] unexpected error reading Origin:', err);
+  }
   return new Headers({
     'Access-Control-Allow-Origin': origin,
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
@@ -883,7 +894,7 @@ function corsHeaders(request: Request): Headers {
   });
 }
 
-function corsify(response: Response, request: Request): Response {
+function corsify(response: Response, request?: Request): Response {
   const headers = corsHeaders(request);
   const newHeaders = new Headers(response.headers);
   headers.forEach((v, k) => newHeaders.set(k, v));
@@ -1078,8 +1089,13 @@ export default {
       // If this local-part is an alias, transparently redirect to the primary agent's inbox.
       const aliasResolved = await resolveAlias(env.INBOX_KV, localPart);
       const resolvedAgentName = aliasResolved ?? agentName;
+      // Storage key preserves the trailing `_` so an agent inbox (e.g. ghostagent_)
+      // is distinct from the human inbox at the same base name (e.g. ghostagent).
+      // resolvedAgentName (stripped) is only used for ECIES pubkey / TTL lookups
+      // because those are tied to the base on-chain identity.
+      const storageName = aliasResolved ?? localPart;
 
-      const agentTtlSecs = await getAgentTtlSecs(env, resolvedAgentName);
+      const agentTtlSecs = await getAgentTtlSecs(env, storageName);
       const agentPutOpts = agentTtlSecs != null ? { expirationTtl: agentTtlSecs } : {};
       const pubKeyHex = await env.INBOX_KV.get(`ecies-pubkey:${resolvedAgentName}`);
       const blindId = `blind-${timestamp}-${crypto.randomUUID().slice(0, 8)}`;
@@ -1094,8 +1110,8 @@ export default {
           plaintextHash, edgeEncrypt: buildAuditHashEntry(sealed, localPart, timestamp),
           recipient: localPart, receivedAt: timestamp,
         };
-        await env.INBOX_KV.put(`blind:${resolvedAgentName}:${blindId}`, JSON.stringify(envelope), agentPutOpts);
-        await updateBlindIndex(env, resolvedAgentName, blindId, '', agentTtlSecs);
+        await env.INBOX_KV.put(`blind:${storageName}:${blindId}`, JSON.stringify(envelope), agentPutOpts);
+        await updateBlindIndex(env, storageName, blindId, '', agentTtlSecs);
         return;
       }
 
@@ -1112,8 +1128,8 @@ export default {
         plaintextHash, recipient: localPart, receivedAt: timestamp,
         edgeEncrypt: buildAuditHashEntry(sealedSafe as any, localPart, timestamp),
       };
-      await env.INBOX_KV.put(`blind:${resolvedAgentName}:${blindId}`, JSON.stringify(blindEnvelope), agentPutOpts);
-      await updateBlindIndex(env, resolvedAgentName, blindId, '', agentTtlSecs);
+      await env.INBOX_KV.put(`blind:${storageName}:${blindId}`, JSON.stringify(blindEnvelope), agentPutOpts);
+      await updateBlindIndex(env, storageName, blindId, '', agentTtlSecs);
 
       // Glass Box audit for molt.gno agents
       if (await isPublicAgent(localPart, env)) {
@@ -2993,7 +3009,10 @@ export default {
           const agentName = ((email as any).agentName || '').toLowerCase().trim();
           const config = (email as any).config;
           const ownerAddress = ((email as any).ownerAddress || '').toLowerCase().trim();
-          
+
+          console.log('[setForwarding] agentName=%s ownerAddress=%s hasConfig=%s hasSig=%s requestDefined=%s',
+            agentName, ownerAddress, !!config, !!(config && config.signature), !!request);
+
           if (!agentName || !config || !ownerAddress) {
             return corsify(Response.json({ error: 'Missing agentName, config, or ownerAddress' }, { status: 400 }), request);
           }
