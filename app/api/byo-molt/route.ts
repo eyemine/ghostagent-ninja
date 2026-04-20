@@ -20,6 +20,7 @@ import {
   recordChonkMolt,
 } from '../../services/chonk-molt';
 import { WORKER_URL } from '../../utils/config';
+import { fetchNftImageOnChain } from '../../utils/nft-image';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://ghostagent.ninja';
 const NFTMAIL_WORKER_URL = process.env.NFTMAIL_WORKER_URL || 'https://nftmail-email-worker.richard-159.workers.dev';
@@ -301,20 +302,12 @@ export async function POST(req: NextRequest) {
           originImageUrl = meta.image ?? meta.image_url ?? null;
         }
       } else {
-        const alchemyKey = process.env.ALCHEMY_API_KEY ?? process.env.NEXT_PUBLIC_ALCHEMY_API_KEY ?? process.env.NEXT_PUBLIC_ALCHEMY_KEY ?? '';
-        const alchemyBase = type === 'chonk' || type === 'normie'
-          ? `https://base-mainnet.g.alchemy.com/nft/v3/${alchemyKey}/getNFTMetadata`
-          : `https://eth-mainnet.g.alchemy.com/nft/v3/${alchemyKey}/getNFTMetadata`;
-        const alchemyContract = NFT_CONTRACTS[type]?.contract ?? contractAddress;
-        if (alchemyKey && alchemyContract) {
-          const imgRes = await fetch(`${alchemyBase}?contractAddress=${alchemyContract}&tokenId=${tokenId}&refreshCache=false`);
-          if (imgRes.ok) {
-            const data = await imgRes.json() as { image?: { cachedUrl?: string; originalUrl?: string; pngUrl?: string; contentType?: string } };
-            const isVideo = data?.image?.contentType?.startsWith('video/');
-            originImageUrl = isVideo
-              ? (data?.image?.pngUrl ?? null)
-              : (data?.image?.cachedUrl ?? data?.image?.originalUrl ?? null);
-          }
+        // Use on-chain tokenURI — no API key required, works from any origin
+        const chain = (type === 'chonk' || type === 'normie') ? 'base' : 'mainnet';
+        const nftContract = NFT_CONTRACTS[type]?.contract ?? contractAddress;
+        if (nftContract) {
+          const { imageUrl } = await fetchNftImageOnChain(nftContract, tokenId, chain);
+          originImageUrl = imageUrl;
         }
       }
       if (originImageUrl) {

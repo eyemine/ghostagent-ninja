@@ -1,17 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { fetchNftImageOnChain } from '../../../utils/nft-image';
 
 const WORKER_URL = process.env.NFTMAIL_WORKER_URL ?? 'https://nftmail-email-worker.richard-159.workers.dev';
 const WEBHOOK_SECRET = process.env.NFTMAIL_WEBHOOK_SECRET ?? process.env.WEBHOOK_SECRET ?? '';
 
-const NFT_CONTRACTS: Record<string, { contract: string; chain: 'base' | 'eth' }> = {
+const NFT_CONTRACTS: Record<string, { contract: string; chain: 'base' | 'mainnet' }> = {
   chonk:  { contract: '0x07152bfde079b5319e5308C43fB1DBc9C76CB4f9', chain: 'base' },
-  pownft: { contract: '0x9abb7bddc43fa67c76a62d8c016513827f59be1b', chain: 'eth' },
-  normie: { contract: '0xbc4ca0eda7647a8ab7c2061c2e118a18a936f13d', chain: 'eth' },
+  pownft: { contract: '0x9abb7bddc43fa67c76a62d8c016513827f59be1b', chain: 'mainnet' },
+  normie: { contract: '0xbc4ca0eda7647a8ab7c2061c2e118a18a936f13d', chain: 'mainnet' },
 };
 
 // One-time admin endpoint to backfill byo-origin-image KV for existing molts.
+// Uses on-chain tokenURI — no API key required.
 // Usage: POST /api/admin/backfill-byo-image
-// Body: { secret, entries: [{ agentName, nftType, tokenId }] }
+// Body: { secret, entries: [{ agentName, nftType, tokenId, ownerWallet? }] }
 export async function POST(req: NextRequest) {
   const body = await req.json() as {
     secret?: string;
@@ -22,11 +24,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const alchemyKey = process.env.ALCHEMY_API_KEY ?? process.env.NEXT_PUBLIC_ALCHEMY_API_KEY ?? process.env.NEXT_PUBLIC_ALCHEMY_KEY ?? '';
-  if (!alchemyKey) {
-    return NextResponse.json({ error: 'ALCHEMY_API_KEY not set' }, { status: 503 });
-  }
-
   const results: Array<{ agentName: string; status: string; imageUrl?: string; error?: string }> = [];
 
   for (const entry of (body.entries ?? [])) {
@@ -35,19 +32,7 @@ export async function POST(req: NextRequest) {
       const nftConfig = NFT_CONTRACTS[nftType];
       if (!nftConfig) { results.push({ agentName, status: 'skip', error: `Unknown nftType: ${nftType}` }); continue; }
 
-      const alchemyBase = nftConfig.chain === 'base'
-        ? `https://base-mainnet.g.alchemy.com/nft/v3/${alchemyKey}/getNFTMetadata`
-        : `https://eth-mainnet.g.alchemy.com/nft/v3/${alchemyKey}/getNFTMetadata`;
-
-      const imgRes = await fetch(`${alchemyBase}?contractAddress=${nftConfig.contract}&tokenId=${tokenId}&refreshCache=false`);
-      if (!imgRes.ok) { results.push({ agentName, status: 'error', error: `Alchemy ${imgRes.status}` }); continue; }
-
-      const data = await imgRes.json() as { image?: { cachedUrl?: string; originalUrl?: string; pngUrl?: string; contentType?: string } };
-      const isVideo = data?.image?.contentType?.startsWith('video/');
-      const imageUrl = isVideo
-        ? (data?.image?.pngUrl ?? null)
-        : (data?.image?.cachedUrl ?? data?.image?.originalUrl ?? null);
-
+      const { imageUrl } = await fetchNftImageOnChain(nftConfig.contract, tokenId, nftConfig.chain);
       if (!imageUrl) { results.push({ agentName, status: 'no-image' }); continue; }
 
       const kvRes = await fetch(WORKER_URL, {

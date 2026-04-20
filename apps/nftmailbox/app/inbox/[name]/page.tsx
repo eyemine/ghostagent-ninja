@@ -211,6 +211,65 @@ export default function InboxPage() {
   // Privacy toggle in-flight
   const [togglingPrivacy, setTogglingPrivacy] = useState(false);
 
+  // Forwarding configuration state (must stay at top — hooks cannot be conditional)
+  const [forwardingConfig, setForwardingConfig] = useState<{
+    enabled: boolean;
+    targetEmail: string;
+    level: 'imago' | 'ghost';
+  } | null>(null);
+  const [loadingForwarding, setLoadingForwarding] = useState(false);
+
+  // Load forwarding configuration
+  useEffect(() => {
+    if (!name) return;
+    // Derive tier inside effect to avoid hook-order dependency on isImago
+    const tier = (resolved as any)?.accountTier;
+    const eligible = tier === 'premium' || tier === 'ghost';
+    if (!eligible) return;
+
+    let cancelled = false;
+    const loadForwarding = async () => {
+      try {
+        setLoadingForwarding(true);
+        const response = await fetch(`/api/forwarding/${name}`);
+        if (response.ok && !cancelled) {
+          const data = await response.json();
+          setForwardingConfig(data);
+        }
+      } catch (error) {
+        console.error('Failed to load forwarding config:', error);
+      } finally {
+        if (!cancelled) setLoadingForwarding(false);
+      }
+    };
+    loadForwarding();
+    return () => { cancelled = true; };
+  }, [name, resolved]);
+
+  // Save forwarding configuration
+  const handleSaveForwarding = async (config: any) => {
+    if (!user?.wallet?.address) {
+      throw new Error('Wallet not connected');
+    }
+    try {
+      const response = await fetch(`/api/forwarding/${name}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...config,
+          ownerAddress: user.wallet.address
+        })
+      });
+      if (!response.ok) {
+        throw new Error('Failed to save forwarding settings');
+      }
+      const data = await response.json();
+      setForwardingConfig(data);
+    } catch (error: any) {
+      throw new Error(error.message || 'Failed to save forwarding settings');
+    }
+  };
+
   // Owner check: if onChainOwner is recorded, require wallet match.
   // If not recorded (legacy mints pre-ownership tracking), fall back to authenticated.
   const isOwner = useMemo(() => {
@@ -895,63 +954,6 @@ export default function InboxPage() {
     : null;
   const isImago = accountTier === 'premium' || accountTier === 'ghost';
   const showLarvaWarning = accountTier === 'basic' && daysLeft !== null && daysLeft <= 7;
-
-  // Forwarding configuration state (after isImago is defined)
-  const [forwardingConfig, setForwardingConfig] = useState<{
-    enabled: boolean;
-    targetEmail: string;
-    level: 'imago' | 'ghost';
-  } | null>(null);
-  const [loadingForwarding, setLoadingForwarding] = useState(false);
-
-  // Load forwarding configuration
-  useEffect(() => {
-    if (!name || !isImago || !isOwner) return;
-
-    const loadForwarding = async () => {
-      try {
-        setLoadingForwarding(true);
-        const response = await fetch(`/api/forwarding/${name}`);
-        if (response.ok) {
-          const data = await response.json();
-          setForwardingConfig(data);
-        }
-      } catch (error) {
-        console.error('Failed to load forwarding config:', error);
-      } finally {
-        setLoadingForwarding(false);
-      }
-    };
-
-    loadForwarding();
-  }, [name, isImago, isOwner]);
-
-  // Save forwarding configuration
-  const handleSaveForwarding = async (config: any) => {
-    if (!user?.wallet?.address) {
-      throw new Error('Wallet not connected');
-    }
-
-    try {
-      const response = await fetch(`/api/forwarding/${name}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...config,
-          ownerAddress: user.wallet.address
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to save forwarding settings');
-      }
-
-      const data = await response.json();
-      setForwardingConfig(data);
-    } catch (error: any) {
-      throw new Error(error.message || 'Failed to save forwarding settings');
-    }
-  };
 
   const acctTierLabel = accountTier === 'ghost' ? 'AGENT' : accountTier === 'premium' ? 'IMAGO' : accountTier === 'lite' ? 'PUPA' : 'LARVA';
   const acctTierColor = accountTier === 'ghost'
