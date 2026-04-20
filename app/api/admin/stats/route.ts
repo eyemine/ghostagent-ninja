@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
     const registrarStats = await getCachedNftmailCount();
 
     // Fetch comprehensive stats (unique agents + active inboxes) from worker
-    let workerStats: { total_accounts?: number; active_inboxes?: number; agents?: string[] } = {};
+    let workerStats: { total_accounts?: number; nft_accounts?: number; sandbox_accounts?: number; active_inboxes?: number; agents?: string[]; tld_breakdown?: Record<string, string[]> } = {};
     try {
       const workerResponse = await fetch(WORKER_URL, {
         method: 'POST',
@@ -56,8 +56,9 @@ export async function GET(request: NextRequest) {
       },
       off_chain: {
         active_inboxes: workerStats.active_inboxes || 0,
-        tracked_via_kv: true,
-        tracking_period: '30_days'
+        nft_accounts: workerStats.nft_accounts || 0,
+        sandbox_accounts: workerStats.sandbox_accounts || 0,
+        tracked_via_kv: true
       },
       revenue: {
         total_revenue: '0',

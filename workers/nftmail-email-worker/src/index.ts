@@ -3092,13 +3092,33 @@ export default {
           for (const k of acctTierKeys.keys) uniqueAgents.add(k.name.replace(/^acct-tier:/, ''));
 
           // Count from nftmailgno: prefix (minted NFT registrations)
+          const nftAgents = new Set<string>();
           const nftmailgnoKeys = await env.INBOX_KV.list({ prefix: 'nftmailgno:' });
-          for (const k of nftmailgnoKeys.keys) uniqueAgents.add(k.name.replace(/^nftmailgno:/, ''));
+          for (const k of nftmailgnoKeys.keys) {
+            const name = k.name.replace(/^nftmailgno:/, '');
+            uniqueAgents.add(name);
+            nftAgents.add(name);
+          }
+
+          // Build TLD breakdown from tld: keys
+          const tldBreakdown: Record<string, string[]> = {};
+          for (const k of tldKeys.keys) {
+            const name = k.name.replace(/^tld:/, '');
+            const tldVal = await env.INBOX_KV.get(k.name);
+            if (tldVal) {
+              if (!tldBreakdown[tldVal]) tldBreakdown[tldVal] = [];
+              tldBreakdown[tldVal].push(name);
+            }
+          }
 
           return corsify(Response.json({
             total_accounts: uniqueAgents.size,
+            nft_accounts: nftAgents.size,
+            sandbox_accounts: uniqueAgents.size - nftAgents.size,
             active_inboxes: activeInboxAgents.size,
             agents: Array.from(uniqueAgents).sort(),
+            nft_agents: Array.from(nftAgents).sort(),
+            tld_breakdown: tldBreakdown,
             chain_id: 100,
             last_updated: Date.now()
           }), request);

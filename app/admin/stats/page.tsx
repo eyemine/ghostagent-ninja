@@ -28,8 +28,9 @@ interface AdminStats {
   };
   off_chain: {
     active_inboxes: number;
+    nft_accounts: number;
+    sandbox_accounts: number;
     tracked_via_kv: boolean;
-    tracking_period: string;
   };
   revenue: {
     total_revenue: string;
@@ -212,7 +213,9 @@ export default function NftmailAdminStats() {
                 <div className="text-3xl font-bold text-white mb-1">
                   {stats.on_chain.total_accounts}
                 </div>
-                <div className="text-xs text-gray-500">NFT + Sandbox accounts</div>
+                <div className="text-xs text-gray-500">
+                  {stats.off_chain.nft_accounts} NFT · {stats.off_chain.sandbox_accounts} Sandbox
+                </div>
               </div>
 
               {/* Active Inboxes */}
