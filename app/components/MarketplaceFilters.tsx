@@ -49,10 +49,10 @@ const DOMAIN_TABS: { value: DomainFilter; label: string; color: string }[] = [
 
 const LEVEL_TABS: { value: LevelFilter; label: string; icon: string }[] = [
   { value: 'all',   label: 'Any level', icon: '' },
-  { value: 'larva', label: 'Larva', icon: 'https://cloudflare-ipfs.com/ipfs/bafkreicekhu7rr7noqtv2t4sivy5mqncqgbqnf6cq63dfqyvi5klgk7bv4' },
-  { value: 'pupa',  label: 'Pupa',  icon: 'https://cloudflare-ipfs.com/ipfs/bafkreihajbm2nwtuwp4hsgputfqintlw7zxbz4jbpx772ur3rfvfhwadge' },
-  { value: 'imago', label: 'Imago', icon: 'https://cloudflare-ipfs.com/ipfs/bafkreifm4gtqaxgyb2quyykij4np5naoxzpf5w6za6maywemcvl7tltt7u' },
-  { value: 'ghost', label: 'Ghost', icon: 'https://cloudflare-ipfs.com/ipfs/bafkreifjrzcptcss7qvdzpphjdvupmfhizjejqyswycrofjlm72tfi43hq' },
+  { value: 'larva', label: 'Larva', icon: '/molt-icons/larva.png' },
+  { value: 'pupa',  label: 'Pupa',  icon: '/molt-icons/pupa.png' },
+  { value: 'imago', label: 'Imago', icon: '/molt-icons/imago.png' },
+  { value: 'ghost', label: 'Ghost', icon: '/molt-icons/ghost.png' },
 ];
 
 const PRIVACY_TABS: { value: PrivacyFilter; label: string }[] = [

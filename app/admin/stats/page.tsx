@@ -98,7 +98,7 @@ export default function NftmailAdminStats() {
         <div className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center px-4">
           <div className="w-full space-y-6">
             <div className="text-center">
-              <Image src="/nftmail-logo.png" alt="NFTMail" width={64} height={64} className="mx-auto mb-4 opacity-95" />
+              <Image src="/ghost-logo.png" alt="NFTMail" width={64} height={64} className="mx-auto mb-4 opacity-95" />
               <h1 className="text-2xl font-bold text-white">Admin Dashboard</h1>
               <p className="text-sm text-gray-400 mt-2">NFTMail Statistics</p>
             </div>
@@ -173,7 +173,7 @@ export default function NftmailAdminStats() {
         <header className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-3">
             <Link href="/" className="flex items-center gap-2 hover:opacity-90 transition">
-              <Image src="/nftmail-logo.png" alt="NFTMail" width={40} height={40} className="opacity-95" />
+              <Image src="/ghost-logo.png" alt="NFTMail" width={40} height={40} className="opacity-95" />
               <span className="text-lg font-semibold text-white">nftmail.box</span>
             </Link>
             <span className="text-gray-500">/</span>

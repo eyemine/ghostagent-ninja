@@ -136,10 +136,10 @@ const NS_COLOR: Record<string, string> = {
 };
 
 const EVOLVE_META: Record<EvolveLevel, { icon: string; color: string; bg: string }> = {
-  larva: { icon: 'https://gateway.lighthouse.storage/ipfs/bafkreicekhu7rr7noqtv2t4sivy5mqncqgbqnf6cq63dfqyvi5klgk7bv4', color: 'text-zinc-400',    bg: 'bg-zinc-500/10' },
-  pupa:  { icon: 'https://gateway.lighthouse.storage/ipfs/bafkreihajbm2nwtuwp4hsgputfqintlw7zxbz4jbpx772ur3rfvfhwadge', color: 'text-amber-300',   bg: 'bg-amber-500/10' },
-  imago: { icon: 'https://gateway.lighthouse.storage/ipfs/bafkreifm4gtqaxgyb2quyykij4np5naoxzpf5w6za6maywemcvl7tltt7u', color: 'text-violet-300',  bg: 'bg-violet-500/10' },
-  ghost: { icon: 'https://gateway.lighthouse.storage/ipfs/bafkreifjrzcptcss7qvdzpphjdvupmfhizjejqyswycrofjlm72tfi43hq', color: 'text-fuchsia-300', bg: 'bg-fuchsia-500/10' },
+  larva: { icon: '/molt-icons/larva.png', color: 'text-zinc-400',    bg: 'bg-zinc-500/10' },
+  pupa:  { icon: '/molt-icons/pupa.png',  color: 'text-amber-300',   bg: 'bg-amber-500/10' },
+  imago: { icon: '/molt-icons/imago.png', color: 'text-violet-300',  bg: 'bg-violet-500/10' },
+  ghost: { icon: '/molt-icons/ghost.png', color: 'text-fuchsia-300', bg: 'bg-fuchsia-500/10' },
 };
 
 const PRIVACY_META: Record<PrivacyStatus, { icon: string; label: string; color: string }> = {
