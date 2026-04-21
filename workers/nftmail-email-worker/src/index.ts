@@ -760,15 +760,30 @@ async function gnosisSubnameExists(label: string): Promise<string | null> {
 }
 
 // Open Agency: TLD-based privacy classification
-// molt.gno = Glass Box (public audit log, no encryption)
-// agent.gno, openclaw.gno, picoclaw.gno, vault.gno, nftmail.gno = Black Box (private, encrypted, sovereign)
+// Default Glass Box (public audit log, cleartext): molt.gno
+// Default Dark Box (private, ECIES-encrypted): all others
+// Any agent may toggle via setPrivacy (privacy: KV override respected at ingest)
 const PUBLIC_TLDS = ['molt.gno'];
 const PRIVATE_TLDS = ['agent.gno', 'openclaw.gno', 'picoclaw.gno', 'vault.gno', 'nftmail.gno'];
 
 async function isPublicAgent(agentName: string, env: Env, parentTld?: string): Promise<boolean> {
-  if (parentTld) return PUBLIC_TLDS.some(t => parentTld.endsWith(t));
-  // Strip trailing _ (agent alias) to inherit base agent's TLD
+  // Strip trailing _ (agent alias) to inherit base agent's TLD + privacy
   const baseName = agentName.replace(/_+$/, '');
+
+  // Check privacy: KV override — respects both directions of toggle
+  // Glassbox agent toggled private → darkbox; Darkbox agent toggled exposed → glassbox
+  const privacyRaw = await env.INBOX_KV.get(`privacy:${agentName}`) || await env.INBOX_KV.get(`privacy:${baseName}`);
+  if (privacyRaw) {
+    try {
+      const p = JSON.parse(privacyRaw);
+      if (p.tier === 'private' || p.tier === 'hard-privacy') return false;
+      if (p.tier === 'exposed') return true;
+    } catch {
+      if (privacyRaw === 'true' || privacyRaw === 'private') return false;
+    }
+  }
+
+  if (parentTld) return PUBLIC_TLDS.some(t => parentTld.endsWith(t));
   // KV registry: tld:{agentName} → 'molt.gno' | 'vault.gno' | etc.
   const tld = await env.INBOX_KV.get(`tld:${agentName}`) || (baseName !== agentName ? await env.INBOX_KV.get(`tld:${baseName}`) : null);
   if (tld) return PUBLIC_TLDS.includes(tld);
