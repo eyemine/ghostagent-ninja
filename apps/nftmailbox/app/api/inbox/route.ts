@@ -48,9 +48,9 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid nftmail.box email' }, { status: 400 });
     }
 
-    // Extract local part and derive agentName (strip trailing _)
+    // Extract local part - preserve underscore suffix for agent aliases
+    // ghostagent@nftmail.box (human) and ghostagent_@nftmail.box (agent) are separate inboxes
     const localPart = email.split('@')[0];
-    const agentName = localPart.endsWith('_') ? localPart.slice(0, -1) : localPart;
 
     // Always fetch from Worker KV (all streams store here)
     const workerUrl = process.env.NFTMAIL_WORKER_URL || 'https://nftmail-email-worker.richard-159.workers.dev';
@@ -63,7 +63,7 @@ export async function GET(req: NextRequest) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'getBlindInbox',
-          localPart: agentName
+          localPart: localPart  // Preserve underscore - ghostagent and ghostagent_ are separate
         })
       });
 
