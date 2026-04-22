@@ -82,10 +82,9 @@ export async function POST(req: NextRequest) {
       // Step 3: Register BYO NFT as governor of Safe in GhostRegistry v2
       if (nftContract) {
         try {
-          const { createWalletClient, http, encodeFunctionData } = await import('viem');
+          const { createWalletClient, http, encodeFunctionData, Address } = await import('viem');
           const { privateKeyToAccount } = await import('viem/accounts');
           const { gnosis } = await import('viem/chains');
-          const { type Address } = await import('viem');
 
           const ghostRegistry = '0x194f200b2C624e27a14865292d1C50cF46211565'; // GhostRegistry v2
           const account = privateKeyToAccount(treasuryKey as `0x${string}`);
