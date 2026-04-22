@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { GenomeEditor } from '../../components/GenomeEditor';
 import { AgentCapabilityForm } from '../../components/AgentCapabilityForm';
 import { defaultGenomeMetadata, type GenomeMetadata, type SldKey } from '../../services/genome-metadata';
@@ -10,10 +11,23 @@ const GHOST_LOGO = '/ghost-logo.png';
 type BrainType = 'cloudflare' | 'safe';
 
 export default function InstallBrainPage() {
+  const searchParams = useSearchParams();
   const [brainType, setBrainType] = useState<BrainType>('cloudflare');
   const [agentName, setAgentName] = useState('');
   const [agentSld, setAgentSld] = useState<SldKey>('agent');
   const [genomeMeta, setGenomeMeta] = useState<GenomeMetadata | null>(null);
+
+  // Read body query parameter and pre-fill agentName
+  // Beacon labels use hyphens (e.g., atom-158) but email local parts use dots (e.g., atom.158)
+  useEffect(() => {
+    const bodyParam = searchParams.get('body');
+    if (bodyParam) {
+      // Convert hyphens to dots for email local part format
+      const agentNameFormatted = bodyParam.replace(/-/g, '.');
+      setAgentName(agentNameFormatted);
+      setGenomeMeta(defaultGenomeMetadata(agentNameFormatted, agentSld));
+    }
+  }, [searchParams, agentSld]);
 
   const tbaShort = agentName ? `0xf251Ca37...f01249` : '';
   const nftmailAddr = agentName ? `${agentName}_@nftmail.box` : '';

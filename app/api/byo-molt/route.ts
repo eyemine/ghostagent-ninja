@@ -287,7 +287,23 @@ export async function POST(req: NextRequest) {
       // Non-fatal — nftmailgno registration failure doesn't block molt completion
     }
 
-    // ── Step 5: Record molt + upgrade tier ──
+    // ── Step 5: Set TLD in KV for dashboard listing ──
+    // BYO NFT molts need tld:* KV entry to appear in dashboard "My Agents"
+    try {
+      await fetch(NFTMAIL_WORKER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'setTld',
+          agentName: finalPrimaryName,
+          tld: targetNamespace,
+        }),
+      });
+    } catch {
+      // Non-fatal — dashboard listing is best-effort
+    }
+
+    // ── Step 6: Record molt + upgrade tier ──
     await recordChonkMolt(finalPrimaryName, tokenId, ownerWallet, beacon.beaconNft!, beacon.txHash!, webhookSecret);
 
     // ── Step 6 (non-fatal): Fetch + store origin NFT image URL for agent card display ──

@@ -461,7 +461,7 @@ export default function OgNftMoltPage() {
       {/* Header — marketplace-style */}
       <div className="flex items-center gap-3">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="https://cloudflare-ipfs.com/ipfs/bafkreiejmu35lnu34e6dm754c6tad34nogywf2oslbql6lzcdpz4acxjue" alt="BYO NFT Molt" className="h-28 w-28 shrink-0 rounded-xl border border-fuchsia-500/40 object-contain" />
+        <img src="https://gateway.lighthouse.storage/ipfs/bafkreiejmu35lnu34e6dm754c6tad34nogywf2oslbql6lzcdpz4acxjue" alt="BYO NFT Molt" className="h-28 w-28 shrink-0 rounded-xl border border-fuchsia-500/40 object-contain" />
         <div>
           <h1 className="pl-1 text-2xl font-bold text-[#f2eee4]">BYO NFT Molt</h1>
           <p className="mt-1 pl-1 text-sm text-[var(--muted)]">Overlay an NFT you own — ENS, Chonk, or Verified Collection — onto your GhostAgent identity</p>
@@ -512,11 +512,11 @@ export default function OgNftMoltPage() {
             <label className="block text-[10px] font-semibold tracking-wider text-[var(--muted)] mb-2">NFT COLLECTION</label>
             <div className="grid grid-cols-3 gap-2 md:grid-cols-5">
               {([
-                {k:'ens' as NftType,l:'ENS Name',img:'https://cloudflare-ipfs.com/ipfs/bafkreifv35abvqlhdtc4g2i4xelnmxnhaac7exyu6r24o3fbgthwcmupwy'},
-                {k:'chonk' as NftType,l:'CHONKS\nON BASE',img:'https://cloudflare-ipfs.com/ipfs/bafkreiczeqhex35dvj4ewbzn2gyqnbgqb22np5zgp223vnbfhaod6sv4sq'},
-                {k:'pownft' as NftType,l:'POWNFT\nON ETH',img:'https://cloudflare-ipfs.com/ipfs/bafkreick55xkc2ucnmk2wjbzl6a5chqkvmwjll4oqbqajfh5mapd3s7fku'},
-                {k:'normie' as NftType,l:'NORMIES\nON ETH',img:'https://cloudflare-ipfs.com/ipfs/bafkreigdisoyfs75rneioevm5irn2k4prdddtuum5bpn27bykhjtdc4fii'},
-                {k:'other' as NftType,l:'Other Verified ERC721',img:'https://cloudflare-ipfs.com/ipfs/bafkreid7jamriw5jneuarcq2q6lrbfsqe76eebv6r2rworrnhyj2rpsuem'},
+                {k:'ens' as NftType,l:'ENS Name',img:'https://gateway.lighthouse.storage/ipfs/bafkreifv35abvqlhdtc4g2i4xelnmxnhaac7exyu6r24o3fbgthwcmupwy'},
+                {k:'chonk' as NftType,l:'CHONKS\nON BASE',img:'https://gateway.lighthouse.storage/ipfs/bafkreiczeqhex35dvj4ewbzn2gyqnbgqb22np5zgp223vnbfhaod6sv4sq'},
+                {k:'pownft' as NftType,l:'POWNFT\nON ETH',img:'https://gateway.lighthouse.storage/ipfs/bafkreick55xkc2ucnmk2wjbzl6a5chqkvmwjll4oqbqajfh5mapd3s7fku'},
+                {k:'normie' as NftType,l:'NORMIES\nON ETH',img:'https://gateway.lighthouse.storage/ipfs/bafkreigdisoyfs75rneioevm5irn2k4prdddtuum5bpn27bykhjtdc4fii'},
+                {k:'other' as NftType,l:'Other Verified ERC721',img:'https://gateway.lighthouse.storage/ipfs/bafkreid7jamriw5jneuarcq2q6lrbfsqe76eebv6r2rworrnhyj2rpsuem'},
               ]).map(opt => (
                 <button key={opt.k} onClick={() => { selectNftType(opt.k); setTokenId(''); }}
                   className={`aspect-square rounded-lg border px-2 py-2 text-xs font-semibold transition text-center ${
@@ -633,10 +633,10 @@ export default function OgNftMoltPage() {
                 <div className="flex items-center gap-3">
                   <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full border-2 border-fuchsia-500/30">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img 
-                      src="https://cloudflare-ipfs.com/ipfs/bafkreifm4gtqaxgyb2quyykij4np5naoxzpf5w6za6maywemcvl7tltt7u" 
-                      alt="White Butterfly (Imago)" 
-                      className="h-full w-full object-cover" 
+                    <img
+                      src="https://gateway.lighthouse.storage/ipfs/bafkreifm4gtqaxgyb2quyykij4np5naoxzpf5w6za6maywemcvl7tltt7u"
+                      alt="White Butterfly (Imago)"
+                      className="h-full w-full object-cover"
                     />
                   </div>
                   <div className="flex-1">
@@ -674,12 +674,12 @@ export default function OgNftMoltPage() {
                             /* eslint-disable-next-line @next/next/no-img-element */
                             <img 
                               src={
-                                agent.tld === 'nftmail.gno' ? 'https://cloudflare-ipfs.com/ipfs/bafkreifv35abvqlhdtc4g2i4xelnmxnhaac7exyu6r24o3fbgthwcmupwy' :
-                                agent.tld === 'molt.gno' ? 'https://cloudflare-ipfs.com/ipfs/bafkreifm4gtqaxgyb2quyykij4np5naoxzpf5w6za6maywemcvl7tltt7u' :
-                                agent.tld === 'openclaw.gno' ? 'https://cloudflare-ipfs.com/ipfs/bafkreiczeqhex35dvj4ewbzn2gyqnbgqb22np5zgp223vnbfhaod6sv4sq' :
-                                agent.tld === 'vault.gno' ? 'https://cloudflare-ipfs.com/ipfs/bafkreick55xkc2ucnmk2wjbzl6a5chqkvmwjll4oqbqajfh5mapd3s7fku' :
-                                agent.tld === 'agent.gno' ? 'https://cloudflare-ipfs.com/ipfs/bafkreigdisoyfs75rneioevm5irn2k4prdddtuum5bpn27bykhjtdc4fii' :
-                                'https://cloudflare-ipfs.com/ipfs/bafkreid7jamriw5jneuarcq2q6lrbfsqe76eebv6r2rworrnhyj2rpsuem'
+                                agent.tld === 'nftmail.gno' ? 'https://gateway.lighthouse.storage/ipfs/bafkreifv35abvqlhdtc4g2i4xelnmxnhaac7exyu6r24o3fbgthwcmupwy' :
+                                agent.tld === 'molt.gno' ? 'https://gateway.lighthouse.storage/ipfs/bafkreifm4gtqaxgyb2quyykij4np5naoxzpf5w6za6maywemcvl7tltt7u' :
+                                agent.tld === 'openclaw.gno' ? 'https://gateway.lighthouse.storage/ipfs/bafkreiczeqhex35dvj4ewbzn2gyqnbgqb22np5zgp223vnbfhaod6sv4sq' :
+                                agent.tld === 'vault.gno' ? 'https://gateway.lighthouse.storage/ipfs/bafkreick55xkc2ucnmk2wjbzl6a5chqkvmwjll4oqbqajfh5mapd3s7fku' :
+                                agent.tld === 'agent.gno' ? 'https://gateway.lighthouse.storage/ipfs/bafkreigdisoyfs75rneioevm5irn2k4prdddtuum5bpn27bykhjtdc4fii' :
+                                'https://gateway.lighthouse.storage/ipfs/bafkreid7jamriw5jneuarcq2q6lrbfsqe76eebv6r2rworrnhyj2rpsuem'
                               }
                               alt={agent.tld ?? 'agent'}
                               className="h-full w-full object-cover"
@@ -716,7 +716,7 @@ export default function OgNftMoltPage() {
                         <div className="relative h-6 w-6 overflow-hidden rounded-full border border-fuchsia-500/30">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img 
-                            src="https://cloudflare-ipfs.com/ipfs/bafkreifm4gtqaxgyb2quyykij4np5naoxzpf5w6za6maywemcvl7tltt7u" 
+                            src="https://gateway.lighthouse.storage/ipfs/bafkreifm4gtqaxgyb2quyykij4np5naoxzpf5w6za6maywemcvl7tltt7u" 
                             alt="White Butterfly" 
                             className="h-full w-full object-cover" 
                           />
@@ -728,7 +728,7 @@ export default function OgNftMoltPage() {
                         <div className="relative h-6 w-6 overflow-hidden rounded-full border border-amber-500/30">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img 
-                            src="https://cloudflare-ipfs.com/ipfs/bafkreifm4gtqaxgyb2quyykij4np5naoxzpf5w6za6maywemcvl7tltt7u" 
+                            src="https://gateway.lighthouse.storage/ipfs/bafkreifm4gtqaxgyb2quyykij4np5naoxzpf5w6za6maywemcvl7tltt7u" 
                             alt="Agent" 
                             className="h-full w-full object-cover" 
                           />
