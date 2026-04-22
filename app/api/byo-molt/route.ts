@@ -21,6 +21,7 @@ import {
 } from '../../services/chonk-molt';
 import { WORKER_URL } from '../../utils/config';
 import { fetchNftImageOnChain } from '../../utils/nft-image';
+import { createSafeForByoMolt } from '../../services/create-safe';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://ghostagent.ninja';
 const NFTMAIL_WORKER_URL = process.env.NFTMAIL_WORKER_URL || 'https://nftmail-email-worker.richard-159.workers.dev';
@@ -179,10 +180,18 @@ export async function POST(req: NextRequest) {
     const displayLabel = type === 'ens' && nftName ? nftName.replace(/\.eth$/i, '').toLowerCase() : tokenId.slice(0, 20);
     const beaconLabel = type === 'ens' ? displayLabel : `${beaconPrefix}-${displayLabel}`;
 
+    // Calculate humanLocalPart early - needed for Safe creation saltNonce
+    const humanLocalPart = type === 'ens'
+      ? (nftName ?? `ens.${tokenId.slice(0, 8)}`)
+      : `${beaconPrefix}.${displayLabel}`;
+
+    // Safe address for new-agent molts (will be set during beacon mint step)
+    let safeAddress: string | null = null;
+
     let beacon: { success: boolean; beaconNft?: string; txHash?: string; beaconTokenId?: number | null; error?: string };
     if (isOverlay) {
       // Overlay: still mint beacon NFT for provenance, but to the agent's Safe
-      let safeAddress = ownerWallet; // fallback to owner if Safe lookup fails
+      safeAddress = ownerWallet; // fallback to owner if Safe lookup fails
       try {
         const identityRes = await fetch(NFTMAIL_WORKER_URL, {
           method: 'POST',
@@ -196,25 +205,36 @@ export async function POST(req: NextRequest) {
       } catch {
         // Safe lookup failed, mint to owner wallet instead
       }
-      beacon = await mintChonkBeacon(tokenId, ownerWallet, APP_URL, webhookSecret, beaconLabel, safeAddress, targetNamespace);
+      beacon = await mintChonkBeacon(tokenId, ownerWallet, APP_URL, webhookSecret, beaconLabel, safeAddress ?? undefined, targetNamespace);
       if (!beacon.success) {
         return NextResponse.json({ status: 'error', step: 'beacon-mint', error: beacon.error ?? 'Beacon mint failed' }, { status: 502 });
       }
     } else {
-      // New agent: mint fresh beacon to owner wallet
-      beacon = await mintChonkBeacon(tokenId, ownerWallet, APP_URL, webhookSecret, beaconLabel, undefined, targetNamespace);
+      // New agent: create Safe first, then mint beacon to Safe
+      const treasuryKey = process.env.TREASURY_PRIVATE_KEY;
+      if (treasuryKey) {
+        const safeResult = await createSafeForByoMolt(humanLocalPart, ownerWallet, treasuryKey);
+        if (safeResult.safeAddress) {
+          safeAddress = safeResult.safeAddress;
+          console.log(`Safe created for ${humanLocalPart}: ${safeAddress}`);
+        } else {
+          console.error('Safe creation failed (non-fatal):', safeResult.error);
+        }
+      }
+      // Mint beacon to Safe (if created) or owner wallet (fallback)
+      beacon = await mintChonkBeacon(tokenId, ownerWallet, APP_URL, webhookSecret, beaconLabel, safeAddress ?? undefined, targetNamespace);
       if (!beacon.success) {
         return NextResponse.json({ status: 'error', step: 'beacon-mint', error: beacon.error ?? 'Beacon mint failed' }, { status: 502 });
       }
     }
 
+    // Track Safe address for new-agent molts (for registerSovereign and brain attachment)
+    const controllerForRegister = safeAddress ?? ownerWallet;
+
     // ── Step 4: Register aliases (both human + agent emails) ──
     // Human HITL email: chonk.123@nftmail.box (dot separator, no underscore)
     // Agent A2A email:  chonk.123_@nftmail.box (dot separator, trailing underscore)
     // ENS: eyemine.eth@nftmail.box / eyemine.eth_@nftmail.box
-    const humanLocalPart = type === 'ens'
-      ? (nftName ?? `ens.${tokenId.slice(0, 8)}`)
-      : `${beaconPrefix}.${displayLabel}`;
     const agentLocalPart = `${humanLocalPart}_`;
     const humanEmail = `${humanLocalPart}@nftmail.box`;
     const agentEmail = `${agentLocalPart}@nftmail.box`;
@@ -254,39 +274,6 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // ── Step 4b: Register nftmailgno accounts so emails appear in nftmail.box dropdown ──
-    // Uses registerSovereign with WEBHOOK_SECRET which bypasses the account limit.
-    try {
-      await Promise.all([
-        fetch(NFTMAIL_WORKER_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'registerSovereign',
-            secret: webhookSecret,
-            label: humanLocalPart,
-            controller: ownerWallet.toLowerCase(),
-            originNft: beacon.beaconNft,
-            accountTier: 'lite',
-          }),
-        }),
-        fetch(NFTMAIL_WORKER_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'registerSovereign',
-            secret: webhookSecret,
-            label: agentLocalPart,
-            controller: ownerWallet.toLowerCase(),
-            originNft: beacon.beaconNft,
-            accountTier: 'lite',
-          }),
-        }),
-      ]);
-    } catch {
-      // Non-fatal — nftmailgno registration failure doesn't block molt completion
-    }
-
     // ── Step 5: Set TLD in KV for dashboard listing ──
     // BYO NFT molts need tld:* KV entry to appear in dashboard "My Agents"
     try {
@@ -301,6 +288,45 @@ export async function POST(req: NextRequest) {
       });
     } catch {
       // Non-fatal — dashboard listing is best-effort
+    }
+
+    // ── Step 5b: Register nftmailgno accounts so emails appear in nftmail.box dropdown ──
+    // Uses registerSovereign with WEBHOOK_SECRET which bypasses the account limit.
+    // For new-agent molts with Safe, use Safe address as controller.
+    if (!isOverlay) {
+      const controllerForRegister = safeAddress ?? ownerWallet;
+      try {
+        await Promise.all([
+          fetch(NFTMAIL_WORKER_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'registerSovereign',
+              secret: webhookSecret,
+              label: humanLocalPart,
+              controller: controllerForRegister.toLowerCase(),
+              originNft: beacon.beaconNft,
+              accountTier: 'lite',
+              safe: safeAddress ?? null,
+            }),
+          }),
+          fetch(NFTMAIL_WORKER_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'registerSovereign',
+              secret: webhookSecret,
+              label: agentLocalPart,
+              controller: controllerForRegister.toLowerCase(),
+              originNft: beacon.beaconNft,
+              accountTier: 'lite',
+              safe: safeAddress ?? null,
+            }),
+          }),
+        ]);
+      } catch {
+        // Non-fatal
+      }
     }
 
     // ── Step 6: Record molt + upgrade tier ──
