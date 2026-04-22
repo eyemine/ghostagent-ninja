@@ -26,13 +26,16 @@ contract GhostRegistry is ERC721, Ownable {
     // NFT metadata
     mapping(uint256 => string) public names;        // tokenId → "alice"
     mapping(string => uint256) public nameToId;     // "alice" → tokenId
-    
+
     // TBA tracking
     mapping(uint256 => address) public accountOf;   // tokenId → TBA address
     mapping(uint256 => address) public safeOf;      // tokenId → Safe address
 
     // ERC-8226 forward-compat: beneficial owner / human responsible for agent actions
     mapping(uint256 => address) public principalOf; // tokenId → principal address
+
+    // BYO NFT governor mapping: external NFT contract -> tokenId -> Safe address
+    mapping(address => mapping(uint256 => address)) public byoGovernorOf;
 
     event Registered(
         uint256 indexed tokenId,
@@ -52,6 +55,13 @@ contract GhostRegistry is ERC721, Ownable {
     event PrincipalSet(
         uint256 indexed agentId,
         address indexed principal
+    );
+
+    event ByoGovernorSet(
+        address indexed byoContract,
+        uint256 indexed byoTokenId,
+        address indexed safe,
+        address governor
     );
 
     function _execFromModule(
@@ -226,5 +236,54 @@ contract GhostRegistry is ERC721, Ownable {
             safeOf[tokenId],
             principalOf[tokenId]
         );
+    }
+
+    /// @notice Register external BYO NFT as governor of a Safe
+    /// @dev Maps BYO NFT (contract, tokenId) -> Safe address
+    /// @dev BYO NFT owner controls the Safe (principal-agent relationship)
+    /// @param byoContract Address of the BYO NFT contract
+    /// @param byoTokenId Token ID of the BYO NFT
+    /// @param safe Address of the Gnosis Safe to be governed
+    function registerByoGovernor(
+        address byoContract,
+        uint256 byoTokenId,
+        address safe
+    ) external onlyOwner {
+        require(byoContract != address(0), "Invalid BYO contract");
+        require(byoTokenId > 0, "Invalid BYO token ID");
+        require(safe != address(0), "Invalid Safe");
+
+        byoGovernorOf[byoContract][byoTokenId] = safe;
+
+        // Get current BYO NFT owner (governor)
+        address governor = IERC721(byoContract).ownerOf(byoTokenId);
+
+        emit ByoGovernorSet(byoContract, byoTokenId, safe, governor);
+    }
+
+    /// @notice Get Safe address governed by a BYO NFT
+    /// @param byoContract Address of the BYO NFT contract
+    /// @param byoTokenId Token ID of the BYO NFT
+    /// @return safe Address of the governed Safe
+    function getSafeByByoNft(
+        address byoContract,
+        uint256 byoTokenId
+    ) external view returns (address safe) {
+        return byoGovernorOf[byoContract][byoTokenId];
+    }
+
+    /// @notice Get governor (BYO NFT owner) for a Safe
+    /// @param safe Address of the Safe
+    /// @return governor Address of the BYO NFT owner who governs the Safe
+    function getGovernorBySafe(address safe) external view returns (address governor) {
+        // Iterate through BYO NFT mappings to find the governor
+        // Note: This is O(n) and not efficient for large mappings
+        // In production, consider a reverse mapping (safe -> byoContract, byoTokenId)
+        for (uint256 i = 0; i < nextTokenId; i++) {
+            if (safeOf[i] == safe) {
+                return principalOf[i];
+            }
+        }
+        return address(0);
     }
 }

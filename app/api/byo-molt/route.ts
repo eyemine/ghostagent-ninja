@@ -218,6 +218,58 @@ export async function POST(req: NextRequest) {
         if (safeResult.safeAddress) {
           safeAddress = safeResult.safeAddress;
           console.log(`Safe created for ${humanLocalPart}: ${safeAddress}`);
+
+          // Register BYO NFT as governor of Safe in GhostRegistry
+          try {
+            const nftContract = NFT_CONTRACTS[type]?.contract ?? contractAddress;
+            if (nftContract && safeAddress) {
+              const ghostRegistry = '0x73f2f2ef73dc512cac0f5b0372f1d58a84ed13e6'; // GhostRegistry v1
+              const { createPublicClient, createWalletClient, http, encodeFunctionData } = await import('viem');
+              const { privateKeyToAccount } = await import('viem/accounts');
+              const { gnosis } = await import('viem/chains');
+
+              const account = privateKeyToAccount(treasuryKey as `0x${string}`);
+              const publicClient = createPublicClient({ chain: gnosis, transport: http() });
+              const walletClient = createWalletClient({ chain: gnosis, transport: http(), account });
+
+              const registerByoData = encodeFunctionData({
+                abi: [{
+                  name: 'registerByoGovernor',
+                  type: 'function',
+                  inputs: [
+                    { name: 'byoContract', type: 'address' },
+                    { name: 'byoTokenId', type: 'uint256' },
+                    { name: 'safe', type: 'address' },
+                  ],
+                  outputs: [],
+                  stateMutability: 'nonpayable',
+                }],
+                functionName: 'registerByoGovernor',
+                args: [nftContract as Address, BigInt(tokenId), safeAddress as Address],
+              });
+
+              await walletClient.writeContract({
+                address: ghostRegistry as Address,
+                abi: [{
+                  name: 'registerByoGovernor',
+                  type: 'function',
+                  inputs: [
+                    { name: 'byoContract', type: 'address' },
+                    { name: 'byoTokenId', type: 'uint256' },
+                    { name: 'safe', type: 'address' },
+                  ],
+                  outputs: [],
+                  stateMutability: 'nonpayable',
+                }],
+                functionName: 'registerByoGovernor',
+                args: [nftContract as Address, BigInt(tokenId), safeAddress as Address],
+              });
+
+              console.log(`BYO NFT ${nftContract}#${tokenId} registered as governor of Safe ${safeAddress}`);
+            }
+          } catch (err) {
+            console.error('BYO governor registration failed (non-fatal):', err);
+          }
         } else {
           console.error('Safe creation failed (non-fatal):', safeResult.error);
         }
