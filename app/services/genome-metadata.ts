@@ -472,7 +472,9 @@ export function defaultGenomeMetadata(
   tld = 'gno',
 ): GenomeMetadata {
   const visual = SLD_VISUAL[sld];
-  const fullName = `${agentName}.${sld}.${tld}`;
+  // Convert dots to hyphens for BYO NFT molts (beacon labels use hyphens, email local parts use dots)
+  const beaconName = agentName.replace(/\./g, '-');
+  const fullName = `${beaconName}.${sld}.${tld}`;
   return {
     agentName,
     displayName: fullName,
@@ -480,7 +482,7 @@ export function defaultGenomeMetadata(
     fullName,
     tagline: visual.tagline,
     description: '',
-    imageUri: generatePlaceholderSvg(agentName, sld),
+    imageUri: generatePlaceholderSvg(beaconName, sld),
     imageCid: null,
     capabilities: [],
     functionSchema: [],

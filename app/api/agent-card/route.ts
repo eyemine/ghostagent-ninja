@@ -138,7 +138,9 @@ export async function GET(req: NextRequest) {
   }
 
   // BYO NFT molt: override image with origin NFT image if stored
+  // Try both dot format (email local part) and hyphen format (beacon label)
   try {
+    const beaconName = agentName.replace(/\./g, '-');
     const imgKv = await fetch(WORKER_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -150,6 +152,22 @@ export async function GET(req: NextRequest) {
         const parsed = JSON.parse(value) as { imageUrl?: string };
         if (parsed.imageUrl) {
           regFile = { ...regFile, image: parsed.imageUrl };
+        }
+      } else if (beaconName !== agentName) {
+        // Try hyphen format as fallback
+        const imgKv2 = await fetch(WORKER_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'kvGet', key: `byo-origin-image:${beaconName}` }),
+        });
+        if (imgKv2.ok) {
+          const { value: value2 } = await imgKv2.json() as { value?: string | null };
+          if (value2) {
+            const parsed2 = JSON.parse(value2) as { imageUrl?: string };
+            if (parsed2.imageUrl) {
+              regFile = { ...regFile, image: parsed2.imageUrl };
+            }
+          }
         }
       }
     }
