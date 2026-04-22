@@ -12,6 +12,7 @@
 ///         nftType, contractAddress?, nftName? }
 
 import { NextRequest, NextResponse } from 'next/server';
+import { type Address } from 'viem';
 import {
   verifyChonkOwnership,
   verifyFeePayment,
