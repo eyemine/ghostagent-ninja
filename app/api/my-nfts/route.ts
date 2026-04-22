@@ -129,6 +129,7 @@ interface NftBody {
   tba: string;
   minted: string;
   isAgent?: boolean;  // true if ERC-8004 registered (has brain)
+  safeAddress?: string;  // Safe address for BYO NFT molts (Safe-first architecture)
 }
 
 // Get total supply of an ERC721 contract (totalSupply selector 0x18160ddd)
@@ -167,6 +168,23 @@ async function isAgentRegistered(name: string): Promise<boolean> {
   }
 }
 
+// Fetch Safe address from worker KV for BYO NFT molts (Safe-first architecture)
+async function getSafeAddress(name: string): Promise<string | null> {
+  try {
+    const res = await fetch(WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'getAgentIdentity', agentName: name }),
+    });
+    if (!res.ok) return null;
+    const data = await res.json() as Record<string, unknown>;
+    const safeAddress = data?.safeAddress as string | undefined;
+    return safeAddress ?? null;
+  } catch {
+    return null;
+  }
+}
+
 async function fetchNftsForContract(wallet: string, contract: string, namespace: string): Promise<NftBody[]> {
   try {
     const walletLower = wallet.toLowerCase();
@@ -202,9 +220,10 @@ async function fetchNftsForContract(wallet: string, contract: string, namespace:
     const ownedIds = ownerResults.filter((id): id is number => id !== null);
     const nfts: NftBody[] = ownedIds.map(id => makeBody(labelMap.get(id), namespace, id, wallet));
 
-    // ── Step 3: flag agents (tier != basic = has brain) ────────────────────
+    // ── Step 3: flag agents (tier != basic = has brain) + fetch Safe address ────────────────────
     await Promise.all(nfts.map(async (nft) => {
       nft.isAgent = await isAgentRegistered(nft.name);
+      nft.safeAddress = await getSafeAddress(nft.name) ?? undefined;
     }));
 
     console.log(`[my-nfts] ${namespace}: found ${nfts.length} NFTs (supply=${totalSupply}), labels=${labelMap.size}`);
