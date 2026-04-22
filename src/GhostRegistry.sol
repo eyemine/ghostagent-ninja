@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { ERC721 } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import { IERC721 } from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { IERC6551Registry } from "./interfaces/IERC6551Registry.sol";
 import { IGnosisSafe } from "./interfaces/IGnosisSafe.sol";

@@ -223,7 +223,7 @@ export async function POST(req: NextRequest) {
           try {
             const nftContract = NFT_CONTRACTS[type]?.contract ?? contractAddress;
             if (nftContract && safeAddress) {
-              const ghostRegistry = '0x73f2f2ef73dc512cac0f5b0372f1d58a84ed13e6'; // GhostRegistry v1
+              const ghostRegistry = '0x194f200b2C624e27a14865292d1C50cF46211565'; // GhostRegistry v2
               const { createPublicClient, createWalletClient, http, encodeFunctionData } = await import('viem');
               const { privateKeyToAccount } = await import('viem/accounts');
               const { gnosis } = await import('viem/chains');

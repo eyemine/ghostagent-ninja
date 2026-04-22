@@ -38,6 +38,8 @@ script/          — Foundry deploy scripts
 ## Key Contracts (Gnosis mainnet, chain 100)
 
 - **Identity Registry (ERC-8004):** `0x8004A169FB4a3325136EB29fA0ceB6D2e539a432`
+- **GhostRegistry v2 (BYO governor mapping):** `0x194f200b2C624e27a14865292d1C50cF46211565`
+- **GhostRegistry v1 (old):** `0x73f2f2ef73dc512cac0f5b0372f1d58a84ed13e6`
 - **molt.gno Registrar:** `0x4b54213c1e5826497ff39ba8c87a7b75d2bc3c50`
 - **openclaw.gno Registrar:** `0xbD8285A8455CCEC4bE671D9eE3924Ab1264fcbbe`
 - **HumanInTheLoopModule:** `0x012A0571d0DFd7eF85d0706875FEc39555e99A96`
