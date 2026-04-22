@@ -11,18 +11,23 @@ import GhostRegistryABI from '../abi/GhostRegistry.json';
 interface InstallBrainProps {
   agentName: string;
   safeAddress: `0x${string}`;
-  tbaAddress: `0x${string}`;
+  tbaAddress?: `0x${string}`;  // Optional for Safe-first architecture (BYO NFT owner is governor)
+  byoOwnerAddress?: `0x${string}`;  // BYO NFT owner (governor) for Safe-first architecture
 }
 
 type BrainStep = 'idle' | 'installing' | 'awakening' | 'done' | 'error';
 
-export function InstallBrain({ agentName, safeAddress, tbaAddress }: InstallBrainProps) {
+export function InstallBrain({ agentName, safeAddress, tbaAddress, byoOwnerAddress }: InstallBrainProps) {
   const { authenticated } = usePrivy();
   const { wallets } = useWallets();
   const [step, setStep] = useState<BrainStep>('idle');
   const [txHash, setTxHash] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
+
+  // For Safe-first architecture: BYO NFT owner is the governor of the Safe
+  // For legacy architecture: TBA is the owner of the Safe
+  const safeOwner = byoOwnerAddress ?? tbaAddress;
 
   const installBrain = useCallback(async () => {
     if (!authenticated || wallets.length === 0) {
@@ -88,10 +93,13 @@ export function InstallBrain({ agentName, safeAddress, tbaAddress }: InstallBrai
         stateMutability: 'nonpayable',
       }];
 
-      // For a single-owner Safe where TBA is the owner,
+      // For a single-owner Safe where TBA is the owner (or BYO NFT owner is governor),
       // we can use a pre-approved hash signature (r=owner, s=0, v=1)
+      if (!safeOwner) {
+        throw new Error('Safe owner address required');
+      }
       const ownerSig = (
-        tbaAddress.toLowerCase().padEnd(66, '0').slice(0, 66) +
+        safeOwner.toLowerCase().padEnd(66, '0').slice(0, 66) +
         '0000000000000000000000000000000000000000000000000000000000000000' +
         '01'
       ) as `0x${string}`;
@@ -119,11 +127,18 @@ export function InstallBrain({ agentName, safeAddress, tbaAddress }: InstallBrai
       // Step 2: Awaken the agent
       setStep('awakening');
 
+      // For Safe-first architecture: TBA is no longer owner, pass Safe address as both safe and tba
+      // For legacy architecture: pass TBA address as tba
+      const tbaParam = byoOwnerAddress ? safeAddress : tbaAddress;
+      if (!tbaParam) {
+        throw new Error('TBA address required for awaken call');
+      }
+
       const awakenHash = await walletClient.writeContract({
         address: BRAIN_MODULE,
         abi: BrainModuleABI,
         functionName: 'awaken',
-        args: [agentName, safeAddress, tbaAddress],
+        args: [agentName, safeAddress, tbaParam],
       });
 
       setTxHash(awakenHash);
@@ -136,7 +151,7 @@ export function InstallBrain({ agentName, safeAddress, tbaAddress }: InstallBrai
       setError(err?.shortMessage || err?.message || 'Installation failed');
       setStep('error');
     }
-  }, [authenticated, wallets, agentName, safeAddress, tbaAddress]);
+  }, [authenticated, wallets, agentName, safeAddress, tbaAddress, byoOwnerAddress, safeOwner]);
 
   if (!authenticated) return null;
 
