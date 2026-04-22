@@ -208,6 +208,10 @@ export async function POST(req: NextRequest) {
     const chainPublic   = createPublicClient({ chain: chainConfig.chain, transport: http() });
     const chainWallet   = createWalletClient({ chain: chainConfig.chain, transport: http(), account });
 
+    // For BYO molts with Safe, register ERC-8004 to Safe address (not principal wallet)
+    // The Safe is the persistent vessel that holds the agent's identity
+    const registrationOwner = safeAddress ?? ownerWallet;
+
     const txHash = await chainWallet.writeContract({
       address: chainConfig.addresses.identityRegistry as Address,
       abi:     IdentityRegistryABI,
@@ -248,7 +252,7 @@ export async function POST(req: NextRequest) {
             erc8004AgentId: agentId,
             agentURI:       agentURI,
             chainId:        chainConfig.chainId,
-            safeOwner:      ownerWallet,
+            safeOwner:      safeAddress ?? ownerWallet, // Use Safe address for BYO molts
           }),
         });
         kvStored = kvRes.ok;

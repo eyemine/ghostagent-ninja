@@ -210,7 +210,8 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ status: 'error', step: 'beacon-mint', error: beacon.error ?? 'Beacon mint failed' }, { status: 502 });
       }
     } else {
-      // New agent: create Safe first, then mint beacon to Safe
+      // New agent: create Safe first (vessel), but mint beacon to owner wallet (key)
+      // BYO NFT stays in principal wallet as the "key" that controls the Safe
       const treasuryKey = process.env.TREASURY_PRIVATE_KEY;
       if (treasuryKey) {
         const safeResult = await createSafeForByoMolt(humanLocalPart, ownerWallet, treasuryKey);
@@ -221,8 +222,8 @@ export async function POST(req: NextRequest) {
           console.error('Safe creation failed (non-fatal):', safeResult.error);
         }
       }
-      // Mint beacon to Safe (if created) or owner wallet (fallback)
-      beacon = await mintChonkBeacon(tokenId, ownerWallet, APP_URL, webhookSecret, beaconLabel, safeAddress ?? undefined, targetNamespace);
+      // Mint beacon to owner wallet (key stays with principal)
+      beacon = await mintChonkBeacon(tokenId, ownerWallet, APP_URL, webhookSecret, beaconLabel, undefined, targetNamespace);
       if (!beacon.success) {
         return NextResponse.json({ status: 'error', step: 'beacon-mint', error: beacon.error ?? 'Beacon mint failed' }, { status: 502 });
       }
