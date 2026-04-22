@@ -12,6 +12,8 @@ interface MoltToAgentProps {
   agentName: string;
   tbaAddress: string;
   email: string;
+  safeAddress?: `0x${string}`;  // Optional: Safe already exists for BYO NFT molts
+  byoOwnerAddress?: `0x${string}`;  // BYO NFT owner (governor) for Safe-first architecture
 }
 
 type MoltStep = 'idle' | 'deploying-safe' | 'installing-brain' | 'awakening' | 'done' | 'error';
@@ -22,13 +24,17 @@ interface MoltResult {
   awakenTxHash?: string;
 }
 
-export function MoltToAgent({ agentName, tbaAddress, email }: MoltToAgentProps) {
+export function MoltToAgent({ agentName, tbaAddress, email, safeAddress, byoOwnerAddress }: MoltToAgentProps) {
   const { authenticated } = usePrivy();
   const { wallets } = useWallets();
   const [step, setStep] = useState<MoltStep>('idle');
   const [result, setResult] = useState<MoltResult>({});
   const [error, setError] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
+
+  // For Safe-first architecture: BYO NFT owner is the governor of the Safe
+  // For legacy architecture: TBA is the owner of the Safe
+  const safeOwner = byoOwnerAddress ?? tbaAddress;
 
   const steps: { key: MoltStep; label: string }[] = [
     { key: 'deploying-safe', label: 'Deploy Safe' },
@@ -69,34 +75,42 @@ export function MoltToAgent({ agentName, tbaAddress, email }: MoltToAgentProps) 
       });
 
       // Step 1: Register agent in GhostRegistry → deploys Safe + TBA
-      const registerHash = await walletClient.writeContract({
-        address: GHOST_REGISTRY,
-        abi: GhostRegistryABI,
-        functionName: 'register',
-        args: [agentName, wallet.address as `0x${string}`],
-      });
+      // Skip if Safe already exists (for BYO NFT molts with Safe-first architecture)
+      let finalSafeAddress: `0x${string}`;
+      if (safeAddress) {
+        finalSafeAddress = safeAddress;
+        setResult(prev => ({ ...prev, safeAddress }));
+      } else {
+        const registerHash = await walletClient.writeContract({
+          address: GHOST_REGISTRY,
+          abi: GhostRegistryABI,
+          functionName: 'register',
+          args: [agentName, wallet.address as `0x${string}`],
+        });
 
-      const registerReceipt = await publicClient.waitForTransactionReceipt({ hash: registerHash });
+        const registerReceipt = await publicClient.waitForTransactionReceipt({ hash: registerHash });
 
-      let safeAddress: string | undefined;
-      for (const log of registerReceipt.logs) {
-        try {
-          const decoded = decodeEventLog({
-            abi: GhostRegistryABI,
-            data: log.data,
-            topics: log.topics,
-          });
-          if (decoded.eventName === 'Registered') {
-            safeAddress = (decoded.args as any).safe;
-          }
-        } catch {}
+        let registeredSafeAddress: string | undefined;
+        for (const log of registerReceipt.logs) {
+          try {
+            const decoded = decodeEventLog({
+              abi: GhostRegistryABI,
+              data: log.data,
+              topics: log.topics,
+            });
+            if (decoded.eventName === 'Registered') {
+              registeredSafeAddress = (decoded.args as any).safe;
+            }
+          } catch {}
+        }
+
+        if (!registeredSafeAddress) {
+          throw new Error('Safe address not found in Registered event');
+        }
+
+        finalSafeAddress = registeredSafeAddress as `0x${string}`;
+        setResult(prev => ({ ...prev, safeAddress: finalSafeAddress }));
       }
-
-      if (!safeAddress) {
-        throw new Error('Safe address not found in Registered event');
-      }
-
-      setResult(prev => ({ ...prev, safeAddress }));
 
       // Step 2: Install Brain module into Safe
       setStep('installing-brain');
@@ -113,8 +127,19 @@ export function MoltToAgent({ agentName, tbaAddress, email }: MoltToAgentProps) 
         args: [BRAIN_MODULE],
       });
 
+      // For Safe-first architecture: use BYO NFT owner signature
+      // For legacy architecture: use TBA signature
+      if (!safeOwner) {
+        throw new Error('Safe owner address required');
+      }
+      const ownerSig = (
+        safeOwner.toLowerCase().padEnd(66, '0').slice(0, 66) +
+        '0000000000000000000000000000000000000000000000000000000000000000' +
+        '01'
+      ) as `0x${string}`;
+
       const brainHash = await walletClient.writeContract({
-        address: safeAddress as `0x${string}`,
+        address: finalSafeAddress,
         abi: [{
           name: 'execTransaction',
           type: 'function',
@@ -135,7 +160,7 @@ export function MoltToAgent({ agentName, tbaAddress, email }: MoltToAgentProps) 
         }],
         functionName: 'execTransaction',
         args: [
-          safeAddress as `0x${string}`,
+          finalSafeAddress,
           BigInt(0),
           enableData,
           0,
@@ -144,7 +169,7 @@ export function MoltToAgent({ agentName, tbaAddress, email }: MoltToAgentProps) 
           BigInt(0),
           '0x0000000000000000000000000000000000000000' as `0x${string}`,
           '0x0000000000000000000000000000000000000000' as `0x${string}`,
-          ('0x' + '0'.repeat(130)) as `0x${string}`,
+          ownerSig,
         ],
       });
 
@@ -154,11 +179,18 @@ export function MoltToAgent({ agentName, tbaAddress, email }: MoltToAgentProps) 
       // Step 3: Awaken agent via BrainModule
       setStep('awakening');
 
+      // For Safe-first architecture: TBA is no longer owner, pass Safe address as both safe and tba
+      // For legacy architecture: pass TBA address as tba
+      const tbaParam = byoOwnerAddress ? finalSafeAddress : tbaAddress;
+      if (!tbaParam) {
+        throw new Error('TBA address required for awaken call');
+      }
+
       const awakenHash = await walletClient.writeContract({
         address: BRAIN_MODULE,
         abi: BrainModuleABI,
         functionName: 'awaken',
-        args: [safeAddress as `0x${string}`, agentName],
+        args: [finalSafeAddress, agentName],
       });
 
       await publicClient.waitForTransactionReceipt({ hash: awakenHash });
@@ -171,7 +203,7 @@ export function MoltToAgent({ agentName, tbaAddress, email }: MoltToAgentProps) 
       setError(err?.shortMessage || err?.message || 'Molt failed');
       setStep('error');
     }
-  }, [authenticated, wallets, agentName, tbaAddress]);
+  }, [authenticated, wallets, agentName, tbaAddress, safeAddress, byoOwnerAddress, safeOwner]);
 
   if (!authenticated) return null;
 
