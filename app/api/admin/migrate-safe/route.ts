@@ -11,8 +11,8 @@
 /// Body: { secret, entries: [{ agentName, ownerWallet, nftType, tokenId, nftContract }] }
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createSafeForByoMolt } from '../../services/create-safe';
-import { WORKER_URL } from '../../utils/config';
+import { createSafeForByoMolt } from '../../../services/create-safe';
+import { WORKER_URL } from '../../../utils/config';
 
 const WEBHOOK_SECRET = process.env.NFTMAIL_WEBHOOK_SECRET;
 
