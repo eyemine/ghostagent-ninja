@@ -5,16 +5,20 @@
 /// before the Safe-first architecture. This ensures:
 ///   1. BYO NFT (beacon) stays in principal wallet (key)
 ///   2. Safe is created as vessel for the agent
-///   3. BYO NFT is registered as governor of Safe in GhostRegistry
+///   3. BYO NFT is registered as governor of Safe in GhostRegistry (Gnosis only)
 ///   4. Safe address is stored in KV for display
 ///
-/// Body: { secret, entries: [{ agentName, ownerWallet, nftType, tokenId, nftContract }] }
+/// Note: BYO governor registration only works for NFTs on Gnosis (chainId 100).
+/// For cross-chain NFTs (Base, Ethereum, etc.), skip governor registration.
+///
+/// Body: { secret, entries: [{ agentName, ownerWallet, nftType, tokenId, nftContract?, chainId? }] }
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createSafeForByoMolt } from '../../../services/create-safe';
 import { WORKER_URL } from '../../../utils/config';
 
 const WEBHOOK_SECRET = process.env.NFTMAIL_WEBHOOK_SECRET;
+const GNOSIS_CHAIN_ID = 100;
 
 export async function POST(req: NextRequest) {
   const body = await req.json() as {
@@ -25,6 +29,7 @@ export async function POST(req: NextRequest) {
       nftType: string;
       tokenId: string;
       nftContract?: string;
+      chainId?: number;  // Optional: if not provided, assume Gnosis
     }>;
   };
 
@@ -44,12 +49,12 @@ export async function POST(req: NextRequest) {
   const results: Array<{ agentName: string; success: boolean; safeAddress?: string; error?: string }> = [];
 
   for (const entry of body.entries) {
-    const { agentName, ownerWallet, nftType, tokenId, nftContract } = entry;
-    
+    const { agentName, ownerWallet, nftType, tokenId, nftContract, chainId = GNOSIS_CHAIN_ID } = entry;
+
     try {
       // Step 1: Create Safe for the agent
       const safeResult = await createSafeForByoMolt(agentName, ownerWallet, treasuryKey);
-      
+
       if (!safeResult.safeAddress) {
         results.push({
           agentName,
@@ -79,8 +84,9 @@ export async function POST(req: NextRequest) {
         // Non-fatal, continue
       }
 
-      // Step 3: Register BYO NFT as governor of Safe in GhostRegistry v2
-      if (nftContract) {
+      // Step 3: Register BYO NFT as governor of Safe in GhostRegistry v2 (Gnosis only)
+      // Skip for cross-chain NFTs (Base, Ethereum, etc.)
+      if (nftContract && chainId === GNOSIS_CHAIN_ID) {
         try {
           const { createWalletClient, http, encodeFunctionData, Address } = await import('viem');
           const { privateKeyToAccount } = await import('viem/accounts');
@@ -112,6 +118,8 @@ export async function POST(req: NextRequest) {
           console.error(`Failed to register BYO governor for ${agentName}:`, regErr);
           // Non-fatal, continue
         }
+      } else if (nftContract && chainId !== GNOSIS_CHAIN_ID) {
+        console.log(`Skipping BYO governor registration for ${agentName}: NFT is on chain ${chainId}, not Gnosis (100)`);
       }
 
       results.push({
