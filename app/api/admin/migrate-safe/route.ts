@@ -8,8 +8,8 @@
 ///   3. BYO NFT is registered as governor of Safe in GhostRegistry (Gnosis only)
 ///   4. Safe address is stored in KV for display
 ///
-/// Note: BYO governor registration only works for NFTs on Gnosis (chainId 100).
-/// For cross-chain NFTs (Base, Ethereum, etc.), skip governor registration.
+/// Note: BYO governor registration works for NFTs on Gnosis (chainId 100).
+/// For cross-chain NFTs (Base, Ethereum, etc.), we add the TBA (ERC-6551) as Safe owner instead.
 ///
 /// Body: { secret, entries: [{ agentName, ownerWallet, nftType, tokenId, nftContract?, chainId? }] }
 
@@ -85,41 +85,147 @@ export async function POST(req: NextRequest) {
       }
 
       // Step 3: Register BYO NFT as governor of Safe in GhostRegistry v2 (Gnosis only)
-      // Skip for cross-chain NFTs (Base, Ethereum, etc.)
-      if (nftContract && chainId === GNOSIS_CHAIN_ID) {
+      // For cross-chain NFTs, add TBA as Safe owner instead
+      if (nftContract) {
         try {
-          const { createWalletClient, http, encodeFunctionData, Address } = await import('viem');
+          const { createWalletClient, http, encodeFunctionData, Address, createPublicClient } = await import('viem');
           const { privateKeyToAccount } = await import('viem/accounts');
           const { gnosis } = await import('viem/chains');
 
-          const ghostRegistry = '0x194f200b2C624e27a14865292d1C50cF46211565'; // GhostRegistry v2
+          const ERC6551_REGISTRY = '0x000000006551c19487814612e58FE06813775758' as Address;
+          const ERC6551_ACCOUNT_IMPL = '0x878E703A93b6e0aaD92f9907332c68fb09765697' as Address;
+          const ZERO_SALT = '0x0000000000000000000000000000000000000000000000000000000000000000';
+
           const account = privateKeyToAccount(treasuryKey as `0x${string}`);
           const walletClient = createWalletClient({ chain: gnosis, transport: http(), account });
+          const publicClient = createPublicClient({ chain: gnosis, transport: http() });
 
-          await walletClient.writeContract({
-            address: ghostRegistry as Address,
-            abi: [{
-              name: 'registerByoGovernor',
-              type: 'function',
-              inputs: [
-                { name: 'byoContract', type: 'address' },
-                { name: 'byoTokenId', type: 'uint256' },
-                { name: 'safe', type: 'address' },
+          if (chainId === GNOSIS_CHAIN_ID) {
+            // Gnosis NFT: register BYO governor in GhostRegistry v2
+            const ghostRegistry = '0x194f200b2C624e27a14865292d1C50cF46211565' as Address;
+            await walletClient.writeContract({
+              address: ghostRegistry,
+              abi: [{
+                name: 'registerByoGovernor',
+                type: 'function',
+                inputs: [
+                  { name: 'byoContract', type: 'address' },
+                  { name: 'byoTokenId', type: 'uint256' },
+                  { name: 'safe', type: 'address' },
+                ],
+                outputs: [],
+                stateMutability: 'nonpayable',
+              }],
+              functionName: 'registerByoGovernor',
+              args: [nftContract as Address, BigInt(tokenId), safeAddress as Address],
+            });
+            console.log(`BYO NFT ${nftContract}#${tokenId} registered as governor of Safe ${safeAddress}`);
+          } else {
+            // Cross-chain NFT: compute TBA on Gnosis and add as Safe owner
+            // ERC-6551 v0.3: account(impl, salt, chainId, tokenContract, tokenId)
+            const accountCallData = encodeFunctionData({
+              abi: [{
+                name: 'account',
+                type: 'function',
+                inputs: [
+                  { name: 'implementation', type: 'address' },
+                  { name: 'salt', type: 'bytes32' },
+                  { name: 'chainId', type: 'uint256' },
+                  { name: 'tokenContract', type: 'address' },
+                  { name: 'tokenId', type: 'uint256' },
+                ],
+                outputs: [{ name: 'account', type: 'address' }],
+                stateMutability: 'view',
+              }],
+              functionName: 'account',
+              args: [ERC6551_ACCOUNT_IMPL, ZERO_SALT, BigInt(chainId), nftContract as Address, BigInt(tokenId)],
+            });
+
+            const tbaAddress = await publicClient.readContract({
+              address: ERC6551_REGISTRY,
+              abi: [{
+                name: 'account',
+                type: 'function',
+                inputs: [
+                  { name: 'implementation', type: 'address' },
+                  { name: 'salt', type: 'bytes32' },
+                  { name: 'chainId', type: 'uint256' },
+                  { name: 'tokenContract', type: 'address' },
+                  { name: 'tokenId', type: 'uint256' },
+                ],
+                outputs: [{ name: 'account', type: 'address' }],
+                stateMutability: 'view',
+              }],
+              functionName: 'account',
+              args: [ERC6551_ACCOUNT_IMPL, ZERO_SALT, BigInt(chainId), nftContract as Address, BigInt(tokenId)],
+            }) as Address;
+
+            console.log(`TBA for ${nftContract}#${tokenId} (chain ${chainId}): ${tbaAddress}`);
+
+            // Add TBA as Safe owner via Safe transaction
+            const addOwnerData = encodeFunctionData({
+              abi: [{
+                name: 'addOwnerWithThreshold',
+                type: 'function',
+                inputs: [
+                  { name: 'owner', type: 'address' },
+                  { name: '_threshold', type: 'uint256' },
+                ],
+                outputs: [],
+                stateMutability: 'nonpayable',
+              }],
+              functionName: 'addOwnerWithThreshold',
+              args: [tbaAddress, BigInt(1)],
+            });
+
+            // Use treasury key as owner signature (1-of-1 Safe setup)
+            const ownerSig = (
+              account.address.toLowerCase().padEnd(66, '0').slice(0, 66) +
+              '0000000000000000000000000000000000000000000000000000000000000000' +
+              '01'
+            ) as `0x${string}`;
+
+            await walletClient.writeContract({
+              address: safeAddress,
+              abi: [{
+                name: 'execTransaction',
+                type: 'function',
+                inputs: [
+                  { name: 'to', type: 'address' },
+                  { name: 'value', type: 'uint256' },
+                  { name: 'data', type: 'bytes' },
+                  { name: 'operation', type: 'uint8' },
+                  { name: 'safeTxGas', type: 'uint256' },
+                  { name: 'baseGas', type: 'uint256' },
+                  { name: 'gasPrice', type: 'uint256' },
+                  { name: 'gasToken', type: 'address' },
+                  { name: 'refundReceiver', type: 'address' },
+                  { name: 'signatures', type: 'bytes' },
+                ],
+                outputs: [{ name: 'success', type: 'bool' }],
+                stateMutability: 'nonpayable',
+              }],
+              functionName: 'execTransaction',
+              args: [
+                safeAddress,
+                BigInt(0),
+                addOwnerData,
+                0,
+                BigInt(0),
+                BigInt(0),
+                BigInt(0),
+                '0x0000000000000000000000000000000000000000' as Address,
+                '0x0000000000000000000000000000000000000000' as Address,
+                ownerSig,
               ],
-              outputs: [],
-              stateMutability: 'nonpayable',
-            }],
-            functionName: 'registerByoGovernor',
-            args: [nftContract as Address, BigInt(tokenId), safeAddress as Address],
-          });
+            });
 
-          console.log(`BYO NFT ${nftContract}#${tokenId} registered as governor of Safe ${safeAddress}`);
+            console.log(`TBA ${tbaAddress} added as owner of Safe ${safeAddress}`);
+          }
         } catch (regErr) {
           console.error(`Failed to register BYO governor for ${agentName}:`, regErr);
           // Non-fatal, continue
         }
-      } else if (nftContract && chainId !== GNOSIS_CHAIN_ID) {
-        console.log(`Skipping BYO governor registration for ${agentName}: NFT is on chain ${chainId}, not Gnosis (100)`);
       }
 
       results.push({
