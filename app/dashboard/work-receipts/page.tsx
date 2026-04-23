@@ -209,6 +209,7 @@ export default function WorkReceiptsPage() {
               tbaAddress={receipt.tbaAddress!}
               namespace={receipt.namespace}
               registrar={receipt.registrar}
+              principalAddress={receipt.owner}
             />
           ))}
         </div>

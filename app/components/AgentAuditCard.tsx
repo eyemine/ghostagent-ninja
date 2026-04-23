@@ -16,9 +16,10 @@ interface AgentAuditCardProps {
   agentName?: string;
   namespace?: string;
   registrar?: string;
+  principalAddress?: string | null;
 }
 
-export default function AgentAuditCard({ tbaAddress, agentName, namespace, registrar }: AgentAuditCardProps) {
+export default function AgentAuditCard({ tbaAddress, agentName, namespace, registrar, principalAddress }: AgentAuditCardProps) {
   const publicClient = useMemo(() => createPublicClient({
     chain: gnosis,
     transport: http(),
@@ -239,6 +240,35 @@ export default function AgentAuditCard({ tbaAddress, agentName, namespace, regis
           </div>
         </div>
       </div>
+
+      {/* ERC-8226 Principal */}
+      {principalAddress && (
+        <div className="flex items-center justify-between border-t border-[var(--border)] bg-amber-500/5 px-5 py-2.5">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-bold tracking-[0.14em] text-amber-400/80">LIABLE OWNER</span>
+            <span className="rounded px-1.5 py-0.5 text-[9px] font-bold tracking-wider bg-amber-500/10 text-amber-300 ring-1 ring-amber-500/20">ERC-8226</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <code className="text-[11px] text-amber-200/90">
+              {principalAddress.slice(0, 6)}…{principalAddress.slice(-4)}
+            </code>
+            <button
+              onClick={() => navigator.clipboard.writeText(principalAddress)}
+              className="text-[var(--muted)] hover:text-amber-300 text-[10px]"
+            >
+              Copy
+            </button>
+            <a
+              href={`https://gnosisscan.io/address/${principalAddress}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[10px] text-amber-300/70 hover:underline"
+            >
+              ↗
+            </a>
+          </div>
+        </div>
+      )}
 
       {/* Footer — TBA address */}
       <div className="flex items-center justify-between border-t border-[var(--border)] px-5 py-2.5">
