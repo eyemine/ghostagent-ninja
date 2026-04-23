@@ -1277,11 +1277,51 @@ export default {
 
           if (contentType.includes('application/x-www-form-urlencoded')) {
             const params = new URLSearchParams(rawBody);
-            const mgEmail: Record<string, unknown> = { action: 'mailgunInbound' };
+            const mgEmail: Record<string, unknown> = {};
             for (const [key, value] of params.entries()) mgEmail[key] = value;
+            // Default to mailgunInbound if no action specified
+            if (!mgEmail['action']) mgEmail['action'] = 'mailgunInbound';
             if (mgEmail['body-plain']) mgEmail['bodyPlain'] = mgEmail['body-plain'];
             if (mgEmail['body-html'])  mgEmail['bodyHtml']  = mgEmail['body-html'];
-            console.log(`[urlencoded] recipient=${mgEmail['recipient']} sender=${mgEmail['sender']}`);
+            console.log(`[urlencoded] action=${mgEmail['action']} recipient=${mgEmail['recipient']} sender=${mgEmail['sender']}`);
+            // Handle testForwarding action directly without recipient validation
+            if (mgEmail['action'] === 'testForwarding') {
+              const agentName = String(mgEmail['agentName'] || '').toLowerCase().trim();
+              if (!agentName) {
+                return corsify(Response.json({ error: 'Missing agentName' }, { status: 400 }), request);
+              }
+              try {
+                const config = await env.INBOX_KV.get(`forwarding:${agentName}`);
+                if (!config) {
+                  return corsify(Response.json({ error: 'No forwarding config found' }, { status: 404 }), request);
+                }
+                const parsedConfig = JSON.parse(config);
+                console.log('[testForwarding] Config:', parsedConfig);
+                console.log('[testForwarding] MAILGUN_DOMAIN:', (env as any).MAILGUN_DOMAIN);
+                console.log('[testForwarding] SEND_MAILGUN_API_KEY set:', !!(env as any).SEND_MAILGUN_API_KEY);
+                console.log('[testForwarding] MAILGUN_API_KEY set:', !!(env as any).MAILGUN_API_KEY);
+                const result = await forwardEmail(env as any, agentName, {
+                  from: 'test@example.com',
+                  to: 'ghostagent@nftmail.box',
+                  subject: 'Test Forwarding',
+                  content: 'This is a test email for forwarding',
+                  timestamp: Date.now()
+                });
+                console.log('[testForwarding] Result:', result);
+                return corsify(Response.json({ 
+                  success: result, 
+                  config: parsedConfig,
+                  message: result ? 'Forwarding successful' : 'Forwarding failed',
+                  details: result ? null : 'Check worker logs for details'
+                }), request);
+              } catch (error) {
+                console.error('[testForwarding] Error:', error);
+                return corsify(Response.json({ 
+                  error: 'Forwarding test failed', 
+                  details: error instanceof Error ? error.message : String(error)
+                }, { status: 500 }), request);
+              }
+            }
             return await handleMailgunPayload(mgEmail, env, request);
           }
 
@@ -1475,6 +1515,21 @@ export default {
               registry:   `https://ghostagent.ninja/api/agents`,
             },
           }), request);
+        }
+
+        // Set principal (ERC-8226): store NFT owner wallet as the human principal for a BYO agent
+        if (email.action === 'setPrincipal') {
+          const secret = (email as any).secret;
+          if (!secret || secret !== env.WEBHOOK_SECRET) {
+            return corsify(Response.json({ error: 'Unauthorized' }, { status: 401 }), request);
+          }
+          const agentName = ((email as any).agentName || '').toLowerCase().trim();
+          const principal = ((email as any).principal || '').toLowerCase().trim();
+          if (!agentName || !principal) {
+            return corsify(Response.json({ error: 'Missing agentName or principal' }, { status: 400 }), request);
+          }
+          await env.INBOX_KV.put(`principal:${agentName}`, principal);
+          return corsify(Response.json({ ok: true, agentName, principal }), request);
         }
 
         // Agent Registry: update acct-tier (safe, story_ip, tier) and/or nftmailgno (originNft, tokenId, TBA) for an agent
@@ -3085,6 +3140,49 @@ export default {
           console.log(`Forwarding configured for ${agentName} by owner ${ownerAddress}`);
           
           return corsify(Response.json({ success: true, agentName, config: configWithOwner }), request);
+        }
+
+        // Test forwarding directly
+        if (email.action === 'testForwarding') {
+          const agentName = ((email as any).agentName || '').toLowerCase().trim();
+          if (!agentName) {
+            return corsify(Response.json({ error: 'Missing agentName' }, { status: 400 }), request);
+          }
+
+          try {
+            const config = await env.INBOX_KV.get(`forwarding:${agentName}`);
+            if (!config) {
+              return corsify(Response.json({ error: 'No forwarding config found' }, { status: 404 }), request);
+            }
+
+            const parsedConfig = JSON.parse(config);
+            console.log('[testForwarding] Config:', parsedConfig);
+            console.log('[testForwarding] MAILGUN_DOMAIN:', (env as any).MAILGUN_DOMAIN);
+            console.log('[testForwarding] SEND_MAILGUN_API_KEY set:', !!(env as any).SEND_MAILGUN_API_KEY);
+            console.log('[testForwarding] MAILGUN_API_KEY set:', !!(env as any).MAILGUN_API_KEY);
+
+            const result = await forwardEmail(env as any, agentName, {
+              from: 'test@example.com',
+              to: 'ghostagent@nftmail.box',
+              subject: 'Test Forwarding',
+              content: 'This is a test email for forwarding',
+              timestamp: Date.now()
+            });
+
+            console.log('[testForwarding] Result:', result);
+
+            return corsify(Response.json({ 
+              success: result, 
+              config: parsedConfig,
+              message: result ? 'Forwarding successful' : 'Forwarding failed'
+            }), request);
+          } catch (error) {
+            console.error('[testForwarding] Error:', error);
+            return corsify(Response.json({ 
+              error: 'Forwarding test failed', 
+              details: error instanceof Error ? error.message : String(error)
+            }, { status: 500 }), request);
+          }
         }
 
         // Stats: Get account tracking metrics across all KV prefixes

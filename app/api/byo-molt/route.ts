@@ -344,6 +344,24 @@ export async function POST(req: NextRequest) {
       // Non-fatal — dashboard listing is best-effort
     }
 
+    // ── Step 5a: Store NFT owner wallet as principal (ERC-8226) ──
+    // ownerWallet is the human who holds the BYO NFT — they are the principal
+    // (not the Safe, which is the vessel/controller)
+    try {
+      await fetch(NFTMAIL_WORKER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'setPrincipal',
+          agentName: finalPrimaryName,
+          principal: ownerWallet.toLowerCase(),
+          secret: webhookSecret,
+        }),
+      });
+    } catch {
+      // Non-fatal
+    }
+
     // ── Step 5b: Register nftmailgno accounts so emails appear in nftmail.box dropdown ──
     // Uses registerSovereign with WEBHOOK_SECRET which bypasses the account limit.
     // For new-agent molts with Safe, use Safe address as controller.
