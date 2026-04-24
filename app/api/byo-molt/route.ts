@@ -117,7 +117,7 @@ export async function POST(req: NextRequest) {
 
     const type = nftType ?? 'chonk';
     const isOverlay = moltTarget === 'existing-agent' && targetAgent;
-    const targetNamespace = targetTld ?? 'nftmail.gno';
+    const targetNamespace = targetTld ?? (isOverlay ? 'molt.gno' : 'agent.gno');
 
     if (!primaryName || typeof primaryName !== 'string') {
       return NextResponse.json({ error: 'Missing primaryName' }, { status: 400 });

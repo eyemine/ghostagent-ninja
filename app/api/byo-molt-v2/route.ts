@@ -15,10 +15,12 @@ export async function POST(req: NextRequest) {
     // Debug: Log everything
     console.log('BYO MOLT V2 DEBUG:', JSON.stringify(body, null, 2));
     
-    // Force targetTld if not provided
+    // Set targetTld if not provided:
+    // new-agent BYO molt → agent.gno (standalone agent with its own Safe)
+    // overlay onto existing-agent → molt.gno (beacon provenance on the molt registrar)
     if (!body.targetTld) {
-      body.targetTld = 'molt.gno';
-      console.log('FORCED targetTld to molt.gno');
+      body.targetTld = body.moltTarget === 'existing-agent' ? 'molt.gno' : 'agent.gno';
+      console.log('SET targetTld to', body.targetTld, '(moltTarget:', body.moltTarget, ')');
     }
 
     // Forward to original endpoint with corrected data
