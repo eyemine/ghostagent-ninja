@@ -201,6 +201,9 @@ export interface AgentIdentityGraph {
     evolutionHistoryLength: number | null;
   } | null;
 
+  // Canonical GNS name (e.g. ghostagent.agent.gno for native, atom-158.agent.gno for BYO)
+  gnsName: string | null;
+
   // Collection overlay (for chonk.123_ style agents)
   collection?: string;
   collectionName?: string;
@@ -329,6 +332,11 @@ export async function GET(req: NextRequest) {
 
       accountTier: resolved.accountTier ?? 'basic',
       tld: resolved.tld ?? null,
+      // BYO dot-format agents: GNS name is the beacon NFT (e.g. atom-158.agent.gno)
+      // Native agents: name.tld (e.g. ghostagent.agent.gno)
+      gnsName: name.includes('.')
+        ? (resolved.originNft ?? null)
+        : (resolved.tld ? `${name}.${resolved.tld}` : null),
       isPublic: resolved.isPublic ?? false,
       canSend: resolved.canSend ?? false,
       expiresAt: resolved.expiresAt ?? null,

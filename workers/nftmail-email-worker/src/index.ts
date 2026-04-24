@@ -1504,9 +1504,17 @@ export default {
           const base        = baseRaw         ? JSON.parse(baseRaw)         : null;
           const baseSepolia = baseSepoliaRaw  ? JSON.parse(baseSepoliaRaw)  : null;
 
+          // For BYO dot-format agents (e.g. atom.158) the GNS name is the beacon NFT
+          // e.g. atom-158.agent.gno — NOT the constructed atom.158.agent.gno
+          const isByoAgent = agentName.includes('.');
+          const gnsName = isByoAgent
+            ? (originNft ?? null)                           // beacon NFT e.g. atom-158.agent.gno
+            : (tld ? `${agentName}.${tld}` : null);         // native e.g. ghostagent.agent.gno
+
           return corsify(Response.json({
             name: agentName,
-            email: `${agentName}.agent@nftmail.box`,
+            email: `${agentName}_@nftmail.box`,
+            gnsName,
             // Identity NFT layer
             identityNft: originNft ? {
               name:    originNft,
