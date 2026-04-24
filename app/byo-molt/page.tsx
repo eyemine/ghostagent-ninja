@@ -11,7 +11,7 @@ import { MercuryoButton } from '../components/MercuryoWidget';
 import { EmailAliasToggle } from '../components/EmailAliasToggle';
 import type { AgentRegistryEntry } from '../api/agents/route';
 
-type NftType = 'ens' | 'chonk' | 'pownft' | 'normie' | 'other';
+type NftType = 'ens' | 'chonk' | 'pownft' | 'normie' | 'mooncat' | 'other';
 type Step = 'check' | 'select-agent' | 'confirm' | 'molting' | 'done' | 'error';
 type MoltTarget = 'new-agent' | 'existing-agent';
 
@@ -35,10 +35,11 @@ interface MoltResult {
   message: string;
 }
 
-const CHONK_CONTRACT  = '0x07152bfde079b5319e5308C43fB1DBc9C76CB4f9';
-const ENS_CONTRACT    = '0x57f1887a8BF19b14fC0dF6Fd9B2acc9Af147eA85';
-const POWNFT_CONTRACT = '0x9abb7bddc43fa67c76a62d8c016513827f59be1b';
-const NORMIE_CONTRACT = '0x9eb6e2025b64f340691e424b7fe7022ffde12438';
+const CHONK_CONTRACT   = '0x07152bfde079b5319e5308C43fB1DBc9C76CB4f9';
+const ENS_CONTRACT     = '0x57f1887a8BF19b14fC0dF6Fd9B2acc9Af147eA85';
+const POWNFT_CONTRACT  = '0x9abb7bddc43fa67c76a62d8c016513827f59be1b';
+const NORMIE_CONTRACT  = '0x9eb6e2025b64f340691e424b7fe7022ffde12438';
+const MOONCAT_CONTRACT = '0xc3f733ca98e0dad0386979eb96fb1722a1a05e69';
 const GNOSIS_TREASURY = '0xeD0B0694953158dd54D0c36D320b391f44cd67f3'; // Treasury for BYO molt fees
 
 // Fee structure based on current tier
@@ -110,6 +111,18 @@ async function fetchNormieImage(tokenId: string): Promise<{ name: string; imageU
     return { name: data?.name || `Normie #${tokenId}`, imageUrl };
   } catch {
     return { name: `Normie #${tokenId}`, imageUrl: null };
+  }
+}
+
+async function fetchMooncatImage(tokenId: string): Promise<{ name: string; imageUrl: string | null }> {
+  try {
+    const res = await fetch(`https://eth-mainnet.g.alchemy.com/nft/v3/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY || 'demo'}/getNFTMetadata?contractAddress=${MOONCAT_CONTRACT}&tokenId=${tokenId}&refreshCache=false`);
+    if (!res.ok) return { name: `MoonCat #${tokenId}`, imageUrl: null };
+    const data = await res.json() as any;
+    const imageUrl = data?.image?.cachedUrl || data?.image?.originalUrl || data?.image?.pngUrl || null;
+    return { name: data?.name || `MoonCat #${tokenId}`, imageUrl };
+  } catch {
+    return { name: `MoonCat #${tokenId}`, imageUrl: null };
   }
 }
 
@@ -322,6 +335,7 @@ export default function OgNftMoltPage() {
     if (nftType === 'chonk') return CHONK_CONTRACT;
     if (nftType === 'pownft') return POWNFT_CONTRACT;
     if (nftType === 'normie') return NORMIE_CONTRACT;
+    if (nftType === 'mooncat') return MOONCAT_CONTRACT;
     return contractAddr;
   };
   const resolvedRpc = () => {
@@ -348,11 +362,12 @@ export default function OgNftMoltPage() {
   }
 
   const NFT_TYPE_META: Record<NftType, { nameLabel: string; prefill: string }> = {
-    ens:    { nameLabel: 'ENS NAME', prefill: '' },
-    chonk:  { nameLabel: 'CHONK NAME', prefill: 'chonk' },
-    pownft: { nameLabel: 'ATOM NAME', prefill: 'atom' },
-    normie: { nameLabel: 'NORMIE NAME', prefill: 'normie' },
-    other:  { nameLabel: 'AGENT NAME', prefill: '' },
+    ens:     { nameLabel: 'ENS NAME', prefill: '' },
+    chonk:   { nameLabel: 'CHONK NAME', prefill: 'chonk' },
+    pownft:  { nameLabel: 'ATOM NAME', prefill: 'atom' },
+    normie:  { nameLabel: 'NORMIE NAME', prefill: 'normie' },
+    mooncat: { nameLabel: 'MOONCAT NAME', prefill: 'mooncat' },
+    other:   { nameLabel: 'AGENT NAME', prefill: '' },
   };
 
   function selectNftType(t: NftType) {
@@ -385,6 +400,9 @@ export default function OgNftMoltPage() {
       } else if (nftType === 'normie') {
         const { name, imageUrl } = await fetchNormieImage(tokenId);
         preview = { type: 'normie', tokenId, name, imageUrl, chain: 'mainnet' };
+      } else if (nftType === 'mooncat') {
+        const { name, imageUrl } = await fetchMooncatImage(tokenId);
+        preview = { type: 'mooncat', tokenId, name, imageUrl, chain: 'mainnet' };
       } else {
         // For 'other' ERC721, try to fetch metadata via tokenURI
         const { name, imageUrl } = await fetchErc721Image(contract, tokenId);
@@ -510,12 +528,13 @@ export default function OgNftMoltPage() {
           {/* NFT type picker */}
           <div>
             <label className="block text-[10px] font-semibold tracking-wider text-[var(--muted)] mb-2">NFT COLLECTION</label>
-            <div className="grid grid-cols-3 gap-2 md:grid-cols-5">
+            <div className="grid grid-cols-3 gap-2 md:grid-cols-6">
               {([
                 {k:'ens' as NftType,l:'ENS Name',img:'https://gateway.lighthouse.storage/ipfs/bafkreifv35abvqlhdtc4g2i4xelnmxnhaac7exyu6r24o3fbgthwcmupwy'},
                 {k:'chonk' as NftType,l:'CHONKS\nON BASE',img:'https://gateway.lighthouse.storage/ipfs/bafkreiczeqhex35dvj4ewbzn2gyqnbgqb22np5zgp223vnbfhaod6sv4sq'},
                 {k:'pownft' as NftType,l:'POWNFT\nON ETH',img:'https://gateway.lighthouse.storage/ipfs/bafkreick55xkc2ucnmk2wjbzl6a5chqkvmwjll4oqbqajfh5mapd3s7fku'},
                 {k:'normie' as NftType,l:'NORMIES\nON ETH',img:'https://gateway.lighthouse.storage/ipfs/bafkreigdisoyfs75rneioevm5irn2k4prdddtuum5bpn27bykhjtdc4fii'},
+                {k:'mooncat' as NftType,l:'MOONCATS\nON ETH',img:'/collection-icons/mooncat.png'},
                 {k:'other' as NftType,l:'Other Verified ERC721',img:'https://gateway.lighthouse.storage/ipfs/bafkreid7jamriw5jneuarcq2q6lrbfsqe76eebv6r2rworrnhyj2rpsuem'},
               ]).map(opt => (
                 <button key={opt.k} onClick={() => { selectNftType(opt.k); setTokenId(''); }}
@@ -568,7 +587,7 @@ export default function OgNftMoltPage() {
             ) : (
               <div>
                 <label className="block text-[10px] font-semibold tracking-wider text-[var(--muted)] mb-1">
-                  {nftType === 'chonk' ? 'CHONK TOKEN ID' : nftType === 'pownft' ? 'POWNFT TOKEN ID' : nftType === 'normie' ? 'NORMIE TOKEN ID' : 'TOKEN ID'}
+                  {nftType === 'chonk' ? 'CHONK TOKEN ID' : nftType === 'pownft' ? 'POWNFT TOKEN ID' : nftType === 'normie' ? 'NORMIE TOKEN ID' : nftType === 'mooncat' ? 'MOONCAT TOKEN ID' : 'TOKEN ID'}
                 </label>
                 <input className={ic} placeholder="e.g. 123" value={tokenId}
                   onChange={e => { setTokenId(e.target.value.replace(/[^0-9]/g,'')); reset(); }} />
@@ -585,6 +604,11 @@ export default function OgNftMoltPage() {
                 {nftType === 'normie' && (
                   <p className="mt-1 text-[10px] text-[var(--muted)]">Find your Normie on{' '}
                     <a href="https://www.normies.art" target="_blank" rel="noopener noreferrer" className="underline text-fuchsia-400">normies.art</a>.
+                  </p>
+                )}
+                {nftType === 'mooncat' && (
+                  <p className="mt-1 text-[10px] text-[var(--muted)]">Find your MoonCat on{' '}
+                    <a href="https://opensea.io/collection/acclimatedmooncats" target="_blank" rel="noopener noreferrer" className="underline text-fuchsia-400">OpenSea</a>.
                   </p>
                 )}
               </div>

@@ -144,6 +144,25 @@ export const COLLECTION_REGISTRY: Record<string, CollectionConfig> = {
     accentColor: 'green',
     opensea: 'normies',
   },
+
+  mooncat: {
+    id: 'mooncat',
+    name: 'MoonCats',
+    icon: '🐱',
+    description: 'MoonCats Acclimated — OG on-chain cats on Ethereum',
+    contract: '0xc3f733ca98e0dad0386979eb96fb1722a1a05e69',
+    chainId: 1,
+    rpcUrl: process.env.ETH_RPC_URL || 'https://ethereum.publicnode.com',
+    // A: MOONCAT.1@nftmail.box   /  mooncat1.nftmail.gno
+    directEmailPrefix: 'MOONCAT',
+    directBeaconPrefix: 'mooncat',
+    // B: MOONCAT.1_@nftmail.box  /  mooncat-1.nftmail.gno
+    moltEmailPrefix: 'MOONCAT',
+    moltBeaconPrefix: 'mooncat',
+    ensReserved: ['mooncat', 'mooncats', 'moon'],
+    accentColor: 'emerald',
+    opensea: 'acclimatedmooncats',
+  },
 };
 
 export function getCollection(id: string): CollectionConfig | null {

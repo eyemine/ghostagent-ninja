@@ -390,8 +390,27 @@ const WHITELISTED_COLLECTIONS: WhitelistedCollection[] = [
     rpcUrl: 'https://mainnet.base.org',
     displayName: 'Chonks',
   },
-  // Add more collections here:
-  // { assignedName: 'punk', chainId: 1, contractAddress: '0xb47e...', rpcUrl: 'https://eth.llamarpc.com', displayName: 'CryptoPunks' },
+  {
+    assignedName: 'atom',
+    chainId: 1,
+    contractAddress: '0x3B3ee1931Dc30C1957379FAc9aba94D1C48a5405',
+    rpcUrl: 'https://ethereum.publicnode.com',
+    displayName: 'POWNFT',
+  },
+  {
+    assignedName: 'normie',
+    chainId: 8453,
+    contractAddress: '0x7Bc1C072742D8391817EB4Eb2317F98dc72C61dB',
+    rpcUrl: 'https://mainnet.base.org',
+    displayName: 'Normies',
+  },
+  {
+    assignedName: 'mooncat',
+    chainId: 1,
+    contractAddress: '0xc3f733ca98e0dad0386979eb96fb1722a1a05e69',
+    rpcUrl: 'https://ethereum.publicnode.com',
+    displayName: 'MoonCats',
+  },
 ];
 
 function getWhitelistedCollection(name: string): WhitelistedCollection | null {

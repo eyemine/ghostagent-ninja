@@ -33,10 +33,11 @@ const ETH_RPC = ALCHEMY_KEY
   : 'https://ethereum.publicnode.com';
 
 const NFT_CONTRACTS: Record<string, { contract: string; rpc: string; chain: string }> = {
-  chonk:  { contract: '0x07152bfde079b5319e5308C43fB1DBc9C76CB4f9', rpc: 'https://mainnet.base.org', chain: 'base' },
-  ens:    { contract: '0x57f1887a8BF19b14fC0dF6Fd9B2acc9Af147eA85', rpc: ETH_RPC, chain: 'mainnet' },
-  pownft: { contract: '0x9abb7bddc43fa67c76a62d8c016513827f59be1b', rpc: ETH_RPC, chain: 'mainnet' },
-  normie: { contract: '0x9eb6e2025b64f340691e424b7fe7022ffde12438', rpc: ETH_RPC, chain: 'mainnet' },
+  chonk:   { contract: '0x07152bfde079b5319e5308C43fB1DBc9C76CB4f9', rpc: 'https://mainnet.base.org', chain: 'base' },
+  ens:     { contract: '0x57f1887a8BF19b14fC0dF6Fd9B2acc9Af147eA85', rpc: ETH_RPC, chain: 'mainnet' },
+  pownft:  { contract: '0x9abb7bddc43fa67c76a62d8c016513827f59be1b', rpc: ETH_RPC, chain: 'mainnet' },
+  normie:  { contract: '0x9eb6e2025b64f340691e424b7fe7022ffde12438', rpc: ETH_RPC, chain: 'mainnet' },
+  mooncat: { contract: '0xc3f733ca98e0dad0386979eb96fb1722a1a05e69', rpc: ETH_RPC, chain: 'mainnet' },
 };
 
 async function verifyGenericOwnership(
