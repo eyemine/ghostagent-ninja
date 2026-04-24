@@ -178,14 +178,15 @@ export async function POST(req: NextRequest) {
     // Beacon labels use hyphens (not dots) to avoid sub.sub.name interpretation
     // e.g. chonk-123.nftmail.gno, atom-1234.nftmail.gno, eyemine.nftmail.gno
     const cleanName = primaryName.toLowerCase().replace(/_$/, '');
-    const beaconPrefix = type === 'pownft' ? 'atom' : type === 'normie' ? 'normie' : type === 'chonk' ? 'chonk' : 'nft';
+    const beaconPrefix = type === 'pownft' ? 'atom' : type === 'normie' ? 'normie' : type === 'chonk' ? 'chonk' : type === 'mooncat' ? 'mooncat' : 'nft';
+    const emailPrefix  = type === 'pownft' ? 'atom' : type === 'normie' ? 'normie' : type === 'chonk' ? 'chonk' : type === 'mooncat' ? 'MoonCat' : 'nft';
     const displayLabel = type === 'ens' && nftName ? nftName.replace(/\.eth$/i, '').toLowerCase() : tokenId.slice(0, 20);
     const beaconLabel = type === 'ens' ? displayLabel : `${beaconPrefix}-${displayLabel}`;
 
     // Calculate humanLocalPart early - needed for Safe creation saltNonce
     const humanLocalPart = type === 'ens'
       ? (nftName ?? `ens.${tokenId.slice(0, 8)}`)
-      : `${beaconPrefix}.${displayLabel}`;
+      : `${emailPrefix}.${displayLabel}`;
 
     // Safe address for new-agent molts (will be set during beacon mint step)
     let safeAddress: string | null = null;

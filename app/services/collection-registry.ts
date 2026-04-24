@@ -153,11 +153,11 @@ export const COLLECTION_REGISTRY: Record<string, CollectionConfig> = {
     contract: '0xc3f733ca98e0dad0386979eb96fb1722a1a05e69',
     chainId: 1,
     rpcUrl: process.env.ETH_RPC_URL || 'https://ethereum.publicnode.com',
-    // A: MOONCAT.1@nftmail.box   /  mooncat1.nftmail.gno
-    directEmailPrefix: 'MOONCAT',
+    // A: MoonCat.1@nftmail.box   /  mooncat1.nftmail.gno
+    directEmailPrefix: 'MoonCat',
     directBeaconPrefix: 'mooncat',
-    // B: MOONCAT.1_@nftmail.box  /  mooncat-1.nftmail.gno
-    moltEmailPrefix: 'MOONCAT',
+    // B: MoonCat.1_@nftmail.box  /  mooncat-1.nftmail.gno
+    moltEmailPrefix: 'MoonCat',
     moltBeaconPrefix: 'mooncat',
     ensReserved: ['mooncat', 'mooncats', 'moon'],
     accentColor: 'emerald',
