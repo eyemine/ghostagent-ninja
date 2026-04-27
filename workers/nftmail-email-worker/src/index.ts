@@ -1457,6 +1457,40 @@ export default {
           return corsify(result, request);
         }
 
+        // AgentCash spend log: append a spend entry for an agent (MPP/x402/direct)
+        // Called by AgentCash relay, DailyBudgetModule hooks, or agent brain after each payment.
+        if (email.action === 'logAgentCashSpend') {
+          const secret = (email as any).webhookSecret || request.headers.get('x-webhook-secret') || '';
+          if (env.WEBHOOK_SECRET && secret !== env.WEBHOOK_SECRET) {
+            return corsify(Response.json({ error: 'Unauthorized' }, { status: 401 }), request);
+          }
+          const agentName = ((email as any).agentName || '').toLowerCase().trim();
+          const entry     = (email as any).entry;
+          if (!agentName || !entry) {
+            return corsify(Response.json({ error: 'Missing agentName or entry' }, { status: 400 }), request);
+          }
+          const key = `agentcash:spendlog:${agentName}`;
+          const raw = await env.INBOX_KV.get(key);
+          const log: unknown[] = raw ? JSON.parse(raw) : [];
+          log.unshift({ ...entry, timestamp: entry.timestamp || Date.now() });
+          // Cap at 500 most recent entries
+          if (log.length > 500) log.length = 500;
+          await env.INBOX_KV.put(key, JSON.stringify(log));
+          return corsify(Response.json({ status: 'ok', agent: agentName, logSize: log.length }), request);
+        }
+
+        // AgentCash spend log retrieval (public read — used by notapaperclip.red monitoring)
+        if (email.action === 'getAgentCashSpendLog') {
+          const agentName = ((email as any).agentName || '').toLowerCase().trim();
+          if (!agentName) {
+            return corsify(Response.json({ error: 'Missing agentName' }, { status: 400 }), request);
+          }
+          const key = `agentcash:spendlog:${agentName}`;
+          const raw = await env.INBOX_KV.get(key);
+          const log: unknown[] = raw ? JSON.parse(raw) : [];
+          return corsify(Response.json({ agent: agentName, entries: log, count: log.length }), request);
+        }
+
         // Burn attestation lookup: check if an agent has been burned (for oracles like notapaperclip.red)
         if (email.action === 'getBurnAttestations') {
           const agentName = ((email as any).agentName || '').toLowerCase().trim();
