@@ -88,12 +88,12 @@ export async function POST(req: NextRequest) {
       // For cross-chain NFTs, add TBA as Safe owner instead
       if (nftContract) {
         try {
-          const { createWalletClient, http, encodeFunctionData, Address, createPublicClient } = await import('viem');
+          const { createWalletClient, http, encodeFunctionData, createPublicClient } = await import('viem');
           const { privateKeyToAccount } = await import('viem/accounts');
           const { gnosis } = await import('viem/chains');
 
-          const ERC6551_REGISTRY = '0x000000006551c19487814612e58FE06813775758' as Address;
-          const ERC6551_ACCOUNT_IMPL = '0x878E703A93b6e0aaD92f9907332c68fb09765697' as Address;
+          const ERC6551_REGISTRY = '0x000000006551c19487814612e58FE06813775758' as `0x${string}`;
+          const ERC6551_ACCOUNT_IMPL = '0x878E703A93b6e0aaD92f9907332c68fb09765697' as `0x${string}`;
           const ZERO_SALT = '0x0000000000000000000000000000000000000000000000000000000000000000';
 
           const account = privateKeyToAccount(treasuryKey as `0x${string}`);
@@ -102,7 +102,7 @@ export async function POST(req: NextRequest) {
 
           if (chainId === GNOSIS_CHAIN_ID) {
             // Gnosis NFT: register BYO governor in GhostRegistry v2
-            const ghostRegistry = '0x194f200b2C624e27a14865292d1C50cF46211565' as Address;
+            const ghostRegistry = '0x194f200b2C624e27a14865292d1C50cF46211565' as `0x${string}`;
             await walletClient.writeContract({
               address: ghostRegistry,
               abi: [{
@@ -117,7 +117,7 @@ export async function POST(req: NextRequest) {
                 stateMutability: 'nonpayable',
               }],
               functionName: 'registerByoGovernor',
-              args: [nftContract as Address, BigInt(tokenId), safeAddress as Address],
+              args: [nftContract as `0x${string}`, BigInt(tokenId), safeAddress as `0x${string}`],
             });
             console.log(`BYO NFT ${nftContract}#${tokenId} registered as governor of Safe ${safeAddress}`);
           } else {
@@ -138,7 +138,7 @@ export async function POST(req: NextRequest) {
                 stateMutability: 'view',
               }],
               functionName: 'account',
-              args: [ERC6551_ACCOUNT_IMPL, ZERO_SALT, BigInt(chainId), nftContract as Address, BigInt(tokenId)],
+              args: [ERC6551_ACCOUNT_IMPL, ZERO_SALT, BigInt(chainId), nftContract as `0x${string}`, BigInt(tokenId)],
             });
 
             const tbaAddress = await publicClient.readContract({
@@ -157,8 +157,8 @@ export async function POST(req: NextRequest) {
                 stateMutability: 'view',
               }],
               functionName: 'account',
-              args: [ERC6551_ACCOUNT_IMPL, ZERO_SALT, BigInt(chainId), nftContract as Address, BigInt(tokenId)],
-            }) as Address;
+              args: [ERC6551_ACCOUNT_IMPL, ZERO_SALT, BigInt(chainId), nftContract as `0x${string}`, BigInt(tokenId)],
+            }) as `0x${string}`;
 
             console.log(`TBA for ${nftContract}#${tokenId} (chain ${chainId}): ${tbaAddress}`);
 
@@ -214,8 +214,8 @@ export async function POST(req: NextRequest) {
                 BigInt(0),
                 BigInt(0),
                 BigInt(0),
-                '0x0000000000000000000000000000000000000000' as Address,
-                '0x0000000000000000000000000000000000000000' as Address,
+                '0x0000000000000000000000000000000000000000' as `0x${string}`,
+                '0x0000000000000000000000000000000000000000' as `0x${string}`,
                 ownerSig,
               ],
             });
