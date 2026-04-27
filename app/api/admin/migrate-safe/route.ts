@@ -186,7 +186,7 @@ export async function POST(req: NextRequest) {
             ) as `0x${string}`;
 
             await walletClient.writeContract({
-              address: safeAddress,
+              address: safeAddress as `0x${string}`,
               abi: [{
                 name: 'execTransaction',
                 type: 'function',
