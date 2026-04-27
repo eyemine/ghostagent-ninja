@@ -1457,6 +1457,27 @@ export default {
           return corsify(result, request);
         }
 
+        // Burn attestation lookup: check if an agent has been burned (for oracles like notapaperclip.red)
+        if (email.action === 'getBurnAttestations') {
+          const agentName = ((email as any).agentName || '').toLowerCase().trim();
+          if (!agentName) {
+            return corsify(Response.json({ error: 'Missing agentName' }, { status: 400 }), request);
+          }
+          // List all burn: keys for this agent (KV list with prefix)
+          const burnList = await env.INBOX_KV.list({ prefix: `burn:${agentName}:` });
+          const attestations = await Promise.all(
+            burnList.keys.map(async (k) => {
+              const raw = await env.INBOX_KV.get(k.name);
+              return raw ? JSON.parse(raw) : null;
+            })
+          );
+          return corsify(Response.json({
+            agent: agentName,
+            burned: attestations.filter(Boolean).length > 0,
+            attestations: attestations.filter(Boolean),
+          }), request);
+        }
+
         // Agent Identity: full identity stack for a GhostAgent (all layers)
         if (email.action === 'getAgentIdentity') {
           const agentName = ((email as any).agentName || '').toLowerCase().replace(/_+$/, '').trim();
@@ -5249,18 +5270,90 @@ export default {
           return corsify(Response.json({ status: 'recorded', txHash }), request);
         }
 
-        // Sovereign Kill-Switch: purge all inbox data for an agent
+        // Sovereign Kill-Switch: full agent identity burn
+        // Deletes all KV keys, invalidates inbox routing, records burn attestation
         if (email.action === 'purgeInbox') {
-          const agent = email.localPart || email.email?.split('@')[0] || '';
+          const agent = ((email as any).localPart || (email as any).email?.split('@')[0] || '').toLowerCase().trim();
           const signature = (email as any).signature || '';
+          const secret = (email as any).secret || '';
+          const scope = (email as any).scope || 'messages'; // 'messages' | 'full'
           if (!agent) {
             return corsify(Response.json({ error: 'Missing agent name' }, { status: 400 }), request);
           }
           if (!signature) {
-            return corsify(Response.json({ error: 'Missing Safe signature — sovereign burn requires owner auth' }, { status: 403 }), request);
+            return corsify(Response.json({ error: 'Missing wallet signature — sovereign burn requires owner auth' }, { status: 403 }), request);
           }
+
+          // Step 1: Purge inbox messages (always)
           result = await storage.purgeInbox(agent);
-          return corsify(result, request);
+          const msgResult = await result.json() as { messagesDeleted?: number };
+          let keysDeleted: string[] = [];
+
+          // Step 2: Full identity burn (if scope='full' and webhook secret provided)
+          if (scope === 'full') {
+            if (!secret || secret !== env.WEBHOOK_SECRET) {
+              return corsify(Response.json({ error: 'Full burn requires webhook auth' }, { status: 401 }), request);
+            }
+
+            // All agent KV key patterns
+            const identityKeys = [
+              `nftmailgno:${agent}`,
+              `acct-tier:${agent}`,
+              `principal:${agent}`,
+              `tld:${agent}`,
+              `erc8004:gnosis:${agent}`,
+              `erc8004:base:${agent}`,
+              `erc8004:baseSepolia:${agent}`,
+              `agentprofile:${agent}`,
+              `beacon:${agent}`,
+              `profile:${agent}`,
+              `audit:${agent}`,
+              `deviantclaw:apikey:${agent}`,
+              `deviantclaw:agentid:${agent}`,
+              `deviantclaw:displayname:${agent}`,
+            ];
+
+            // Also purge blind index keys for both human and agent streams
+            const blindKeys = [
+              `blindindex:${agent}`,
+              `blindindex:${agent}_`,
+              `blindindex:${agent}.agent`,
+            ];
+
+            const allKeys = [...identityKeys, ...blindKeys];
+            await Promise.all(allKeys.map(async (key) => {
+              const exists = await env.INBOX_KV.get(key);
+              if (exists !== null) {
+                await env.INBOX_KV.delete(key);
+                keysDeleted.push(key);
+              }
+            }));
+
+            // Step 3: Record burn attestation (so notapaperclip.red can detect it)
+            const burnAttestation = {
+              event: 'MoltBurned',
+              agent,
+              scope: 'full',
+              keysDeleted,
+              messagesDeleted: msgResult.messagesDeleted ?? 0,
+              burnedAt: new Date().toISOString(),
+              burnedBy: signature.slice(0, 20) + '...', // truncated sig as proof-of-intent
+            };
+            await env.INBOX_KV.put(
+              `burn:${agent}:${Date.now()}`,
+              JSON.stringify(burnAttestation),
+              { expirationTtl: 60 * 60 * 24 * 90 } // retain burn record for 90 days
+            );
+          }
+
+          return corsify(Response.json({
+            status: 'purged',
+            agent,
+            scope,
+            messagesDeleted: msgResult.messagesDeleted ?? 0,
+            identityKeysDeleted: keysDeleted,
+            timestamp: Date.now(),
+          }), request);
         }
 
         // Only process email storage for actual email payloads (with to/from/content fields)

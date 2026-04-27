@@ -88,6 +88,7 @@ export default function DashboardPage() {
   // Kill-switch state
   const [burning, setBurning] = useState(false);
   const [burnResult, setBurnResult] = useState<string | null>(null);
+  const [burnScope, setBurnScope] = useState<'messages' | 'full'>('messages');
 
   // Privacy toggle state
   const [privacyEnabled, setPrivacyEnabled] = useState(false);
@@ -232,32 +233,36 @@ export default function DashboardPage() {
     }
   };
 
-  // Sovereign Kill-Switch: burn all encrypted history
-  const handleBurn = async () => {
+  // Sovereign Kill-Switch: burn inbox messages or full agent identity
+  const handleBurn = async (scope: 'messages' | 'full' = burnScope) => {
     if (!selectedName || !preferredWallet) return;
     setBurning(true);
     setBurnResult(null);
     try {
-      // Request signature from wallet to authorise the burn
       const provider = await preferredWallet.getEthereumProvider();
-      const message = `SOVEREIGN BURN: Permanently delete all inbox data for ${selectedName.email} at ${new Date().toISOString()}`;
+      const scopeLabel = scope === 'full' ? 'ALL IDENTITY DATA AND' : '';
+      const message = `SOVEREIGN BURN: Permanently delete ${scopeLabel} all inbox data for ${selectedName.email} at ${new Date().toISOString()}`;
       const signature = await provider.request({
         method: 'personal_sign',
         params: [message, preferredWallet.address],
       });
 
-      const res = await fetch(WORKER_URL, {
+      const res = await fetch('/api/burn', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: 'purgeInbox',
           localPart: selectedName.label,
           signature,
+          scope,
         }),
       });
-      const data = await res.json() as { error?: string; messagesDeleted?: number };
+      const data = await res.json() as { error?: string; messagesDeleted?: number; identityKeysDeleted?: string[]; scope?: string };
       if (!res.ok) throw new Error(data.error || 'Burn failed');
-      setBurnResult(`Purged ${data.messagesDeleted} messages. Sovereign burn complete.`);
+      const idCount = data.identityKeysDeleted?.length ?? 0;
+      const summary = scope === 'full'
+        ? `Purged ${data.messagesDeleted} messages + ${idCount} identity keys. Full sovereign burn complete.`
+        : `Purged ${data.messagesDeleted} messages. Sovereign burn complete.`;
+      setBurnResult(summary);
       setMessages([]);
       setSelectedMessage(null);
     } catch (err: any) {
@@ -658,9 +663,36 @@ export default function DashboardPage() {
                     </svg>
                     <h3 className="text-sm font-semibold text-red-300">Sovereign Kill-Switch</h3>
                   </div>
-                  <p className="text-xs text-[var(--muted)] mb-4">Permanently burn all encrypted inbox history. This action is <strong className="text-red-400">irreversible</strong>. All messages for <span className="text-emerald-300">{selectedName?.email}</span> will be deleted.</p>
-                  <button onClick={handleBurn} disabled={burning} className="w-full rounded-lg border border-red-500/35 bg-red-500/8 px-5 py-3 text-xs font-semibold text-red-300 transition hover:bg-red-500/16 hover:shadow-[0_0_24px_rgba(239,68,68,0.12)] disabled:cursor-not-allowed disabled:opacity-40">
-                    {burning ? 'Signing & Burning...' : 'Sign & Burn All Messages'}
+
+                  <div className="flex gap-2 mb-4">
+                    <button onClick={() => setBurnScope('messages')} className={`flex-1 rounded-lg border px-3 py-2 text-xs font-semibold transition ${
+                      burnScope === 'messages' ? 'border-red-500/50 bg-red-500/15 text-red-300' : 'border-red-500/15 bg-transparent text-red-400/50 hover:bg-red-500/5'
+                    }`}>Burn Messages</button>
+                    <button onClick={() => setBurnScope('full')} className={`flex-1 rounded-lg border px-3 py-2 text-xs font-semibold transition ${
+                      burnScope === 'full' ? 'border-red-500/50 bg-red-500/15 text-red-300' : 'border-red-500/15 bg-transparent text-red-400/50 hover:bg-red-500/5'
+                    }`}>Full Identity Burn</button>
+                  </div>
+
+                  {burnScope === 'messages' && (
+                    <p className="text-xs text-[var(--muted)] mb-4">Permanently burn all encrypted inbox history. All messages for <span className="text-emerald-300">{selectedName?.email}</span> will be deleted. Identity and routing remain active.</p>
+                  )}
+                  {burnScope === 'full' && (
+                    <div className="mb-4 space-y-2">
+                      <p className="text-xs text-red-400 font-semibold">This will permanently destroy the entire agent identity:</p>
+                      <ul className="text-xs text-[var(--muted)] list-disc ml-4 space-y-0.5">
+                        <li>All inbox messages (encrypted + cleartext)</li>
+                        <li>Agent profile, beacon CID, and audit log</li>
+                        <li>ERC-8004 registration records</li>
+                        <li>Principal and TLD mappings</li>
+                        <li>HITL approval state</li>
+                        <li>Inbox routing (no new mail will be delivered)</li>
+                      </ul>
+                      <p className="text-xs text-red-400">A burn attestation will be recorded for 90 days (detectable by oracles).</p>
+                    </div>
+                  )}
+
+                  <button onClick={() => handleBurn(burnScope)} disabled={burning} className="w-full rounded-lg border border-red-500/35 bg-red-500/8 px-5 py-3 text-xs font-semibold text-red-300 transition hover:bg-red-500/16 hover:shadow-[0_0_24px_rgba(239,68,68,0.12)] disabled:cursor-not-allowed disabled:opacity-40">
+                    {burning ? 'Signing & Burning...' : burnScope === 'full' ? 'Sign & Burn Entire Identity' : 'Sign & Burn All Messages'}
                   </button>
                   {burnResult && <p className={`mt-3 text-xs ${burnResult.includes('complete') ? 'text-emerald-400' : 'text-red-400'}`}>{burnResult}</p>}
                 </div>
