@@ -207,7 +207,7 @@ export async function POST(req: NextRequest) {
               }],
               functionName: 'execTransaction',
               args: [
-                safeAddress,
+                safeAddress as `0x${string}`,
                 BigInt(0),
                 addOwnerData,
                 0,
