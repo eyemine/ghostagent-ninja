@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
@@ -473,16 +473,70 @@ export default function OgNftMoltPage() {
 
   const ic = "w-full rounded-lg border border-[rgba(176,128,92,0.25)] bg-black/30 px-3 py-2 text-sm text-[#f2eee4] placeholder-[var(--muted)] focus:border-[rgba(176,128,92,0.55)] focus:outline-none transition";
 
+  // Carousel state
+  const CAROUSEL_IMAGES = [
+    { src: 'https://gateway.lighthouse.storage/ipfs/bafkreifv35abvqlhdtc4g2i4xelnmxnhaac7exyu6r24o3fbgthwcmupwy', alt: 'ENS', label: 'ENS' },
+    { src: 'https://gateway.lighthouse.storage/ipfs/bafkreiczeqhex35dvj4ewbzn2gyqnbgqb22np5zgp223vnbfhaod6sv4sq', alt: 'Chonk', label: 'Chonk' },
+    { src: 'https://gateway.lighthouse.storage/ipfs/bafkreick55xkc2ucnmk2wjbzl6a5chqkvmwjll4oqbqajfh5mapd3s7fku', alt: 'POWNFT', label: 'POWNFT' },
+    { src: 'https://gateway.lighthouse.storage/ipfs/bafkreigdisoyfs75rneioevm5irn2k4prdddtuum5bpn27bykhjtdc4fii', alt: 'Normie', label: 'Normies' },
+    { src: 'https://gateway.lighthouse.storage/ipfs/bafkreiew6dkb54rv4govsskcv4nosqh5yyhftugslap333y5ht7lef5jvy', alt: 'MoonCat', label: 'MoonCats' },
+  ];
+  const [carouselIdx, setCarouselIdx] = useState(0);
+  const carouselTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const startCarousel = useCallback(() => {
+    if (carouselTimer.current) clearInterval(carouselTimer.current);
+    carouselTimer.current = setInterval(() => setCarouselIdx(i => (i + 1) % CAROUSEL_IMAGES.length), 3500);
+  }, [CAROUSEL_IMAGES.length]);
+  useEffect(() => { startCarousel(); return () => { if (carouselTimer.current) clearInterval(carouselTimer.current); }; }, [startCarousel]);
+  const goCarousel = (dir: 1 | -1) => { setCarouselIdx(i => (i + dir + CAROUSEL_IMAGES.length) % CAROUSEL_IMAGES.length); startCarousel(); };
+
   return (
     <div className="max-w-5xl mx-auto space-y-6">
 
-      {/* Header — marketplace-style */}
-      <div className="flex items-center gap-3">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="https://gateway.lighthouse.storage/ipfs/bafkreiejmu35lnu34e6dm754c6tad34nogywf2oslbql6lzcdpz4acxjue" alt="BYO NFT Molt" className="h-28 w-28 shrink-0 rounded-xl border border-fuchsia-500/40 object-contain" />
-        <div>
-          <h1 className="pl-1 text-2xl font-bold text-[#f2eee4]">BYO NFT Molt</h1>
-          <p className="mt-1 pl-1 text-sm text-[var(--muted)]">Overlay an NFT you own — ENS, Chonk, or Verified Collection — onto your GhostAgent identity</p>
+      {/* Hero carousel — verified collections */}
+      <div className="relative overflow-hidden rounded-2xl border border-fuchsia-500/25 bg-black/30">
+        <div className="flex items-center gap-4 px-4 py-5 sm:px-6 sm:py-6">
+          {/* Carousel image */}
+          <div className="relative h-28 w-28 sm:h-36 sm:w-36 shrink-0 overflow-hidden rounded-xl border border-fuchsia-500/40">
+            {CAROUSEL_IMAGES.map((img, i) => (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                key={img.alt}
+                src={img.src}
+                alt={img.alt}
+                className={`absolute inset-0 h-full w-full object-contain transition-opacity duration-500 ${i === carouselIdx ? 'opacity-100' : 'opacity-0'}`}
+              />
+            ))}
+            {/* Dot indicators */}
+            <div className="absolute bottom-1 left-1/2 -translate-x-1/2 flex gap-1">
+              {CAROUSEL_IMAGES.map((_, i) => (
+                <button key={i} onClick={() => { setCarouselIdx(i); startCarousel(); }}
+                  className={`h-1.5 w-1.5 rounded-full transition ${i === carouselIdx ? 'bg-fuchsia-400' : 'bg-white/20'}`} />
+              ))}
+            </div>
+          </div>
+          {/* Text */}
+          <div className="flex-1 min-w-0">
+            <h1 className="text-xl sm:text-2xl font-bold text-[#f2eee4]">BYO NFT Molt</h1>
+            <p className="mt-1 text-xs sm:text-sm text-[var(--muted)]">Overlay an NFT you own — ENS, Chonk, or Verified Collection — onto your GhostAgent identity</p>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {CAROUSEL_IMAGES.map((img, i) => (
+                <span key={img.alt} onClick={() => { setCarouselIdx(i); startCarousel(); }}
+                  className={`cursor-pointer rounded-full px-2 py-0.5 text-[9px] font-semibold ring-1 transition ${
+                    i === carouselIdx ? 'bg-fuchsia-500/15 text-fuchsia-300 ring-fuchsia-500/30' : 'bg-black/20 text-[var(--muted)] ring-white/5 hover:text-[#f2eee4]'
+                  }`}>{img.label}</span>
+              ))}
+            </div>
+          </div>
+          {/* Nav arrows (desktop) */}
+          <div className="hidden sm:flex flex-col gap-1">
+            <button onClick={() => goCarousel(-1)} className="rounded-lg border border-[var(--border)] bg-black/20 p-1.5 text-[var(--muted)] hover:text-white transition">
+              <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+            <button onClick={() => goCarousel(1)} className="rounded-lg border border-[var(--border)] bg-black/20 p-1.5 text-[var(--muted)] hover:text-white transition">
+              <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -528,21 +582,21 @@ export default function OgNftMoltPage() {
           {/* NFT type picker */}
           <div>
             <label className="block text-[10px] font-semibold tracking-wider text-[var(--muted)] mb-2">NFT COLLECTION</label>
-            <div className="grid grid-cols-3 gap-2 md:grid-cols-6">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {([
                 {k:'ens' as NftType,l:'ENS Name',img:'https://gateway.lighthouse.storage/ipfs/bafkreifv35abvqlhdtc4g2i4xelnmxnhaac7exyu6r24o3fbgthwcmupwy'},
                 {k:'chonk' as NftType,l:'CHONKS\nON BASE',img:'https://gateway.lighthouse.storage/ipfs/bafkreiczeqhex35dvj4ewbzn2gyqnbgqb22np5zgp223vnbfhaod6sv4sq'},
                 {k:'pownft' as NftType,l:'POWNFT\nON ETH',img:'https://gateway.lighthouse.storage/ipfs/bafkreick55xkc2ucnmk2wjbzl6a5chqkvmwjll4oqbqajfh5mapd3s7fku'},
                 {k:'normie' as NftType,l:'NORMIES\nON ETH',img:'https://gateway.lighthouse.storage/ipfs/bafkreigdisoyfs75rneioevm5irn2k4prdddtuum5bpn27bykhjtdc4fii'},
-                {k:'mooncat' as NftType,l:'MOONCATS\nON ETH',img:'/collection-icons/mooncat.png'},
-                {k:'other' as NftType,l:'Other Verified ERC721',img:'https://gateway.lighthouse.storage/ipfs/bafkreid7jamriw5jneuarcq2q6lrbfsqe76eebv6r2rworrnhyj2rpsuem'},
+                {k:'mooncat' as NftType,l:'MOONCATS\nON ETH',img:'https://gateway.lighthouse.storage/ipfs/bafkreiew6dkb54rv4govsskcv4nosqh5yyhftugslap333y5ht7lef5jvy'},
+                {k:'other' as NftType,l:'Other Verified\nERC721',img:'https://gateway.lighthouse.storage/ipfs/bafkreid7jamriw5jneuarcq2q6lrbfsqe76eebv6r2rworrnhyj2rpsuem'},
               ]).map(opt => (
                 <button key={opt.k} onClick={() => { selectNftType(opt.k); setTokenId(''); }}
-                  className={`aspect-square rounded-lg border px-2 py-2 text-xs font-semibold transition text-center ${
+                  className={`rounded-lg border px-3 py-3 text-xs font-semibold transition text-center ${
                     nftType === opt.k ? 'border-fuchsia-500/50 bg-fuchsia-500/10 text-fuchsia-300' : 'border-[rgba(176,128,92,0.2)] bg-black/20 text-[var(--muted)] hover:text-[#f2eee4]'
                   }`}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <div className="flex justify-center"><img src={opt.img} alt={opt.l} className="h-24 w-24 rounded object-contain" /></div><div className="mt-0.5">{opt.l}</div>
+                  <div className="flex justify-center"><img src={opt.img} alt={opt.l} className="h-16 w-16 sm:h-20 sm:w-20 rounded object-contain" /></div><div className="mt-1.5 whitespace-pre-line leading-tight text-[10px]">{opt.l}</div>
                 </button>
               ))}
             </div>
