@@ -14,7 +14,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSafeForByoMolt } from '../../../services/create-safe';
 import { fetchNftImageOnChain } from '../../../utils/nft-image';
-import { WORKER_URL } from '../../../utils/config';
 
 const WEBHOOK_SECRET = process.env.NFTMAIL_WEBHOOK_SECRET ?? process.env.WEBHOOK_SECRET;
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://ghostagent.ninja';
@@ -33,7 +32,7 @@ interface BackfillEntry {
   ownerWallet: string;
   nftType: string;
   tokenId: string;
-  tbaAddress?: string;
+  nftContract?: string;  // override contract address (defaults to NFT_CONTRACTS[nftType])
 }
 
 interface StepResult {
@@ -71,7 +70,7 @@ export async function POST(req: NextRequest) {
   const results: EntryResult[] = [];
 
   for (const entry of body.entries) {
-    const { agentName, ownerWallet, nftType, tokenId, tbaAddress } = entry;
+    const { agentName, ownerWallet, nftType, tokenId, nftContract: nftContractOverride } = entry;
     const result: EntryResult = {
       agentName,
       safe:    { ok: false },
@@ -232,43 +231,62 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // ── Step 4: Mint Story IP (creation.ip) — requires tbaAddress ──
+    // ── Step 4: Story IP — deploy Safe to Story L1, then registerIP with BYO NFT ──
+    // BYO agents have no ERC-6551 TBA. The path is:
+    //   a) deploy Safe to Story L1 via cross-chain-safe (deploy)
+    //   b) register BYO NFT as IP asset via cross-chain-safe (registerIP)
+    const nftContractAddress = nftContractOverride ?? NFT_CONTRACTS[nftType]?.contract;
     if (currentStoryIp) {
       result.storyIp = { ok: true, skipped: true, fullDomain: `${agentName}.creation.ip`, detail: 'already minted' };
-    } else if (!tbaAddress) {
-      result.storyIp = { ok: false, skipped: true, detail: 'tbaAddress not provided — skipping Story IP mint' };
+    } else if (!safeAddress) {
+      result.storyIp = { ok: false, skipped: true, detail: 'Safe not yet created — Story IP requires Safe on Story L1 first' };
+    } else if (!nftContractAddress) {
+      result.storyIp = { ok: false, error: `Unknown nftType: ${nftType}` };
     } else if (dryRun) {
       result.storyIp = { ok: true, skipped: true, detail: 'dry-run' };
     } else {
       try {
-        const ipRes = await fetch(`${APP_URL}/api/gasless-ip-mint`, {
+        // Step 4a: Deploy Safe to Story L1
+        const deployRes = await fetch(`${APP_URL}/api/cross-chain-safe`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            agentName,
-            tbaAddress,
-            ownerWallet: safeAddress ?? ownerWallet,
-          }),
+          body: JSON.stringify({ action: 'deploy', safeAddress }),
         });
-        const ipData = await ipRes.json() as { fullDomain?: string; txHash?: string; error?: string };
-        if (!ipRes.ok || ipData.error) {
-          result.storyIp = { ok: false, error: ipData.error ?? `HTTP ${ipRes.status}` };
+        const deployData = await deployRes.json() as { storyDeployedAddress?: string; alreadyDeployed?: boolean; error?: string };
+        if (!deployRes.ok && !deployData.alreadyDeployed) {
+          result.storyIp = { ok: false, error: `Safe deploy to Story failed: ${deployData.error ?? deployRes.status}` };
         } else {
-          result.storyIp = { ok: true, fullDomain: ipData.fullDomain, txHash: ipData.txHash };
-          // Update acct-tier KV with story_ip
-          await fetch(NFTMAIL_WORKER_URL, {
+          // Step 4b: Register BYO NFT as IP asset
+          const regRes = await fetch(`${APP_URL}/api/cross-chain-safe`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              action: 'upgradeTier',
-              secret: WEBHOOK_SECRET,
-              label: agentName,
-              newTier: 'lite',
-              safe: safeAddress ?? null,
-              storyIp: agentName,
-              retention: '8-day',
+              action: 'registerIP',
+              safeAddress,
+              tokenContract: nftContractAddress,
+              tokenId,
             }),
           });
+          const regData = await regRes.json() as { ipId?: string; txHash?: string; error?: string };
+          if (!regRes.ok || regData.error) {
+            result.storyIp = { ok: false, error: regData.error ?? `registerIP HTTP ${regRes.status}` };
+          } else {
+            result.storyIp = { ok: true, fullDomain: `${agentName}.creation.ip`, txHash: regData.txHash };
+            // Update acct-tier KV with story_ip
+            await fetch(NFTMAIL_WORKER_URL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                action: 'upgradeTier',
+                secret: WEBHOOK_SECRET,
+                label: agentName,
+                newTier: 'lite',
+                safe: safeAddress,
+                storyIp: agentName,
+                retention: '8-day',
+              }),
+            });
+          }
         }
       } catch (err: unknown) {
         result.storyIp = { ok: false, error: err instanceof Error ? err.message : String(err) };
