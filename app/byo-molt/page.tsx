@@ -493,9 +493,20 @@ export default function OgNftMoltPage() {
         </div>
         <div className="mt-3 rounded-xl border border-[rgba(176,128,92,0.2)] bg-black/20 px-4 py-3 space-y-1 text-xs text-[var(--muted)]">
           <p className="text-[#f2eee4] font-semibold">What happens</p>
-          <p>✓ Primary email <span className="font-mono text-[#f2eee4]">{primaryName ? `${primaryName}@nftmail.box` : '[ENSname]@nftmail.box'}</span></p>
-          <p className="ml-3">+ Agent email <span className="font-mono text-[#f2eee4]">{primaryName ? `${primaryName}_@nftmail.box` : '[ENSname]_@nftmail.box'}</span> preserved</p>
-          <p>✓ Beacon NFT <span className="font-mono text-[#f2eee4]">{primaryName ? `${primaryName}.agent.gno` : '[ENSname].agent.gno'}</span> minted to Gnosis Safe · Zero lock-in</p>
+          {(() => {
+            const tid = tokenId || '[TokenID]';
+            const prefix = nftType === 'pownft' ? 'atom' : nftType === 'normie' ? 'normie' : nftType === 'chonk' ? 'chonk' : nftType === 'mooncat' ? 'mooncat' : null;
+            const primary = prefix ? `${prefix}.${tid}@nftmail.box` : primaryName ? `${primaryName}@nftmail.box` : '[ENSname]@nftmail.box';
+            const agent   = prefix ? `${prefix}.${tid}_@nftmail.box` : primaryName ? `${primaryName}_@nftmail.box` : '[ENSname]_@nftmail.box';
+            const beacon  = prefix ? `${prefix}-${tid}.agent.gno` : primaryName ? `${primaryName}.agent.gno` : '[ENSname].agent.gno';
+            return (
+              <>
+                <p>✓ Primary email <span className="font-mono text-[#f2eee4]">{primary}</span></p>
+                <p className="ml-3">+ Agent email <span className="font-mono text-[#f2eee4]">{agent}</span> preserved</p>
+                <p>✓ Beacon NFT <span className="font-mono text-[#f2eee4]">{beacon}</span> minted to Gnosis Safe · Zero lock-in</p>
+              </>
+            );
+          })()}
         </div>
         <div className="mt-3 flex items-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2">
           <svg className="h-3.5 w-3.5 shrink-0 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>

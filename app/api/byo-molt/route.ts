@@ -179,7 +179,7 @@ export async function POST(req: NextRequest) {
     // e.g. chonk-123.nftmail.gno, atom-1234.nftmail.gno, eyemine.nftmail.gno
     const cleanName = primaryName.toLowerCase().replace(/_$/, '');
     const beaconPrefix = type === 'pownft' ? 'atom' : type === 'normie' ? 'normie' : type === 'chonk' ? 'chonk' : type === 'mooncat' ? 'mooncat' : 'nft';
-    const emailPrefix  = type === 'pownft' ? 'atom' : type === 'normie' ? 'normie' : type === 'chonk' ? 'chonk' : type === 'mooncat' ? 'MoonCat' : 'nft';
+    const emailPrefix  = type === 'pownft' ? 'atom' : type === 'normie' ? 'normie' : type === 'chonk' ? 'chonk' : type === 'mooncat' ? 'mooncat' : 'nft';
     const displayLabel = type === 'ens' && nftName ? nftName.replace(/\.eth$/i, '').toLowerCase() : tokenId.slice(0, 20);
     const beaconLabel = type === 'ens' ? displayLabel : `${beaconPrefix}-${displayLabel}`;
 
@@ -403,6 +403,33 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // ── Step 5c: Register ERC-8004 identity (non-fatal) ──
+    // Every BYO molt agent should have an ERC-8004 on-chain identity
+    let erc8004AgentId: number | null = null;
+    try {
+      const sld = targetNamespace.replace(/\.gno$/, ''); // 'agent.gno' → 'agent', 'molt.gno' → 'molt'
+      const erc8004Res = await fetch(`${APP_URL}/api/erc8004/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          agentName: finalPrimaryName,
+          sld,
+          ownerWallet,
+          safeAddress: safeAddress ?? undefined,
+        }),
+      });
+      if (erc8004Res.ok) {
+        const erc8004Data = await erc8004Res.json() as { agentId?: number };
+        erc8004AgentId = erc8004Data.agentId ?? null;
+        console.log(`ERC-8004 registered for ${finalPrimaryName}: agentId=${erc8004AgentId}`);
+      } else {
+        const errData = await erc8004Res.json().catch(() => ({})) as { error?: string };
+        console.error(`ERC-8004 registration failed (non-fatal): ${errData.error ?? erc8004Res.status}`);
+      }
+    } catch (err) {
+      console.error('ERC-8004 registration failed (non-fatal):', err);
+    }
+
     // ── Step 6: Record molt + upgrade tier ──
     await recordChonkMolt(finalPrimaryName, tokenId, ownerWallet, beacon.beaconNft!, beacon.txHash!, webhookSecret);
 
@@ -452,6 +479,7 @@ export async function POST(req: NextRequest) {
       beaconNft: beacon.beaconNft,
       beaconTxHash: beacon.txHash,
       beaconTokenId: beacon.beaconTokenId ?? null,
+      erc8004AgentId,
       displayEmail: 'alias',
       message: `BYO NFT Molt Complete: Now ${humanLocalPart}`,
     });
