@@ -1162,12 +1162,21 @@ export default function InboxPage() {
                 <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
               </button>
             </div>
-            <ComposeEmail
-              label={name}
-              ownerWallet={user?.wallet?.address || ''}
-              onSent={() => { setTimeout(() => setActiveFolder('inbox'), 2000); }}
-              onClose={() => setActiveFolder('inbox')}
-            />
+            {!user?.wallet?.address ? (
+              <div className="flex flex-col items-center gap-3 py-6 text-center">
+                <p className="text-sm text-[var(--muted)]">Wallet not connected — please reconnect to send.</p>
+                <button onClick={login} className="rounded-lg border border-[rgba(0,163,255,0.3)] bg-[rgba(0,163,255,0.08)] px-4 py-2 text-xs text-[rgb(160,220,255)] hover:bg-[rgba(0,163,255,0.16)] transition">
+                  Connect wallet
+                </button>
+              </div>
+            ) : (
+              <ComposeEmail
+                label={name}
+                ownerWallet={user.wallet.address}
+                onSent={() => { setTimeout(() => setActiveFolder('inbox'), 2000); }}
+                onClose={() => setActiveFolder('inbox')}
+              />
+            )}
           </div>
         )}
 
