@@ -16,7 +16,7 @@ import { createSafeForByoMolt } from '../../../services/create-safe';
 import { fetchNftImageOnChain } from '../../../utils/nft-image';
 import { WORKER_URL } from '../../../utils/config';
 
-const WEBHOOK_SECRET = process.env.NFTMAIL_WEBHOOK_SECRET;
+const WEBHOOK_SECRET = process.env.NFTMAIL_WEBHOOK_SECRET ?? process.env.WEBHOOK_SECRET;
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://ghostagent.ninja';
 const NFTMAIL_WORKER_URL = process.env.NFTMAIL_WORKER_URL || 'https://nftmail-email-worker.richard-159.workers.dev';
 
