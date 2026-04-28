@@ -122,7 +122,7 @@ export async function POST(req: NextRequest) {
         const safeResult = await createSafeForByoMolt(humanLocalPart, ownerWallet, treasuryKey);
         if (safeResult.safeAddress) {
           safeAddress = safeResult.safeAddress;
-          result.safe = { ok: true, address: safeAddress };
+          result.safe = { ok: true, address: safeAddress, ...(safeResult.alreadyExisted ? { detail: 'already existed — address recovered' } : {}) };
           // Update acct-tier KV with safe address
           await fetch(NFTMAIL_WORKER_URL, {
             method: 'POST',

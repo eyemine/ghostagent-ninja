@@ -65,7 +65,7 @@ export async function createSafeForByoMolt(
   label: string,
   ownerWallet: string,
   treasuryPrivateKey: string,
-): Promise<{ safeAddress: string | null; error?: string }> {
+): Promise<{ safeAddress: string | null; alreadyExisted?: boolean; error?: string }> {
   try {
     const account = privateKeyToAccount(treasuryPrivateKey as `0x${string}`);
     const publicClient = createPublicClient({ chain: gnosis, transport: http() });
@@ -89,6 +89,34 @@ export async function createSafeForByoMolt(
 
     // saltNonce = keccak of label+owner to get a deterministic but unique address
     const saltNonce = BigInt(keccak256(encodePacked(['string', 'address'], [label, ownerWallet as Address])));
+
+    // Predict the Create2 address before attempting deployment
+    // If code already exists there, the Safe was already deployed — return it directly
+    // Use the factory's calculateCreateProxyWithNonceAddress view function
+
+    const predictRes = await publicClient.readContract({
+      address: SAFE_PROXY_FACTORY,
+      abi: [{
+        name: 'calculateCreateProxyWithNonceAddress',
+        type: 'function',
+        inputs: [
+          { name: '_singleton', type: 'address' },
+          { name: 'initializer', type: 'bytes' },
+          { name: 'saltNonce', type: 'uint256' },
+        ],
+        outputs: [{ name: 'proxy', type: 'address' }],
+        stateMutability: 'nonpayable',
+      }] as const,
+      functionName: 'calculateCreateProxyWithNonceAddress',
+      args: [SAFE_SINGLETON, setupData as `0x${string}`, saltNonce],
+    }).catch(() => null);
+
+    if (predictRes) {
+      const existingCode = await publicClient.getCode({ address: predictRes });
+      if (existingCode && existingCode !== '0x') {
+        return { safeAddress: predictRes, alreadyExisted: true };
+      }
+    }
 
     const hash = await walletClient.writeContract({
       address: SAFE_PROXY_FACTORY,
