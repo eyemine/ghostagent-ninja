@@ -517,7 +517,7 @@ export default function OgNftMoltPage() {
                 {k:'chonk' as NftType,l:'CHONKS\nON BASE',img:'https://gateway.lighthouse.storage/ipfs/bafkreiczeqhex35dvj4ewbzn2gyqnbgqb22np5zgp223vnbfhaod6sv4sq'},
                 {k:'pownft' as NftType,l:'POWNFT\nON ETH',img:'https://gateway.lighthouse.storage/ipfs/bafkreick55xkc2ucnmk2wjbzl6a5chqkvmwjll4oqbqajfh5mapd3s7fku'},
                 {k:'normie' as NftType,l:'NORMIES\nON ETH',img:'https://gateway.lighthouse.storage/ipfs/bafkreigdisoyfs75rneioevm5irn2k4prdddtuum5bpn27bykhjtdc4fii'},
-                {k:'mooncat' as NftType,l:'MOONCATS\nON ETH',img:'https://moccasin-useful-vole-840.mypinata.cloud/ipfs/bafkreiew6dkb54rv4govsskcv4nosqh5yyhftugslap333y5ht7lef5jvy'},
+                {k:'mooncat' as NftType,l:'MOONCATS\nON ETH',img:'/collection-icons/mooncat.png'},
               ]).map(opt => (
                 <button key={opt.k} onClick={() => { selectNftType(opt.k); setTokenId(''); }}
                   className={`rounded-lg border px-3 py-3 text-xs font-semibold transition text-center ${
@@ -758,7 +758,7 @@ export default function OgNftMoltPage() {
                       nftPreview.type==='chonk' ? 'https://gateway.lighthouse.storage/ipfs/bafkreiczeqhex35dvj4ewbzn2gyqnbgqb22np5zgp223vnbfhaod6sv4sq' :
                       nftPreview.type==='pownft' ? 'https://gateway.lighthouse.storage/ipfs/bafkreick55xkc2ucnmk2wjbzl6a5chqkvmwjll4oqbqajfh5mapd3s7fku' :
                       nftPreview.type==='normie' ? 'https://gateway.lighthouse.storage/ipfs/bafkreigdisoyfs75rneioevm5irn2k4prdddtuum5bpn27bykhjtdc4fii' :
-                      nftPreview.type==='mooncat' ? 'https://moccasin-useful-vole-840.mypinata.cloud/ipfs/bafkreiew6dkb54rv4govsskcv4nosqh5yyhftugslap333y5ht7lef5jvy' :
+                      nftPreview.type==='mooncat' ? '/collection-icons/mooncat.png' :
                       'https://gateway.lighthouse.storage/ipfs/bafkreid7jamriw5jneuarcq2q6lrbfsqe76eebv6r2rworrnhyj2rpsuem'
                     } alt={nftPreview.type} className="h-20 w-20 rounded object-contain" />
                   </div>
