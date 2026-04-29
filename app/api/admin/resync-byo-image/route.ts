@@ -49,6 +49,13 @@ export async function POST(req: NextRequest) {
         const meta = await metaRes.json() as { image?: string; image_url?: string };
         originImageUrl = meta.image ?? meta.image_url ?? null;
       }
+    } else if (nftType === 'pownft') {
+      // POW NFT: `image` = video, `poster` = still PNG
+      const metaRes = await fetch(`https://www.pownftmetadata.com/t/${tokenId}`, { signal: AbortSignal.timeout(8000) });
+      if (metaRes.ok) {
+        const data = await metaRes.json() as { name?: string; image?: string; poster?: string };
+        originImageUrl = data.poster ?? null;
+      }
     } else {
       const alchemyKey = process.env.ALCHEMY_API_KEY ?? '';
       const nftConfig = NFT_CONTRACTS[nftType];

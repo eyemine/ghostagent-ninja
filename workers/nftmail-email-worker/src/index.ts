@@ -1,6 +1,7 @@
 /// <reference types="@cloudflare/workers-types" />
 
 import MailStorageAdapter, { CalendarInvite } from './storage';
+import { CloudflareKVStore } from './kv';
 import { buildDirectMessageTopic, createWakuEnvelope } from './waku';
 import { encrypt as eciesEncrypt, generateKeyPair, EncryptedEnvelope } from './ecies';
 import { forwardEmail } from './forwarding';
@@ -569,6 +570,9 @@ async function updateBlindIndex(env: Env, agentName: string, blindId: string, do
   }
   const putOpts = ttlSecs != null ? { expirationTtl: ttlSecs } : {};
   await env.INBOX_KV.put(blindIndexKey, JSON.stringify(blindIndex), putOpts);
+  // DAU ping — non-invasive activity marker, auto-expires after 48h
+  const today = new Date().toISOString().slice(0, 10);
+  env.INBOX_KV.put(`dau:${today}:${agentName}`, '1', { expirationTtl: 172800 }).catch(() => {});
 }
 
 // ── ENS existence check on Ethereum Mainnet ────────────────────────────────
@@ -1080,8 +1084,8 @@ export default {
       backend: env.BACKEND,
       surgeToken: env.SURGE_TOKEN,
       ghostRegistry: env.GHOST_REGISTRY,
-      inboxKV: env.INBOX_KV,
-      calendarKV: env.GHOST_CALENDAR
+      inboxKV: new CloudflareKVStore(env.INBOX_KV),
+      calendarKV: new CloudflareKVStore(env.GHOST_CALENDAR),
     });
 
     // --- Parse the inbound email ---
@@ -1254,8 +1258,8 @@ export default {
         backend: env.BACKEND,
         surgeToken: env.SURGE_TOKEN,
         ghostRegistry: env.GHOST_REGISTRY,
-        inboxKV: env.INBOX_KV,
-        calendarKV: env.GHOST_CALENDAR
+        inboxKV: new CloudflareKVStore(env.INBOX_KV),
+        calendarKV: new CloudflareKVStore(env.GHOST_CALENDAR),
       });
 
       if (request.method === 'POST') {
@@ -1518,13 +1522,14 @@ export default {
           if (!agentName) {
             return corsify(Response.json({ error: 'Missing agentName' }, { status: 400 }), request);
           }
-          const [tldRaw, gnosisRaw, baseRaw, baseSepoliaRaw, gnoOwnerRaw, acctTierRaw] = await Promise.all([
+          const [tldRaw, gnosisRaw, baseRaw, baseSepoliaRaw, gnoOwnerRaw, acctTierRaw, tbaRaw] = await Promise.all([
             env.INBOX_KV.get(`tld:${agentName}`),
             env.INBOX_KV.get(`erc8004:gnosis:${agentName}`),
             env.INBOX_KV.get(`erc8004:base:${agentName}`),
             env.INBOX_KV.get(`erc8004:baseSepolia:${agentName}`),
             env.INBOX_KV.get(`nftmailgno:${agentName}`),
             env.INBOX_KV.get(`acct-tier:${agentName}`),
+            env.INBOX_KV.get(`tba:${agentName}`),
           ]);
 
           // Fetch explicit principal override (if set via setPrincipal action)
@@ -1548,6 +1553,12 @@ export default {
           let storyIp: string | null = null;
           if (acctTierRaw) {
             try { const t = JSON.parse(acctTierRaw); safe = t.safe || null; storyIp = t.story_ip || null; } catch {}
+          }
+
+          // Parse TBA address (tba: key set by byo-molt or retrofit-tba)
+          let tbaAddress: string | null = null;
+          if (tbaRaw) {
+            try { const t = JSON.parse(tbaRaw); tbaAddress = t.tbaAddress || null; } catch {}
           }
 
           const tld = tldRaw ?? null;
@@ -1579,8 +1590,11 @@ export default {
             } : null,
             // ERC-8226 principal (human responsible for agent)
             principal: principal,
-            // Safe (multisig treasury)
+            // Safe (multisig treasury) — both field names for compatibility
             safe: safe ?? null,
+            safeAddress: safe ?? null,
+            // TBA (Gnosis-side mirror ERC-6551 token bound account)
+            tbaAddress: tbaAddress ?? null,
             // Story Protocol IP
             storyIp: storyIp ?? null,
             // ERC-8004 registrations (multi-chain)
@@ -3314,11 +3328,22 @@ export default {
             }
           }
 
+          // DAU: count unique agents active today and yesterday
+          const todayStr  = new Date().toISOString().slice(0, 10);
+          const ydayStr   = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+          const [dauToday, dauYday] = await Promise.all([
+            env.INBOX_KV.list({ prefix: `dau:${todayStr}:` }),
+            env.INBOX_KV.list({ prefix: `dau:${ydayStr}:` }),
+          ]);
+          const dauTodayCount = dauToday.keys.length;
+          const dauYdayCount  = dauYday.keys.length;
+
           return corsify(Response.json({
             total_accounts: uniqueAgents.size,
             nft_accounts: nftAgents.size,
             sandbox_accounts: uniqueAgents.size - nftAgents.size,
             active_inboxes: activeInboxAgents.size,
+            dau: { today: dauTodayCount, yesterday: dauYdayCount, date: todayStr },
             agents: Array.from(uniqueAgents).sort(),
             nft_agents: Array.from(nftAgents).sort(),
             tld_breakdown: tldBreakdown,
@@ -4137,6 +4162,7 @@ export default {
           const legacyIdentity: string | null = (email as any).legacyIdentity || null;
           const mintedTokenId: number | null = (email as any).mintedTokenId || null;
           const privacyTier: string = (email as any).privacyTier || 'exposed';
+          const safeFromRequest: string | null = (email as any).safe || null;
           // KV key: use legacyIdentity (dot format: mac.slave) if provided, else label (hyphen: mac-slave)
           // resolveAddress looks up by the email local-part (dot format)
           const kvKey = legacyIdentity || label;
@@ -4159,7 +4185,7 @@ export default {
             tier: accountTier,
             expires_at: expiresAt,
             upgraded_at: null,
-            safe: null,
+            safe: safeFromRequest,
             retention: '8-day',
             story_ip: null,
           });

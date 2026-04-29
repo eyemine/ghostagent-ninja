@@ -25,6 +25,7 @@ interface DemoAgent {
   brainType?: BrainType;
   imageUrl?: string;
   principal?: string;
+  safeAddress?: string;  // Safe address for BYO NFT molts (Safe-first architecture)
 }
 
 interface DemoBody {
@@ -48,6 +49,9 @@ interface LiveBody {
   tokenId: number;
   tba: string;
   minted: string;
+  safeAddress?: string;
+  tbaAddress?: string;
+  imageUrl?: string;
 }
 
 const DEMO_AGENTS: DemoAgent[] = [
@@ -173,7 +177,11 @@ function AgentCard({ agent, onSelect, selected }: { agent: DemoAgent; onSelect: 
               <span className="text-sm font-semibold text-[#f2eee4] truncate">{agent.name}</span>
             </div>
             <span className={`text-[11px] font-medium ${ns.text}`}>{agent.namespace}</span>
-            <code className="mt-1 block truncate text-[10px] text-[var(--muted)]">{agent.tba}</code>
+            {agent.safeAddress ? (
+              <code className="mt-1 block truncate text-[10px] text-emerald-300/70">Safe: {agent.safeAddress.slice(0, 6)}…{agent.safeAddress.slice(-4)}</code>
+            ) : (
+              <code className="mt-1 block truncate text-[10px] text-[var(--muted)]">{agent.tba}</code>
+            )}
             {agent.principal && (
               <div className="mt-1 flex items-center gap-1">
                 <span className="text-[9px] text-[var(--muted)]">Principal:</span>
@@ -321,8 +329,12 @@ export default function DashboardHome() {
               };
 
               const owner = identity.onChainOwner ?? identity.identityNft?.owner ?? null;
-              if (!owner) return null;
-              if (owner.toLowerCase() !== connectedWallet.toLowerCase()) return null;
+              // For BYO agents: controller (minter EOA) owns the agent
+              const controller = (identity as Record<string, unknown>).principal as string | null ?? null;
+              const safe = (identity as Record<string, unknown>).safeAddress as string | null ?? null;
+              const candidates = [owner, controller, safe].filter(Boolean) as string[];
+              const isOwner = candidates.some(c => c.toLowerCase() === connectedWallet.toLowerCase());
+              if (!isOwner) return null;
 
               // Enrich with live lookup (TBA + normalized tier/tld)
               let lookup: {
@@ -349,10 +361,13 @@ export default function DashboardHome() {
               const tierRaw = (lookup?.accountTier ?? identity.accountTier ?? identity.tier ?? 'basic').toLowerCase();
               const tier: AgentTier = tierRaw === 'free' || tierRaw === 'basic' ? 'free' : 'pro';
               
+              const tbaAddr = (identity as Record<string, unknown>).tbaAddress as string | null ?? null;
+              const safeAddr = (identity as Record<string, unknown>).safeAddress as string | null ?? null;
               return {
-                name:      a.name,
-                namespace: lookup?.tld ?? identity.tld ?? identity.identityNft?.tld ?? a.tld ?? 'nftmail.gno',
-                tba:       lookup?.tbaAddress ?? lookup?.safe ?? identity.safe ?? connectedWallet,
+                name:        a.name,
+                namespace:   lookup?.tld ?? identity.tld ?? identity.identityNft?.tld ?? a.tld ?? 'nftmail.gno',
+                tba:         tbaAddr ?? lookup?.tbaAddress ?? safeAddr ?? lookup?.safe ?? identity.safe ?? connectedWallet,
+                safeAddress: safeAddr ?? lookup?.safe ?? identity.safe ?? undefined,
                 tier,
                 hostScore: 0,
                 inbox:     0,

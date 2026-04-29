@@ -74,9 +74,16 @@ export async function fetchNftImageOnChain(
     const meta = await resolveUri(uri);
     if (!meta) return { name: null, imageUrl: null };
 
+    // POW NFT (and similar): `image` points to a video (/v/{id}), `poster` is the still PNG (/p/{id}).
+    // Prefer `poster` when present; also fall back to it if `image` is clearly a video URL.
+    const rawImage = typeof meta.image === 'string' ? meta.image : null;
+    const rawPoster = typeof meta.poster === 'string' ? meta.poster : null;
+    const isVideoUrl = rawImage ? /\/(v|video|mp4)\/|\.mp4$|\.webm$/.test(rawImage) : false;
+    const imageUrl = resolveImage(rawPoster && (isVideoUrl || !rawImage) ? rawPoster : (rawImage ?? rawPoster));
+
     return {
       name:     typeof meta.name === 'string' ? meta.name : null,
-      imageUrl: resolveImage(meta.image),
+      imageUrl,
     };
   } catch {
     return { name: null, imageUrl: null };

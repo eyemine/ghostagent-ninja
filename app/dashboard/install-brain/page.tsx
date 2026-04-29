@@ -4,9 +4,11 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { GenomeEditor } from '../../components/GenomeEditor';
 import { AgentCapabilityForm } from '../../components/AgentCapabilityForm';
+import { InstallBrain } from '../../components/InstallBrain';
 import { defaultGenomeMetadata, type GenomeMetadata, type SldKey } from '../../services/genome-metadata';
 
 const GHOST_LOGO = '/ghost-logo.png';
+const WORKER_URL = process.env.NEXT_PUBLIC_WORKER_URL ?? 'https://nftmail-email-worker.richard-159.workers.dev';
 
 type BrainType = 'cloudflare' | 'safe';
 
@@ -16,24 +18,46 @@ export default function InstallBrainPage() {
   const [agentName, setAgentName] = useState('');
   const [agentSld, setAgentSld] = useState<SldKey>('agent');
   const [genomeMeta, setGenomeMeta] = useState<GenomeMetadata | null>(null);
+  const [tbaAddress, setTbaAddress] = useState<string>('');
+  const [safeAddress, setSafeAddress] = useState<string>('');
+  const [identityLoading, setIdentityLoading] = useState(false);
 
   // Read body query parameter and pre-fill agentName
-  // Beacon labels use hyphens (e.g., atom-158) but email local parts use dots (e.g., atom.158)
   useEffect(() => {
     const bodyParam = searchParams.get('body');
     if (bodyParam) {
-      // Convert hyphens to dots for email local part format
       const agentNameFormatted = bodyParam.replace(/-/g, '.');
       setAgentName(agentNameFormatted);
       setGenomeMeta(defaultGenomeMetadata(agentNameFormatted, agentSld));
     }
   }, [searchParams, agentSld]);
 
-  const tbaShort = agentName ? `0xf251Ca37...f01249` : '';
+  // Fetch real TBA + Safe from KV whenever agentName changes
+  useEffect(() => {
+    if (!agentName || agentName.length < 2) { setTbaAddress(''); setSafeAddress(''); return; }
+    setIdentityLoading(true);
+    fetch(WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'getAgentIdentity', agentName }),
+    })
+      .then(r => r.ok ? r.json() : null)
+      .then((data: Record<string, unknown> | null) => {
+        if (!data) return;
+        const tba  = data.tbaAddress  as string | null ?? '';
+        const safe = data.safeAddress as string | null ?? data.safe as string | null ?? '';
+        setTbaAddress(tba);
+        setSafeAddress(safe);
+      })
+      .catch(() => {})
+      .finally(() => setIdentityLoading(false));
+  }, [agentName]);
+
+  const tbaDisplay = identityLoading ? 'loading…' : (tbaAddress || '0x…your-tba-address');
   const nftmailAddr = agentName ? `${agentName}_@nftmail.box` : '';
 
   function handleNameChange(val: string) {
-    const cleaned = val.toLowerCase().replace(/[^a-z0-9-]/g, '');
+    const cleaned = val.toLowerCase().replace(/[^a-z0-9._-]/g, '');
     setAgentName(cleaned);
     setGenomeMeta(cleaned ? defaultGenomeMetadata(cleaned, agentSld) : null);
   }
@@ -178,10 +202,10 @@ export default function InstallBrainPage() {
 
       {/* ── Steps panel ── */}
       {brainType === 'cloudflare' && (
-        <CloudflarePanel agentName={agentName} tbaShort={tbaShort} nftmailAddr={nftmailAddr} />
+        <CloudflarePanel agentName={agentName} tbaAddress={tbaAddress} tbaDisplay={tbaDisplay} nftmailAddr={nftmailAddr} />
       )}
       {brainType === 'safe' && (
-        <SafePanel agentName={agentName} />
+        <SafePanel agentName={agentName} safeAddress={safeAddress} tbaAddress={tbaAddress} />
       )}
 
     </div>
@@ -200,7 +224,29 @@ function CopyBtn({ text }: { text: string }) {
   );
 }
 
-function CloudflarePanel({ agentName, tbaShort, nftmailAddr }: { agentName: string; tbaShort: string; nftmailAddr: string }) {
+function CloudflarePanel({ agentName, tbaAddress, tbaDisplay, nftmailAddr }: { agentName: string; tbaAddress: string; tbaDisplay: string; nftmailAddr: string }) {
+  const [workerUrl, setWorkerUrl] = useState('');
+  const [registering, setRegistering] = useState(false);
+  const [registerResult, setRegisterResult] = useState<{ ok: boolean; msg: string } | null>(null);
+
+  async function registerWorkerUrl() {
+    if (!workerUrl || !agentName) return;
+    setRegistering(true);
+    setRegisterResult(null);
+    try {
+      const res = await fetch('/api/agent-worker-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ agentName, workerUrl }),
+      });
+      const data = await res.json() as { ok?: boolean; error?: string };
+      setRegisterResult({ ok: !!data.ok, msg: data.ok ? 'Worker URL registered ✓' : (data.error ?? 'Failed') });
+    } catch (e: unknown) {
+      setRegisterResult({ ok: false, msg: (e as Error).message ?? 'Network error' });
+    } finally {
+      setRegistering(false);
+    }
+  }
   return (
     <div className="rounded-xl border border-[rgba(176,128,92,0.35)] bg-[var(--card)] p-5 space-y-4">
       <div>
@@ -257,8 +303,8 @@ function CloudflarePanel({ agentName, tbaShort, nftmailAddr }: { agentName: stri
           <div className="flex items-center gap-1">
             <span className="text-[rgb(160,220,255)]">TBA_ADDRESS</span>
             <span className="text-[var(--muted)]"> = </span>
-            <span className="text-amber-300">{tbaShort || '0x…your-tba-address'}</span>
-            {tbaShort && <CopyBtn text={tbaShort} />}
+            <span className="text-amber-300">{tbaDisplay}</span>
+            {tbaAddress && <CopyBtn text={tbaAddress} />}
           </div>
           <div className="flex items-center gap-1">
             <span className="text-[rgb(160,220,255)]">NFTMAIL_ADDRESS</span>
@@ -269,43 +315,108 @@ function CloudflarePanel({ agentName, tbaShort, nftmailAddr }: { agentName: stri
       </div>
 
       {/* Step 2 */}
-      <div className="rounded-xl border border-[rgba(176,128,92,0.2)] bg-black/20 p-4">
+      <div className="rounded-xl border border-[rgba(176,128,92,0.2)] bg-black/20 p-4 space-y-3">
         <div className="flex items-start gap-3">
           <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-[rgba(176,128,92,0.3)] bg-[var(--card)] text-xs font-bold text-[#f2eee4]">
             2
           </span>
           <div>
-            <div className="text-sm font-semibold text-[#f2eee4]">Attach Worker to Agent</div>
+            <div className="text-sm font-semibold text-[#f2eee4]">Register Worker URL</div>
             <p className="mt-0.5 text-xs text-[var(--muted)]">
-              Once deployed, register the Worker URL with your agent&apos;s TBA so the GhostRegistry can route A2A messages to it.
+              After deploying your Cloudflare Worker, paste its URL below. This stores it in the GhostAgent registry so A2A messages get routed to your worker.
             </p>
           </div>
         </div>
+        <div className="flex gap-2 pl-9">
+          <input
+            value={workerUrl}
+            onChange={e => setWorkerUrl(e.target.value)}
+            placeholder="https://my-agent.myaccount.workers.dev"
+            className="flex-1 rounded-lg border border-[rgba(176,128,92,0.25)] bg-black/40 px-3 py-2 text-xs text-[#f2eee4] outline-none placeholder:text-[var(--muted)] focus:border-[rgba(176,128,92,0.5)]"
+          />
+          <button
+            onClick={registerWorkerUrl}
+            disabled={!workerUrl || !agentName || registering}
+            className="rounded-lg border border-[rgba(176,128,92,0.3)] bg-[rgba(176,128,92,0.08)] px-3 py-2 text-xs font-semibold text-[#b0805c] transition hover:bg-[rgba(176,128,92,0.15)] disabled:opacity-40"
+          >
+            {registering ? 'Saving…' : 'Register'}
+          </button>
+        </div>
+        {registerResult && (
+          <p className={`pl-9 text-xs ${registerResult.ok ? 'text-emerald-400' : 'text-red-400'}`}>
+            {registerResult.msg}
+          </p>
+        )}
       </div>
 
     </div>
   );
 }
 
-function SafePanel({ agentName }: { agentName: string }) {
+function SafePanel({ agentName, safeAddress, tbaAddress }: { agentName: string; safeAddress: string; tbaAddress: string }) {
+  const [manualSafe, setManualSafe] = useState('');
+  const [manualTba, setManualTba] = useState('');
+
+  const effectiveSafe = (safeAddress || manualSafe) as `0x${string}` | '';
+  const effectiveTba  = (tbaAddress  || manualTba)  as `0x${string}` | '';
+
   return (
     <div className="rounded-xl border border-[rgba(176,128,92,0.35)] bg-[var(--card)] p-5 space-y-4">
       <div>
         <div className="text-sm font-semibold text-[#f2eee4]">Install Safe Brain Module</div>
         <p className="mt-1 text-xs text-[var(--muted)]">
-          Requires a deployed Gnosis Safe. The BrainModule is installed as a Safe module and awakened in the GhostRegistry.
+          Installs the BrainModule as a Safe module and awakens it in the GhostRegistry.
+          Your wallet must be a Safe owner to sign the transaction.
         </p>
       </div>
-      <div className="rounded-xl border border-[rgba(176,128,92,0.2)] bg-black/20 p-4 space-y-2">
-        <div className="text-xs text-[var(--muted)]">
-          Connect your wallet and provide your Safe address + TBA address to proceed with on-chain installation.
+
+      {/* Address display / override */}
+      <div className="rounded-xl border border-[rgba(176,128,92,0.2)] bg-black/20 p-4 space-y-3">
+        <div className="space-y-2">
+          <div className="text-[10px] font-semibold tracking-widest text-[var(--muted)]">SAFE ADDRESS</div>
+          {effectiveSafe ? (
+            <code className="block text-xs text-emerald-300 break-all">{effectiveSafe}</code>
+          ) : (
+            <input
+              value={manualSafe}
+              onChange={e => setManualSafe(e.target.value)}
+              placeholder="0x… your Safe address"
+              className="w-full rounded-lg border border-[rgba(176,128,92,0.25)] bg-black/40 px-3 py-2 text-xs text-[#f2eee4] outline-none placeholder:text-[var(--muted)]"
+            />
+          )}
         </div>
+        <div className="space-y-2">
+          <div className="text-[10px] font-semibold tracking-widest text-[var(--muted)]">TBA ADDRESS (NFT token bound account)</div>
+          {effectiveTba ? (
+            <code className="block text-xs text-amber-300 break-all">{effectiveTba}</code>
+          ) : (
+            <input
+              value={manualTba}
+              onChange={e => setManualTba(e.target.value)}
+              placeholder="0x… your TBA address"
+              className="w-full rounded-lg border border-[rgba(176,128,92,0.25)] bg-black/40 px-3 py-2 text-xs text-[#f2eee4] outline-none placeholder:text-[var(--muted)]"
+            />
+          )}
+        </div>
+
         {agentName && (
           <p className="text-xs text-[rgb(160,220,255)]">
-            Will install brain for: <span className="font-semibold font-mono">{agentName}_@nftmail.box</span>
+            Brain for: <span className="font-semibold font-mono">{agentName}_@nftmail.box</span>
           </p>
         )}
       </div>
+
+      {effectiveSafe && agentName ? (
+        <InstallBrain
+          agentName={agentName}
+          safeAddress={effectiveSafe as `0x${string}`}
+          tbaAddress={effectiveTba ? effectiveTba as `0x${string}` : undefined}
+        />
+      ) : (
+        <p className="text-xs text-[var(--muted)]">
+          {!agentName ? 'Enter an agent body name above first.' : 'Safe address required — enter it above or it will be fetched automatically.'}
+        </p>
+      )}
     </div>
   );
 }

@@ -58,38 +58,42 @@ export async function forwardEmail(
   },
   parsedData?: any
 ): Promise<boolean> {
+  console.log(`[forwardEmail] Starting for agent=${agentName}`);
   const config = await checkForwardingConfig(env, agentName);
-  
+
+  console.log(`[forwardEmail] Config:`, config);
+
   if (!config || !config.enabled) {
-    return false;
+    console.log(`[forwardEmail] Config not found or disabled`);
+    throw new Error('Config not found or disabled');
   }
-  
+
   try {
     // Apply filters if configured
     if (config.filters) {
       if (config.filters.sendOtpOnly && !parsedData?.isOtp) {
-        return false;
+        throw new Error('Filter: sendOtpOnly enabled but email is not OTP');
       }
-      
+
       if (config.filters.excludeNewsletters) {
         const subject = email.subject.toLowerCase();
         const from = email.from.toLowerCase();
         const newsletterKeywords = ['unsubscribe', 'newsletter', 'digest', 'update', 'announcement'];
-        
-        if (newsletterKeywords.some(keyword => 
+
+        if (newsletterKeywords.some(keyword =>
           subject.includes(keyword) || from.includes(keyword)
         )) {
-          return false;
+          throw new Error('Filter: newsletter excluded');
         }
       }
-      
+
       if (config.filters.minimumTrustScore && parsedData) {
         // Extract numeric score from trust score impact (e.g., "+1.0" -> 1.0)
         const trustMatch = parsedData.trustScoreImpact?.match(/([+-]?\d+\.?\d*)/);
         if (trustMatch) {
           const score = parseFloat(trustMatch[1]);
           if (score < config.filters.minimumTrustScore) {
-            return false;
+            throw new Error(`Filter: trust score ${score} below minimum ${config.filters.minimumTrustScore}`);
           }
         }
       }
@@ -116,7 +120,7 @@ export async function forwardEmail(
     return success;
   } catch (error) {
     console.error('Error forwarding email:', error);
-    return false;
+    throw error; // Re-throw to get detailed error in testForwarding
   }
 }
 
@@ -222,7 +226,7 @@ Manage forwarding: https://ghostagent.ninja/agent/${agentName}
   `;
   
   return {
-    from: `${agentName}@nftmail.box`,
+    from: `${agentName}@mg.nftmail.box`,
     to: originalEmail.to,
     subject: `[Forwarded] ${originalEmail.subject}`,
     html,
@@ -241,15 +245,21 @@ async function sendExternalEmail(
     text: string;
   }
 ): Promise<boolean> {
-  // Use Mailgun for sending (can be swapped for SendGrid, AWS SES, etc.)
-  const mailgunDomain = env.MAILGUN_DOMAIN;
-  const mailgunApiKey = env.MAILGUN_API_KEY;
+  // Determine if sending to ghostmail.box address - use appropriate Mailgun domain
+  const targetDomain = toEmail.split('@')[1]?.toLowerCase() || '';
+  const isGhostmailTarget = targetDomain === 'ghostmail.box' || targetDomain.endsWith('.ghostmail.box');
   
+  // Use appropriate Mailgun domain and API key based on target
+  const mailgunDomain = isGhostmailTarget ? 'mg.ghostmail.box' : (env.MAILGUN_DOMAIN || 'mg.nftmail.box');
+  const mailgunApiKey = isGhostmailTarget 
+    ? env.GM_MAILGUN_API_KEY 
+    : (env.SEND_MAILGUN_API_KEY || env.MAILGUN_API_KEY);
+
   if (!mailgunDomain || !mailgunApiKey) {
-    console.warn('Mailgun credentials not configured, skipping email send');
-    return false;
+    console.warn(`Mailgun credentials not configured for ${isGhostmailTarget ? 'ghostmail' : 'nftmail'}, skipping email send`);
+    throw new Error(`Mailgun credentials not configured for ${isGhostmailTarget ? 'ghostmail' : 'nftmail'}`);
   }
-  
+
   try {
     const formData = new FormData();
     formData.append('from', emailData.from);
@@ -257,9 +267,9 @@ async function sendExternalEmail(
     formData.append('subject', emailData.subject);
     formData.append('html', emailData.html);
     formData.append('text', emailData.text);
-    
+
     const response = await fetch(
-      `https://api.mailgun.net/v3/${mailgunDomain}/messages`,
+      `https://api.eu.mailgun.net/v3/${mailgunDomain}/messages`,
       {
         method: 'POST',
         headers: {
@@ -268,17 +278,19 @@ async function sendExternalEmail(
         body: formData
       }
     );
-    
+
     if (!response.ok) {
       const error = await response.text();
-      console.error('Mailgun API error:', error);
-      return false;
+      console.error(`Mailgun API error for domain ${mailgunDomain}:`, error);
+      throw new Error(`Mailgun API error for domain ${mailgunDomain}: ${error}`);
     }
-    
+
+    console.log(`Successfully forwarded email via ${mailgunDomain} to ${toEmail}`);
+
     return true;
   } catch (error) {
     console.error('Error sending email via Mailgun:', error);
-    return false;
+    throw error;
   }
 }
 

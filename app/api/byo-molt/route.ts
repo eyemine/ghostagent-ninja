@@ -23,6 +23,7 @@ import {
 import { WORKER_URL } from '../../utils/config';
 import { fetchNftImageOnChain } from '../../utils/nft-image';
 import { createSafeForByoMolt } from '../../services/create-safe';
+import { deployGnosisTba } from '../../services/gnosis-tba';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://ghostagent.ninja';
 const NFTMAIL_WORKER_URL = process.env.NFTMAIL_WORKER_URL || 'https://nftmail-email-worker.richard-159.workers.dev';
@@ -38,6 +39,15 @@ const NFT_CONTRACTS: Record<string, { contract: string; rpc: string; chain: stri
   pownft:  { contract: '0x9abb7bddc43fa67c76a62d8c016513827f59be1b', rpc: ETH_RPC, chain: 'mainnet' },
   normie:  { contract: '0x9eb6e2025b64f340691e424b7fe7022ffde12438', rpc: ETH_RPC, chain: 'mainnet' },
   mooncat: { contract: '0xc3f733ca98e0dad0386979eb96fb1722a1a05e69', rpc: ETH_RPC, chain: 'mainnet' },
+};
+
+// Source chain IDs for Gnosis-side mirror TBA derivation
+const NFT_SOURCE_CHAIN_ID: Record<string, number> = {
+  chonk:   8453, // Base
+  normie:  8453, // Base
+  ens:     1,    // Ethereum mainnet
+  pownft:  1,
+  mooncat: 1,
 };
 
 async function verifyGenericOwnership(
@@ -188,8 +198,9 @@ export async function POST(req: NextRequest) {
       ? (nftName ?? `ens.${tokenId.slice(0, 8)}`)
       : `${emailPrefix}.${displayLabel}`;
 
-    // Safe address for new-agent molts (will be set during beacon mint step)
+    // Safe address and TBA address for new-agent molts (set during beacon/Safe step)
     let safeAddress: string | null = null;
+    let tbaAddress: string | null = null;
 
     let beacon: { success: boolean; beaconNft?: string; txHash?: string; beaconTokenId?: number | null; error?: string };
     if (isOverlay) {
@@ -213,43 +224,52 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ status: 'error', step: 'beacon-mint', error: beacon.error ?? 'Beacon mint failed' }, { status: 502 });
       }
     } else {
-      // New agent: create Safe first (vessel), but mint beacon to owner wallet (key)
-      // BYO NFT stays in principal wallet as the "key" that controls the Safe
+      // New agent: deploy Gnosis-side mirror TBA for the BYO NFT, use it as sole Safe signer.
+      // This makes ownership trustless: NFT transfer → new holder controls TBA → controls Safe.
+      // The EOA is NOT added to the Safe — only the TBA is the signer.
       const treasuryKey = process.env.TREASURY_PRIVATE_KEY;
       if (treasuryKey) {
-        const safeResult = await createSafeForByoMolt(humanLocalPart, ownerWallet, treasuryKey);
+        const nftContract = NFT_CONTRACTS[type]?.contract ?? contractAddress;
+        const sourceChainId = NFT_SOURCE_CHAIN_ID[type] ?? 1;
+
+        // ── Step 3a: Deploy Gnosis-side mirror TBA for the BYO NFT ──
+        // For ENS: skip TBA (ENS identity molts move the NFT into the Safe; use EOA as fallback)
+        if (type !== 'ens' && nftContract) {
+          try {
+            const { createWalletClient, http } = await import('viem');
+            const { privateKeyToAccount } = await import('viem/accounts');
+            const { gnosis } = await import('viem/chains');
+            const account = privateKeyToAccount(treasuryKey as `0x${string}`);
+            const wc = createWalletClient({ chain: gnosis, transport: http(), account });
+
+            const tbaResult = await deployGnosisTba(
+              { sourceChainId, contractAddress: nftContract as Address, tokenId: BigInt(tokenId) },
+              wc,
+            );
+            tbaAddress = tbaResult.tbaAddress;
+            console.log(`Gnosis TBA for ${type}#${tokenId}: ${tbaAddress} (deployed=${!tbaResult.alreadyDeployed})`);
+          } catch (err) {
+            console.error('TBA deployment failed (non-fatal, falling back to EOA):', err);
+          }
+        }
+
+        // ── Step 3b: Create Safe with TBA as sole signer (or EOA fallback for ENS) ──
+        const safeOwner = tbaAddress ?? ownerWallet;
+        const safeResult = await createSafeForByoMolt(humanLocalPart, safeOwner, treasuryKey);
         if (safeResult.safeAddress) {
           safeAddress = safeResult.safeAddress;
-          console.log(`Safe created for ${humanLocalPart}: ${safeAddress}`);
+          console.log(`Safe created for ${humanLocalPart}: ${safeAddress} (owner=${safeOwner})`);
 
-          // Register BYO NFT as governor of Safe in GhostRegistry
+          // ── Step 3c: Register BYO NFT as governor of Safe in GhostRegistry ──
           try {
-            const nftContract = NFT_CONTRACTS[type]?.contract ?? contractAddress;
             if (nftContract && safeAddress) {
               const ghostRegistry = '0x194f200b2C624e27a14865292d1C50cF46211565'; // GhostRegistry v2
-              const { createPublicClient, createWalletClient, http, encodeFunctionData } = await import('viem');
+              const { createWalletClient, http, encodeFunctionData } = await import('viem');
               const { privateKeyToAccount } = await import('viem/accounts');
               const { gnosis } = await import('viem/chains');
 
               const account = privateKeyToAccount(treasuryKey as `0x${string}`);
-              const publicClient = createPublicClient({ chain: gnosis, transport: http() });
               const walletClient = createWalletClient({ chain: gnosis, transport: http(), account });
-
-              const registerByoData = encodeFunctionData({
-                abi: [{
-                  name: 'registerByoGovernor',
-                  type: 'function',
-                  inputs: [
-                    { name: 'byoContract', type: 'address' },
-                    { name: 'byoTokenId', type: 'uint256' },
-                    { name: 'safe', type: 'address' },
-                  ],
-                  outputs: [],
-                  stateMutability: 'nonpayable',
-                }],
-                functionName: 'registerByoGovernor',
-                args: [nftContract as Address, BigInt(tokenId), safeAddress as Address],
-              });
 
               await walletClient.writeContract({
                 address: ghostRegistry as Address,
@@ -267,7 +287,6 @@ export async function POST(req: NextRequest) {
                 functionName: 'registerByoGovernor',
                 args: [nftContract as Address, BigInt(tokenId), safeAddress as Address],
               });
-
               console.log(`BYO NFT ${nftContract}#${tokenId} registered as governor of Safe ${safeAddress}`);
             }
           } catch (err) {
@@ -284,8 +303,8 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Track Safe address for new-agent molts (for registerSovereign and brain attachment)
-    const controllerForRegister = safeAddress ?? ownerWallet;
+    // controller is always the human EOA (ownerWallet) — used to show inboxes in nftmail.box
+    // The Safe is stored separately in the safe: field of acct-tier and nftmailgno records
 
     // ── Step 4: Register aliases (both human + agent emails) ──
     // Human HITL email: chonk.123@nftmail.box (dot separator, no underscore)
@@ -346,9 +365,9 @@ export async function POST(req: NextRequest) {
       // Non-fatal — dashboard listing is best-effort
     }
 
-    // ── Step 5a: Store NFT owner wallet as principal (ERC-8226) ──
-    // ownerWallet is the human who holds the BYO NFT — they are the principal
-    // (not the Safe, which is the vessel/controller)
+    // ── Step 5a: Store NFT owner wallet as principal + tbaAddress in KV ──
+    // ownerWallet is the human who holds the BYO NFT — they are the principal.
+    // tbaAddress (if set) is the on-chain key that governs the Safe.
     try {
       await fetch(NFTMAIL_WORKER_URL, {
         method: 'POST',
@@ -364,11 +383,30 @@ export async function POST(req: NextRequest) {
       // Non-fatal
     }
 
+    // Store tbaAddress so dashboard/OSINT can surface it
+    if (!isOverlay && tbaAddress) {
+      try {
+        await fetch(NFTMAIL_WORKER_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'kvPut',
+            key: `tba:${finalPrimaryName}`,
+            value: JSON.stringify({ tbaAddress, sourceChainId: NFT_SOURCE_CHAIN_ID[type] ?? 1, nftType: type, tokenId, storedAt: Date.now() }),
+            ownerAddress: ownerWallet.toLowerCase(),
+            webhookSecret,
+          }),
+        });
+      } catch {
+        // Non-fatal
+      }
+    }
+
     // ── Step 5b: Register nftmailgno accounts so emails appear in nftmail.box dropdown ──
     // Uses registerSovereign with WEBHOOK_SECRET which bypasses the account limit.
-    // For new-agent molts with Safe, use Safe address as controller.
+    // controller = ownerWallet (human EOA) so inbox shows up when that wallet connects to nftmail.box.
+    // Safe is passed separately in the safe: field.
     if (!isOverlay) {
-      const controllerForRegister = safeAddress ?? ownerWallet;
       try {
         await Promise.all([
           fetch(NFTMAIL_WORKER_URL, {
@@ -378,7 +416,7 @@ export async function POST(req: NextRequest) {
               action: 'registerSovereign',
               secret: webhookSecret,
               label: humanLocalPart,
-              controller: controllerForRegister.toLowerCase(),
+              controller: ownerWallet.toLowerCase(),
               originNft: beacon.beaconNft,
               accountTier: 'lite',
               safe: safeAddress ?? null,
@@ -391,7 +429,7 @@ export async function POST(req: NextRequest) {
               action: 'registerSovereign',
               secret: webhookSecret,
               label: agentLocalPart,
-              controller: controllerForRegister.toLowerCase(),
+              controller: ownerWallet.toLowerCase(),
               originNft: beacon.beaconNft,
               accountTier: 'lite',
               safe: safeAddress ?? null,

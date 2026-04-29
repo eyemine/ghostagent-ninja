@@ -1,5 +1,4 @@
-/// <reference types="@cloudflare/workers-types" />
-
+import type { KVStore } from './kv';
 import { parseEmailForGlassbox, storeParsedEmail } from './email-parser';
 import { forwardEmail } from './forwarding';
 
@@ -74,8 +73,8 @@ interface MailStorageConfig {
   ghostRegistry: string;
   registryAddress?: string;
   ownerOfSelector?: string;
-  inboxKV?: KVNamespace;
-  calendarKV?: KVNamespace;
+  inboxKV?: KVStore;
+  calendarKV?: KVStore;
 }
 
 export interface AgentStatus {

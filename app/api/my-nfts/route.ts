@@ -130,6 +130,8 @@ interface NftBody {
   minted: string;
   isAgent?: boolean;  // true if ERC-8004 registered (has brain)
   safeAddress?: string;  // Safe address for BYO NFT molts (Safe-first architecture)
+  tbaAddress?: string;  // Gnosis-side mirror TBA
+  imageUrl?: string;   // BYO NFT origin image
 }
 
 // Get total supply of an ERC721 contract (totalSupply selector 0x18160ddd)
@@ -168,20 +170,34 @@ async function isAgentRegistered(name: string): Promise<boolean> {
   }
 }
 
-// Fetch Safe address from worker KV for BYO NFT molts (Safe-first architecture)
-async function getSafeAddress(name: string): Promise<string | null> {
+// Fetch Safe + TBA + imageUrl from worker KV for BYO NFT molts
+async function getAgentMeta(name: string): Promise<{ safeAddress: string | null; tbaAddress: string | null; imageUrl: string | null }> {
   try {
     const res = await fetch(WORKER_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'getAgentIdentity', agentName: name }),
     });
-    if (!res.ok) return null;
+    if (!res.ok) return { safeAddress: null, tbaAddress: null, imageUrl: null };
     const data = await res.json() as Record<string, unknown>;
-    const safeAddress = data?.safeAddress as string | undefined;
-    return safeAddress ?? null;
+    const safeAddress = (data?.safeAddress ?? data?.safe) as string | null ?? null;
+    const tbaAddress  = data?.tbaAddress as string | null ?? null;
+    // Also fetch byo-origin-image
+    let imageUrl: string | null = null;
+    try {
+      const imgRes = await fetch(WORKER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'kvGet', key: `byo-origin-image:${name}` }),
+      });
+      if (imgRes.ok) {
+        const imgData = await imgRes.json() as { value?: string | null };
+        imageUrl = imgData.value ?? null;
+      }
+    } catch { /* non-fatal */ }
+    return { safeAddress, tbaAddress, imageUrl };
   } catch {
-    return null;
+    return { safeAddress: null, tbaAddress: null, imageUrl: null };
   }
 }
 
@@ -220,10 +236,16 @@ async function fetchNftsForContract(wallet: string, contract: string, namespace:
     const ownedIds = ownerResults.filter((id): id is number => id !== null);
     const nfts: NftBody[] = ownedIds.map(id => makeBody(labelMap.get(id), namespace, id, wallet));
 
-    // ── Step 3: flag agents (tier != basic = has brain) + fetch Safe address ────────────────────
+    // ── Step 3: flag agents + fetch Safe/TBA/image from KV ─────────────────
     await Promise.all(nfts.map(async (nft) => {
-      nft.isAgent = await isAgentRegistered(nft.name);
-      nft.safeAddress = await getSafeAddress(nft.name) ?? undefined;
+      const [isAgent, meta] = await Promise.all([
+        isAgentRegistered(nft.name),
+        getAgentMeta(nft.name),
+      ]);
+      nft.isAgent    = isAgent;
+      nft.safeAddress = meta.safeAddress ?? undefined;
+      nft.tbaAddress  = meta.tbaAddress  ?? undefined;
+      nft.imageUrl    = meta.imageUrl    ?? undefined;
     }));
 
     console.log(`[my-nfts] ${namespace}: found ${nfts.length} NFTs (supply=${totalSupply}), labels=${labelMap.size}`);
