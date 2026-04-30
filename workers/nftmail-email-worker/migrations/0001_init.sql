@@ -38,14 +38,30 @@ CREATE TABLE IF NOT EXISTS emails (
   subject_hash    TEXT,                         -- sha256(subject)
   received_at     INTEGER NOT NULL,             -- unix ms
   read            INTEGER NOT NULL DEFAULT 0,   -- 0|1
-  frozen          INTEGER NOT NULL DEFAULT 0,   -- 1 = freeze-staked, no TTL
-  surge_allocation INTEGER,                     -- $SURGE staked if frozen
+  frozen          INTEGER NOT NULL DEFAULT 0,   -- 1 = owner stake-to-preserve (no TTL); set only by the account holder, never by external oracles
+  surge_allocation INTEGER,                     -- $SURGE staked by owner to preserve this envelope
   ttl_expires_at  INTEGER                       -- NULL = infinite (premium/ghost/frozen)
 );
 
 CREATE INDEX IF NOT EXISTS idx_emails_agent       ON emails(agent_label, received_at DESC);
 CREATE INDEX IF NOT EXISTS idx_emails_unread      ON emails(agent_label, read) WHERE read = 0;
 CREATE INDEX IF NOT EXISTS idx_emails_blind_id    ON emails(blind_id);
+
+-- ── reputation_flags ────────────────────────────────────────────────────────
+-- Read-only reputation signals sourced from on-chain data (ERC-8004, $SURGE balance, GhostRegistry).
+-- notapaperclip.red and other reputation oracles write HERE only — never to agents or emails.
+-- The email system never reads this table for routing decisions.
+CREATE TABLE IF NOT EXISTS reputation_flags (
+  id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  agent_label     TEXT    NOT NULL,
+  source          TEXT    NOT NULL,             -- 'notapaperclip' | 'surge-oracle' | 'community'
+  flag            TEXT    NOT NULL,             -- 'low-reputation' | 'burn-detected' | 'spam'
+  evidence_url    TEXT,                         -- link to on-chain tx or public report
+  created_at      INTEGER NOT NULL DEFAULT (unixepoch() * 1000),
+  resolved_at     INTEGER                       -- NULL = active flag
+);
+
+CREATE INDEX IF NOT EXISTS idx_rep_flags_label ON reputation_flags(agent_label);
 
 -- ── tier_history ──────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS tier_history (
