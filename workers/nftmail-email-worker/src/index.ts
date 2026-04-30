@@ -1,6 +1,7 @@
 /// <reference types="@cloudflare/workers-types" />
 
 import MailStorageAdapter, { CalendarInvite } from './storage';
+import { D1Store } from './d1';
 import { CloudflareKVStore } from './kv';
 import { buildDirectMessageTopic, createWakuEnvelope } from './waku';
 import { encrypt as eciesEncrypt, generateKeyPair, EncryptedEnvelope } from './ecies';
@@ -180,6 +181,8 @@ export interface Env {
   MASTER_SAFE_PUBKEY?: string;
   // Worker authentication secret
   WORKER_SECRET?: string;
+  // D1 — PUPA+ relational store (Phase 1: shadow writes only; Phase 3: reads switch here)
+  NFTMAIL_DB?: D1Database;
 }
 
 interface EmailMessage {
@@ -327,7 +330,7 @@ function extractBodyFromMime(rawMime: string): string {
 //   Format                           Stream       KV Provisioning    Verification
 //   ──────────────────────────────────────────────────────────────────────────────
 //   name.agent@nftmail.box           agent        AUTO (minting)     6551 Brain / Safe (ECIES)
-//   name.digits.agent@nftmail.box    agent        AUTO (minting)     NFT collection + 6551
+//   name.digits_@nftmail.box           agent-alias  inherits base      NFT collection + agent A2A
 //   name_@nftmail.box                agent-alias  inherits base      Agent A2A send address
 //   name_@ghostmail.box              agent-alias  inherits base      Agent A2A send address (ghostmail)
 //   name@nftmail.box                 sovereign    ENS RESERVED       Free (treasury gas for first 100k)
@@ -4205,6 +4208,32 @@ export default {
           await Promise.all(kvWrites);
           // Increment account counter after successful registration
           await env.INBOX_KV.put(acctKey, String(acctCount + 1));
+
+          // ── Phase 1 D1 shadow write ──────────────────────────────────────
+          // PUPA+ only on registration (LARVA stays KV-only).
+          // Shadow mode: non-fatal, KV is still source of truth.
+          if (accountTier !== 'basic' && env.NFTMAIL_DB) {
+            try {
+              const d1 = new D1Store(env.NFTMAIL_DB);
+              await d1.upsertAgent({
+                label: kvKey,
+                controller: controller.toLowerCase(),
+                tld: sldFromOrigin !== 'nftmail' ? `${sldFromOrigin}.gno` : 'nftmail.gno',
+                tier: accountTier,
+                safe: safeFromRequest,
+                ecies_pubkey: null,
+                retention: accountTier === 'lite' ? '30-day' : 'infinite',
+                expires_at: expiresAt,
+                story_ip: null,
+                origin_nft: originNft,
+                origin_image: null,
+                upgraded_at: null,
+              });
+            } catch (d1Err) {
+              console.error('[D1 shadow] registerSovereign write failed (non-fatal):', d1Err);
+            }
+          }
+
           return corsify(Response.json({
             status: 'registered',
             label,
@@ -4260,7 +4289,7 @@ export default {
           let existingTierData: any = {};
           try { existingTierData = existingTierRaw ? JSON.parse(existingTierRaw) : {}; } catch {}
 
-          // Lite/Pupa: 30-day cycle (renewable), unlocks send
+          // Lite/Pupa (PUPA): 30-day retention window (renewable), unlocks send
           // Premium/PRO/Imago: 1yr subscription window, infinite KV retention (no TTL on messages)
           // Ghost: full agent identity, infinite retention
           const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000;
@@ -4280,7 +4309,59 @@ export default {
             retention,
             story_ip: storyIp || existingTierData.story_ip || null,
           });
+
+          // Auto-generate ECIES keypair if not already registered — pubkey stored, privkey returned once
+          let eciesPublicKey: string | null = null;
+          let eciesPrivateKey: string | null = null;
+          const existingPubKey = await env.INBOX_KV.get(`ecies-pubkey:${label}`);
+          if (!existingPubKey) {
+            try {
+              const kp = await generateKeyPair();
+              await env.INBOX_KV.put(`ecies-pubkey:${label}`, kp.publicKey);
+              eciesPublicKey = kp.publicKey;
+              eciesPrivateKey = kp.privateKey;
+            } catch (ekErr) {
+              console.error('ECIES keygen failed (non-fatal):', ekErr);
+            }
+          } else {
+            eciesPublicKey = existingPubKey;
+          }
+
           await env.INBOX_KV.put(`acct-tier:${label}`, updatedTier);
+
+          // ── Phase 1 D1 shadow write ──────────────────────────────────────
+          // PUPA+ only — LARVA stays KV-only.
+          // Non-fatal: KV is still source of truth until Phase 3.
+          if (newTierStr !== 'basic' && env.NFTMAIL_DB) {
+            try {
+              const d1 = new D1Store(env.NFTMAIL_DB);
+              const existing = existingTierData;
+              await d1.upsertAgent({
+                label,
+                controller: (existing.controller || '').toLowerCase(),
+                tld: existing.tld || null,
+                tier: newTierStr,
+                safe: safeAddress || existing.safe || null,
+                ecies_pubkey: eciesPublicKey,
+                retention,
+                expires_at: newExpiresAt,
+                story_ip: storyIp || existing.story_ip || null,
+                origin_nft: existing.origin_nft || null,
+                origin_image: existing.origin_image || null,
+                upgraded_at: Date.now(),
+              });
+              await d1.recordTierChange(
+                label,
+                existing.tier || 'basic',
+                newTierStr,
+                null,
+                safeAddress || existing.safe || null,
+              );
+            } catch (d1Err) {
+              console.error('[D1 shadow] upgradeTier write failed (non-fatal):', d1Err);
+            }
+          }
+
           return corsify(Response.json({
             status: 'upgraded',
             label,
@@ -4288,6 +4369,8 @@ export default {
             expiresAt: newExpiresAt,
             safe: safeAddress,
             storyIp,
+            eciesPublicKey,
+            ...(eciesPrivateKey ? { eciesPrivateKey, eciesPrivateKeyWarning: 'Save this private key securely — it will NOT be stored on the server.' } : {}),
           }), request);
         }
 
@@ -4632,7 +4715,7 @@ export default {
 
             // KV existence check — sovereign names may have pre-existing data
             const resolvedName = inputName.replace(/\./g, '.');  // use as-is for KV lookup
-            const [sBlindIndex, sSocialReg, sEciesKey, sZohoSeat, sPrivacy, sGnoOwner, sAcctTier] = await Promise.all([
+            const [sBlindIndex, sSocialReg, sEciesKey, sZohoSeat, sPrivacy, sGnoOwner, sAcctTier, sErc8004GnosisRaw, sErc8004LegacyRaw, sErc8004BaseRaw] = await Promise.all([
               env.INBOX_KV.get(`blind-index:${resolvedName}`),
               env.INBOX_KV.get(`social-registered:${resolvedName}`),
               env.INBOX_KV.get(`ecies-pubkey:${resolvedName}`),
@@ -4640,7 +4723,13 @@ export default {
               env.INBOX_KV.get(`privacy:${resolvedName}`),
               env.INBOX_KV.get(`nftmailgno:${resolvedName}`),
               env.INBOX_KV.get(`acct-tier:${resolvedName}`),
+              env.INBOX_KV.get(`erc8004:gnosis:${resolvedName}`),
+              env.INBOX_KV.get(`erc8004:${resolvedName}`),
+              env.INBOX_KV.get(`erc8004:base:${resolvedName}`),
             ]);
+            const sErc8004Raw = sErc8004GnosisRaw ?? sErc8004LegacyRaw;
+            const sErc8004 = sErc8004Raw ? (() => { try { const d = JSON.parse(sErc8004Raw); return { erc8004AgentId: d.agentId, erc8004AgentURI: d.agentURI, erc8004ChainId: d.chainId ?? 100, erc8004RegisteredAt: d.registeredAt }; } catch { return {}; } })() : {};
+            const sErc8004Base = sErc8004BaseRaw ? (() => { try { const d = JSON.parse(sErc8004BaseRaw); return { erc8004Base: { agentId: d.agentId, agentURI: d.agentURI, chainId: 8453, registeredAt: d.registeredAt } }; } catch { return {}; } })() : {};
 
             const sHasMessages = !!sBlindIndex && JSON.parse(sBlindIndex).length > 0;
             const sHasEciesKey = !!sEciesKey;
@@ -4726,6 +4815,12 @@ export default {
               }), request);
             }
             if (sExists) {
+              // All sovereign human inboxes default to private — LARVA is plaintext but not public.
+              // Encryption (ECIES) is unlocked at PUPA (lite) via Safe deployment.
+              // Explicit KV privacy: record overrides this default.
+              if (!sPrivacy) {
+                sPrivacyTier = 'private';
+              }
               return corsify(Response.json({
                 name: inputName,
                 exists: true,
@@ -4745,6 +4840,8 @@ export default {
                 originNft: sGnoOriginNft,
                 legacyIdentity: sGnoLegacyIdentity,
                 mintedTokenId: sGnoMintedTokenId,
+                ...sErc8004,
+                ...sErc8004Base,
               }), request);
             }
 
@@ -4925,14 +5022,9 @@ export default {
             }
           }
           const agentResolvedTld = aliasTldFromNftmailGno || baseOriginTld || tldValue || baseTldValue || (resolvedName.endsWith('_molt') || resolvedBaseName.endsWith('_molt') ? 'molt.gno' : 'nftmail.gno');
-          // ghostmail.box + .agent stream + freemium/basic tier → always glassbox (npx/curl open access)
-          // pro/vault on ghostmail.box gets a privacy toggle like any other agent
-          const isGhostmailAgentStream = isAgent && reqDomain === 'ghostmail.box';
-          const ghostmailFreemiumGlassbox = isGhostmailAgentStream && accountTier === 'basic';
-          if (ghostmailFreemiumGlassbox) privacyTier = 'exposed';
-          const agentIsPublic = ghostmailFreemiumGlassbox || PUBLIC_TLDS.some(t => agentResolvedTld.endsWith(t));
-          // Note: agentIsPublic marks the agent as a Glass Box for display purposes.
-          // privacyTier is intentionally NOT overridden here — the user’s KV-stored choice must be respected.
+          // Only molt.gno is glassbox by design — all other agents (including ghostmail.box) inherit inbox privacy
+          const agentIsPublic = PUBLIC_TLDS.some(t => agentResolvedTld.endsWith(t));
+          if (agentIsPublic) privacyTier = 'exposed';
 
           // Inbox message count from blind-index
           const inboxIds: string[] = blindIndex ? (() => { try { return JSON.parse(blindIndex); } catch { return []; } })() : [];

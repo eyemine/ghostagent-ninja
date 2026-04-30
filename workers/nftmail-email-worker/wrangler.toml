@@ -15,6 +15,14 @@ id = "d2177071c3fb4c48a1a22b36ee1a1baf"
 binding = "GHOST_CALENDAR"
 id = "124768a09cbb48d08bb0a1893f3d2003"
 
+# D1 — PUPA+ relational store (agents, emails, tier_history, identities, memory, shared_context)
+# Create with: npx wrangler d1 create nftmail-db
+# Then replace database_id below with the output ID.
+[[d1_databases]]
+binding      = "NFTMAIL_DB"
+database_name = "nftmail-db"
+database_id  = "REPLACE_WITH_D1_DATABASE_ID"
+
 # Zoho Mail polling: every 5 min, fetch unread → ECIES encrypt → delete cleartext
 # Max cleartext exposure window: 5 minutes
 # Weekly agent report: every Monday at 09:00 UTC
