@@ -441,6 +441,34 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // ── Step 5b-ii: Generate ECIES keypair for the HITL human inbox (non-fatal) ──
+    // Collection NFT molts provision a sovereign human inbox (humanLocalPart@nftmail.box).
+    // upgradeTier auto-generates an ECIES keypair if none exists, enabling darkbox encryption
+    // at PUPA tier. The private key is logged server-side only (not returned to client).
+    if (!isOverlay) {
+      try {
+        const eciesRes = await fetch(NFTMAIL_WORKER_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'upgradeTier',
+            label: humanLocalPart,
+            newTier: 'lite',
+            safe: safeAddress ?? null,
+            secret: webhookSecret,
+          }),
+        });
+        if (eciesRes.ok) {
+          const eciesData = await eciesRes.json() as { eciesPublicKey?: string; eciesPrivateKey?: string };
+          if (eciesData.eciesPrivateKey) {
+            console.log(`[byo-molt] ECIES keypair generated for ${humanLocalPart} — store private key securely:`, eciesData.eciesPrivateKey);
+          }
+        }
+      } catch {
+        // Non-fatal — ECIES provisioning is best-effort
+      }
+    }
+
     // ── Step 5c: Register ERC-8004 identity (non-fatal) ──
     // Every BYO molt agent should have an ERC-8004 on-chain identity
     let erc8004AgentId: number | null = null;

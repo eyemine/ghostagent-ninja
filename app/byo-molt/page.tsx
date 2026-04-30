@@ -549,7 +549,7 @@ export default function OgNftMoltPage() {
       {/* Header — marketplace-style */}
       <div className="flex items-center gap-3">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="https://gateway.lighthouse.storage/ipfs/bafkreiejmu35lnu34e6dm754c6tad34nogywf2oslbql6lzcdpz4acxjue" alt="BYO NFT Molt" className="h-28 w-28 shrink-0 rounded-xl border border-fuchsia-500/40 object-contain" />
+        <img src="https://ipfs.io/ipfs/bafkreiejmu35lnu34e6dm754c6tad34nogywf2oslbql6lzcdpz4acxjue" alt="BYO NFT Molt" className="h-28 w-28 shrink-0 rounded-xl border border-fuchsia-500/40 object-contain" />
         <div>
           <h1 className="pl-1 text-2xl font-bold text-[#f2eee4]">BYO NFT Molt</h1>
           <p className="mt-1 pl-1 text-sm text-[var(--muted)]">Overlay an NFT you own — ENS, Chonk, or Verified Collection — onto your GhostAgent identity</p>
@@ -586,28 +586,28 @@ export default function OgNftMoltPage() {
 
       {/* Check + Select Agent + Confirm */}
       {(step === 'check' || step === 'select-agent' || step === 'confirm') && (
-        <div className="rounded-2xl border border-[rgba(176,128,92,0.35)] bg-[var(--card)] p-5 space-y-4">
+        <div className="max-w-3xl mx-auto rounded-2xl border border-[rgba(176,128,92,0.35)] bg-[var(--card)] p-5 space-y-4">
           <p className="text-sm font-semibold text-[#f2eee4]">OG NFTs</p>
 
           {/* NFT type picker */}
           <div>
             <label className="block text-[10px] font-semibold tracking-wider text-[var(--muted)] mb-2">NFT COLLECTION</label>
-            <div className="grid grid-cols-6 gap-1.5">
+            <div className="grid grid-cols-6 gap-2">
               {([
                 {k:'ens'     as NftType, l:'ENS\nName',       img:'https://ipfs.io/ipfs/bafkreifv35abvqlhdtc4g2i4xelnmxnhaac7exyu6r24o3fbgthwcmupwy'},
                 {k:'chonk'   as NftType, l:'CHONKS\nON BASE', img:'https://ipfs.io/ipfs/bafkreiczeqhex35dvj4ewbzn2gyqnbgqb22np5zgp223vnbfhaod6sv4sq'},
                 {k:'pownft'  as NftType, l:'POWNFT\nON ETH',  img:'https://ipfs.io/ipfs/bafkreick55xkc2ucnmk2wjbzl6a5chqkvmwjll4oqbqajfh5mapd3s7fku'},
                 {k:'normie'  as NftType, l:'NORMIES\nON BASE', img:'https://ipfs.io/ipfs/bafkreigdisoyfs75rneioevm5irn2k4prdddtuum5bpn27bykhjtdc4fii'},
                 {k:'mooncat' as NftType, l:'MOONCATS\nON ETH', img:'/collection-icons/mooncat.png'},
-                {k:'other'   as NftType, l:'OTHER\nERC-721',  img:'https://ipfs.io/ipfs/bafkreiejmu35lnu34e6dm754c6tad34nogywf2oslbql6lzcdpz4acxjue'},
+                {k:'other'   as NftType, l:'OTHER\nERC-721',  img:'https://moccasin-useful-vole-840.mypinata.cloud/ipfs/bafkreid7jamriw5jneuarcq2q6lrbfsqe76eebv6r2rworrnhyj2rpsuem'},
               ]).map(opt => (
                 <button key={opt.k} onClick={() => { selectNftType(opt.k); setTokenId(''); }}
-                  className={`aspect-square rounded-lg border p-1.5 font-semibold transition flex flex-col items-center justify-center gap-1 ${
+                  className={`rounded-lg border p-2 font-semibold transition flex flex-col items-center justify-center gap-1.5 ${
                     nftType === opt.k ? 'border-fuchsia-500/50 bg-fuchsia-500/10 text-fuchsia-300' : 'border-[rgba(176,128,92,0.2)] bg-black/20 text-[var(--muted)] hover:text-[#f2eee4]'
                   }`}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={opt.img} alt={opt.l} className="w-10 h-10 rounded object-contain flex-shrink-0" />
-                  <span className="whitespace-pre-line leading-tight text-[8px] text-center">{opt.l}</span>
+                  <img src={opt.img} alt={opt.l} className="w-16 h-16 rounded object-contain flex-shrink-0" />
+                  <span className="whitespace-pre-line leading-tight text-[9px] text-center">{opt.l}</span>
                 </button>
               ))}
             </div>
