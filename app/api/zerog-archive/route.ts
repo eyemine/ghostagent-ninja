@@ -144,7 +144,7 @@ export async function POST(request: NextRequest) {
     const rootHash = tree?.rootHash() ?? '';
 
     const indexer = new Indexer(ZEROG_INDEXER_URL);
-    const [tx, uploadErr] = await indexer.upload(memData, ZEROG_RPC_URL, signer);
+    const [tx, uploadErr] = await indexer.upload(memData, ZEROG_RPC_URL, signer as unknown as Parameters<typeof indexer.upload>[2]);
     if (uploadErr !== null) {
       return NextResponse.json({ error: `0G upload error: ${uploadErr}` }, { status: 502 });
     }
