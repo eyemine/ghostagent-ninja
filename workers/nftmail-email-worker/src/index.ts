@@ -3006,6 +3006,14 @@ export default {
           if (!chainId || chainId === 100) {
             await env.INBOX_KV.put(`erc8004:${agentName}`, record);
           }
+          // ── Phase 3: shadow-write to D1 identities table ──
+          if (env.NFTMAIL_DB) {
+            (async () => {
+              try {
+                await new D1Store(env.NFTMAIL_DB!).upsertIdentity(agentName, chainLabel, erc8004AgentId);
+              } catch (e) { console.error('[D1 shadow] setErc8004AgentId write failed (non-fatal):', e); }
+            })();
+          }
           return corsify(Response.json({ status: 'stored', agentName, erc8004AgentId, chainLabel }), request);
         }
 
