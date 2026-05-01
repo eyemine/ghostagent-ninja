@@ -21,7 +21,7 @@ id = "124768a09cbb48d08bb0a1893f3d2003"
 [[d1_databases]]
 binding      = "NFTMAIL_DB"
 database_name = "nftmail-db"
-database_id  = "REPLACE_WITH_D1_DATABASE_ID"
+database_id  = "1884d3c5-c8bc-4507-9514-9e00d3a80918"
 
 # Zoho Mail polling: every 5 min, fetch unread → ECIES encrypt → delete cleartext
 # Max cleartext exposure window: 5 minutes
