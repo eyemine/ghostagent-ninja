@@ -29,6 +29,8 @@ export interface AgentRow {
   origin_image: string | null;
   created_at: number;
   upgraded_at: number | null;
+  zerog_root_hash: string | null;
+  zerog_archived_at: number | null;
 }
 
 export interface EmailRow {
@@ -142,6 +144,20 @@ export class D1Store {
         row.upgraded_at ?? null,
       )
       .run();
+  }
+
+  async updateZeroGHash(label: string, rootHash: string): Promise<void> {
+    await this.db
+      .prepare('UPDATE agents SET zerog_root_hash = ?, zerog_archived_at = ? WHERE label = ?')
+      .bind(rootHash, Date.now(), label)
+      .run();
+  }
+
+  async getAllPupaAgents(): Promise<AgentRow[]> {
+    const result = await this.db
+      .prepare("SELECT * FROM agents WHERE tier != 'basic' ORDER BY created_at ASC")
+      .all<AgentRow>();
+    return result.results ?? [];
   }
 
   async updateEciesKey(label: string, ecies_pubkey: string): Promise<void> {

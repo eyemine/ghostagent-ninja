@@ -2,6 +2,7 @@
 
 import MailStorageAdapter, { CalendarInvite } from './storage';
 import { D1Store } from './d1';
+import { archiveBundleToZeroG, fetchBundleFromZeroG } from './zerog';
 import { CloudflareKVStore } from './kv';
 import { buildDirectMessageTopic, createWakuEnvelope } from './waku';
 import { encrypt as eciesEncrypt, generateKeyPair, EncryptedEnvelope } from './ecies';
@@ -183,6 +184,8 @@ export interface Env {
   WORKER_SECRET?: string;
   // D1 — PUPA+ relational store (Phase 1: shadow writes only; Phase 3: reads switch here)
   NFTMAIL_DB?: D1Database;
+  // 0G Storage archive — Next.js archiver URL + wallet key
+  ZEROG_ARCHIVER_URL?: string;
 }
 
 interface EmailMessage {
@@ -1216,8 +1219,21 @@ export default {
       const humanTtlSecs = await getAgentTtlSecs(env, agentName);
       const humanPutOpts = humanTtlSecs != null ? { expirationTtl: humanTtlSecs } : {};
       const _humanEnvJson = JSON.stringify(envelope);
-      const _humanTier = await resolveAgentTierFast(agentName);
-      shadowWriteEmailToD1(agentName, blindId, _humanEnvJson, humanTtlSecs ? humanTtlSecs * 1000 + timestamp : null);
+      // Phase 5: D1 write + tier gate (inline — outside handleMailgunPayload scope)
+      let _humanTier = 'basic';
+      if (env.NFTMAIL_DB) {
+        try {
+          const _r = await new D1Store(env.NFTMAIL_DB).getAgent(agentName);
+          if (_r) {
+            _humanTier = _r.tier;
+            if (_humanTier !== 'basic') {
+              const _sh = await sha256Hex(sender).catch(() => null);
+              const _subh = await sha256Hex(subject).catch(() => null);
+              new D1Store(env.NFTMAIL_DB).insertEmail({ agent_label: agentName, blind_id: blindId, domain_prefix: '', encrypted_blob: _humanEnvJson, sender_hash: _sh, subject_hash: _subh, received_at: timestamp, read: 0, frozen: 0, surge_allocation: null, ttl_expires_at: humanTtlSecs ? humanTtlSecs * 1000 + timestamp : null }).catch(e => console.error('[D1 shadow] email insert failed:', e));
+            }
+          }
+        } catch {}
+      }
       if (_humanTier === 'basic') {
         await env.INBOX_KV.put(`blind:${agentName}:${blindId}`, _humanEnvJson, humanPutOpts);
         await updateBlindIndex(env, agentName, blindId, '', humanTtlSecs);
@@ -1255,8 +1271,20 @@ export default {
           recipient: localPart, receivedAt: timestamp,
         };
         const _noKeyEnvJson = JSON.stringify(envelope);
-        const _noKeyTier = await resolveAgentTierFast(storageName);
-        shadowWriteEmailToD1(storageName, blindId, _noKeyEnvJson, agentTtlSecs ? agentTtlSecs * 1000 + timestamp : null);
+        let _noKeyTier = 'basic';
+        if (env.NFTMAIL_DB) {
+          try {
+            const _r2 = await new D1Store(env.NFTMAIL_DB).getAgent(storageName.replace(/_+$/, ''));
+            if (_r2) {
+              _noKeyTier = _r2.tier;
+              if (_noKeyTier !== 'basic') {
+                const _sh2 = await sha256Hex(sender).catch(() => null);
+                const _subh2 = await sha256Hex(subject).catch(() => null);
+                new D1Store(env.NFTMAIL_DB).insertEmail({ agent_label: storageName.replace(/_+$/, ''), blind_id: blindId, domain_prefix: '', encrypted_blob: _noKeyEnvJson, sender_hash: _sh2, subject_hash: _subh2, received_at: timestamp, read: 0, frozen: 0, surge_allocation: null, ttl_expires_at: agentTtlSecs ? agentTtlSecs * 1000 + timestamp : null }).catch(e => console.error('[D1 shadow] email insert failed:', e));
+              }
+            }
+          } catch {}
+        }
         if (_noKeyTier === 'basic') {
           await env.INBOX_KV.put(`blind:${storageName}:${blindId}`, _noKeyEnvJson, agentPutOpts);
           await updateBlindIndex(env, storageName, blindId, '', agentTtlSecs);
@@ -1278,8 +1306,20 @@ export default {
         edgeEncrypt: buildAuditHashEntry(sealedSafe as any, localPart, timestamp),
       };
       const _eciesBlindJson = JSON.stringify(blindEnvelope);
-      const _eciesTier = await resolveAgentTierFast(storageName);
-      shadowWriteEmailToD1(storageName, blindId, _eciesBlindJson, agentTtlSecs ? agentTtlSecs * 1000 + timestamp : null);
+      let _eciesTier = 'basic';
+      if (env.NFTMAIL_DB) {
+        try {
+          const _r3 = await new D1Store(env.NFTMAIL_DB).getAgent(storageName.replace(/_+$/, ''));
+          if (_r3) {
+            _eciesTier = _r3.tier;
+            if (_eciesTier !== 'basic') {
+              const _sh3 = await sha256Hex(sender).catch(() => null);
+              const _subh3 = await sha256Hex(subject).catch(() => null);
+              new D1Store(env.NFTMAIL_DB).insertEmail({ agent_label: storageName.replace(/_+$/, ''), blind_id: blindId, domain_prefix: '', encrypted_blob: _eciesBlindJson, sender_hash: _sh3, subject_hash: _subh3, received_at: timestamp, read: 0, frozen: 0, surge_allocation: null, ttl_expires_at: agentTtlSecs ? agentTtlSecs * 1000 + timestamp : null }).catch(e => console.error('[D1 shadow] email insert failed:', e));
+            }
+          }
+        } catch {}
+      }
       if (_eciesTier === 'basic') {
         await env.INBOX_KV.put(`blind:${storageName}:${blindId}`, _eciesBlindJson, agentPutOpts);
         await updateBlindIndex(env, storageName, blindId, '', agentTtlSecs);
@@ -1546,6 +1586,101 @@ export default {
           // Legacy index format fallback
           result = await storage.getInbox(agent);
           return corsify(result, request);
+        }
+
+        // ── 0G Storage: archive agent state to decentralised permanent store ──────
+        // Reads D1 (agents + emails + memory), bundles to JSON, POSTs to Next.js
+        // archiver which uploads to 0G. Stores rootHash back in D1.
+        if (email.action === 'archiveAgentToZeroG') {
+          const secret = (email as any).secret || request.headers.get('X-Webhook-Secret') || '';
+          if (secret !== env.WEBHOOK_SECRET) {
+            return corsify(Response.json({ error: 'Forbidden' }, { status: 403 }), request);
+          }
+          if (!env.NFTMAIL_DB || !env.ZEROG_ARCHIVER_URL) {
+            return corsify(Response.json({ error: 'D1 or ZEROG_ARCHIVER_URL not configured' }, { status: 503 }), request);
+          }
+          const agentName = ((email as any).agentName || '').toLowerCase().trim();
+          if (!agentName) {
+            return corsify(Response.json({ error: 'Missing agentName' }, { status: 400 }), request);
+          }
+          const d1 = new D1Store(env.NFTMAIL_DB);
+          const agentRow = await d1.getAgent(agentName);
+          if (!agentRow) {
+            return corsify(Response.json({ error: 'Agent not found in D1' }, { status: 404 }), request);
+          }
+          const [emails, memory] = await Promise.all([
+            d1.getInbox(agentName, { limit: 1000 }),
+            d1.getRecentMemory(agentName, { limit: 500 }),
+          ]);
+          const bundle = {
+            schemaVersion: 1 as const,
+            exportedAt: Date.now(),
+            agent: agentRow as unknown as Record<string, unknown>,
+            emails: emails as unknown as Record<string, unknown>[],
+            memory: memory as unknown as Record<string, unknown>[],
+            identities: [] as Record<string, unknown>[],
+          };
+          const result = await archiveBundleToZeroG(env.ZEROG_ARCHIVER_URL, env.WEBHOOK_SECRET!, bundle);
+          if (!result) {
+            return corsify(Response.json({ error: '0G archive failed — check ZEROG_ARCHIVER_URL logs' }, { status: 502 }), request);
+          }
+          await d1.updateZeroGHash(agentName, result.rootHash);
+          return corsify(Response.json({
+            status: 'archived',
+            agentName,
+            rootHash: result.rootHash,
+            txHash: result.txHash,
+            size: result.size,
+            emailsArchived: emails.length,
+            memoryArchived: memory.length,
+          }), request);
+        }
+
+        // ── 0G Storage: rehydrate agent D1 state from a rootHash ──────────────
+        // Fetches the encrypted bundle from 0G and re-inserts into D1.
+        // Use after a D1 wipe / de-platforming recovery.
+        if (email.action === 'rehydrateFromZeroG') {
+          const secret = (email as any).secret || request.headers.get('X-Webhook-Secret') || '';
+          if (secret !== env.WEBHOOK_SECRET) {
+            return corsify(Response.json({ error: 'Forbidden' }, { status: 403 }), request);
+          }
+          if (!env.NFTMAIL_DB || !env.ZEROG_ARCHIVER_URL) {
+            return corsify(Response.json({ error: 'D1 or ZEROG_ARCHIVER_URL not configured' }, { status: 503 }), request);
+          }
+          const rootHash = ((email as any).rootHash || '').trim();
+          if (!rootHash) {
+            return corsify(Response.json({ error: 'Missing rootHash' }, { status: 400 }), request);
+          }
+          const bundle = await fetchBundleFromZeroG(env.ZEROG_ARCHIVER_URL, env.WEBHOOK_SECRET!, rootHash);
+          if (!bundle) {
+            return corsify(Response.json({ error: '0G fetch failed' }, { status: 502 }), request);
+          }
+          const d1 = new D1Store(env.NFTMAIL_DB);
+          // Re-insert agent row
+          if (bundle.agent) {
+            await d1.upsertAgent(bundle.agent as any);
+          }
+          // Re-insert emails (skip duplicates via ON CONFLICT DO NOTHING)
+          let emailsInserted = 0;
+          for (const e of bundle.emails ?? []) {
+            try { await d1.insertEmail(e as any); emailsInserted++; } catch {}
+          }
+          // Re-insert memory
+          let memoryInserted = 0;
+          for (const m of bundle.memory ?? []) {
+            try {
+              const row = m as any;
+              await d1.appendMemory(row.agent_label, row.content, { tag: row.tag ?? undefined, sessionId: row.session_id ?? undefined });
+              memoryInserted++;
+            } catch {}
+          }
+          return corsify(Response.json({
+            status: 'rehydrated',
+            rootHash,
+            emailsInserted,
+            memoryInserted,
+            exportedAt: bundle.exportedAt,
+          }), request);
         }
 
         // ── One-time KV→D1 backfill for a specific agent (admin only) ──
@@ -5890,10 +6025,48 @@ export default {
     }
   },
 
-  // --- Cron Safety Net: Poll Zoho for unread messages and process them ---
-  // */5 * * * *  → imap-poll (Zoho fetch + ECIES encrypt)
+  // --- Cron triggers ---
+  // */5 * * * *  → heartbeat
   // 0 9 * * 1    → weekly agent report via ghostagent.ninja API
+  // 0 2 * * *    → daily 0G archive sweep for all PUPA+ agents
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
+    // ── Daily 0G archive sweep ───────────────────────────────────────────────
+    if (event.cron === '0 2 * * *') {
+      if (!env.NFTMAIL_DB || !env.ZEROG_ARCHIVER_URL || !env.WEBHOOK_SECRET) {
+        console.log('[0G cron] ZEROG_ARCHIVER_URL or D1 not configured — skipping');
+        return;
+      }
+      const d1 = new D1Store(env.NFTMAIL_DB);
+      const agents = await d1.getAllPupaAgents();
+      console.log(`[0G cron] archiving ${agents.length} PUPA+ agents`);
+      for (const agentRow of agents) {
+        try {
+          const [emails, memory] = await Promise.all([
+            d1.getInbox(agentRow.label, { limit: 1000 }),
+            d1.getRecentMemory(agentRow.label, { limit: 500 }),
+          ]);
+          const bundle = {
+            schemaVersion: 1 as const,
+            exportedAt: Date.now(),
+            agent: agentRow as unknown as Record<string, unknown>,
+            emails: emails as unknown as Record<string, unknown>[],
+            memory: memory as unknown as Record<string, unknown>[],
+            identities: [] as Record<string, unknown>[],
+          };
+          const result = await archiveBundleToZeroG(env.ZEROG_ARCHIVER_URL, env.WEBHOOK_SECRET, bundle);
+          if (result) {
+            await d1.updateZeroGHash(agentRow.label, result.rootHash);
+            console.log(`[0G cron] archived ${agentRow.label} rootHash=${result.rootHash}`);
+          } else {
+            console.error(`[0G cron] archive failed for ${agentRow.label}`);
+          }
+        } catch (e) {
+          console.error(`[0G cron] error for ${agentRow.label}:`, e);
+        }
+      }
+      return;
+    }
+
     // ── Weekly report branch ─────────────────────────────────────────────────
     if (event.cron === '0 9 * * 1') {
       const appUrl = 'https://ghostagent.ninja';
@@ -5928,8 +6101,7 @@ export default {
       return;
     }
 
-    // ── Heartbeat only (no Zoho polling) ─────────────────────────────────────
-    // Write global heartbeat + canary timestamps
+    // ── Heartbeat ────────────────────────────────────────────────────────────
     const now = String(Date.now());
     await Promise.all([
       env.INBOX_KV.put('heartbeat:cron', now, { expirationTtl: 60 * 60 }),

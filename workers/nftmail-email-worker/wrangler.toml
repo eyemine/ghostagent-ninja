@@ -23,8 +23,8 @@ binding      = "NFTMAIL_DB"
 database_name = "nftmail-db"
 database_id  = "1884d3c5-c8bc-4507-9514-9e00d3a80918"
 
-# Zoho Mail polling: every 5 min, fetch unread → ECIES encrypt → delete cleartext
-# Max cleartext exposure window: 5 minutes
-# Weekly agent report: every Monday at 09:00 UTC
+# */5 * * * *  → heartbeat
+# 0 9 * * 1   → weekly agent report (Monday 09:00 UTC)
+# 0 2 * * *   → daily 0G archive sweep for all PUPA+ agents (02:00 UTC)
 [triggers]
-crons = ["*/5 * * * *", "0 9 * * 1"]
+crons = ["*/5 * * * *", "0 9 * * 1", "0 2 * * *"]
