@@ -1126,7 +1126,7 @@ export default {
     });
 
     // --- Parse the inbound email ---
-    // Zoho routes *@nftmail.box → *@surge.nftmail.box → Cloudflare Email Routing → here
+    // Cloudflare Email Routing → worker email() handler
     const originalRecipient = resolveOriginalRecipient(message);
     const sender = message.from;
     const subject = message.headers.get('subject') || '';
@@ -1187,7 +1187,7 @@ export default {
       await updateBlindIndex(env, agentName, blindId, '', humanTtlSecs);
       shadowWriteEmailToD1(agentName, blindId, JSON.stringify(envelope), humanTtlSecs ? humanTtlSecs * 1000 + timestamp : null);
       await storage.storeEmail(localPart, { from: sender, to: originalRecipient, subject, content: body, timestamp });
-      // Note: Zoho deletion is handled via Deluge→HTTP path, not email routing
+      // Storage complete — Mailgun inbound path
       return;
     }
 
