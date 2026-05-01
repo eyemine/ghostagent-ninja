@@ -1423,6 +1423,26 @@ export default {
               }
             }));
             messages.sort((a: any, b: any) => (b.receivedAt || 0) - (a.receivedAt || 0));
+
+            // ── Phase 2 shadow read: compare D1 email count vs KV blind-index ──
+            // Async, non-blocking — KV response already sent.
+            if (env.NFTMAIL_DB) {
+              (async () => {
+                try {
+                  const d1 = new D1Store(env.NFTMAIL_DB!);
+                  const d1Count = await d1.getUnreadCount(agent);
+                  const kvCount = messages.length;
+                  if (Math.abs(d1Count - kvCount) > 0) {
+                    console.warn(`[D1 shadow read] getInbox mismatch for ${agent}: KV=${kvCount} D1 unread=${d1Count}`);
+                  } else {
+                    console.log(`[D1 shadow read] getInbox OK for ${agent}: count=${kvCount}`);
+                  }
+                } catch (e) {
+                  console.error('[D1 shadow read] getInbox check failed (non-fatal):', e);
+                }
+              })();
+            }
+
             return corsify(Response.json({ agent, messages, count: messages.length }), request);
           }
 
@@ -1614,6 +1634,32 @@ export default {
               registry:   `https://ghostagent.ninja/api/agents`,
             },
           }), request);
+
+          // ── Phase 2 shadow read: compare D1 agent row vs KV ──────────────
+          if (env.NFTMAIL_DB) {
+            (async () => {
+              try {
+                const d1 = new D1Store(env.NFTMAIL_DB!);
+                const row = await d1.getAgent(agentName);
+                if (!row) {
+                  console.warn(`[D1 shadow read] getAgentIdentity: no D1 row for ${agentName} (not yet PUPA+ or shadow write pending)`);
+                } else {
+                  const kvTier = acctTierRaw ? (JSON.parse(acctTierRaw).tier ?? 'basic') : 'basic';
+                  const mismatches: string[] = [];
+                  if (row.tier !== kvTier)   mismatches.push(`tier KV=${kvTier} D1=${row.tier}`);
+                  if (row.tld  !== (tldRaw ?? null)) mismatches.push(`tld KV=${tldRaw ?? null} D1=${row.tld}`);
+                  if (row.safe !== (safe ?? null))   mismatches.push(`safe KV=${safe ?? null} D1=${row.safe}`);
+                  if (mismatches.length) {
+                    console.warn(`[D1 shadow read] getAgentIdentity mismatch for ${agentName}: ${mismatches.join(', ')}`);
+                  } else {
+                    console.log(`[D1 shadow read] getAgentIdentity OK for ${agentName}`);
+                  }
+                }
+              } catch (e) {
+                console.error('[D1 shadow read] getAgentIdentity check failed (non-fatal):', e);
+              }
+            })();
+          }
         }
 
         // Set principal (ERC-8226): store NFT owner wallet as the human principal for a BYO agent
@@ -1934,6 +1980,28 @@ export default {
                 };
               })
             );
+            // ── Phase 2 shadow read: compare D1 agents count vs KV tld: scan ──
+            if (env.NFTMAIL_DB) {
+              (async () => {
+                try {
+                  const d1 = new D1Store(env.NFTMAIL_DB!);
+                  const safeAddress: string = ((email as any).safeAddress || '').toLowerCase();
+                  const d1Agents = safeAddress
+                    ? await d1.getAgentsByController(safeAddress)
+                    : await d1.getAgentsByTld('', 1000, 0);
+                  const kvCount = agents.length;
+                  const d1Count = d1Agents.length;
+                  if (d1Count !== kvCount) {
+                    console.warn(`[D1 shadow read] listAgents mismatch: KV=${kvCount} D1=${d1Count}`);
+                  } else {
+                    console.log(`[D1 shadow read] listAgents OK: count=${kvCount}`);
+                  }
+                } catch (e) {
+                  console.error('[D1 shadow read] listAgents check failed (non-fatal):', e);
+                }
+              })();
+            }
+
             return corsify(Response.json({ agents, total: agents.length }), request);
           } catch (e: any) {
             return corsify(Response.json({ error: e?.message ?? 'listAgents failed' }, { status: 500 }), request);
