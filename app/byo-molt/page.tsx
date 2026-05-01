@@ -42,18 +42,18 @@ const NORMIE_BASE_CONTRACT = '0x7Bc1C072742D8391817EB4Eb2317F98dc72C61dB';
 const MOONCAT_CONTRACT = '0xc3f733ca98e0dad0386979eb96fb1722a1a05e69';
 const GNOSIS_TREASURY = '0xeD0B0694953158dd54D0c36D320b391f44cd67f3'; // Treasury for BYO molt fees
 
-// Verified ERC-721 collections approved for BYO molt
+// Verified ERC-721 collections — whitelisted, check-only (not yet activated for minting)
 const VERIFIED_COLLECTIONS = [
-  { slug: 'bayc',       name: 'Bored Ape Yacht Club', contract: '0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D', chain: 'eth',  rpc: 'https://cloudflare-eth.com',  opensea: 'https://opensea.io/collection/boredapeyachtclub' },
-  { slug: 'mayc',       name: 'Mutant Ape Yacht Club', contract: '0x60E4d786628Fea6478F785A6d7e704777c86a7c6', chain: 'eth',  rpc: 'https://cloudflare-eth.com',  opensea: 'https://opensea.io/collection/mutant-ape-yacht-club' },
-  { slug: 'azuki',      name: 'Azuki',                contract: '0xED5AF388653567Af2F388E6224dC7C4b3241C544', chain: 'eth',  rpc: 'https://cloudflare-eth.com',  opensea: 'https://opensea.io/collection/azuki' },
-  { slug: 'doodles',    name: 'Doodles',              contract: '0x8a90CAb2b38dba80c64b7734e58Ee1dB38B8992e', chain: 'eth',  rpc: 'https://cloudflare-eth.com',  opensea: 'https://opensea.io/collection/doodles-official' },
-  { slug: 'milady',     name: 'Milady Maker',         contract: '0x5Af0D9827E0c53E4799BB226655A1de152A425a5', chain: 'eth',  rpc: 'https://cloudflare-eth.com',  opensea: 'https://opensea.io/collection/milady' },
-  { slug: 'pudgy',      name: 'Pudgy Penguins',       contract: '0xBd3531dA5CF5857e7CfAA92426877b022e612cf8', chain: 'eth',  rpc: 'https://cloudflare-eth.com',  opensea: 'https://opensea.io/collection/pudgypenguins' },
-  { slug: 'nouns',      name: 'Nouns',                contract: '0x9C8fF314C9Bc7F6e59A9d9225Fb22946427eDC03', chain: 'eth',  rpc: 'https://cloudflare-eth.com',  opensea: 'https://opensea.io/collection/nouns' },
-  { slug: 'cryptoadz',  name: 'CrypToadz',            contract: '0x1CB1A5e65610AEFF2551A50f76a87a7d3fB649C6', chain: 'eth',  rpc: 'https://cloudflare-eth.com',  opensea: 'https://opensea.io/collection/cryptoadz-by-gremplin' },
-  { slug: 'oncyber',    name: 'OnCyber Spaces',       contract: '0x03c4738Ee98aE44591e1A4A4F3CaB6641d95DD9a', chain: 'eth',  rpc: 'https://cloudflare-eth.com',  opensea: 'https://opensea.io/collection/oncyber' },
+  { slug: 'deadfellaz',       name: 'Dead Fellaz',        field1: 'DFZ',        contract: '0x2acab3dea77832c09420663b0e1cb386031ba17b', chain: 'eth', rpc: 'https://cloudflare-eth.com', opensea: 'https://opensea.io/collection/dead-fellaz' },
+  { slug: 'cryptoadz',       name: 'CrypToadz',          field1: 'Toad',       contract: '0x1cb1a5e65610aeff2551a50f76a87a7d3fb649c6', chain: 'eth', rpc: 'https://cloudflare-eth.com', opensea: 'https://opensea.io/collection/cryptoadz-by-gremplin' },
+  { slug: 'cryptopunks',     name: 'CryptoPunks',        field1: 'Punk',       contract: '0xb47e3cd837dDF8e4c57F05d70Ab865de6e193BBB', chain: 'eth', rpc: 'https://cloudflare-eth.com', opensea: 'https://opensea.io/collection/cryptopunks' },
+  { slug: 'cryptopunksv1',   name: 'CryptoPunks V1',     field1: 'CryptoPunk', contract: '0x6ba6f2207e343923ba692e5cae646fb0f566db8d', chain: 'eth', rpc: 'https://cloudflare-eth.com', opensea: 'https://opensea.io/collection/cryptopunks-v1' },
+  { slug: 'flawlessrenegades', name: 'Flawless Renegades', field1: 'Flawless', contract: '0x4f636ab8672cdeb2fdf681598fc5fa3efe2e0078', chain: 'eth', rpc: 'https://cloudflare-eth.com', opensea: 'https://opensea.io/collection/flawless-renegades' },
 ] as const;
+
+type VerifiedCollectionSlug = typeof VERIFIED_COLLECTIONS[number]['slug'];
+const VERIFIED_COLLECTION_SLUGS = new Set<string>(VERIFIED_COLLECTIONS.map(c => c.slug));
+function isVerifiedCollectionSlug(slug: string): slug is VerifiedCollectionSlug { return VERIFIED_COLLECTION_SLUGS.has(slug); }
 
 // Fee structure based on current tier
 const TIER_FEES = {
@@ -615,7 +615,7 @@ export default function OgNftMoltPage() {
 
           <div className="space-y-3">
             <div>
-              <label className="block text-[10px] font-semibold tracking-wider text-[var(--muted)] mb-1">{NFT_TYPE_META[nftType].nameLabel} (no underscore)</label>
+              <label className="block text-[10px] font-semibold tracking-wider text-[var(--muted)] mb-1">{NFT_TYPE_META[nftType].nameLabel}</label>
               {nftType === 'ens' ? (
                 <div className="flex gap-2">
                   <input className={`${ic} flex-1`} placeholder="e.g. vitalik" value={primaryName}
@@ -627,20 +627,35 @@ export default function OgNftMoltPage() {
                 </div>
               ) : nftType === 'other' ? (
                 <>
-                  <select className={ic} value={collectionName}
-                    onChange={e => {
-                      const col = VERIFIED_COLLECTIONS.find(c => c.slug === e.target.value);
-                      setCollectionName(e.target.value);
-                      setContractAddr(col?.contract ?? '');
-                      reset();
-                    }}>
-                    <option value="">— select a verified collection —</option>
-                    {VERIFIED_COLLECTIONS.map(c => (
-                      <option key={c.slug} value={c.slug}>{c.name}</option>
-                    ))}
-                  </select>
+                  <div className="flex gap-2">
+                    <select className={`${ic} flex-1`} value={collectionName}
+                      onChange={e => {
+                        const col = VERIFIED_COLLECTIONS.find(c => c.slug === e.target.value);
+                        setCollectionName(e.target.value);
+                        setContractAddr(col?.contract ?? '');
+                        setPrimaryName(col?.field1 ?? '');
+                        reset();
+                      }}>
+                      <option value="">— select a verified collection —</option>
+                      {VERIFIED_COLLECTIONS.map(c => (
+                        <option key={c.slug} value={c.slug}>{c.name}</option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={handleVerifyOwnership}
+                      disabled={!collectionName || !tokenId || !ownerWallet || !contractAddr || checking}
+                      className="shrink-0 rounded-lg bg-fuchsia-600/80 px-4 py-2 text-xs font-bold text-white transition hover:bg-fuchsia-600 disabled:opacity-40">
+                      {checking ? 'Checking…' : 'Check'}
+                    </button>
+                  </div>
+                  {collectionName && (() => { const col = VERIFIED_COLLECTIONS.find(c => c.slug === collectionName); return col ? (
+                    <div className="mt-2">
+                      <label className="block text-[10px] font-semibold tracking-wider text-[var(--muted)] mb-1">COLLECTION NAME (prefilled)</label>
+                      <div className={`${ic} opacity-70 cursor-not-allowed font-mono`}>{col.field1}</div>
+                    </div>
+                  ) : null; })()}
                   {collectionName && tokenId && (
-                    <p className="mt-1 text-[10px] text-[var(--muted)]">Agent name: <span className="font-mono text-fuchsia-300">{collectionName}.{tokenId}</span></p>
+                    <p className="mt-1 text-[10px] text-[var(--muted)]">Agent name: <span className="font-mono text-fuchsia-300">{VERIFIED_COLLECTIONS.find(c=>c.slug===collectionName)?.field1 ?? collectionName}.{tokenId}</span></p>
                   )}
                 </>
               ) : (
@@ -712,9 +727,9 @@ export default function OgNftMoltPage() {
 
           {error && !ownershipVerified && <p className="text-xs text-red-400">{error}</p>}
 
-          {step === 'check' && (
+          {step === 'check' && nftType !== 'other' && (
             <button onClick={handleVerifyOwnership}
-              disabled={nftType === 'other' ? (!collectionName || !tokenId || !ownerWallet || !contractAddr || checking) : (!primaryName || !tokenId || !ownerWallet || checking)}
+              disabled={!primaryName || !tokenId || !ownerWallet || checking}
               className="w-full rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 py-2.5 text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-40">
               {checking ? 'Checking ownership…' : 'Verify NFT Ownership →'}
             </button>
@@ -877,57 +892,68 @@ export default function OgNftMoltPage() {
                   <p className="text-[10px] text-[var(--muted)]">{nftPreview.chain === 'base' ? 'Base' : 'Ethereum'} · token #{nftPreview.tokenId}</p>
                 </div>
               </div>
-              {/* Coupon OR payment */}
-              <div className="rounded-xl border border-[rgba(176,128,92,0.15)] bg-black/20 p-3 space-y-3">
-                <div>
-                  <label className="block text-[10px] font-semibold tracking-wider text-[var(--muted)] mb-1">COUPON CODE (optional)</label>
-                  <div className="flex gap-2">
-                    <input className={`${ic} flex-1 uppercase`} placeholder="e.g. NFTFREE-XXXX" value={couponCode}
-                      onChange={e => { setCouponCode(e.target.value.toUpperCase().trim()); setCouponValid(false); setCouponError(null); }}
-                      disabled={couponValid} />
-                    {couponValid ? (
-                      <button onClick={() => { setCouponCode(''); setCouponValid(false); setCouponError(null); }}
-                        className="shrink-0 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-300 transition hover:bg-red-500/20">
-                        Remove
-                      </button>
-                    ) : (
-                      <button onClick={handleValidateCoupon} disabled={!couponCode.trim() || couponChecking}
-                        className="shrink-0 rounded-lg bg-amber-500/80 px-4 py-2 text-xs font-bold text-white transition hover:bg-amber-500 disabled:opacity-40">
-                        {couponChecking ? 'Checking…' : 'Apply'}
-                      </button>
-                    )}
-                  </div>
-                  {couponValid && <p className="mt-1 text-[10px] font-semibold text-emerald-400">✓ Coupon valid — fee waived</p>}
-                  {couponError && <p className="mt-1 text-[10px] text-red-400">{couponError}</p>}
+              {/* Coupon OR payment — blocked for verified collections (not yet activated) */}
+              {nftType === 'other' && isVerifiedCollectionSlug(collectionName) ? (
+                <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-center space-y-2">
+                  <p className="text-sm font-bold text-amber-400">⏳ Not Activated</p>
+                  <p className="text-[10px] text-[var(--muted)] leading-relaxed">
+                    Minting for <span className="font-semibold text-[#f2eee4]">{VERIFIED_COLLECTIONS.find(c => c.slug === collectionName)?.name}</span> is whitelisted but not yet activated.
+                    Ownership verified — your spot is reserved.
+                  </p>
+                  <p className="text-[10px] text-amber-400/70">Check back soon for launch.</p>
                 </div>
-                {!couponValid && (
-                  <div className="space-y-2">
-                    <div className="text-[10px] font-semibold tracking-wider text-[var(--muted)]">PAY {moltFee} xDAI ({currentTier.toUpperCase()} tier)</div>
-                    <button onClick={handlePayWithWallet} disabled={paying}
-                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 py-3 text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-40">
-                      {paying ? (
-                        <><svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Awaiting wallet…</>
+              ) : (
+                <div className="rounded-xl border border-[rgba(176,128,92,0.15)] bg-black/20 p-3 space-y-3">
+                  <div>
+                    <label className="block text-[10px] font-semibold tracking-wider text-[var(--muted)] mb-1">COUPON CODE (optional)</label>
+                    <div className="flex gap-2">
+                      <input className={`${ic} flex-1 uppercase`} placeholder="e.g. NFTFREE-XXXX" value={couponCode}
+                        onChange={e => { setCouponCode(e.target.value.toUpperCase().trim()); setCouponValid(false); setCouponError(null); }}
+                        disabled={couponValid} />
+                      {couponValid ? (
+                        <button onClick={() => { setCouponCode(''); setCouponValid(false); setCouponError(null); }}
+                          className="shrink-0 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-300 transition hover:bg-red-500/20">
+                          Remove
+                        </button>
                       ) : (
-                        <>🦋 Pay {moltFee} xDAI &amp; Molt</>
+                        <button onClick={handleValidateCoupon} disabled={!couponCode.trim() || couponChecking}
+                          className="shrink-0 rounded-lg bg-amber-500/80 px-4 py-2 text-xs font-bold text-white transition hover:bg-amber-500 disabled:opacity-40">
+                          {couponChecking ? 'Checking…' : 'Apply'}
+                        </button>
                       )}
-                    </button>
-                    <div className="flex items-center gap-2 text-[10px] text-[var(--muted)]">
-                      <span className="flex-1 border-t border-[rgba(176,128,92,0.15)]" />
-                      <span>or pay with card</span>
-                      <span className="flex-1 border-t border-[rgba(176,128,92,0.15)]" />
                     </div>
-                    <MercuryoButton
-                      walletAddress={GNOSIS_TREASURY}
-                      defaultAmount={3}
-                      label={`💳 Pay with Card (~$${moltFee} USD)`}
-                    />
-                    <p className="text-[9px] text-[var(--muted)] text-center">
-                      Wallet payment sends {moltFee} xDAI on Gnosis to Treasury{' '}
-                      <span className="font-mono text-amber-300/60">{GNOSIS_TREASURY.slice(0,10)}…</span>
-                    </p>
+                    {couponValid && <p className="mt-1 text-[10px] font-semibold text-emerald-400">✓ Coupon valid — fee waived</p>}
+                    {couponError && <p className="mt-1 text-[10px] text-red-400">{couponError}</p>}
                   </div>
-                )}
-              </div>
+                  {!couponValid && (
+                    <div className="space-y-2">
+                      <div className="text-[10px] font-semibold tracking-wider text-[var(--muted)]">PAY {moltFee} xDAI ({currentTier.toUpperCase()} tier)</div>
+                      <button onClick={handlePayWithWallet} disabled={paying}
+                        className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 py-3 text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-40">
+                        {paying ? (
+                          <><svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Awaiting wallet…</>
+                        ) : (
+                          <>🦋 Pay {moltFee} xDAI &amp; Molt</>
+                        )}
+                      </button>
+                      <div className="flex items-center gap-2 text-[10px] text-[var(--muted)]">
+                        <span className="flex-1 border-t border-[rgba(176,128,92,0.15)]" />
+                        <span>or pay with card</span>
+                        <span className="flex-1 border-t border-[rgba(176,128,92,0.15)]" />
+                      </div>
+                      <MercuryoButton
+                        walletAddress={GNOSIS_TREASURY}
+                        defaultAmount={3}
+                        label={`💳 Pay with Card (~$${moltFee} USD)`}
+                      />
+                      <p className="text-[9px] text-[var(--muted)] text-center">
+                        Wallet payment sends {moltFee} xDAI on Gnosis to Treasury{' '}
+                        <span className="font-mono text-amber-300/60">{GNOSIS_TREASURY.slice(0,10)}…</span>
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
               {error && <p className="text-xs text-red-400">{error}</p>}
               {couponValid && (
                 <button onClick={handleMolt}
