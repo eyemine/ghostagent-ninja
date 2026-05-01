@@ -48,9 +48,9 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid nftmail.box email' }, { status: 400 });
     }
 
-    // Extract local part - preserve underscore suffix for agent aliases
-    // ghostagent@nftmail.box (human) and ghostagent_@nftmail.box (agent) are separate inboxes
+    // Extract local part and derive agentName (strip trailing _)
     const localPart = email.split('@')[0];
+    const agentName = localPart.endsWith('_') ? localPart.slice(0, -1) : localPart;
 
     // Always fetch from Worker KV (all streams store here)
     const workerUrl = process.env.NFTMAIL_WORKER_URL || 'https://nftmail-email-worker.richard-159.workers.dev';
@@ -63,7 +63,7 @@ export async function GET(req: NextRequest) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'getBlindInbox',
-          localPart: localPart  // Preserve underscore - ghostagent and ghostagent_ are separate
+          localPart: agentName
         })
       });
 
@@ -74,17 +74,11 @@ export async function GET(req: NextRequest) {
         kvMessages = (workerData.messages || []).map((m: any) => {
           const isEnc = m.encrypted === true;
           const now = Date.now();
-          // Defensive timestamp parsing: handle seconds (Unix), milliseconds, or ISO string
-          let rawRa = m.receivedAt || m.timestamp || m.createdAt || 0;
-          if (typeof rawRa === 'string') rawRa = Date.parse(rawRa) || 0;
-          // If < year 2000 in ms (≈946684800000), treat as seconds and convert
-          const receivedMs = rawRa > 0 && rawRa < 946684800000 ? rawRa * 1000 : (rawRa || now);
+          const receivedMs = m.receivedAt || now;
           const frozen = m.frozen === true;
           // Frozen emails never decay; use per-message decayDays if available, else account default
-          // Imago/Agent accounts have acctDecayDays = null (no decay)
-          const msgDecayDays = m.decayDays ?? acctDecayDays; // No fallback - null means no decay
-          const hasDecay = msgDecayDays !== null && msgDecayDays > 0;
-          const decayMs = hasDecay ? msgDecayDays * 24 * 60 * 60 * 1000 : 0;
+          const msgDecayDays = m.decayDays ?? acctDecayDays ?? 8;
+          const decayMs = msgDecayDays * 24 * 60 * 60 * 1000;
           const ageMs = now - receivedMs;
 
           return {
@@ -103,10 +97,10 @@ export async function GET(req: NextRequest) {
             type: m.type || '',
             contentHash: m.envelope?.contentHash || m.plaintextHash || '',
             frozen,
-            decayDays: frozen || !hasDecay ? null : msgDecayDays,
-            decayPct: frozen || !hasDecay ? 0 : Math.min(100, Math.round((ageMs / decayMs) * 100)),
-            expiresAt: frozen || !hasDecay ? null : new Date(receivedMs + decayMs).toISOString(),
-            expired: !frozen && hasDecay && ageMs >= decayMs,
+            decayDays: frozen ? null : msgDecayDays,
+            decayPct: frozen ? 0 : Math.min(100, Math.round((ageMs / decayMs) * 100)),
+            expiresAt: frozen ? null : new Date(receivedMs + decayMs).toISOString(),
+            expired: !frozen && ageMs >= decayMs,
           };
         });
       } else {

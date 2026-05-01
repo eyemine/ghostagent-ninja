@@ -1,5 +1,4 @@
 [build]
-  base = "apps/nftmailbox"
   command = "npm run build"
   publish = ".next"
 

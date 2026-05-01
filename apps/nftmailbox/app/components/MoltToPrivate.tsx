@@ -43,7 +43,7 @@ export function MoltToPrivate({ name, walletAddress, onMolted }: MoltToPrivatePr
         body: JSON.stringify({ name, signature, newTld: 'vault.gno' }),
       });
 
-      const data = await res.json() as { error?: string };
+      const data = await res.json();
       if (res.ok) {
         setResult(`Molted. ${name} is now Sovereign (vault.gno). Public audit log terminated.`);
         onMolted?.();

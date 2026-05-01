@@ -5,6 +5,20 @@ import { PropsWithChildren, useEffect, useState } from 'react';
 
 const PRIVY_APP_ID = process.env.NEXT_PUBLIC_PRIVY_APP_ID?.trim();
 
+const ETHEREUM_MAINNET = {
+  id: 1,
+  name: 'Ethereum',
+  network: 'homestead',
+  nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+  rpcUrls: {
+    default: { http: ['https://eth.llamarpc.com'] },
+    public:  { http: ['https://eth.llamarpc.com'] },
+  },
+  blockExplorers: {
+    default: { name: 'Etherscan', url: 'https://etherscan.io' },
+  },
+} as const;
+
 const GNOSIS_CHAIN = {
   id: 100,
   name: 'Gnosis',
@@ -69,8 +83,8 @@ export function Providers({ children }: PropsWithChildren) {
           createOnLogin: 'users-without-wallets',
           noPromptOnSignature: false,
         },
-        defaultChain: GNOSIS_CHAIN,
-        supportedChains: [GNOSIS_CHAIN],
+        defaultChain: ETHEREUM_MAINNET,
+        supportedChains: [ETHEREUM_MAINNET, GNOSIS_CHAIN],
       }}
     >
       {children}

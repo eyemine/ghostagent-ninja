@@ -180,6 +180,88 @@ export async function verifyXDAIPayment(
   };
 }
 
+/// Auto-detect a recent xDAI payment from ownerWallet to treasury (no tx hash needed).
+/// Uses Gnosisscan API to scan the last 100 transactions to the treasury.
+export async function autoDetectXDAIPayment(
+  ownerWallet: string,
+  tier: string,
+): Promise<PaymentVerificationResult> {
+  const expectedMinValue = TIER_PRICES_XDAI[tier];
+  if (!expectedMinValue) return { valid: false, error: `Unknown tier: ${tier}` };
+
+  const apiKey = process.env.GNOSISSCAN_API_KEY || '';
+  const url = `https://api.gnosisscan.io/api?module=account&action=txlist&address=${TREASURY_SAFE}&startblock=0&endblock=99999999&page=1&offset=50&sort=desc&apikey=${apiKey}`;
+
+  let txs: any[];
+  try {
+    const res = await fetch(url, { next: { revalidate: 0 } });
+    const data = await res.json() as any;
+    txs = Array.isArray(data.result) ? data.result : [];
+  } catch {
+    return { valid: false, error: 'Could not reach Gnosisscan. Try again in a moment.' };
+  }
+
+  // Look for a tx from ownerWallet to treasury within the last 15 minutes
+  const cutoff = Math.floor(Date.now() / 1000) - 900;
+  for (const tx of txs) {
+    if (tx.from?.toLowerCase() !== ownerWallet.toLowerCase()) continue;
+    if (Number(tx.timeStamp) < cutoff) continue;
+    if (tx.isError === '1') continue;
+    const value = BigInt(tx.value || '0');
+    if (value < expectedMinValue) continue;
+    // Double-spend check
+    const burned = await isTxHashBurned(tx.hash);
+    if (burned) continue;
+    return {
+      valid: true,
+      txHash: tx.hash,
+      from: tx.from.toLowerCase(),
+      value: (Number(value) / 1e18).toFixed(4),
+      blockNumber: Number(tx.blockNumber),
+    };
+  }
+  return { valid: false, error: 'No matching payment found yet.' };
+}
+
+/// Auto-detect a recent EURe payment from ownerWallet to treasury (no tx hash needed).
+export async function autoDetectEUREPayment(
+  ownerWallet: string,
+  tier: string,
+): Promise<PaymentVerificationResult> {
+  const expectedMinValue = TIER_PRICES_EURE[tier];
+  if (!expectedMinValue) return { valid: false, error: `Unknown tier: ${tier}` };
+
+  const apiKey = process.env.GNOSISSCAN_API_KEY || '';
+  const url = `https://api.gnosisscan.io/api?module=account&action=tokentx&contractaddress=${EURE_CONTRACT}&address=${TREASURY_SAFE}&page=1&offset=50&sort=desc&apikey=${apiKey}`;
+
+  let txs: any[];
+  try {
+    const res = await fetch(url, { next: { revalidate: 0 } });
+    const data = await res.json() as any;
+    txs = Array.isArray(data.result) ? data.result : [];
+  } catch {
+    return { valid: false, error: 'Could not reach Gnosisscan. Try again in a moment.' };
+  }
+
+  const cutoff = Math.floor(Date.now() / 1000) - 900;
+  for (const tx of txs) {
+    if (tx.from?.toLowerCase() !== ownerWallet.toLowerCase()) continue;
+    if (Number(tx.timeStamp) < cutoff) continue;
+    const value = BigInt(tx.value || '0');
+    if (value < expectedMinValue) continue;
+    const burned = await isTxHashBurned(tx.hash);
+    if (burned) continue;
+    return {
+      valid: true,
+      txHash: tx.hash,
+      from: tx.from.toLowerCase(),
+      value: (Number(value) / 1e6).toFixed(2) + ' EURe',
+      blockNumber: Number(tx.blockNumber),
+    };
+  }
+  return { valid: false, error: 'No matching EURe payment found yet.' };
+}
+
 /// Verify an EURe (Gnosis Pay) ERC-20 payment tx on Gnosis chain.
 /// EURe has 6 decimals. We check for a Transfer event from the EURe contract
 /// where `to` == TREASURY_SAFE and `value` >= TIER_PRICES_EURE[tier].

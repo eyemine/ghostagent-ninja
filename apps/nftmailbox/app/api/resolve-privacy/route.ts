@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
       }),
     });
 
-    const data = await res.json() as { privacyEnabled?: boolean; [key: string]: any };
+    const data = await res.json();
     if (!res.ok) {
       return NextResponse.json({ privacyEnabled: false });
     }

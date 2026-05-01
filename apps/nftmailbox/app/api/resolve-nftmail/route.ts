@@ -3,6 +3,7 @@ import { createPublicClient, http, parseAbiItem, decodeAbiParameters } from 'vie
 import { gnosis } from 'viem/chains';
 
 const REGISTRAR = '0x831ddd71e7c33e16b674099129E6E379DA407fAF' as const;
+const WORKER_URL = process.env.NEXT_PUBLIC_WORKER_URL || 'https://nftmail-email-worker.richard-159.workers.dev';
 
 // ERC721 balanceOf + ownerOf
 const erc721Abi = [
@@ -66,8 +67,26 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid address' }, { status: 400 });
     }
 
+    // Primary: KV controller lookup — works for EOA, TBA-held, and Safe-held NFTs
+    try {
+      const kvRes = await fetch(WORKER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'listNftmailByController', controller: address }),
+      });
+      if (kvRes.ok) {
+        const kvData = await kvRes.json() as { names?: { name: string; email: string; gnoName: string; tokenId: number | null }[]; error?: string };
+        if (!kvData.error && (kvData.names?.length ?? 0) > 0) {
+          return NextResponse.json({
+            names: kvData.names!.map(n => ({ tokenId: n.tokenId, label: n.name, email: n.email, gnoName: n.gnoName })),
+          });
+        }
+      }
+    } catch { /* fall through to on-chain scan */ }
+
     const addr = address as `0x${string}`;
 
+    // Fallback: on-chain ownerOf scan for direct NFT holders (social/embedded wallets)
     // Get total supply to know how many tokens exist
     const nextTokenId = await publicClient.readContract({
       address: REGISTRAR,
@@ -149,11 +168,9 @@ export async function GET(req: NextRequest) {
     }
 
     return NextResponse.json({ names });
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Failed to resolve NFTMail names';
     console.error('resolve-nftmail error:', err);
-    return NextResponse.json(
-      { error: err?.message || 'Failed to resolve NFTMail names' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

@@ -46,6 +46,7 @@ export async function POST(req: NextRequest) {
     } else {
       form.set('text', content || '');
     }
+    form.set('h:X-NFTMail-Origin', 'human-operated');
 
     const res = await fetch(`${MAILGUN_API_BASE}/${MAILGUN_DOMAIN}/messages`, {
       method: 'POST',

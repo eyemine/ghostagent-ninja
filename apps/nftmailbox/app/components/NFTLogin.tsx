@@ -98,7 +98,7 @@ export function NFTLogin() {
     setScanningNfts(true);
     try {
       const res = await fetch(`/api/scan-wallet-nfts?address=${address}`);
-      const data = await res.json() as { nfts?: any[] };
+      const data = await res.json();
       if (data.nfts && Array.isArray(data.nfts)) {
         const newRows: NftRow[] = (data.nfts as any[])
           .filter((n: any) => n.type !== 'ens') // ENS already in rows via resolveEns

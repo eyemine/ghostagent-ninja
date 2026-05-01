@@ -37,43 +37,39 @@ export default function Home() {
         {/* Header */}
         <header className="flex w-full items-center justify-between">
           <div className="flex items-center gap-2">
-            <Image src="/nftmail-logo.png" alt="NFTMail" width={36} height={36} className="opacity-95 md:w-12 md:h-12" />
-            <span className="flex items-center gap-1.5">
-              <span style={{ fontFamily: "'Ayuthaya", serif", color: '#d8d4cf' }} className="text-sm tracking-wide md:text-base">nftmail.box</span>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/beta-badge.svg" alt="beta" style={{ height: '0.6rem', width: 'auto', opacity: 0.85 }} />
-            </span>
+            <Image src="/nftmail-logo.png" alt="NFTMail" width={48} height={48} className="opacity-95" />
+            <span style={{ fontFamily: "'Ayuthaya', serif", color: '#d8d4cf' }} className="text-base tracking-wide">nftmail.box</span>
+            <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[9px] font-bold tracking-wider text-amber-300 ring-1 ring-amber-500/30">BETA</span>
           </div>
           <div className="flex items-center gap-3">
             <a
               href="https://ghostagent.ninja"
               target="_blank"
               rel="noopener noreferrer"
-              style={{ backgroundColor: '#0a0a0a', fontFamily: "'Ayuthaya', serif" }}
-              className="rounded-full border border-[rgba(220,40,40,0.35)] px-4 py-2 text-xs font-semibold tracking-wider text-[#d8d4cf] transition hover:brightness-125"
+              style={{ backgroundColor: '#150903' }}
+              className="rounded-full border border-[rgba(255,120,40,0.25)] px-4 py-2 text-xs font-semibold text-[#d8d4cf] transition hover:brightness-125"
             >
-              GHOSTAGENT.NINJA
+              GhostAgent.ninja
             </a>
           </div>
         </header>
 
         {/* Hero */}
         <section className="text-center">
-          <h1 style={{ fontFamily: "'Ayuthaya", serif", color: '#d8d4cf' }} className="text-3xl md:text-5xl font-bold tracking-tight flex flex-col md:flex-row items-center justify-center gap-2 md:gap-3">
-            nftmail.box
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/beta-badge.svg" alt="beta" style={{ height: '1rem', width: 'auto', opacity: 0.85, marginTop: '0.2rem' }} className="md:mt-0.4" />
-          </h1>
+          <h1 style={{ fontFamily: "'Ayuthaya', serif", color: '#d8d4cf' }} className="text-5xl font-bold tracking-tight">nftmail.box</h1>
           <p className="mx-auto mt-3 max-w-md text-sm text-[var(--muted)]">
-            Claim a free email inbox. No credit card. No personal data.
+            Sovereign email identity on Gnosis. Mint, read, or check any inbox.
           </p>
         </section>
 
-        {/* Check an Inbox */}
+        {/* Already have account — yopmail-style lookup */}
         <section className="w-full max-w-lg">
           <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6">
-            <h2 className="text-base font-semibold text-white mb-4">Check an Inbox</h2>
-            <form onSubmit={handleLookup} className="flex flex-col sm:flex-row gap-2 mb-4">
+            <h2 className="text-sm font-semibold text-white mb-1">Already have an account?</h2>
+            <p className="text-xs text-[var(--muted)] mb-4">
+              Enter your name to check your inbox — connected wallet required to read private inbox.
+            </p>
+            <form onSubmit={handleLookup} className="flex gap-2">
               <div className="relative flex-1">
                 <input
                   type="text"
@@ -82,7 +78,7 @@ export default function Home() {
                     setEmailInput(e.target.value.toLowerCase());
                     setError('');
                   }}
-                  placeholder="yourname"
+                  placeholder="ghost.agent"
                   className="w-full rounded-lg border border-[var(--border)] bg-black/40 px-3 py-2.5 pr-28 text-sm text-white placeholder-zinc-600 outline-none focus:border-[rgba(0,163,255,0.5)] transition"
                 />
                 <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[var(--muted)]">
@@ -91,69 +87,81 @@ export default function Home() {
               </div>
               <button
                 type="submit"
-                className="rounded-lg bg-[rgba(0,163,255,0.12)] border border-[rgba(0,163,255,0.3)] px-5 py-2.5 text-xs font-semibold text-[rgb(160,220,255)] transition hover:bg-[rgba(0,163,255,0.2)] sm:w-auto w-full"
+                className="rounded-lg bg-[rgba(0,163,255,0.12)] px-5 py-2.5 text-xs font-semibold text-[rgb(160,220,255)] transition hover:bg-[rgba(0,163,255,0.2)] border border-[rgba(0,163,255,0.3)]"
               >
-                Check &rarr;
+                Go →
               </button>
             </form>
-            {error && <p className="mt-2 text-xs text-red-400">{error}</p>}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pt-4 border-t border-[var(--border)]">
-              <p className="text-[10px] text-[var(--muted)]">Manage all your inboxes</p>
-              <Link 
-                href="/dashboard" 
-                className="px-4 py-2 text-xs font-semibold text-white bg-[rgba(0,163,255,0.12)] border border-[rgba(0,163,255,0.3)] rounded-lg hover:bg-[rgba(0,163,255,0.2)] transition text-center sm:w-auto w-full"
+            {error && (
+              <p className="mt-2 text-xs text-red-400">{error}</p>
+            )}
+            <p className="mt-3 text-[10px] text-[var(--muted)]">
+              Try: <button type="button" onClick={() => { setEmailInput('eyemine_'); }} className="text-violet-300 hover:underline">eyemine_</button> (Glass Box)
+              {' · '}
+              <button type="button" onClick={() => { setEmailInput('agent_molt'); }} className="text-[rgb(160,220,255)] hover:underline">agent_molt</button>
+            </p>
+            <div className="mt-4 flex items-center justify-between border-t border-[var(--border)] pt-4">
+              <p className="text-[10px] text-[var(--muted)]">Manage all your inboxes in one place</p>
+              <Link
+                href="/dashboard"
+                className="rounded-lg border border-[var(--border)] bg-black/20 px-4 py-2 text-xs font-semibold text-[var(--foreground)] transition hover:bg-black/30"
               >
-                Your Dashboard &rarr;
+                Dashboard →
               </Link>
             </div>
           </div>
         </section>
 
-        {/* Primary CTA — claim inbox */}
+        {/* Divider */}
+        <div className="flex w-full max-w-lg items-center gap-4">
+          <div className="h-px flex-1 bg-[var(--border)]" />
+          <span className="text-[10px] font-semibold tracking-wider text-[var(--muted)]">OR</span>
+          <div className="h-px flex-1 bg-[var(--border)]" />
+        </div>
+
+        {/* Mint or Upgrade */}
         <section className="w-full max-w-lg">
-          <div className="rounded-2xl border border-[rgba(0,163,255,0.25)] bg-[var(--card)] p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="text-xs font-semibold text-emerald-300">Free — no wallet required to start*</span>
-            </div>
-            <h2 className="text-base font-semibold text-white mb-1">Get your inbox</h2>
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6 text-center">
+            <h2 className="text-sm font-semibold text-white mb-1">New here?</h2>
             <p className="text-xs text-[var(--muted)] mb-4">
-              Choose a name. Your address will be <span className="text-[rgb(160,220,255)]">you@nftmail.box</span>
+              Mint a free NFTmail inbox address — no gas needed. Upgrade to paid for a Gnosis Safe wallet and hardened security.
             </p>
-            <div className="flex gap-2 mb-3">
-              <a
+            <div className="flex gap-3 justify-center">
+              <Link
                 href="/nftmail"
-                className="flex-1 rounded-lg bg-[rgba(0,163,255,0.15)] border border-[rgba(0,163,255,0.35)] px-5 py-3 text-sm font-semibold text-[rgb(160,220,255)] text-center hover:bg-[rgba(0,163,255,0.25)] transition"
+                className="rounded-lg bg-emerald-500/12 px-6 py-2.5 text-xs font-semibold text-emerald-300 border border-emerald-500/30 transition hover:bg-emerald-500/20"
               >
-                Claim inbox →
-              </a>
-              <a
-                href="/sdk"
-                className="rounded-lg border border-[var(--border)] bg-black/20 px-4 py-3 text-xs font-semibold hover:bg-black/30 hover:text-white transition"
-                style={{ color: '#8ee4ba' }}
-              >
-                API / SDK*
-              </a>
-            </div>
-            <div className="flex items-center gap-4 pt-3 border-t border-[var(--border)]">
-              {[['✓', 'Receive email'], ['✓', 'Send 10 free'], ['✓', '8-day history']].map(([tick, label]) => (
-                <span key={label} className="text-[10px] text-[var(--muted)]"><span className="text-emerald-400">{tick}</span> {label}</span>
-              ))}
+                Mint NFTmail — Free
+              </Link>
             </div>
           </div>
         </section>
 
-        
-        <footer className="text-center text-xs text-[var(--muted)] space-y-1">
-          <p className="text-[9px] text-[var(--muted)] opacity-70">*Free trial via cURL/npx or ENS wallet. Permanent inbox requires NFT mint.</p>
-          <p>nftmail.box — Sovereign email for agents and humans</p>
-          <div className="flex items-center justify-center gap-3 text-[9px] opacity-60">
-            <a href="/terms" className="hover:opacity-100 transition">Terms of Use</a>
-            <span>·</span>
-            <a href="/privacy" className="hover:opacity-100 transition">Privacy Notice</a>
-            <span>·</span>
-            <span>© 2026 Ghost Agent Pty Ltd</span>
-          </div>
+        {/* Feature pills */}
+        <div className="flex flex-wrap justify-center gap-2">
+          {[
+            { label: 'Free Tier', color: 'emerald' },
+            { label: '8-Day History', color: 'blue' },
+            { label: 'Glass Box Agents', color: 'violet' },
+            { label: 'Sovereign Kill-Switch', color: 'red' },
+            { label: 'Encrypted XMTP', color: 'emerald' },
+          ].map((f) => (
+            <span
+              key={f.label}
+              className={`rounded-full px-3 py-1 text-[10px] font-semibold ring-1 ${
+                f.color === 'emerald' ? 'bg-emerald-500/10 text-emerald-300 ring-emerald-500/20' :
+                f.color === 'blue' ? 'bg-[rgba(0,163,255,0.08)] text-[rgb(160,220,255)] ring-[rgba(0,163,255,0.2)]' :
+                f.color === 'violet' ? 'bg-violet-500/10 text-violet-300 ring-violet-500/20' :
+                'bg-red-500/10 text-red-300 ring-red-500/20'
+              }`}
+            >
+              {f.label}
+            </span>
+          ))}
+        </div>
+
+        <footer className="text-center text-xs text-[var(--muted)]">
+          nftmail.box — Privacy is a Right, Sovereignty is an Upgrade
         </footer>
       </div>
     </div>

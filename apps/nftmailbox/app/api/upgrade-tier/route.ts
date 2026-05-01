@@ -19,7 +19,7 @@ import {
 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { gnosis } from 'viem/chains';
-import { verifyXDAIPayment, verifyEUREPayment, burnTxHash, TIER_PRICES_USD, TIER_PRICES_EURE } from '../../lib/payments';
+import { verifyXDAIPayment, verifyEUREPayment, autoDetectXDAIPayment, autoDetectEUREPayment, burnTxHash, TIER_PRICES_USD, TIER_PRICES_EURE } from '../../lib/payments';
 
 const NFTMAIL_WORKER_URL = process.env.NFTMAIL_WORKER_URL || 'https://nftmail-email-worker.richard-159.workers.dev';
 
@@ -85,9 +85,10 @@ export async function POST(req: NextRequest) {
       paymentTxHash?: string;
       paymentToken?: 'xdai' | 'eure'; // default: 'xdai'
       legacyIdentity?: string;
+      autoDetect?: boolean;
     };
 
-    const { label, ownerWallet, newTier, paymentTxHash, paymentToken = 'xdai', legacyIdentity } = body;
+    const { label, ownerWallet, newTier, paymentTxHash, paymentToken = 'xdai', legacyIdentity, autoDetect } = body;
 
     if (!label || typeof label !== 'string') {
       return NextResponse.json({ error: 'Missing label' }, { status: 400 });
@@ -101,24 +102,36 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'newTier must be lite, pro, or ghost' }, { status: 400 });
     }
 
-    // ── Payment gate: verify on-chain tx (xDAI native or EURe ERC-20) ──
+    // ── Payment gate ──
     const eurePrice = TIER_PRICES_EURE[normalisedTier];
     const xdaiPrice = TIER_PRICES_USD[normalisedTier];
-    if (!paymentTxHash) {
-      return NextResponse.json({
-        error: `Payment required for ${normalisedTier} tier`,
-        requiredXDAI: xdaiPrice,
-        requiredEURE: eurePrice ? (Number(eurePrice) / 1e6).toFixed(2) : undefined,
-        treasurySafe: process.env.TREASURY_SAFE_ADDRESS || '0xb7e493e3d226f8fE722CC9916fF164B793af13F4',
-        tier: normalisedTier,
-      }, { status: 402 });
-    }
 
-    const payment = paymentToken === 'eure'
-      ? await verifyEUREPayment(paymentTxHash, normalisedTier)
-      : await verifyXDAIPayment(paymentTxHash, normalisedTier);
-    if (!payment.valid) {
-      return NextResponse.json({ error: payment.error }, { status: 402 });
+    let payment;
+    if (autoDetect) {
+      // Auto-detect mode: scan Gnosisscan for a recent payment from ownerWallet
+      payment = paymentToken === 'eure'
+        ? await autoDetectEUREPayment(ownerWallet, normalisedTier)
+        : await autoDetectXDAIPayment(ownerWallet, normalisedTier);
+      if (!payment.valid) {
+        // Return 404 so the poller knows to keep trying (not a fatal error)
+        return NextResponse.json({ error: payment.error, polling: true }, { status: 404 });
+      }
+    } else {
+      if (!paymentTxHash) {
+        return NextResponse.json({
+          error: `Payment required for ${normalisedTier} tier`,
+          requiredXDAI: xdaiPrice,
+          requiredEURE: eurePrice ? (Number(eurePrice) / 1e6).toFixed(2) : undefined,
+          treasurySafe: process.env.TREASURY_SAFE_ADDRESS || '0xb7e493e3d226f8fE722CC9916fF164B793af13F4',
+          tier: normalisedTier,
+        }, { status: 402 });
+      }
+      payment = paymentToken === 'eure'
+        ? await verifyEUREPayment(paymentTxHash, normalisedTier)
+        : await verifyXDAIPayment(paymentTxHash, normalisedTier);
+      if (!payment.valid) {
+        return NextResponse.json({ error: payment.error }, { status: 402 });
+      }
     }
 
     let safeAddress: string | null = null;
@@ -208,7 +221,8 @@ export async function POST(req: NextRequest) {
     }
 
     // Burn txHash to prevent double-spend — non-fatal, do after upgrade succeeds
-    await burnTxHash(paymentTxHash, label, normalisedTier);
+    const resolvedTxHash = payment.txHash || paymentTxHash;
+    if (resolvedTxHash) await burnTxHash(resolvedTxHash, label, normalisedTier);
 
     return NextResponse.json({
       success: true,

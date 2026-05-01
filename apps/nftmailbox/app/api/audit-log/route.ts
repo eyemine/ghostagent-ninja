@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
       }),
     });
 
-    const data = await res.json() as Record<string, any>;
+    const data = await res.json();
     return NextResponse.json(data);
   } catch (err: any) {
     return NextResponse.json({ error: err?.message || 'Internal error' }, { status: 500 });

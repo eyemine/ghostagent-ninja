@@ -2,41 +2,39 @@
 
 import { useState, useEffect } from 'react';
 
-// Canary timestamp is written to KV by the Cloudflare Worker cron (every 5 min).
-// Reading from the worker eliminates hourly git commits that triggered Netlify deploys.
-const WORKER_URL = 'https://nftmail-email-worker.richard-159.workers.dev';
+const CANARY_FILE_URL = '/api/canary';
 
 export function WarrantCanary() {
-  const [lastAlive, setLastAlive] = useState<number | null>(null);
-  const [alive, setAlive]         = useState(true);
-  const [loading, setLoading]     = useState(true);
+  const [lastChecked, setLastChecked] = useState<string | null>(null);
+  const [alive, setAlive] = useState(true);
 
   useEffect(() => {
     async function fetchCanary() {
       try {
-        const res = await fetch(WORKER_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'getCanary' }),
-        });
-        if (!res.ok) { setAlive(false); return; }
-        const data = await res.json() as { alive: boolean; lastAlive: number | null };
-        setAlive(data.alive);
-        setLastAlive(data.lastAlive);
+        const res = await fetch(CANARY_FILE_URL, { cache: 'no-store' });
+        if (!res.ok) {
+          setAlive(false);
+          return;
+        }
+        const data = await res.json() as { alive: boolean; timestamp: string };
+        setLastChecked(data.timestamp);
+        setAlive(data.alive === true);
       } catch {
-        // Network failure — keep alive=true, show last known
-      } finally {
-        setLoading(false);
+        // If fetch fails, show last known state
+        setLastChecked(new Date().toISOString());
       }
     }
     fetchCanary();
   }, []);
 
-  const ts = lastAlive
-    ? new Date(lastAlive).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })
-    : loading ? 'checking...' : 'unknown';
+  const ts = lastChecked
+    ? new Date(lastChecked).toLocaleString('en-US', {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+      })
+    : 'checking...';
 
-  if (!loading && !alive) {
+  if (!alive) {
     return (
       <div className="rounded-lg border border-red-500/30 bg-red-500/5 px-4 py-2.5">
         <div className="flex items-center gap-2">

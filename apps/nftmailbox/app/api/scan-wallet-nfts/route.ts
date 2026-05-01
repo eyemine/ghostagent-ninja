@@ -129,11 +129,6 @@ export async function GET(req: NextRequest) {
     const seenEmails = new Set<string>();
     const nfts: WalletNft[] = [];
 
-    // ── MVP: ENS only ──────────────────────────────────────────────────────────
-    // Verified collection scanning (Atom/Chonk/Normie/Punk/CryptoPunk/MoonCat)
-    // is deferred until post-hackathon. See VERIFIED_COLLECTIONS above.
-    // ──────────────────────────────────────────────────────────────────────────
-
     const ethClient = createPublicClient({ chain: mainnet, transport: http(ETH_RPC) });
 
     // Run primary reverse-resolve + subgraph lookup in parallel, 4s timeout each
@@ -167,6 +162,63 @@ export async function GET(req: NextRequest) {
         seenEmails.add(email);
       }
     }
+
+    // 3. Verified NFT collections — scan each for holdings (up to 5 tokens each)
+    const collectionPromises = VERIFIED_COLLECTIONS.map(async (coll) => {
+      try {
+        const { createPublicClient: mkClient, http: mkHttp } = await import('viem');
+        const chain = coll.chainId === 8453
+          ? (await import('viem/chains')).base
+          : (await import('viem/chains')).mainnet;
+        const client = mkClient({ chain, transport: mkHttp(coll.rpcUrl) });
+
+        const balance = await withTimeout(
+          client.readContract({
+            address: coll.contractAddress as `0x${string}`,
+            abi: erc721Abi,
+            functionName: 'balanceOf',
+            args: [addr],
+          }),
+          4000
+        );
+        if (!balance || balance === BigInt(0)) return;
+
+        const count = Math.min(Number(balance), 5);
+        const tokenPromises = Array.from({ length: count }, (_, i) =>
+          withTimeout(
+            client.readContract({
+              address: coll.contractAddress as `0x${string}`,
+              abi: erc721Abi,
+              functionName: 'tokenOfOwnerByIndex',
+              args: [addr, BigInt(i)],
+            }),
+            4000
+          )
+        );
+        const tokenIds = await Promise.all(tokenPromises);
+
+        for (const tokenId of tokenIds) {
+          if (tokenId === null || tokenId === undefined) continue;
+          const tid = String(tokenId);
+          const email = `${coll.name}.${tid}@nftmail.box`;
+          if (!seenEmails.has(email)) {
+            nfts.push({
+              type: 'collection',
+              name: coll.name,
+              displayName: `${coll.displayName} #${tid}`,
+              email,
+              tokenId: tid,
+              collection: coll.name,
+            });
+            seenEmails.add(email);
+          }
+        }
+      } catch {
+        // Best-effort — skip failed collections
+      }
+    });
+
+    await Promise.allSettled(collectionPromises);
 
     return NextResponse.json({
       address: addr,

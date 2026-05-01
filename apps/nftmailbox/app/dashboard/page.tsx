@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { usePrivy } from '@privy-io/react-auth';
 import Link from 'next/link';
@@ -88,7 +88,6 @@ export default function DashboardPage() {
   // Kill-switch state
   const [burning, setBurning] = useState(false);
   const [burnResult, setBurnResult] = useState<string | null>(null);
-  const [burnScope, setBurnScope] = useState<'messages' | 'full'>('messages');
 
   // Privacy toggle state
   const [privacyEnabled, setPrivacyEnabled] = useState(false);
@@ -96,14 +95,6 @@ export default function DashboardPage() {
 
   const searchParams = useSearchParams();
   const emailParam = searchParams?.get('email') || null;
-  const walletParam = searchParams?.get('wallet') || null;
-
-  // Auto-connect wallet if param provided and not authenticated
-  useEffect(() => {
-    if (ready && !authenticated && walletParam) {
-      login();
-    }
-  }, [ready, authenticated, walletParam, login]);
 
   // Derive wallet address safely from Privy session (avoids useWallets() crash)
   const walletAddress = user?.wallet?.address ||
@@ -218,7 +209,6 @@ export default function DashboardPage() {
           toAddress: composeTo,
           subject: composeSubject,
           content: composeBody,
-          ownerWallet: walletAddress,
         }),
       });
       const data = await res.json() as { error?: string };
@@ -234,36 +224,32 @@ export default function DashboardPage() {
     }
   };
 
-  // Sovereign Kill-Switch: burn inbox messages or full agent identity
-  const handleBurn = async (scope: 'messages' | 'full' = burnScope) => {
+  // Sovereign Kill-Switch: burn all encrypted history
+  const handleBurn = async () => {
     if (!selectedName || !preferredWallet) return;
     setBurning(true);
     setBurnResult(null);
     try {
+      // Request signature from wallet to authorise the burn
       const provider = await preferredWallet.getEthereumProvider();
-      const scopeLabel = scope === 'full' ? 'ALL IDENTITY DATA AND' : '';
-      const message = `SOVEREIGN BURN: Permanently delete ${scopeLabel} all inbox data for ${selectedName.email} at ${new Date().toISOString()}`;
+      const message = `SOVEREIGN BURN: Permanently delete all inbox data for ${selectedName.email} at ${new Date().toISOString()}`;
       const signature = await provider.request({
         method: 'personal_sign',
         params: [message, preferredWallet.address],
       });
 
-      const res = await fetch('/api/burn', {
+      const res = await fetch(WORKER_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          action: 'purgeInbox',
           localPart: selectedName.label,
           signature,
-          scope,
         }),
       });
-      const data = await res.json() as { error?: string; messagesDeleted?: number; identityKeysDeleted?: string[]; scope?: string };
+      const data = await res.json() as { error?: string; messagesDeleted?: number };
       if (!res.ok) throw new Error(data.error || 'Burn failed');
-      const idCount = data.identityKeysDeleted?.length ?? 0;
-      const summary = scope === 'full'
-        ? `Purged ${data.messagesDeleted} messages + ${idCount} identity keys. Full sovereign burn complete.`
-        : `Purged ${data.messagesDeleted} messages. Sovereign burn complete.`;
-      setBurnResult(summary);
+      setBurnResult(`Purged ${data.messagesDeleted} messages. Sovereign burn complete.`);
       setMessages([]);
       setSelectedMessage(null);
     } catch (err: any) {
@@ -278,8 +264,9 @@ export default function DashboardPage() {
   };
 
   const formatTimeAgo = (ts: string) => {
-    // Handle both ISO strings and numeric timestamps
-    const epoch = Date.parse(ts) || parseInt(ts, 10) || Date.now();
+    const raw = parseInt(ts, 10);
+    // Unix seconds if < 1e11 (year ~5138), else treat as ms or ISO string
+    const epoch = !isNaN(raw) ? (raw < 1e11 ? raw * 1000 : raw) : (Date.parse(ts) || Date.now());
     const ms = Date.now() - epoch;
     const mins = Math.floor(ms / 60000);
     if (mins < 60) return `${mins}m ago`;
@@ -295,8 +282,8 @@ export default function DashboardPage() {
     return 'bg-red-500';
   };
 
-  const isAgentAlias = selectedName?.label?.endsWith('_') || false;
-  const canSend = inboxTier === 'premium' || inboxTier === 'ghost' || inboxTier === 'lite' || isAgentAlias;
+  const isAgent = selectedName?.label.endsWith('_') ?? false;
+  const canSend = isAgent || inboxTier === 'premium' || inboxTier === 'ghost' || inboxTier === 'lite';
   const isImago = inboxTier === 'premium' || inboxTier === 'ghost';
 
   if (!ready) return null;
@@ -388,29 +375,17 @@ export default function DashboardPage() {
                   {isImago ? 'IMAGO' : canSend ? 'PUPA' : 'LARVA'}
                 </span>
               )}
-              {selectedName && (
-                <a
-                  href={`/inbox/${selectedName.label}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="ml-auto rounded-lg border border-[var(--border)] bg-black/20 px-3 py-2 text-xs font-semibold text-[var(--muted)] hover:text-white hover:border-white/20 transition flex items-center gap-1.5"
-                >
-                  <span>View Public Inbox</span>
-                  <span className="text-[10px] opacity-60">opens in new tab</span>
-                </a>
-              )}
             </div>
 
-            {/* Privacy toggle — agent accounts and _ aliases only (human emails are always private) */}
-            {selectedName && preferredWallet && (selectedName.label.endsWith('.agent') || selectedName.label.endsWith('_') || selectedName.email.includes('.agent@')) && (
+            {/* Privacy toggle — agent accounts only */}
+            {selectedName && preferredWallet && selectedName.label.endsWith('_') && (
               <TogglePrivacy
                 name={selectedName.label}
                 walletAddress={preferredWallet.address}
-                isImago={isImago}
                 onPrivacyChange={(enabled: boolean) => { setPrivacyEnabled(enabled); setPrivacyTier(enabled ? 'private' : 'exposed'); }}
               />
             )}
-            {selectedName && preferredWallet && (
+            {selectedName && preferredWallet && selectedName.label.endsWith('_') && (
               <MoltToPrivate name={selectedName.label} walletAddress={preferredWallet.address} onMolted={() => setPrivacyEnabled(true)} />
             )}
 
@@ -423,10 +398,11 @@ export default function DashboardPage() {
                 Inbox{messages.length > 0 ? ` (${messages.length})` : ''}
               </button>
               <button
-                onClick={() => setTab('compose')}
-                className={`flex-1 rounded-md px-4 py-2 text-xs font-semibold transition ${tab === 'compose' ? 'bg-violet-500/12 text-violet-300' : 'text-[var(--muted)] hover:text-white/60'}`}
+                onClick={() => canSend && setTab('compose')}
+                title={!canSend ? 'Molt to PUPA to unlock sending' : undefined}
+                className={`flex-1 rounded-md px-4 py-2 text-xs font-semibold transition ${tab === 'compose' ? 'bg-violet-500/12 text-violet-300' : canSend ? 'text-[var(--muted)] hover:text-white/60' : 'cursor-not-allowed opacity-40 text-[var(--muted)]'}`}
               >
-                Compose {canSend && <span className={`ml-1 rounded-full px-1.5 py-0.5 text-[9px] ring-1 ${isImago ? 'bg-violet-500/10 text-violet-300 ring-violet-500/20' : 'bg-amber-500/10 text-amber-300 ring-amber-500/20'}`}>{isImago ? 'IMAGO' : 'PUPA'}</span>}
+                Compose <span className={`ml-1 rounded-full px-1.5 py-0.5 text-[9px] ring-1 ${isImago ? 'bg-violet-500/10 text-violet-300 ring-violet-500/20' : 'bg-zinc-500/10 text-zinc-400 ring-zinc-500/20'}`}>{isImago ? 'IMAGO' : 'PUPA+'}</span>
               </button>
               <button
                 onClick={() => setTab('killswitch')}
@@ -543,7 +519,7 @@ export default function DashboardPage() {
                         {/* View mode bar + action buttons */}
                         <div className="flex items-center justify-between border-b border-[var(--border)] bg-black/10 px-3 py-1.5">
                           <div className="flex items-center gap-0.5">
-                            {((['text', ...(selectedMessage?.bodyHtml ? ['html'] : []), 'headers','source']) as ViewMode[]).map(m => (
+                            {(['text','html','headers','source'] as ViewMode[]).map(m => (
                               <button key={m} onClick={() => setViewMode(m)} className={`rounded px-2.5 py-1 text-[10px] font-medium transition capitalize ${viewMode === m ? 'bg-white/10 text-white' : 'text-[var(--muted)] hover:text-white'}`}>{m}</button>
                             ))}
                           </div>
@@ -601,10 +577,20 @@ export default function DashboardPage() {
                               <p className="text-sm text-violet-300">End-to-end encrypted</p>
                               <p className="text-[11px] text-[var(--muted)] text-center">This message is encrypted with your ECIES public key.</p>
                             </div>
-                          ) : viewMode === 'html' && selectedMessage.bodyHtml ? (
-                            <iframe srcDoc={selectedMessage.bodyHtml} sandbox="allow-same-origin" className="w-full min-h-[300px] bg-white rounded" style={{ border: 'none' }} title="Email HTML" />
                           ) : viewMode === 'text' ? (
                             <pre className="whitespace-pre-wrap font-sans text-xs text-zinc-200 leading-relaxed">{selectedMessage.body || selectedMessage.summary || '(empty)'}</pre>
+                          ) : viewMode === 'html' ? (
+                            selectedMessage.bodyHtml ? (
+                              <iframe
+                                srcDoc={selectedMessage.bodyHtml}
+                                sandbox="allow-popups allow-popups-to-escape-sandbox"
+                                className="w-full border-0 bg-white rounded"
+                                style={{ minHeight: '320px' }}
+                                title="email-html"
+                              />
+                            ) : (
+                              <p className="text-xs text-[var(--muted)] py-4 text-center">No HTML content available for this message.</p>
+                            )
                           ) : viewMode === 'headers' ? (
                             <div className="space-y-1.5 font-mono text-[11px]">
                               {[['Message-ID', selectedMessage.messageId],['From', selectedMessage.sender],['To', selectedName?.email || ''],['Subject', selectedMessage.subject],['Date', selectedMessage.receivedTime],['Decay', `${selectedMessage.decayPct}%`],['Expires', selectedMessage.expiresAt || 'never']].map(([k,v]) => (
@@ -622,6 +608,7 @@ export default function DashboardPage() {
                           <rect x="2" y="6" width="20" height="12" rx="2" /><path d="M22 8l-10 5L2 8" />
                         </svg>
                         <p className="text-sm text-[var(--muted)]">Select a message to read</p>
+                        <Link href={`/inbox/${encodeURIComponent(selectedName?.email?.replace('@nftmail.box', '') || '')}`} className="mt-1 text-[10px] text-[rgba(0,163,255,0.6)] hover:text-[rgb(160,220,255)] transition">Open full inbox →</Link>
                       </div>
                     )}
                   </div>
@@ -633,18 +620,12 @@ export default function DashboardPage() {
             {tab === 'compose' && (
               <div className="space-y-4">
                 {!canSend && (
-                  <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 px-5 py-4 space-y-3">
+                  <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 px-5 py-4">
                     <div className="flex items-center gap-2">
-                      <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-300 ring-1 ring-amber-500/20">LARVA</span>
-                      <span className="text-sm font-semibold text-white">Sending requires a Pupa or Imago mailbox</span>
+                      <span className="rounded-full bg-violet-500/10 px-2 py-0.5 text-[10px] font-semibold text-violet-300 ring-1 ring-violet-500/20">LARVA</span>
+                      <span className="text-sm text-violet-300">Compose &amp; Send requires a PUPA or IMAGO mailbox</span>
                     </div>
-                    <p className="text-xs text-[var(--muted)]">Molt your inbox to unlock Compose &amp; Send, extended retention, and your on-chain Mirror Body.</p>
-                    <Link
-                      href={`/nftmail?upgrade=${selectedName?.label ?? '1'}`}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-2 text-xs font-semibold text-amber-300 hover:bg-amber-500/20 transition"
-                    >
-                      Molt to Pupa — 10 xDAI →
-                    </Link>
+                    <p className="mt-2 text-xs text-[var(--muted)]">Molt your inbox on the <Link href="/nftmail" className="text-violet-300 hover:underline">mint page</Link> to unlock sending.</p>
                   </div>
                 )}
                 <div className={`rounded-xl border border-[var(--border)] bg-[var(--card)] p-5 space-y-4 ${!canSend ? 'opacity-50 pointer-events-none' : ''}`}>
@@ -683,36 +664,9 @@ export default function DashboardPage() {
                     </svg>
                     <h3 className="text-sm font-semibold text-red-300">Sovereign Kill-Switch</h3>
                   </div>
-
-                  <div className="flex gap-2 mb-4">
-                    <button onClick={() => setBurnScope('messages')} className={`flex-1 rounded-lg border px-3 py-2 text-xs font-semibold transition ${
-                      burnScope === 'messages' ? 'border-red-500/50 bg-red-500/15 text-red-300' : 'border-red-500/15 bg-transparent text-red-400/50 hover:bg-red-500/5'
-                    }`}>Burn Messages</button>
-                    <button onClick={() => setBurnScope('full')} className={`flex-1 rounded-lg border px-3 py-2 text-xs font-semibold transition ${
-                      burnScope === 'full' ? 'border-red-500/50 bg-red-500/15 text-red-300' : 'border-red-500/15 bg-transparent text-red-400/50 hover:bg-red-500/5'
-                    }`}>Full Identity Burn</button>
-                  </div>
-
-                  {burnScope === 'messages' && (
-                    <p className="text-xs text-[var(--muted)] mb-4">Permanently burn all encrypted inbox history. All messages for <span className="text-emerald-300">{selectedName?.email}</span> will be deleted. Identity and routing remain active.</p>
-                  )}
-                  {burnScope === 'full' && (
-                    <div className="mb-4 space-y-2">
-                      <p className="text-xs text-red-400 font-semibold">This will permanently destroy the entire agent identity:</p>
-                      <ul className="text-xs text-[var(--muted)] list-disc ml-4 space-y-0.5">
-                        <li>All inbox messages (encrypted + cleartext)</li>
-                        <li>Agent profile, beacon CID, and audit log</li>
-                        <li>ERC-8004 registration records</li>
-                        <li>Principal and TLD mappings</li>
-                        <li>HITL approval state</li>
-                        <li>Inbox routing (no new mail will be delivered)</li>
-                      </ul>
-                      <p className="text-xs text-red-400">A burn attestation will be recorded for 90 days (detectable by oracles).</p>
-                    </div>
-                  )}
-
-                  <button onClick={() => handleBurn(burnScope)} disabled={burning} className="w-full rounded-lg border border-red-500/35 bg-red-500/8 px-5 py-3 text-xs font-semibold text-red-300 transition hover:bg-red-500/16 hover:shadow-[0_0_24px_rgba(239,68,68,0.12)] disabled:cursor-not-allowed disabled:opacity-40">
-                    {burning ? 'Signing & Burning...' : burnScope === 'full' ? 'Sign & Burn Entire Identity' : 'Sign & Burn All Messages'}
+                  <p className="text-xs text-[var(--muted)] mb-4">Permanently burn all encrypted inbox history. This action is <strong className="text-red-400">irreversible</strong>. All messages for <span className="text-emerald-300">{selectedName?.email}</span> will be deleted.</p>
+                  <button onClick={handleBurn} disabled={burning} className="w-full rounded-lg border border-red-500/35 bg-red-500/8 px-5 py-3 text-xs font-semibold text-red-300 transition hover:bg-red-500/16 hover:shadow-[0_0_24px_rgba(239,68,68,0.12)] disabled:cursor-not-allowed disabled:opacity-40">
+                    {burning ? 'Signing & Burning...' : 'Sign & Burn All Messages'}
                   </button>
                   {burnResult && <p className={`mt-3 text-xs ${burnResult.includes('complete') ? 'text-emerald-400' : 'text-red-400'}`}>{burnResult}</p>}
                 </div>
@@ -730,7 +684,7 @@ export default function DashboardPage() {
         <footer className="mt-auto flex items-center justify-center gap-3 text-xs text-[var(--muted)]">
           <span>nftmail.box dashboard — privacy-first email</span>
           <Link href="/nftmail" className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-[10px] font-semibold text-amber-300 hover:bg-amber-500/20 transition whitespace-nowrap">
-            Upcycle to Imago →
+            Molt to Imago →
           </Link>
         </footer>
       </div>

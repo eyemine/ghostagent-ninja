@@ -8,10 +8,13 @@
 /// Send strategy:
 ///   - All tiers (lite, premium, ghost): Mailgun API, From: label@nftmail.box
 ///     True per-address sending — no relay, no ghostagent@nftmail.box in the envelope.
+///   - Imago (Zoho provisioned seat): send via Zoho directly (calendar/webmail users).
+///     Detected by zoho-seat KV flag set during upgrade provisioning.
 
 import { NextRequest, NextResponse } from 'next/server';
 
 const WORKER_URL = process.env.NFTMAIL_WORKER_URL || 'https://nftmail-email-worker.richard-159.workers.dev';
+const ZOHO_MAIL_API = 'https://mail.zoho.com.au/api';
 const MAILGUN_API_BASE = process.env.MAILGUN_API_BASE || 'https://api.eu.mailgun.net/v3';
 const MAILGUN_DOMAIN = process.env.MAILGUN_DOMAIN || 'mg.nftmail.box';
 
@@ -48,6 +51,29 @@ async function sendViaMailgun(params: {
 
   const data = (await res.json()) as Record<string, unknown>;
   return { messageId: String(data.id || 'sent') };
+}
+
+async function getZohoAccessToken(): Promise<string | null> {
+  const existing = process.env.ZOHO_OAUTH_TOKEN;
+  if (existing) return existing;
+  const accountsDomain = process.env.ZOHO_ACCOUNTS_DOMAIN;
+  const refreshToken = process.env.ZOHO_REFRESH_TOKEN;
+  const clientId = process.env.ZOHO_CLIENT_ID;
+  const clientSecret = process.env.ZOHO_CLIENT_SECRET;
+  if (!accountsDomain || !refreshToken || !clientId || !clientSecret) return null;
+  const form = new URLSearchParams();
+  form.set('grant_type', 'refresh_token');
+  form.set('refresh_token', refreshToken);
+  form.set('client_id', clientId);
+  form.set('client_secret', clientSecret);
+  const res = await fetch(`https://${accountsDomain}/oauth/v2/token`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body: form.toString(),
+  });
+  const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+  if (!res.ok) return null;
+  return (data.access_token as string) || null;
 }
 
 export async function POST(req: NextRequest) {
@@ -107,7 +133,54 @@ export async function POST(req: NextRequest) {
     const htmlBody = markdownToHtml(mailBody);
     const textBody = mailBody;
 
-    // ── Send via Mailgun (all lite/premium/ghost tiers) ─────────────────────
+    // ── Imago path: dedicated Zoho seat (opt-in, calendar/webmail users) ────
+    const hasZohoSeat = (resolved.zohoSeat as boolean | undefined) ?? false;
+    if (hasZohoSeat) {
+      const zohoOrgId = process.env.ZOHO_ORG_ID;
+      const token = await getZohoAccessToken();
+      if (token && zohoOrgId) {
+        const accountsRes = await fetch(
+          `${ZOHO_MAIL_API}/organization/${zohoOrgId}/accounts`,
+          { headers: { Authorization: `Zoho-oauthtoken ${token}` } },
+        );
+        if (accountsRes.ok) {
+          const accountsData = (await accountsRes.json()) as Record<string, unknown>;
+          const accounts = (accountsData.data as Record<string, unknown>[]) || [];
+          const seat = accounts.find(
+            (a) =>
+              (a.primaryEmailAddress as string)?.toLowerCase() === fromEmail.toLowerCase() ||
+              (a.mailboxAddress as string)?.toLowerCase() === fromEmail.toLowerCase(),
+          );
+          if (seat) {
+            const accountId = (seat.accountId || seat.zuid) as string;
+            const sendRes = await fetch(`${ZOHO_MAIL_API}/accounts/${accountId}/messages`, {
+              method: 'POST',
+              headers: { Authorization: `Zoho-oauthtoken ${token}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                fromAddress: fromEmail,
+                toAddress: to,
+                subject: subject || '(no subject)',
+                content: htmlBody,
+                mailFormat: 'html',
+              }),
+            });
+            if (sendRes.ok) {
+              const sendData = (await sendRes.json()) as Record<string, unknown>;
+              return NextResponse.json({
+                success: true,
+                messageId: (sendData.data as Record<string, unknown>)?.messageId || 'sent',
+                from: fromEmail,
+                to,
+                via: 'zoho',
+              });
+            }
+          }
+        }
+        // Zoho seat lookup failed — fall through to Mailgun
+      }
+    }
+
+    // ── Standard path: Mailgun (all lite/premium/ghost tiers) ───────────────
     const { messageId } = await sendViaMailgun({
       from: `${label} <${fromEmail}>`,
       to,
