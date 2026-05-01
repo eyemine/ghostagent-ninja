@@ -153,6 +153,29 @@ export class D1Store {
       .run();
   }
 
+  async burnAgent(label: string): Promise<void> {
+    await this.db
+      .prepare("UPDATE agents SET tier = 'burned', zerog_root_hash = NULL, zerog_archived_at = NULL WHERE label = ?")
+      .bind(label)
+      .run();
+  }
+
+  async deleteAgentEmails(label: string): Promise<number> {
+    const result = await this.db
+      .prepare('DELETE FROM emails WHERE agent_label = ?')
+      .bind(label)
+      .run();
+    return result.meta?.changes ?? 0;
+  }
+
+  async deleteAgentMemory(label: string): Promise<number> {
+    const result = await this.db
+      .prepare('DELETE FROM memory WHERE agent_label = ?')
+      .bind(label)
+      .run();
+    return result.meta?.changes ?? 0;
+  }
+
   async getAllPupaAgents(): Promise<AgentRow[]> {
     const result = await this.db
       .prepare("SELECT * FROM agents WHERE tier != 'basic' ORDER BY created_at ASC")

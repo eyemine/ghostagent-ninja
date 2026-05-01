@@ -5950,6 +5950,24 @@ export default {
               JSON.stringify(burnAttestation),
               { expirationTtl: 60 * 60 * 24 * 90 } // retain burn record for 90 days
             );
+
+            // Step 4: D1 burn — delete emails + memory, tombstone agents row
+            // 0G archive blob is now orphaned (unreachable encrypted ciphertext — not a security risk)
+            let d1EmailsDeleted = 0;
+            let d1MemoryDeleted = 0;
+            if (env.NFTMAIL_DB) {
+              try {
+                const d1 = new D1Store(env.NFTMAIL_DB);
+                [d1EmailsDeleted, d1MemoryDeleted] = await Promise.all([
+                  d1.deleteAgentEmails(agent),
+                  d1.deleteAgentMemory(agent),
+                ]);
+                await d1.burnAgent(agent);
+              } catch (e) {
+                console.error('[burn] D1 tombstone failed (non-fatal):', e);
+              }
+            }
+            burnAttestation.keysDeleted = [...keysDeleted, `d1:emails(${d1EmailsDeleted})`, `d1:memory(${d1MemoryDeleted})`, 'd1:agents(tombstoned)'];
           }
 
           return corsify(Response.json({
