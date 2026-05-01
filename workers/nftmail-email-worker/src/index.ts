@@ -982,6 +982,36 @@ async function handleMailgunPayload(
   const storeDomainPrefix = '';
   const storeKeyName = (name: string) => name;
 
+  // ── Phase 4: shadow-write email envelope to D1 for PUPA+ ──────────────
+  // Non-blocking, non-fatal. KV remains source of truth.
+  const shadowWriteEmailToD1 = (label: string, bId: string, envelopeJson: string, ttlMs: number | null) => {
+    if (!env.NFTMAIL_DB) return;
+    (async () => {
+      try {
+        const d1 = new D1Store(env.NFTMAIL_DB!);
+        const agentRow = await d1.getAgent(label.replace(/_+$/, ''));
+        if (!agentRow || agentRow.tier === 'basic') return; // LARVA stays KV-only
+        const senderHashVal = await sha256Hex(sender).catch(() => null);
+        const subjectHashVal = await sha256Hex(subject).catch(() => null);
+        await d1.insertEmail({
+          agent_label: label.replace(/_+$/, ''),
+          blind_id: bId,
+          domain_prefix: storeDomainPrefix,
+          encrypted_blob: envelopeJson,
+          sender_hash: senderHashVal,
+          subject_hash: subjectHashVal,
+          received_at: timestamp,
+          read: 0,
+          frozen: 0,
+          surge_allocation: null,
+          ttl_expires_at: ttlMs,
+        });
+      } catch (e) {
+        console.error('[D1 shadow] email insert failed (non-fatal):', e);
+      }
+    })();
+  };
+
   // Mailgun provides two sender fields:
   //   'from'   = header From (what the user wrote, e.g. '"Victor" <victor@nftmail.box>')
   //   'sender' = envelope Return-Path, often a VERP bounce address like
@@ -1023,6 +1053,7 @@ async function handleMailgunPayload(
     const storageName = localPart || agentName;
     await env.INBOX_KV.put(`blind:${storeKeyName(storageName)}:${blindId}`, JSON.stringify(envelope), mgPutOpts);
     await updateBlindIndex(env, storageName, blindId, storeDomainPrefix, mgTtlSecs);
+    shadowWriteEmailToD1(storageName, blindId, JSON.stringify(envelope), mgTtlSecs ? mgTtlSecs * 1000 + timestamp : null);
 
     // Fire email forwarding for Imago human inboxes (non-fatal — storage already succeeded).
     // Keyed by agentName (base identity), not storageName — forwarding config is tied to the
@@ -1052,6 +1083,7 @@ async function handleMailgunPayload(
       const envelope = { type: 'agent-glassbox-cleartext', encrypted: false, payload: JSON.parse(plaintextPayload), plaintextHash, recipient: storageName, receivedAt: timestamp };
       await env.INBOX_KV.put(`blind:${storeKeyName(storageName)}:${blindId}`, JSON.stringify(envelope), mgPutOpts);
       await updateBlindIndex(env, storageName, blindId, storeDomainPrefix, mgTtlSecs);
+      shadowWriteEmailToD1(storageName, blindId, JSON.stringify(envelope), mgTtlSecs ? mgTtlSecs * 1000 + timestamp : null);
       return corsify(Response.json({ status: 'received', stream: 'agent', agentType: 'glassbox', blindId, plaintextHash, recipient: storageName }), request);
     }
 
@@ -1063,6 +1095,7 @@ async function handleMailgunPayload(
       const envelope = { type: 'agent-cleartext-warning', encrypted: false, warning: 'No ECIES key registered.', payload: JSON.parse(plaintextPayload), plaintextHash, recipient: storageName, receivedAt: timestamp };
       await env.INBOX_KV.put(`blind:${storeKeyName(storageName)}:${blindId}`, JSON.stringify(envelope), mgPutOpts);
       await updateBlindIndex(env, storageName, blindId, storeDomainPrefix, mgTtlSecs);
+      shadowWriteEmailToD1(storageName, blindId, JSON.stringify(envelope), mgTtlSecs ? mgTtlSecs * 1000 + timestamp : null);
       return corsify(Response.json({ status: 'received', stream: 'agent', agentType: 'blackbox', encrypted: false, blindId, plaintextHash, warning: 'No ECIES key — stored unencrypted.' }), request);
     }
 
@@ -1075,6 +1108,7 @@ async function handleMailgunPayload(
     const blindEnvelope = { type: 'agent-ecies-blind', encrypted: true, envelope: encEnvelope, recoveryEnvelope: recoveryEnvelope || undefined, plaintextHash, recipient: storageName, receivedAt: timestamp };
     await env.INBOX_KV.put(`blind:${storeKeyName(storageName)}:${blindId}`, JSON.stringify(blindEnvelope), mgPutOpts);
     await updateBlindIndex(env, storageName, blindId, storeDomainPrefix, mgTtlSecs);
+    shadowWriteEmailToD1(storageName, blindId, JSON.stringify(blindEnvelope), mgTtlSecs ? mgTtlSecs * 1000 + timestamp : null);
     return corsify(Response.json({ status: 'received', stream: 'agent', agentType: 'blackbox', encrypted: true, blindId, plaintextHash, hasRecoveryKey: !!recoveryEnvelope, recipient: storageName }), request);
   }
 
@@ -1151,6 +1185,7 @@ export default {
       const humanPutOpts = humanTtlSecs != null ? { expirationTtl: humanTtlSecs } : {};
       await env.INBOX_KV.put(`blind:${agentName}:${blindId}`, JSON.stringify(envelope), humanPutOpts);
       await updateBlindIndex(env, agentName, blindId, '', humanTtlSecs);
+      shadowWriteEmailToD1(agentName, blindId, JSON.stringify(envelope), humanTtlSecs ? humanTtlSecs * 1000 + timestamp : null);
       await storage.storeEmail(localPart, { from: sender, to: originalRecipient, subject, content: body, timestamp });
       // Note: Zoho deletion is handled via Deluge→HTTP path, not email routing
       return;
@@ -1185,6 +1220,7 @@ export default {
         };
         await env.INBOX_KV.put(`blind:${storageName}:${blindId}`, JSON.stringify(envelope), agentPutOpts);
         await updateBlindIndex(env, storageName, blindId, '', agentTtlSecs);
+        shadowWriteEmailToD1(storageName, blindId, JSON.stringify(envelope), agentTtlSecs ? agentTtlSecs * 1000 + timestamp : null);
         return;
       }
 
@@ -1203,6 +1239,7 @@ export default {
       };
       await env.INBOX_KV.put(`blind:${storageName}:${blindId}`, JSON.stringify(blindEnvelope), agentPutOpts);
       await updateBlindIndex(env, storageName, blindId, '', agentTtlSecs);
+      shadowWriteEmailToD1(storageName, blindId, JSON.stringify(blindEnvelope), agentTtlSecs ? agentTtlSecs * 1000 + timestamp : null);
 
       // Glass Box audit for molt.gno agents
       if (await isPublicAgent(localPart, env)) {
