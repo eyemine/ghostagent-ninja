@@ -1424,25 +1424,6 @@ export default {
             }));
             messages.sort((a: any, b: any) => (b.receivedAt || 0) - (a.receivedAt || 0));
 
-            // ── Phase 2 shadow read: compare D1 email count vs KV blind-index ──
-            // Async, non-blocking — KV response already sent.
-            if (env.NFTMAIL_DB) {
-              (async () => {
-                try {
-                  const d1 = new D1Store(env.NFTMAIL_DB!);
-                  const d1Count = await d1.getUnreadCount(agent);
-                  const kvCount = messages.length;
-                  if (Math.abs(d1Count - kvCount) > 0) {
-                    console.warn(`[D1 shadow read] getInbox mismatch for ${agent}: KV=${kvCount} D1 unread=${d1Count}`);
-                  } else {
-                    console.log(`[D1 shadow read] getInbox OK for ${agent}: count=${kvCount}`);
-                  }
-                } catch (e) {
-                  console.error('[D1 shadow read] getInbox check failed (non-fatal):', e);
-                }
-              })();
-            }
-
             return corsify(Response.json({ agent, messages, count: messages.length }), request);
           }
 
@@ -1545,36 +1526,43 @@ export default {
           if (!agentName) {
             return corsify(Response.json({ error: 'Missing agentName' }, { status: 400 }), request);
           }
+          // ── Phase 3: D1 read for PUPA+ identity fields ────────────────────
+          let _d1Row: import('./d1').AgentRow | null = null;
+          if (env.NFTMAIL_DB) {
+            try { _d1Row = await new D1Store(env.NFTMAIL_DB).getAgent(agentName); }
+            catch (e) { console.error('[D1 read] getAgentIdentity fallback to KV:', e); }
+          }
+
           const [tldRaw, gnosisRaw, baseRaw, baseSepoliaRaw, gnoOwnerRaw, acctTierRaw, tbaRaw] = await Promise.all([
-            env.INBOX_KV.get(`tld:${agentName}`),
+            _d1Row ? Promise.resolve(_d1Row.tld) : env.INBOX_KV.get(`tld:${agentName}`),
             env.INBOX_KV.get(`erc8004:gnosis:${agentName}`),
             env.INBOX_KV.get(`erc8004:base:${agentName}`),
             env.INBOX_KV.get(`erc8004:baseSepolia:${agentName}`),
             env.INBOX_KV.get(`nftmailgno:${agentName}`),
-            env.INBOX_KV.get(`acct-tier:${agentName}`),
+            _d1Row ? Promise.resolve(JSON.stringify({ tier: _d1Row.tier, safe: _d1Row.safe, story_ip: _d1Row.story_ip })) : env.INBOX_KV.get(`acct-tier:${agentName}`),
             env.INBOX_KV.get(`tba:${agentName}`),
           ]);
 
           // Fetch explicit principal override (if set via setPrincipal action)
           const principalRaw = await env.INBOX_KV.get(`principal:${agentName}`);
 
-          // Parse identity NFT record (nftmailgno: key)
-          let originNft: string | null = null;
+          // Parse identity NFT record — D1 takes precedence for PUPA+
+          let originNft: string | null = _d1Row?.origin_nft ?? null;
           let tokenId: number | null = null;
-          let onChainOwner: string | null = null;
+          let onChainOwner: string | null = _d1Row?.controller ?? null;
           if (gnoOwnerRaw) {
             try {
               const g = JSON.parse(gnoOwnerRaw);
-              onChainOwner = g.controller || null;
-              originNft    = g.origin_nft || null;
-              tokenId      = g.minted_tokenId || null;
-            } catch { onChainOwner = gnoOwnerRaw; }
+              if (!onChainOwner) onChainOwner = g.controller || null;
+              if (!originNft)    originNft    = g.origin_nft || null;
+              tokenId = g.minted_tokenId || null;
+            } catch { if (!onChainOwner) onChainOwner = gnoOwnerRaw; }
           }
 
-          // Parse safe + storyIp (acct-tier: key)
-          let safe: string | null = null;
-          let storyIp: string | null = null;
-          if (acctTierRaw) {
+          // Parse safe + storyIp — D1 takes precedence
+          let safe: string | null = _d1Row?.safe ?? null;
+          let storyIp: string | null = _d1Row?.story_ip ?? null;
+          if (!_d1Row && acctTierRaw) {
             try { const t = JSON.parse(acctTierRaw); safe = t.safe || null; storyIp = t.story_ip || null; } catch {}
           }
 
@@ -1584,9 +1572,9 @@ export default {
             try { const t = JSON.parse(tbaRaw); tbaAddress = t.tbaAddress || null; } catch {}
           }
 
-          const tld = tldRaw ?? null;
+          const tld = (_d1Row?.tld ?? tldRaw) as string | null;
 
-          // ERC-8226 principal: explicit KV override > controller (minter wallet)
+          // ERC-8226 principal: explicit KV override > D1/KV controller
           const principal = principalRaw || onChainOwner || null;
 
           const gnosis      = gnosisRaw      ? JSON.parse(gnosisRaw)      : null;
@@ -1635,31 +1623,6 @@ export default {
             },
           }), request);
 
-          // ── Phase 2 shadow read: compare D1 agent row vs KV ──────────────
-          if (env.NFTMAIL_DB) {
-            (async () => {
-              try {
-                const d1 = new D1Store(env.NFTMAIL_DB!);
-                const row = await d1.getAgent(agentName);
-                if (!row) {
-                  console.warn(`[D1 shadow read] getAgentIdentity: no D1 row for ${agentName} (not yet PUPA+ or shadow write pending)`);
-                } else {
-                  const kvTier = acctTierRaw ? (JSON.parse(acctTierRaw).tier ?? 'basic') : 'basic';
-                  const mismatches: string[] = [];
-                  if (row.tier !== kvTier)   mismatches.push(`tier KV=${kvTier} D1=${row.tier}`);
-                  if (row.tld  !== (tldRaw ?? null)) mismatches.push(`tld KV=${tldRaw ?? null} D1=${row.tld}`);
-                  if (row.safe !== (safe ?? null))   mismatches.push(`safe KV=${safe ?? null} D1=${row.safe}`);
-                  if (mismatches.length) {
-                    console.warn(`[D1 shadow read] getAgentIdentity mismatch for ${agentName}: ${mismatches.join(', ')}`);
-                  } else {
-                    console.log(`[D1 shadow read] getAgentIdentity OK for ${agentName}`);
-                  }
-                }
-              } catch (e) {
-                console.error('[D1 shadow read] getAgentIdentity check failed (non-fatal):', e);
-              }
-            })();
-          }
         }
 
         // Set principal (ERC-8226): store NFT owner wallet as the human principal for a BYO agent
@@ -1830,6 +1793,18 @@ export default {
             return corsify(Response.json({ error: 'Missing agentName or tld' }, { status: 400 }), request);
           }
           await env.INBOX_KV.put(`tld:${agentName}`, tld);
+          // ── Phase 3: shadow-write tld to D1 agents row ──
+          if (env.NFTMAIL_DB) {
+            (async () => {
+              try {
+                const d1 = new D1Store(env.NFTMAIL_DB!);
+                const existing = await d1.getAgent(agentName);
+                if (existing) {
+                  await d1.upsertAgent({ ...existing, tld, upgraded_at: existing.upgraded_at });
+                }
+              } catch (e) { console.error('[D1 shadow] setTld write failed (non-fatal):', e); }
+            })();
+          }
           return corsify(Response.json({ status: 'stored', agentName, tld }), request);
         }
 
@@ -1953,22 +1928,50 @@ export default {
         // Agent Registry: list all registered agents with ERC-8004 IDs and TLDs
         if (email.action === 'listAgents') {
           try {
-            const listed = await env.INBOX_KV.list({ prefix: 'tld:' });
+            const safeAddress: string = ((email as any).safeAddress || '').toLowerCase();
+
+            // ── Phase 3: D1-first, KV fallback ───────────────────────────────────
+            let d1Rows: import('./d1').AgentRow[] = [];
+            if (env.NFTMAIL_DB) {
+              try {
+                const d1 = new D1Store(env.NFTMAIL_DB);
+                d1Rows = safeAddress
+                  ? await d1.getAgentsByController(safeAddress)
+                  : await d1.getAgentsByTld('', 1000, 0);
+              } catch (e) {
+                console.error('[D1 read] listAgents fallback to KV:', e);
+              }
+            }
+
+            let names: string[];
+            let tldMap: Record<string, string | null> = {};
+
+            if (d1Rows.length > 0) {
+              // D1 path
+              names = d1Rows.map(r => r.label);
+              for (const r of d1Rows) tldMap[r.label] = r.tld;
+            } else {
+              // KV fallback
+              const listed = await env.INBOX_KV.list({ prefix: 'tld:' });
+              names = listed.keys.map(k => k.name.replace(/^tld:/, ''));
+              await Promise.all(names.map(async n => {
+                tldMap[n] = await env.INBOX_KV.get(`tld:${n}`);
+              }));
+            }
+
             const agents = await Promise.all(
-              listed.keys.map(async (k) => {
-                const name = k.name.replace(/^tld:/, '');
-                const [tld, gnosisRaw, baseRaw, baseSepoliaRaw] = await Promise.all([
-                  env.INBOX_KV.get(k.name),
+              names.map(async (name) => {
+                const [gnosisRaw, baseRaw, baseSepoliaRaw] = await Promise.all([
                   env.INBOX_KV.get(`erc8004:gnosis:${name}`),
                   env.INBOX_KV.get(`erc8004:base:${name}`),
                   env.INBOX_KV.get(`erc8004:baseSepolia:${name}`),
                 ]);
                 const gnosis      = gnosisRaw      ? JSON.parse(gnosisRaw)      : null;
-                const base        = baseRaw         ? JSON.parse(baseRaw)         : null;
-                const baseSepolia = baseSepoliaRaw  ? JSON.parse(baseSepoliaRaw)  : null;
+                const base        = baseRaw        ? JSON.parse(baseRaw)        : null;
+                const baseSepolia = baseSepoliaRaw ? JSON.parse(baseSepoliaRaw) : null;
                 return {
                   name,
-                  tld: tld ?? null,
+                  tld: tldMap[name] ?? null,
                   agentCardUrl: `https://ghostagent.ninja/api/agent-card?agent=${name}`,
                   a2aCardUrl:   `https://ghostagent.ninja/.well-known/agent.json`,
                   profileUrl:   `https://ghostagent.ninja/agent/${name}`,
@@ -1980,29 +1983,7 @@ export default {
                 };
               })
             );
-            // ── Phase 2 shadow read: compare D1 agents count vs KV tld: scan ──
-            if (env.NFTMAIL_DB) {
-              (async () => {
-                try {
-                  const d1 = new D1Store(env.NFTMAIL_DB!);
-                  const safeAddress: string = ((email as any).safeAddress || '').toLowerCase();
-                  const d1Agents = safeAddress
-                    ? await d1.getAgentsByController(safeAddress)
-                    : await d1.getAgentsByTld('', 1000, 0);
-                  const kvCount = agents.length;
-                  const d1Count = d1Agents.length;
-                  if (d1Count !== kvCount) {
-                    console.warn(`[D1 shadow read] listAgents mismatch: KV=${kvCount} D1=${d1Count}`);
-                  } else {
-                    console.log(`[D1 shadow read] listAgents OK: count=${kvCount}`);
-                  }
-                } catch (e) {
-                  console.error('[D1 shadow read] listAgents check failed (non-fatal):', e);
-                }
-              })();
-            }
-
-            return corsify(Response.json({ agents, total: agents.length }), request);
+            return corsify(Response.json({ agents, total: agents.length, source: d1Rows.length > 0 ? 'd1' : 'kv' }), request);
           } catch (e: any) {
             return corsify(Response.json({ error: e?.message ?? 'listAgents failed' }, { status: 500 }), request);
           }
