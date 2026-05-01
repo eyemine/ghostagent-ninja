@@ -53,7 +53,8 @@ function concatBytes(...arrays: Uint8Array[]): Uint8Array {
 }
 
 async function importPublicKeyP256(pubHex: string): Promise<CryptoKey> {
-  return crypto.subtle.importKey('raw', hexToBytes(pubHex), { name: 'ECDH', namedCurve: 'P-256' }, false, []);
+  const bytes = hexToBytes(pubHex);
+  return crypto.subtle.importKey('raw', bytes.buffer as ArrayBuffer, { name: 'ECDH', namedCurve: 'P-256' }, false, []);
 }
 
 async function deriveSharedAesKey(privKey: CryptoKey, pubKey: CryptoKey): Promise<CryptoKey> {
