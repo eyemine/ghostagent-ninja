@@ -982,8 +982,24 @@ async function handleMailgunPayload(
   const storeDomainPrefix = '';
   const storeKeyName = (name: string) => name;
 
-  // ── Phase 4: shadow-write email envelope to D1 for PUPA+ ──────────────
-  // Non-blocking, non-fatal. KV remains source of truth.
+  // ── Phase 5: resolve agent tier (D1 first, KV fallback) ────────────────
+  const resolveAgentTierFast = async (label: string): Promise<string> => {
+    const base = label.replace(/_+$/, '');
+    if (env.NFTMAIL_DB) {
+      try {
+        const row = await new D1Store(env.NFTMAIL_DB).getAgent(base);
+        if (row) return row.tier;
+      } catch {}
+    }
+    try {
+      const raw = await env.INBOX_KV.get(`acct-tier:${base}`);
+      if (raw) return JSON.parse(raw).tier ?? 'basic';
+    } catch {}
+    return 'basic';
+  };
+
+  // ── Phase 4/5: D1 email write for PUPA+ ──────────────────────────────────
+  // Phase 4: shadow-write (KV still written). Phase 5: D1 is sole store for PUPA+.
   const shadowWriteEmailToD1 = (label: string, bId: string, envelopeJson: string, ttlMs: number | null) => {
     if (!env.NFTMAIL_DB) return;
     (async () => {
@@ -1051,9 +1067,13 @@ async function handleMailgunPayload(
     const mgPutOpts = mgTtlSecs != null ? { expirationTtl: mgTtlSecs } : {};
     // Use localPart for storage key (preserves _ suffix for agent aliases)
     const storageName = localPart || agentName;
-    await env.INBOX_KV.put(`blind:${storeKeyName(storageName)}:${blindId}`, JSON.stringify(envelope), mgPutOpts);
-    await updateBlindIndex(env, storageName, blindId, storeDomainPrefix, mgTtlSecs);
-    shadowWriteEmailToD1(storageName, blindId, JSON.stringify(envelope), mgTtlSecs ? mgTtlSecs * 1000 + timestamp : null);
+    const _humanMgTier = await resolveAgentTierFast(storageName);
+    const _humanMgEnvJson = JSON.stringify(envelope);
+    shadowWriteEmailToD1(storageName, blindId, _humanMgEnvJson, mgTtlSecs ? mgTtlSecs * 1000 + timestamp : null);
+    if (_humanMgTier === 'basic') {
+      await env.INBOX_KV.put(`blind:${storeKeyName(storageName)}:${blindId}`, _humanMgEnvJson, mgPutOpts);
+      await updateBlindIndex(env, storageName, blindId, storeDomainPrefix, mgTtlSecs);
+    }
 
     // Fire email forwarding for Imago human inboxes (non-fatal — storage already succeeded).
     // Keyed by agentName (base identity), not storageName — forwarding config is tied to the
@@ -1081,9 +1101,13 @@ async function handleMailgunPayload(
       const plaintextPayload = JSON.stringify({ from: sender, to: recipient, subject, body, ...(bodyHtmlRaw ? { bodyHtml: bodyHtmlRaw } : {}), timestamp });
       const plaintextHash = await sha256Hex(plaintextPayload);
       const envelope = { type: 'agent-glassbox-cleartext', encrypted: false, payload: JSON.parse(plaintextPayload), plaintextHash, recipient: storageName, receivedAt: timestamp };
-      await env.INBOX_KV.put(`blind:${storeKeyName(storageName)}:${blindId}`, JSON.stringify(envelope), mgPutOpts);
-      await updateBlindIndex(env, storageName, blindId, storeDomainPrefix, mgTtlSecs);
-      shadowWriteEmailToD1(storageName, blindId, JSON.stringify(envelope), mgTtlSecs ? mgTtlSecs * 1000 + timestamp : null);
+      const _gbEnvJson = JSON.stringify(envelope);
+      const _gbTier = await resolveAgentTierFast(storageName);
+      shadowWriteEmailToD1(storageName, blindId, _gbEnvJson, mgTtlSecs ? mgTtlSecs * 1000 + timestamp : null);
+      if (_gbTier === 'basic') {
+        await env.INBOX_KV.put(`blind:${storeKeyName(storageName)}:${blindId}`, _gbEnvJson, mgPutOpts);
+        await updateBlindIndex(env, storageName, blindId, storeDomainPrefix, mgTtlSecs);
+      }
       return corsify(Response.json({ status: 'received', stream: 'agent', agentType: 'glassbox', blindId, plaintextHash, recipient: storageName }), request);
     }
 
@@ -1093,9 +1117,13 @@ async function handleMailgunPayload(
       const plaintextPayload = JSON.stringify({ from: sender, to: recipient, subject, body, timestamp });
       const plaintextHash = await sha256Hex(plaintextPayload);
       const envelope = { type: 'agent-cleartext-warning', encrypted: false, warning: 'No ECIES key registered.', payload: JSON.parse(plaintextPayload), plaintextHash, recipient: storageName, receivedAt: timestamp };
-      await env.INBOX_KV.put(`blind:${storeKeyName(storageName)}:${blindId}`, JSON.stringify(envelope), mgPutOpts);
-      await updateBlindIndex(env, storageName, blindId, storeDomainPrefix, mgTtlSecs);
-      shadowWriteEmailToD1(storageName, blindId, JSON.stringify(envelope), mgTtlSecs ? mgTtlSecs * 1000 + timestamp : null);
+      const _cwEnvJson = JSON.stringify(envelope);
+      const _cwTier = await resolveAgentTierFast(storageName);
+      shadowWriteEmailToD1(storageName, blindId, _cwEnvJson, mgTtlSecs ? mgTtlSecs * 1000 + timestamp : null);
+      if (_cwTier === 'basic') {
+        await env.INBOX_KV.put(`blind:${storeKeyName(storageName)}:${blindId}`, _cwEnvJson, mgPutOpts);
+        await updateBlindIndex(env, storageName, blindId, storeDomainPrefix, mgTtlSecs);
+      }
       return corsify(Response.json({ status: 'received', stream: 'agent', agentType: 'blackbox', encrypted: false, blindId, plaintextHash, warning: 'No ECIES key — stored unencrypted.' }), request);
     }
 
@@ -1106,9 +1134,13 @@ async function handleMailgunPayload(
     if (env.MASTER_SAFE_PUBKEY) { try { recoveryEnvelope = await eciesEncrypt(plaintextPayload, env.MASTER_SAFE_PUBKEY); } catch {} }
     const blindId = `blind-${timestamp}-${crypto.randomUUID().slice(0, 8)}`;
     const blindEnvelope = { type: 'agent-ecies-blind', encrypted: true, envelope: encEnvelope, recoveryEnvelope: recoveryEnvelope || undefined, plaintextHash, recipient: storageName, receivedAt: timestamp };
-    await env.INBOX_KV.put(`blind:${storeKeyName(storageName)}:${blindId}`, JSON.stringify(blindEnvelope), mgPutOpts);
-    await updateBlindIndex(env, storageName, blindId, storeDomainPrefix, mgTtlSecs);
-    shadowWriteEmailToD1(storageName, blindId, JSON.stringify(blindEnvelope), mgTtlSecs ? mgTtlSecs * 1000 + timestamp : null);
+    const _agentBlindJson = JSON.stringify(blindEnvelope);
+    const _agentBlindTier = await resolveAgentTierFast(storageName);
+    shadowWriteEmailToD1(storageName, blindId, _agentBlindJson, mgTtlSecs ? mgTtlSecs * 1000 + timestamp : null);
+    if (_agentBlindTier === 'basic') {
+      await env.INBOX_KV.put(`blind:${storeKeyName(storageName)}:${blindId}`, _agentBlindJson, mgPutOpts);
+      await updateBlindIndex(env, storageName, blindId, storeDomainPrefix, mgTtlSecs);
+    }
     return corsify(Response.json({ status: 'received', stream: 'agent', agentType: 'blackbox', encrypted: true, blindId, plaintextHash, hasRecoveryKey: !!recoveryEnvelope, recipient: storageName }), request);
   }
 
@@ -1183,9 +1215,13 @@ export default {
       };
       const humanTtlSecs = await getAgentTtlSecs(env, agentName);
       const humanPutOpts = humanTtlSecs != null ? { expirationTtl: humanTtlSecs } : {};
-      await env.INBOX_KV.put(`blind:${agentName}:${blindId}`, JSON.stringify(envelope), humanPutOpts);
-      await updateBlindIndex(env, agentName, blindId, '', humanTtlSecs);
-      shadowWriteEmailToD1(agentName, blindId, JSON.stringify(envelope), humanTtlSecs ? humanTtlSecs * 1000 + timestamp : null);
+      const _humanEnvJson = JSON.stringify(envelope);
+      const _humanTier = await resolveAgentTierFast(agentName);
+      shadowWriteEmailToD1(agentName, blindId, _humanEnvJson, humanTtlSecs ? humanTtlSecs * 1000 + timestamp : null);
+      if (_humanTier === 'basic') {
+        await env.INBOX_KV.put(`blind:${agentName}:${blindId}`, _humanEnvJson, humanPutOpts);
+        await updateBlindIndex(env, agentName, blindId, '', humanTtlSecs);
+      }
       await storage.storeEmail(localPart, { from: sender, to: originalRecipient, subject, content: body, timestamp });
       // Storage complete — Mailgun inbound path
       return;
@@ -1218,9 +1254,13 @@ export default {
           plaintextHash, edgeEncrypt: buildAuditHashEntry(sealed, localPart, timestamp),
           recipient: localPart, receivedAt: timestamp,
         };
-        await env.INBOX_KV.put(`blind:${storageName}:${blindId}`, JSON.stringify(envelope), agentPutOpts);
-        await updateBlindIndex(env, storageName, blindId, '', agentTtlSecs);
-        shadowWriteEmailToD1(storageName, blindId, JSON.stringify(envelope), agentTtlSecs ? agentTtlSecs * 1000 + timestamp : null);
+        const _noKeyEnvJson = JSON.stringify(envelope);
+        const _noKeyTier = await resolveAgentTierFast(storageName);
+        shadowWriteEmailToD1(storageName, blindId, _noKeyEnvJson, agentTtlSecs ? agentTtlSecs * 1000 + timestamp : null);
+        if (_noKeyTier === 'basic') {
+          await env.INBOX_KV.put(`blind:${storageName}:${blindId}`, _noKeyEnvJson, agentPutOpts);
+          await updateBlindIndex(env, storageName, blindId, '', agentTtlSecs);
+        }
         return;
       }
 
@@ -1237,9 +1277,13 @@ export default {
         plaintextHash, recipient: localPart, receivedAt: timestamp,
         edgeEncrypt: buildAuditHashEntry(sealedSafe as any, localPart, timestamp),
       };
-      await env.INBOX_KV.put(`blind:${storageName}:${blindId}`, JSON.stringify(blindEnvelope), agentPutOpts);
-      await updateBlindIndex(env, storageName, blindId, '', agentTtlSecs);
-      shadowWriteEmailToD1(storageName, blindId, JSON.stringify(blindEnvelope), agentTtlSecs ? agentTtlSecs * 1000 + timestamp : null);
+      const _eciesBlindJson = JSON.stringify(blindEnvelope);
+      const _eciesTier = await resolveAgentTierFast(storageName);
+      shadowWriteEmailToD1(storageName, blindId, _eciesBlindJson, agentTtlSecs ? agentTtlSecs * 1000 + timestamp : null);
+      if (_eciesTier === 'basic') {
+        await env.INBOX_KV.put(`blind:${storageName}:${blindId}`, _eciesBlindJson, agentPutOpts);
+        await updateBlindIndex(env, storageName, blindId, '', agentTtlSecs);
+      }
 
       // Glass Box audit for molt.gno agents
       if (await isPublicAgent(localPart, env)) {
@@ -1427,8 +1471,45 @@ export default {
           const inboxDomain: string = ((email as any).domain || 'nftmail').toLowerCase();
           const domainPfx = inboxDomain === 'ghostmail' ? 'ghostmail' : '';
           const kvKeyName = domainPfx ? `${domainPfx}:${agent}` : agent;
+          const baseAgent = agent.replace(/_+$/, '');
 
-          // Primary: read from blind-index (current storage format)
+          // ── Phase 5: D1-first for PUPA+ ───────────────────────────────────
+          if (env.NFTMAIL_DB) {
+            try {
+              const d1 = new D1Store(env.NFTMAIL_DB);
+              const agentRow = await d1.getAgent(baseAgent);
+              if (agentRow && agentRow.tier !== 'basic') {
+                const limit  = Math.min(parseInt(String((email as any).limit  ?? '50'),  10), 200);
+                const offset = parseInt(String((email as any).offset ?? '0'), 10);
+                const d1Rows = await d1.getInbox(baseAgent, { limit, offset, domainPrefix: domainPfx });
+                const messages = d1Rows.map(r => {
+                  let parsed: any = {};
+                  try { parsed = JSON.parse(r.encrypted_blob); } catch {}
+                  const payload = parsed.payload || {};
+                  return {
+                    id: r.blind_id,
+                    from: payload.from || parsed.from || '',
+                    subject: payload.subject || parsed.subject || '(no subject)',
+                    content: payload.body || parsed.content || '',
+                    receivedAt: r.received_at,
+                    encrypted: !!parsed.encrypted,
+                    type: parsed.type || 'email',
+                    channel: parsed.channel,
+                    plaintextHash: parsed.plaintextHash,
+                    warning: parsed.warning,
+                    envelope: parsed.encrypted ? parsed.envelope : undefined,
+                    read: !!r.read,
+                    frozen: !!r.frozen,
+                  };
+                });
+                return corsify(Response.json({ agent, messages, count: messages.length, source: 'd1' }), request);
+              }
+            } catch (e) {
+              console.error('[D1 read] getInbox fallback to KV:', e);
+            }
+          }
+
+          // ── KV path: LARVA accounts only ──
           const blindIdxRaw = await env.INBOX_KV.get(`blind-index:${kvKeyName}`);
           if (blindIdxRaw) {
             const blindIds: string[] = JSON.parse(blindIdxRaw);
@@ -1440,7 +1521,6 @@ export default {
                   const parsed = JSON.parse(data);
                   const cid = await env.INBOX_KV.get(`ipfs:${agent}:${id}`);
                   if (cid) parsed.ipfsCid = cid;
-                  // Flatten cleartext payload fields to top level for frontend compatibility
                   const payload = parsed.payload || {};
                   messages.push({
                     id,
@@ -1460,13 +1540,57 @@ export default {
               }
             }));
             messages.sort((a: any, b: any) => (b.receivedAt || 0) - (a.receivedAt || 0));
-
-            return corsify(Response.json({ agent, messages, count: messages.length }), request);
+            return corsify(Response.json({ agent, messages, count: messages.length, source: 'kv' }), request);
           }
 
-          // Fallback: legacy index format
+          // Legacy index format fallback
           result = await storage.getInbox(agent);
           return corsify(result, request);
+        }
+
+        // ── One-time KV→D1 backfill for a specific agent (admin only) ──
+        // Usage: POST { action: 'backfillKvEmailsToD1', agentName: 'ghostagent', secret: WEBHOOK_SECRET }
+        if (email.action === 'backfillKvEmailsToD1') {
+          const secret = (email as any).secret || request.headers.get('X-Webhook-Secret') || '';
+          if (secret !== env.WEBHOOK_SECRET) {
+            return corsify(Response.json({ error: 'Forbidden' }, { status: 403 }), request);
+          }
+          const agentName = ((email as any).agentName || '').toLowerCase().trim();
+          if (!agentName || !env.NFTMAIL_DB) {
+            return corsify(Response.json({ error: 'Missing agentName or D1 not bound' }, { status: 400 }), request);
+          }
+          const blindIdxRaw = await env.INBOX_KV.get(`blind-index:${agentName}`);
+          if (!blindIdxRaw) {
+            return corsify(Response.json({ status: 'no_data', agentName, inserted: 0 }), request);
+          }
+          const blindIds: string[] = JSON.parse(blindIdxRaw);
+          const d1 = new D1Store(env.NFTMAIL_DB);
+          let inserted = 0;
+          let skipped  = 0;
+          for (const id of blindIds) {
+            try {
+              const raw = await env.INBOX_KV.get(`blind:${agentName}:${id}`);
+              if (!raw) { skipped++; continue; }
+              const parsed = JSON.parse(raw);
+              const sHash = await sha256Hex(String(parsed.payload?.from || parsed.from || '')).catch(() => null);
+              const subjHash = await sha256Hex(String(parsed.payload?.subject || parsed.subject || '')).catch(() => null);
+              await d1.insertEmail({
+                agent_label: agentName,
+                blind_id: id,
+                domain_prefix: '',
+                encrypted_blob: raw,
+                sender_hash: sHash,
+                subject_hash: subjHash,
+                received_at: parsed.receivedAt || parsed.payload?.timestamp || Date.now(),
+                read: 0,
+                frozen: 0,
+                surge_allocation: null,
+                ttl_expires_at: null,
+              });
+              inserted++;
+            } catch { skipped++; }
+          }
+          return corsify(Response.json({ status: 'done', agentName, inserted, skipped, total: blindIds.length }), request);
         }
 
         // UI Integration: Get agent status (inbox + calendar + heartbeat)
