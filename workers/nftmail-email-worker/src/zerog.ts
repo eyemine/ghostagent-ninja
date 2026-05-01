@@ -28,9 +28,19 @@ export interface ZeroGArchiveResult {
   size: number;
 }
 
+export interface EncryptedEnvelope {
+  version: 1;
+  ephemeralPublicKey: string;
+  iv: string;
+  ciphertext: string;
+  tag: string;
+  contentHash: string;
+}
+
 export interface ZeroGFetchResult {
-  bundle: AgentBundle;
+  envelope: EncryptedEnvelope;
   rootHash: string;
+  encrypted: boolean;
 }
 
 /**
@@ -41,6 +51,7 @@ export async function archiveBundleToZeroG(
   archiverUrl: string,
   webhookSecret: string,
   bundle: AgentBundle,
+  eciesPubkey: string,
 ): Promise<ZeroGArchiveResult | null> {
   try {
     const res = await fetch(`${archiverUrl}/api/zerog-archive`, {
@@ -49,7 +60,7 @@ export async function archiveBundleToZeroG(
         'Content-Type': 'application/json',
         'X-Webhook-Secret': webhookSecret,
       },
-      body: JSON.stringify(bundle),
+      body: JSON.stringify({ bundle, eciesPubkey }),
     });
     if (!res.ok) {
       console.error('[0G archive] archiver returned', res.status, await res.text());
@@ -70,7 +81,7 @@ export async function fetchBundleFromZeroG(
   archiverUrl: string,
   webhookSecret: string,
   rootHash: string,
-): Promise<AgentBundle | null> {
+): Promise<EncryptedEnvelope | null> {
   try {
     const res = await fetch(`${archiverUrl}/api/zerog-archive?rootHash=${encodeURIComponent(rootHash)}`, {
       headers: { 'X-Webhook-Secret': webhookSecret },
@@ -80,7 +91,7 @@ export async function fetchBundleFromZeroG(
       return null;
     }
     const result = await res.json() as ZeroGFetchResult;
-    return result.bundle ?? null;
+    return result.envelope ?? null;
   } catch (e) {
     console.error('[0G fetch] failed (non-fatal):', e);
     return null;

@@ -1612,6 +1612,9 @@ export default {
             d1.getInbox(agentName, { limit: 1000 }),
             d1.getRecentMemory(agentName, { limit: 500 }),
           ]);
+          if (!agentRow.ecies_pubkey) {
+            return corsify(Response.json({ error: 'Agent has no ECIES public key — cannot encrypt archive' }, { status: 422 }), request);
+          }
           const bundle = {
             schemaVersion: 1 as const,
             exportedAt: Date.now(),
@@ -1620,7 +1623,7 @@ export default {
             memory: memory as unknown as Record<string, unknown>[],
             identities: [] as Record<string, unknown>[],
           };
-          const result = await archiveBundleToZeroG(env.ZEROG_ARCHIVER_URL, env.WEBHOOK_SECRET!, bundle);
+          const result = await archiveBundleToZeroG(env.ZEROG_ARCHIVER_URL, env.WEBHOOK_SECRET!, bundle, agentRow.ecies_pubkey);
           if (!result) {
             return corsify(Response.json({ error: '0G archive failed — check ZEROG_ARCHIVER_URL logs' }, { status: 502 }), request);
           }
@@ -1651,21 +1654,31 @@ export default {
           if (!rootHash) {
             return corsify(Response.json({ error: 'Missing rootHash' }, { status: 400 }), request);
           }
-          const bundle = await fetchBundleFromZeroG(env.ZEROG_ARCHIVER_URL, env.WEBHOOK_SECRET!, rootHash);
-          if (!bundle) {
+          const privateKey = ((email as any).privateKey || '').trim();
+          if (!privateKey) {
+            return corsify(Response.json({ error: 'privateKey required — bundle is ECIES-encrypted, caller must supply the agent ECIES private key' }, { status: 400 }), request);
+          }
+          const envelope = await fetchBundleFromZeroG(env.ZEROG_ARCHIVER_URL, env.WEBHOOK_SECRET!, rootHash);
+          if (!envelope) {
             return corsify(Response.json({ error: '0G fetch failed' }, { status: 502 }), request);
           }
+          // Decrypt with the caller-supplied private key
+          let bundle: import('./zerog').AgentBundle;
+          try {
+            const { decrypt: eciesDecrypt } = await import('./ecies');
+            const plaintext = await eciesDecrypt(envelope as any, privateKey);
+            bundle = JSON.parse(plaintext);
+          } catch (e) {
+            return corsify(Response.json({ error: `Decryption failed — wrong private key or corrupted archive: ${e}` }, { status: 422 }), request);
+          }
           const d1 = new D1Store(env.NFTMAIL_DB);
-          // Re-insert agent row
           if (bundle.agent) {
             await d1.upsertAgent(bundle.agent as any);
           }
-          // Re-insert emails (skip duplicates via ON CONFLICT DO NOTHING)
           let emailsInserted = 0;
           for (const e of bundle.emails ?? []) {
             try { await d1.insertEmail(e as any); emailsInserted++; } catch {}
           }
-          // Re-insert memory
           let memoryInserted = 0;
           for (const m of bundle.memory ?? []) {
             try {
@@ -6040,6 +6053,10 @@ export default {
       const agents = await d1.getAllPupaAgents();
       console.log(`[0G cron] archiving ${agents.length} PUPA+ agents`);
       for (const agentRow of agents) {
+        if (!agentRow.ecies_pubkey) {
+          console.log(`[0G cron] skipping ${agentRow.label} — no ECIES key, cannot encrypt`);
+          continue;
+        }
         try {
           const [emails, memory] = await Promise.all([
             d1.getInbox(agentRow.label, { limit: 1000 }),
@@ -6053,7 +6070,7 @@ export default {
             memory: memory as unknown as Record<string, unknown>[],
             identities: [] as Record<string, unknown>[],
           };
-          const result = await archiveBundleToZeroG(env.ZEROG_ARCHIVER_URL, env.WEBHOOK_SECRET, bundle);
+          const result = await archiveBundleToZeroG(env.ZEROG_ARCHIVER_URL, env.WEBHOOK_SECRET, bundle, agentRow.ecies_pubkey);
           if (result) {
             await d1.updateZeroGHash(agentRow.label, result.rootHash);
             console.log(`[0G cron] archived ${agentRow.label} rootHash=${result.rootHash}`);

@@ -1,10 +1,15 @@
 /**
  * /api/zerog-archive
  *
- * POST { AgentBundle } → uploads ECIES-encrypted bundle to 0G Storage
- *                      → returns { rootHash, txHash, size }
+ * POST { bundle: AgentBundle, eciesPubkey: string } 
+ *      → ECIES-encrypts bundle with agent's P-256 public key
+ *      → uploads opaque ciphertext to 0G Storage
+ *      → returns { rootHash, txHash, size }
  *
- * GET  ?rootHash=<hash> → downloads bundle from 0G and returns it
+ * GET  ?rootHash=<hash>
+ *      → downloads raw encrypted envelope from 0G
+ *      → returns { envelope: EncryptedEnvelope } (NO server-side decryption)
+ *      → caller decrypts with their private key
  *
  * Protected by X-Webhook-Secret header.
  *
@@ -16,6 +21,67 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+
+// ── Inline ECIES helpers (P-256 Web Crypto — same as worker src/ecies.ts) ──
+
+interface EncryptedEnvelope {
+  version: 1;
+  ephemeralPublicKey: string;
+  iv: string;
+  ciphertext: string;
+  tag: string;
+  contentHash: string;
+}
+
+function hexToBytes(hex: string): Uint8Array {
+  const clean = hex.startsWith('0x') ? hex.slice(2) : hex;
+  const bytes = new Uint8Array(clean.length / 2);
+  for (let i = 0; i < bytes.length; i++) bytes[i] = parseInt(clean.substr(i * 2, 2), 16);
+  return bytes;
+}
+
+function bytesToHex(bytes: Uint8Array): string {
+  return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function concatBytes(...arrays: Uint8Array[]): Uint8Array {
+  const total = arrays.reduce((s, a) => s + a.length, 0);
+  const out = new Uint8Array(total);
+  let off = 0;
+  for (const a of arrays) { out.set(a, off); off += a.length; }
+  return out;
+}
+
+async function importPublicKeyP256(pubHex: string): Promise<CryptoKey> {
+  return crypto.subtle.importKey('raw', hexToBytes(pubHex), { name: 'ECDH', namedCurve: 'P-256' }, false, []);
+}
+
+async function deriveSharedAesKey(privKey: CryptoKey, pubKey: CryptoKey): Promise<CryptoKey> {
+  const bits = await crypto.subtle.deriveBits({ name: 'ECDH', public: pubKey }, privKey, 256);
+  const km = await crypto.subtle.importKey('raw', bits, 'HKDF', false, ['deriveKey']);
+  return crypto.subtle.deriveKey(
+    { name: 'HKDF', hash: 'SHA-256', salt: new TextEncoder().encode('nftmail-ecies-v1'), info: new TextEncoder().encode('aes-256-gcm') },
+    km, { name: 'AES-GCM', length: 256 }, false, ['encrypt']
+  );
+}
+
+async function eciesEncryptBundle(plaintext: string, recipientPubHex: string): Promise<EncryptedEnvelope> {
+  const ephemeral = await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits']);
+  const ephPubRaw = await crypto.subtle.exportKey('raw', ephemeral.publicKey);
+  const recipientPub = await importPublicKeyP256(recipientPubHex);
+  const aesKey = await deriveSharedAesKey(ephemeral.privateKey, recipientPub);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const encrypted = await crypto.subtle.encrypt({ name: 'AES-GCM', iv, tagLength: 128 }, aesKey, new TextEncoder().encode(plaintext));
+  const hashBuf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(plaintext));
+  return {
+    version: 1,
+    ephemeralPublicKey: bytesToHex(new Uint8Array(ephPubRaw)),
+    iv: bytesToHex(iv),
+    ciphertext: bytesToHex(new Uint8Array(encrypted)),
+    tag: '',
+    contentHash: bytesToHex(new Uint8Array(hashBuf)),
+  };
+}
 
 const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET ?? '';
 const ZEROG_PRIVATE_KEY = process.env.ZEROG_PRIVATE_KEY ?? '';
@@ -35,15 +101,32 @@ export async function POST(request: NextRequest) {
   if (!WEBHOOK_SECRET || secret !== WEBHOOK_SECRET) return unauthorized();
   if (!ZEROG_PRIVATE_KEY) return missingConfig();
 
-  let bundle: unknown;
+  let body: { bundle: unknown; eciesPubkey?: string };
   try {
-    bundle = await request.json();
+    body = await request.json();
   } catch {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
 
-  const bundleStr = JSON.stringify(bundle);
-  const bundleBytes = new TextEncoder().encode(bundleStr);
+  const bundleStr = JSON.stringify(body.bundle ?? body);
+
+  // ── ECIES encrypt if pubkey provided ─────────────────────────────────
+  // If no pubkey: reject. Unencrypted uploads are not allowed —
+  // every archive must be opaque to 0G storage nodes.
+  if (!body.eciesPubkey) {
+    return NextResponse.json({ error: 'eciesPubkey required — unencrypted archives are not permitted' }, { status: 400 });
+  }
+
+  let uploadBytes: Uint8Array;
+  let envelope: EncryptedEnvelope;
+  try {
+    envelope = await eciesEncryptBundle(bundleStr, body.eciesPubkey);
+    const envelopeStr = JSON.stringify(envelope);
+    uploadBytes = new TextEncoder().encode(envelopeStr);
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return NextResponse.json({ error: `ECIES encryption failed: ${msg}` }, { status: 500 });
+  }
 
   try {
     const { Indexer, MemData } = await import('@0glabs/0g-ts-sdk');
@@ -52,7 +135,7 @@ export async function POST(request: NextRequest) {
     const provider = new ethers.JsonRpcProvider(ZEROG_RPC_URL);
     const signer = new ethers.Wallet(ZEROG_PRIVATE_KEY, provider);
 
-    const memData = new MemData(bundleBytes);
+    const memData = new MemData(uploadBytes);
     const [tree, treeErr] = await memData.merkleTree();
     if (treeErr !== null) {
       return NextResponse.json({ error: `Merkle tree error: ${treeErr}` }, { status: 500 });
@@ -66,7 +149,7 @@ export async function POST(request: NextRequest) {
     }
 
     const txHash = 'rootHash' in tx ? (tx as any).txHash : (tx as any).txHashes?.[0] ?? '';
-    return NextResponse.json({ rootHash, txHash, size: bundleBytes.length });
+    return NextResponse.json({ rootHash, txHash, size: uploadBytes.length, encrypted: true });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
     return NextResponse.json({ error: `Archive failed: ${msg}` }, { status: 500 });
@@ -101,9 +184,11 @@ export async function GET(request: NextRequest) {
     let offset = 0;
     for (const c of chunks) { merged.set(c, offset); offset += c.length; }
 
-    const bundleStr = new TextDecoder().decode(merged);
-    const bundle = JSON.parse(bundleStr);
-    return NextResponse.json({ bundle, rootHash });
+    // Return raw encrypted envelope — caller decrypts with their private key.
+    // Server never sees the plaintext bundle on the read path.
+    const envelopeStr = new TextDecoder().decode(merged);
+    const envelope: EncryptedEnvelope = JSON.parse(envelopeStr);
+    return NextResponse.json({ envelope, rootHash, encrypted: true });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
     return NextResponse.json({ error: `Fetch failed: ${msg}` }, { status: 500 });

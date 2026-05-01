@@ -423,11 +423,10 @@ export default function DashboardPage() {
                 Inbox{messages.length > 0 ? ` (${messages.length})` : ''}
               </button>
               <button
-                onClick={() => canSend && setTab('compose')}
-                title={!canSend ? 'Upgrade to PUPA or IMAGO to send' : undefined}
-                className={`flex-1 rounded-md px-4 py-2 text-xs font-semibold transition ${tab === 'compose' ? 'bg-violet-500/12 text-violet-300' : canSend ? 'text-[var(--muted)] hover:text-white/60' : 'cursor-not-allowed opacity-40 text-[var(--muted)]'}`}
+                onClick={() => setTab('compose')}
+                className={`flex-1 rounded-md px-4 py-2 text-xs font-semibold transition ${tab === 'compose' ? 'bg-violet-500/12 text-violet-300' : 'text-[var(--muted)] hover:text-white/60'}`}
               >
-                Compose <span className={`ml-1 rounded-full px-1.5 py-0.5 text-[9px] ring-1 ${isImago ? 'bg-violet-500/10 text-violet-300 ring-violet-500/20' : 'bg-zinc-500/10 text-zinc-400 ring-zinc-500/20'}`}>{isImago ? 'IMAGO' : 'PUPA+'}</span>
+                Compose {canSend && <span className={`ml-1 rounded-full px-1.5 py-0.5 text-[9px] ring-1 ${isImago ? 'bg-violet-500/10 text-violet-300 ring-violet-500/20' : 'bg-amber-500/10 text-amber-300 ring-amber-500/20'}`}>{isImago ? 'IMAGO' : 'PUPA'}</span>}
               </button>
               <button
                 onClick={() => setTab('killswitch')}
@@ -634,12 +633,18 @@ export default function DashboardPage() {
             {tab === 'compose' && (
               <div className="space-y-4">
                 {!canSend && (
-                  <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 px-5 py-4">
+                  <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 px-5 py-4 space-y-3">
                     <div className="flex items-center gap-2">
-                      <span className="rounded-full bg-violet-500/10 px-2 py-0.5 text-[10px] font-semibold text-violet-300 ring-1 ring-violet-500/20">UPCYCLED</span>
-                      <span className="text-sm text-violet-300">Compose &amp; Send requires a PUPA or IMAGO mailbox</span>
+                      <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-300 ring-1 ring-amber-500/20">LARVA</span>
+                      <span className="text-sm font-semibold text-white">Sending requires a Pupa or Imago mailbox</span>
                     </div>
-                    <p className="mt-2 text-xs text-[var(--muted)]">Cycle your inbox on the <Link href="/nftmail" className="text-violet-300 hover:underline">mint page</Link> to unlock sending.</p>
+                    <p className="text-xs text-[var(--muted)]">Molt your inbox to unlock Compose &amp; Send, extended retention, and your on-chain Mirror Body.</p>
+                    <Link
+                      href={`/nftmail?upgrade=${selectedName?.label ?? '1'}`}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-2 text-xs font-semibold text-amber-300 hover:bg-amber-500/20 transition"
+                    >
+                      Molt to Pupa — 10 xDAI →
+                    </Link>
                   </div>
                 )}
                 <div className={`rounded-xl border border-[var(--border)] bg-[var(--card)] p-5 space-y-4 ${!canSend ? 'opacity-50 pointer-events-none' : ''}`}>
