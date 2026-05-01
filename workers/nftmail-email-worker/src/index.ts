@@ -4594,14 +4594,11 @@ export default {
         }
 
         // ── Episodic Memory ───────────────────────────────────────────────────
-        // Rolling per-agent buffer of memory entries.
-        // KV key: memory:{agentName}  →  JSON array, newest-last, capped at 200
-        // Each entry shape: { id, ts, role, content, tags?, sessionId?, [extra] }
+        // LARVA: KV only (memory:{agentName} JSON array, capped at 200)
+        // PUPA:  D1 memory table, capped at 200 rows (oldest trimmed)
+        // IMAGO/GHOST: D1 memory table, unlimited rows, full tag+session filtering
         //
-        // Cross-agent coordination via shared namespaces:
-        // KV key: shared-ctx:{namespace}  →  { data, writer, updatedAt }
-        // Any agent can read; namespaces prefixed 'secure:' require WEBHOOK_SECRET.
-        // listSharedContext: enumerate all shared-ctx keys (prefix scan).
+        // Cross-agent coordination: shared_context D1 table for PUPA+, KV fallback.
 
         if (email.action === 'setMemory') {
           const agentName = ((email as any).agentName || '').toLowerCase().trim();
@@ -4613,20 +4610,60 @@ export default {
             return corsify(Response.json({ error: 'Missing entry or entries' }, { status: 400 }), request);
           }
           const newEntries: any[] = Array.isArray(incoming) ? incoming : [incoming];
-          const maxEntries = parseInt(String((env as any).MEMORY_MAX_ENTRIES ?? '200'), 10);
-          const memKey = `memory:${agentName}`;
-          let existing: any[] = [];
-          try {
-            const raw = await env.INBOX_KV.get(memKey);
-            if (raw) existing = JSON.parse(raw);
-          } catch {}
-          const ts = Date.now();
-          const appended = [
-            ...existing,
-            ...newEntries.map((e: any, i: number) => ({ id: `${ts}-${i}`, ts, ...e })),
-          ].slice(-maxEntries);
-          await env.INBOX_KV.put(memKey, JSON.stringify(appended));
-          return corsify(Response.json({ status: 'stored', agentName, total: appended.length, appended: newEntries.length }), request);
+
+          // Resolve tier from D1 (fast) or KV fallback
+          let agentTier = 'basic';
+          if (env.NFTMAIL_DB) {
+            try {
+              const row = await new D1Store(env.NFTMAIL_DB).getAgent(agentName);
+              if (row) agentTier = row.tier;
+            } catch {}
+          }
+          if (agentTier === 'basic') {
+            const tierRaw = await env.INBOX_KV.get(`acct-tier:${agentName}`);
+            if (tierRaw) { try { agentTier = JSON.parse(tierRaw).tier ?? 'basic'; } catch {} }
+          }
+
+          // ── LARVA: KV path ──
+          if (agentTier === 'basic') {
+            const maxEntries = 200;
+            const memKey = `memory:${agentName}`;
+            let existing: any[] = [];
+            try { const raw = await env.INBOX_KV.get(memKey); if (raw) existing = JSON.parse(raw); } catch {}
+            const ts = Date.now();
+            const appended = [
+              ...existing,
+              ...newEntries.map((e: any, i: number) => ({ id: `${ts}-${i}`, ts, ...e })),
+            ].slice(-maxEntries);
+            await env.INBOX_KV.put(memKey, JSON.stringify(appended));
+            return corsify(Response.json({ status: 'stored', agentName, tier: 'larva', total: appended.length, appended: newEntries.length }), request);
+          }
+
+          // ── PUPA+: D1 path ──
+          // cap: 200 for pupa, unlimited (null) for imago/ghost
+          const isPupa = agentTier === 'lite';
+          const memoryCap = isPupa ? 200 : null;
+          const d1 = new D1Store(env.NFTMAIL_DB!);
+          let appended = 0;
+          for (const entry of newEntries) {
+            const content = typeof entry.content === 'string' ? entry.content : JSON.stringify(entry);
+            const tag: string | undefined = entry.tag ?? (Array.isArray(entry.tags) ? entry.tags[0] : undefined);
+            const sessionId: string | undefined = entry.sessionId ?? undefined;
+            await d1.appendMemory(agentName, content, {
+              tag,
+              sessionId,
+              ...(memoryCap !== null ? { cap: memoryCap } : {}),
+            });
+            appended++;
+          }
+          return corsify(Response.json({
+            status: 'stored',
+            agentName,
+            tier: agentTier,
+            appended,
+            cap: memoryCap ?? 'unlimited',
+            source: 'd1',
+          }), request);
         }
 
         if (email.action === 'getRecentMemory') {
@@ -4634,19 +4671,50 @@ export default {
           if (!agentName) {
             return corsify(Response.json({ error: 'Missing agentName' }, { status: 400 }), request);
           }
-          const limit = Math.min(parseInt(String((email as any).limit ?? '50'), 10), 200);
           const filterTag: string | null = (email as any).tag || null;
           const filterSession: string | null = (email as any).sessionId || null;
+
+          // ── D1-first for PUPA+ ──
+          if (env.NFTMAIL_DB) {
+            try {
+              const d1 = new D1Store(env.NFTMAIL_DB);
+              const agentRow = await d1.getAgent(agentName);
+              if (agentRow && agentRow.tier !== 'basic') {
+                const isImago = agentRow.tier === 'premium' || agentRow.tier === 'ghost';
+                const maxLimit = isImago ? 500 : 200;
+                const limit = Math.min(parseInt(String((email as any).limit ?? '50'), 10), maxLimit);
+                const rows = await d1.getRecentMemory(agentName, {
+                  limit,
+                  tag: filterTag ?? undefined,
+                  sessionId: filterSession ?? undefined,
+                });
+                return corsify(Response.json({
+                  agentName,
+                  entries: rows.map(r => ({ id: r.id, ts: r.created_at, content: r.content, tag: r.tag, sessionId: r.session_id })),
+                  returned: rows.length,
+                  tier: agentRow.tier,
+                  source: 'd1',
+                }), request);
+              }
+            } catch (e) {
+              console.error('[D1 read] getRecentMemory fallback to KV:', e);
+            }
+          }
+
+          // ── KV fallback (LARVA or D1 miss) ──
+          const limit = Math.min(parseInt(String((email as any).limit ?? '50'), 10), 200);
           const raw = await env.INBOX_KV.get(`memory:${agentName}`);
           let entries: any[] = [];
           try { if (raw) entries = JSON.parse(raw); } catch {}
           if (filterTag) entries = entries.filter((e: any) => Array.isArray(e.tags) && e.tags.includes(filterTag));
           if (filterSession) entries = entries.filter((e: any) => e.sessionId === filterSession);
           const window = entries.slice(-limit);
-          return corsify(Response.json({ agentName, entries: window, total: entries.length, returned: window.length }), request);
+          return corsify(Response.json({ agentName, entries: window, total: entries.length, returned: window.length, source: 'kv' }), request);
         }
 
         // ── Cross-Agent Shared Context ────────────────────────────────────────
+        // PUPA+: D1 shared_context table (concurrent-safe upsert, writer attribution)
+        // LARVA: KV fallback
         if (email.action === 'setSharedContext') {
           const namespace = ((email as any).namespace || '').toLowerCase().trim();
           if (!namespace) {
@@ -4663,8 +4731,14 @@ export default {
             return corsify(Response.json({ error: 'Missing data' }, { status: 400 }), request);
           }
           const writer = ((email as any).agentName || 'unknown').toLowerCase().trim();
+          if (env.NFTMAIL_DB) {
+            try {
+              await new D1Store(env.NFTMAIL_DB).setSharedContext(namespace, data, writer);
+              return corsify(Response.json({ status: 'stored', namespace, writer, source: 'd1' }), request);
+            } catch (e) { console.error('[D1] setSharedContext fallback to KV:', e); }
+          }
           await env.INBOX_KV.put(`shared-ctx:${namespace}`, JSON.stringify({ data, writer, updatedAt: Date.now() }));
-          return corsify(Response.json({ status: 'stored', namespace, writer }), request);
+          return corsify(Response.json({ status: 'stored', namespace, writer, source: 'kv' }), request);
         }
 
         if (email.action === 'getSharedContext') {
@@ -4672,13 +4746,19 @@ export default {
           if (!namespace) {
             return corsify(Response.json({ error: 'Missing namespace' }, { status: 400 }), request);
           }
-          const raw = await env.INBOX_KV.get(`shared-ctx:${namespace}`);
-          if (!raw) {
-            return corsify(Response.json({ exists: false, namespace }, { status: 404 }), request);
+          if (env.NFTMAIL_DB) {
+            try {
+              const row = await new D1Store(env.NFTMAIL_DB).getSharedContext(namespace);
+              if (row) {
+                return corsify(Response.json({ exists: true, namespace, data: JSON.parse(row.data), writer: row.writer, updatedAt: row.updated_at, source: 'd1' }), request);
+              }
+            } catch (e) { console.error('[D1] getSharedContext fallback to KV:', e); }
           }
+          const raw = await env.INBOX_KV.get(`shared-ctx:${namespace}`);
+          if (!raw) return corsify(Response.json({ exists: false, namespace }, { status: 404 }), request);
           try {
             const ctx = JSON.parse(raw);
-            return corsify(Response.json({ exists: true, namespace, ...ctx }), request);
+            return corsify(Response.json({ exists: true, namespace, ...ctx, source: 'kv' }), request);
           } catch {
             return corsify(Response.json({ exists: false, namespace }), request);
           }
@@ -4686,10 +4766,18 @@ export default {
 
         if (email.action === 'listSharedContext') {
           const prefix = ((email as any).prefix || '').toLowerCase().trim();
+          if (env.NFTMAIL_DB) {
+            try {
+              const rows = await new D1Store(env.NFTMAIL_DB).listSharedContext(prefix);
+              if (rows.length > 0) {
+                return corsify(Response.json({ namespaces: rows.map(r => r.namespace), count: rows.length, source: 'd1' }), request);
+              }
+            } catch (e) { console.error('[D1] listSharedContext fallback to KV:', e); }
+          }
           const kvPrefix = prefix ? `shared-ctx:${prefix}` : 'shared-ctx:';
           const listed = await env.INBOX_KV.list({ prefix: kvPrefix });
           const namespaces = listed.keys.map((k: { name: string }) => k.name.replace(/^shared-ctx:/, ''));
-          return corsify(Response.json({ namespaces, count: namespaces.length }), request);
+          return corsify(Response.json({ namespaces, count: namespaces.length, source: 'kv' }), request);
         }
 
         // --- Alias Actions ---
