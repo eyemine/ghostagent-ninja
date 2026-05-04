@@ -233,8 +233,10 @@ export async function POST(req: NextRequest) {
         const sourceChainId = NFT_SOURCE_CHAIN_ID[type] ?? 1;
 
         // ── Step 3a: Deploy Gnosis-side mirror TBA for the BYO NFT ──
-        // For ENS: skip TBA (ENS identity molts move the NFT into the Safe; use EOA as fallback)
-        if (type !== 'ens' && nftContract) {
+        // Universal: ALL keystone NFTs (ENS, BYO collections, Chonks) get a Gnosis mirror TBA.
+        // The NFT stays on its native chain — the mirror TBA controls the Safe on Gnosis.
+        // Transfer the NFT → new owner controls TBA → controls Safe → agent identity transfers.
+        if (nftContract) {
           try {
             const { createWalletClient, http } = await import('viem');
             const { privateKeyToAccount } = await import('viem/accounts');
@@ -296,8 +298,10 @@ export async function POST(req: NextRequest) {
           console.error('Safe creation failed (non-fatal):', safeResult.error);
         }
       }
-      // Mint beacon to owner wallet (key stays with principal)
-      beacon = await mintChonkBeacon(tokenId, ownerWallet, APP_URL, webhookSecret, beaconLabel, undefined, targetNamespace);
+      // Mint beacon NFT to the Safe (not the user's wallet).
+      // The Safe holds feature beacons; the keystone NFT (in user's wallet) governs the Safe via mirror TBA.
+      const beaconRecipient = safeAddress ?? ownerWallet;
+      beacon = await mintChonkBeacon(tokenId, ownerWallet, APP_URL, webhookSecret, beaconLabel, beaconRecipient, targetNamespace);
       if (!beacon.success) {
         return NextResponse.json({ status: 'error', step: 'beacon-mint', error: beacon.error ?? 'Beacon mint failed' }, { status: 502 });
       }

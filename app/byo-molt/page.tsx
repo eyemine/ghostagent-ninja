@@ -552,14 +552,14 @@ export default function OgNftMoltPage() {
         <img src="https://ipfs.io/ipfs/bafkreiejmu35lnu34e6dm754c6tad34nogywf2oslbql6lzcdpz4acxjue" alt="BYO NFT Molt" className="h-28 w-28 shrink-0 rounded-xl border border-fuchsia-500/40 object-contain" />
         <div>
           <h1 className="pl-1 text-2xl font-bold text-[#f2eee4]">BYO NFT Molt</h1>
-          <p className="mt-1 pl-1 text-sm text-[var(--muted)]">Overlay an NFT you own — ENS, Chonk, or Verified Collection — onto your GhostAgent identity</p>
+          <p className="mt-1 pl-1 text-sm text-[var(--muted)]">Use an NFT you already own — ENS, Chonk, or Verified Collection — as the governing key to your GhostAgent Safe</p>
         </div>
       </div>
 
       <div>
         <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 px-4 py-3 text-xs text-[var(--muted)]">
-          <p className="text-[#f2eee4] font-semibold mb-1">Bundle-building scenario</p>
-          <p>Own an ENS name that you would like to augment? Molt it into an agent identity to add provenance and utility. Flaunt it, or sell a wallet bundle. Each NFT molt a Gnosis SAFE, NFTmail inbox and Story IP claim.</p>
+          <p className="text-[#f2eee4] font-semibold mb-1">Your NFT is the key</p>
+          <p>Your existing NFT becomes the <span className="text-violet-300 font-semibold">keystone</span> — it governs the agent&apos;s Safe via its Token-Bound Account (TBA). Transfer the NFT and the agent transfers with it. No migration, no re-provisioning. The Safe holds feature beacons; your NFT holds the power.</p>
         </div>
         <div className="mt-3 rounded-xl border border-[rgba(176,128,92,0.2)] bg-black/20 px-4 py-3 space-y-1 text-xs text-[var(--muted)]">
           <p className="text-[#f2eee4] font-semibold">What happens</p>
@@ -568,12 +568,15 @@ export default function OgNftMoltPage() {
             const prefix = nftType === 'pownft' ? 'atom' : nftType === 'normie' ? 'normie' : nftType === 'chonk' ? 'chonk' : nftType === 'mooncat' ? 'mooncat' : null;
             const primary = prefix ? `${prefix}.${tid}@nftmail.box` : primaryName ? `${primaryName}@nftmail.box` : '[ENSname]@nftmail.box';
             const agent   = prefix ? `${prefix}.${tid}_@nftmail.box` : primaryName ? `${primaryName}_@nftmail.box` : '[ENSname]_@nftmail.box';
-            const beacon  = prefix ? `${prefix}-${tid}.agent.gno` : primaryName ? `${primaryName}.agent.gno` : '[ENSname].agent.gno';
+            const beacon  = prefix ? `${prefix}-${tid}.nftmail.gno` : primaryName ? `${primaryName}.nftmail.gno` : '[ENSname].nftmail.gno';
             return (
               <>
-                <p>✓ Primary email <span className="font-mono text-[#f2eee4]">{primary}</span></p>
-                <p className="ml-3">+ Agent email <span className="font-mono text-[#f2eee4]">{agent}</span> preserved</p>
-                <p>✓ Beacon NFT <span className="font-mono text-[#f2eee4]">{beacon}</span> minted to Gnosis Safe · Zero lock-in</p>
+                <p>✓ Gnosis mirror TBA deployed — your NFT&apos;s TBA becomes the Safe&apos;s sole key</p>
+                <p>✓ Gnosis Safe created — controlled exclusively by your NFT via its TBA</p>
+                <p>✓ Beacon NFT <span className="font-mono text-[#f2eee4]">{beacon}</span> minted <span className="text-violet-300">to the Safe</span> (not your wallet)</p>
+                <p>✓ Human inbox <span className="font-mono text-[#f2eee4]">{primary}</span></p>
+                <p className="ml-3">+ Agent inbox <span className="font-mono text-[#f2eee4]">{agent}</span></p>
+                <p className="text-amber-300/80">Your NFT stays in your wallet — it is the key, not the asset held</p>
               </>
             );
           })()}

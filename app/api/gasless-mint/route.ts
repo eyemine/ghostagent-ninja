@@ -136,43 +136,72 @@ export async function POST(req: NextRequest) {
     transport: http(process.env.ETH_RPC_URL || 'https://ethereum.publicnode.com'),
   });
 
-  // ── ENS holder verification (agent.gno path) ──────────────────────────────
-  // If namespace=agent, caller must own label.eth on mainnet
-  if (namespace === 'agent') {
-    if (!ensProof?.name) {
-      return NextResponse.json(
-        { error: 'ENS proof required for agent.gno free mint — provide ensProof.name' },
-        { status: 400 },
-      );
-    }
+  // ── ENS holder path: keystone architecture ────────────────────────────────
+  // ENS NFT is the keystone governing identity. We do NOT mint agent.gno.
+  // Instead: verify ownership → deploy Gnosis mirror TBA → create Safe → mint beacon to Safe.
+  // Delegates to /api/byo-molt which handles the universal keystone flow.
+  if (namespace === 'agent' && ensProof) {
     const ensLabel = ensProof.name.toLowerCase().replace(/\.eth$/, '');
-    if (ensLabel !== label) {
+    if (!ensLabel || ensLabel !== label) {
       return NextResponse.json(
-        { error: `ENS proof name "${ensLabel}" does not match label "${label}"` },
+        { error: `ENS proof name does not match label "${label}"` },
         { status: 400 },
       );
     }
+    // Verify ENS ownership
+    let ensTokenId: bigint;
     try {
-      // labelhash = keccak256(label) — tokenId in ENS BaseRegistrar
-      const tokenId = BigInt(keccak256(encodePacked(['string'], [ensLabel])));
+      ensTokenId = BigInt(keccak256(encodePacked(['string'], [ensLabel])));
       const ensOwner = await ethClient.readContract({
         address: ENS_BASE_REGISTRAR,
         abi: ENS_ABI,
         functionName: 'ownerOf',
-        args: [tokenId],
+        args: [ensTokenId],
       });
       if (!ensOwner || ensOwner.toLowerCase() !== owner.toLowerCase()) {
         return NextResponse.json(
-          { error: `${ensLabel}.eth is not owned by ${owner}. Connect the wallet that owns ${ensLabel}.eth.` },
+          { error: `${ensLabel}.eth is not owned by ${owner}` },
           { status: 403 },
         );
       }
     } catch {
       return NextResponse.json(
-        { error: `${ensLabel}.eth does not exist on Ethereum mainnet — cannot verify ENS ownership` },
+        { error: `${ensLabel}.eth does not exist on Ethereum mainnet` },
         { status: 403 },
       );
     }
+    // Route through byo-molt keystone flow — ENS NFT becomes the governing keystone.
+    // Mirror TBA + Safe + beacon are provisioned there; no agent.gno minted.
+    const byoRes = await fetch(`${APP_URL}/api/byo-molt`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        primaryName: ensLabel,
+        tokenId: ensTokenId.toString(),
+        ownerWallet: owner,
+        nftType: 'ens',
+        nftName: `${ensLabel}.eth`,
+        couponCode: 'ENS-GASLESS',
+        moltTarget: 'new-agent',
+      }),
+    });
+    const byoData = await byoRes.json() as { status?: string; humanEmail?: string; agentEmail?: string; beaconNft?: string; beaconTxHash?: string; error?: string };
+    if (byoData.status !== 'ok') {
+      return NextResponse.json({ error: byoData.error ?? 'ENS keystone provisioning failed' }, { status: 502 });
+    }
+    return NextResponse.json({
+      success: true,
+      txHash: byoData.beaconTxHash ?? '',
+      tbaAddress: '',
+      label: ensLabel,
+      namespace: 'nftmail',
+      fullName: `${ensLabel}.nftmail.gno`,
+      email: byoData.agentEmail ?? `${ensLabel}_@nftmail.box`,
+      humanEmail: byoData.humanEmail,
+      sponsor: APP_URL,
+      keystoneNft: `${ensLabel}.eth`,
+      keystoneChain: 'mainnet',
+    });
   }
 
   // ── Rate limit (skip for coupon mints) ───────────────────────────────────
