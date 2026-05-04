@@ -81,13 +81,17 @@ function frameResponse(params: {
     ? `  <meta property="fc:frame:input:text" content="${input.placeholder}" />\n`
     : '';
 
+  // Warpcast requires fc:frame:post_url at root level for the frame
+  const postUrl = `${APP_URL}/api/farcaster-frame?state=${stateEncoded}`;
+  const postUrlTag = `  <meta property="fc:frame:post_url" content="${postUrl}" />\n`;
+
   const html = `<!DOCTYPE html>
 <html>
 <head>
   <title>GhostAgent LARVA</title>
   <meta property="fc:frame" content="vNext" />
   <meta property="fc:frame:image" content="${image}" />
-${buttonTags}${inputTag}</head>
+${postUrlTag}${buttonTags}${inputTag}</head>
 <body>
   <h1>GhostAgent Farcaster Frame</h1>
   <p>State: ${state.step}</p>
