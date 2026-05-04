@@ -1361,6 +1361,125 @@ export default {
       return new Response(null, { headers: corsHeaders(request) });
     }
 
+    const url = new URL(request.url);
+    const pathname = url.pathname;
+
+    // ── PUBLIC API: Agent metadata for notapaperclip.red ─────────────────────
+    // GET /public/agent/{agentName} — read-only, no auth required
+    // Respects privacy settings (farcasterVisibility, emailVisibility)
+    if (pathname.startsWith('/public/agent/') && request.method === 'GET') {
+      const agentName = pathname.replace('/public/agent/', '').replace(/[^a-z0-9.-]/g, '');
+      if (!agentName) {
+        return corsify(Response.json({ error: 'Missing agent name' }, { status: 400 }), request);
+      }
+
+      try {
+        // Read from KV (fast path) and D1 (if PUPA+)
+        const [kvRaw, tierRaw, privacyRaw] = await Promise.all([
+          env.INBOX_KV.get(`nftmailgno:${agentName}`),
+          env.INBOX_KV.get(`acct-tier:${agentName}`),
+          env.INBOX_KV.get(`privacy:${agentName}`),
+        ]);
+
+        if (!kvRaw) {
+          return corsify(Response.json({ error: 'Agent not found' }, { status: 404 }), request);
+        }
+
+        const kvData = JSON.parse(kvRaw);
+        const tierData = tierRaw ? JSON.parse(tierRaw) : { tier: 'basic', retention: '8-day' };
+        const privacyData = privacyRaw ? JSON.parse(privacyRaw) : { tier: 'exposed' };
+        const parsedPrivacy = parsePrivacyRecord(privacyRaw, tierData.tld || 'agent.gno');
+
+        // Determine visibility settings (default to safe values)
+        const farcasterVis = parsedPrivacy.farcasterVisibility || 'fid-only';
+        const emailVis = parsedPrivacy.emailVisibility || 'hidden';
+
+        // Build public response respecting privacy
+        const response: Record<string, unknown> = {
+          agentName,
+          tier: tierData.tier,
+          retention: tierData.retention || '8-day',
+          tld: tierData.tld || kvData.tld || null,
+          privacyTier: parsedPrivacy.tier,
+          erc8004: {},
+          reputation: {},
+          farcaster: null,
+          email: null,
+          safe: tierData.safe || null,
+          upgradedAt: tierData.upgraded_at || null,
+          expiresAt: tierData.expires_at || null,
+        };
+
+        // ERC-8004 identities (on-chain, public)
+        const erc8004Gnosis = await env.INBOX_KV.get(`erc8004:gnosis:${agentName}`);
+        const erc8004Base = await env.INBOX_KV.get(`erc8004:base:${agentName}`);
+        if (erc8004Gnosis) {
+          const gnosisData = JSON.parse(erc8004Gnosis);
+          (response.erc8004 as Record<string, unknown>).gnosis = {
+            agentId: gnosisData.agentId,
+            tokenId: gnosisData.tokenId,
+          };
+        }
+        if (erc8004Base) {
+          const baseData = JSON.parse(erc8004Base);
+          (response.erc8004 as Record<string, unknown>).base = {
+            agentId: baseData.agentId,
+            tokenId: baseData.tokenId,
+          };
+        }
+
+        // Farcaster FID (respect visibility)
+        if (kvData.fid) {
+          if (farcasterVis === 'full') {
+            response.farcaster = { fid: kvData.fid, username: null }; // username resolved client-side via Hub
+          } else if (farcasterVis === 'fid-only') {
+            response.farcaster = { fid: kvData.fid };
+          }
+          // 'hidden' → farcaster stays null
+        }
+
+        // Email (always masked based on visibility)
+        if (emailVis === 'full') {
+          response.email = `${agentName}@nftmail.box`;
+        } else if (emailVis === 'domain-only') {
+          response.email = '@nftmail.box';
+        }
+        // 'hidden' → email stays null
+
+        // Reputation flags (read-only, safe to expose)
+        if (env.NFTMAIL_DB) {
+          try {
+            const d1Stmt = env.NFTMAIL_DB.prepare(
+              'SELECT flag, source, created_at, resolved_at FROM reputation_flags WHERE agent_label = ? ORDER BY created_at DESC'
+            );
+            const repRows = await d1Stmt.bind(agentName).all();
+            if (repRows.results && repRows.results.length > 0) {
+              (response.reputation as Record<string, unknown>).notapaperclip = {
+                flags: repRows.results.map((r) => ({
+                  flag: String((r as { flag: string }).flag),
+                  source: String((r as { source: string }).source),
+                  createdAt: Number((r as { created_at: number }).created_at),
+                  resolvedAt: (r as { resolved_at: number | null }).resolved_at ? Number((r as { resolved_at: number }).resolved_at) : null,
+                })),
+                count: repRows.results.length,
+              };
+            }
+          } catch (e) {
+            console.error('[public/api] reputation query failed:', e);
+          }
+        }
+
+        // Cache-Control: public, 5-minute cache
+        const resp = Response.json(response, {
+          headers: { 'Cache-Control': 'public, max-age=300' },
+        });
+        return corsify(resp, request);
+      } catch (e) {
+        console.error('[public/api] error:', e);
+        return corsify(Response.json({ error: 'Internal error' }, { status: 500 }), request);
+      }
+    }
+
     // AUTH GUARD: Validate X-Worker-Secret header for API requests (bypass email webhooks)
     const contentType = request.headers.get('content-type') || '';
     const isEmailWebhook = contentType.includes('multipart/form-data');
@@ -4677,10 +4796,18 @@ export default {
             story_ip: null,
           });
 
+          // Privacy visibility settings from Frame (defaults to safe values)
+          const farcasterVis = ((email as any).farcasterVisibility as 'hidden' | 'fid-only' | 'full') || 'fid-only';
+          const emailVis = ((email as any).emailVisibility as 'hidden' | 'domain-only' | 'full') || 'hidden';
+
           await Promise.all([
             env.INBOX_KV.put(`nftmailgno:${agentName}`, kvEntry),
             env.INBOX_KV.put(`acct-tier:${agentName}`, tierEntry),
-            env.INBOX_KV.put(`privacy:${agentName}`, JSON.stringify({ tier: 'exposed' })),
+            env.INBOX_KV.put(`privacy:${agentName}`, JSON.stringify({
+              tier: 'exposed',
+              farcasterVisibility: farcasterVis,
+              emailVisibility: emailVis,
+            })),
             // Index by FID for lookup
             env.INBOX_KV.put(`fid-agent:${fid}`, JSON.stringify({ agentName, provisionedAt: now })),
           ]);

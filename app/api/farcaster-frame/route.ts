@@ -19,10 +19,12 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://ghostagent.ninja';
 
 // Frame state is passed via button post_url with query params
 interface FrameState {
-  step: 'entry' | 'name' | 'confirm' | 'success' | 'error';
+  step: 'entry' | 'name' | 'confirm' | 'privacy' | 'success' | 'error';
   fid?: number;
   preferredName?: string;
   agentName?: string;
+  farcasterVisibility?: 'hidden' | 'fid-only' | 'full';
+  emailVisibility?: 'hidden' | 'domain-only' | 'full';
   error?: string;
 }
 
@@ -176,7 +178,7 @@ export async function POST(req: NextRequest) {
       }
 
       case 'confirm': {
-        // Frame 3 → 4: Provision via worker
+        // Frame 3 → 4: Privacy settings (before provisioning)
         const { fid, preferredName, agentName } = currentState;
         if (!fid) {
           return frameResponse({
@@ -186,7 +188,57 @@ export async function POST(req: NextRequest) {
           });
         }
 
-        // Call worker to provision FID agent
+        return frameResponse({
+          image: generateFrameImage(
+            'Privacy Settings',
+            `Agent: ${agentName}`
+          ),
+          buttons: [
+            { label: '← Back', action: 'post' },
+            { label: 'Hide FID', action: 'post' },
+            { label: 'Show FID Only', action: 'post' },
+            { label: 'Full Profile →', action: 'post' },
+          ],
+          state: { step: 'privacy', fid, preferredName, agentName, farcasterVisibility: 'fid-only', emailVisibility: 'hidden' },
+        });
+      }
+
+      case 'privacy': {
+        // Frame 4: Handle privacy selection → Provision
+        const { fid, preferredName, agentName } = currentState;
+        if (!fid || !agentName) {
+          return frameResponse({
+            image: generateFrameImage('Error', 'Missing FID or agent name'),
+            buttons: [{ label: 'Restart', action: 'post', target: `${APP_URL}/api/farcaster-frame` }],
+            state: { step: 'error', error: 'Missing FID or agent name' },
+          });
+        }
+
+        // Map button index to visibility settings
+        // Button 1 = Back (go back to confirm)
+        // Button 2 = Hide FID (hidden)
+        // Button 3 = Show FID Only (fid-only, default)
+        // Button 4 = Full Profile (full)
+        let farcasterVisibility: 'hidden' | 'fid-only' | 'full' = 'fid-only';
+        if (buttonIndex === 2) farcasterVisibility = 'hidden';
+        else if (buttonIndex === 3) farcasterVisibility = 'fid-only';
+        else if (buttonIndex === 4) farcasterVisibility = 'full';
+        else if (buttonIndex === 1) {
+          // Back button - return to confirm
+          return frameResponse({
+            image: generateFrameImage(
+              'Confirm Provisioning',
+              `Agent: ${agentName}@nftmail.box`
+            ),
+            buttons: [
+              { label: '← Back', action: 'post' },
+              { label: '✓ Claim LARVA Agent', action: 'post' },
+            ],
+            state: { step: 'confirm', fid, preferredName, agentName },
+          });
+        }
+
+        // Call worker to provision FID agent with privacy settings
         const provisionRes = await fetch(WORKER_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WEBHOOK_SECRET },
@@ -194,6 +246,8 @@ export async function POST(req: NextRequest) {
             action: 'provisionFidAgent',
             fid,
             preferredName: preferredName || '',
+            farcasterVisibility,
+            emailVisibility: 'hidden', // Always hide email in public API
             secret: WEBHOOK_SECRET,
           }),
         });

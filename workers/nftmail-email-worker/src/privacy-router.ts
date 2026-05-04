@@ -11,6 +11,9 @@
 
 export type PrivacyTier = 'exposed' | 'private' | 'hard-privacy';
 
+export type FarcasterVisibility = 'hidden' | 'fid-only' | 'full';
+export type EmailVisibility = 'hidden' | 'domain-only' | 'full';
+
 export interface PrivacyRecord {
   tier: PrivacyTier;
   enabled: boolean;       // true if tier !== 'exposed'
@@ -18,6 +21,9 @@ export interface PrivacyRecord {
   walletAddress?: string;
   moltPrivatePaid?: boolean;
   updatedAt: number;
+  // Public API visibility controls (added for notapaperclip.red integration)
+  farcasterVisibility?: FarcasterVisibility;
+  emailVisibility?: EmailVisibility;
 }
 
 export interface PrivacyRouterResult {
