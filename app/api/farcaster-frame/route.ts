@@ -64,15 +64,15 @@ function frameResponse(params: {
 
   const stateEncoded = encodeState(state);
 
-  // Build button meta tags
+  // Build button meta tags - Warpcast format: button + action only, no per-button post_url
   const buttonTags = buttons.map((btn, idx) => {
     const num = idx + 1;
     let tags = `  <meta property="fc:frame:button:${num}" content="${btn.label}" />\n`;
-    tags += `  <meta property="fc:frame:button:${num}:action" content="${btn.action}" />\n`;
+    if (btn.action !== 'post') {
+      tags += `  <meta property="fc:frame:button:${num}:action" content="${btn.action}" />\n`;
+    }
     if (btn.target) {
-      tags += `  <meta property="fc:frame:button:${num}:target" content="${btn.target}?state=${stateEncoded}" />\n`;
-    } else {
-      tags += `  <meta property="fc:frame:button:${num}:post_url" content="${APP_URL}/api/farcaster-frame?state=${stateEncoded}" />\n`;
+      tags += `  <meta property="fc:frame:button:${num}:target" content="${btn.target}" />\n`;
     }
     return tags;
   }).join('');
@@ -97,7 +97,8 @@ function frameResponse(params: {
   <meta property="og:type" content="website" />
   <meta property="fc:frame" content="vNext" />
   <meta property="fc:frame:image" content="${image}" />
-${postUrlTag}${buttonTags}${inputTag}</head>
+${postUrlTag}${buttonTags}${inputTag}
+</head>
 <body>
   <h1>GhostAgent Farcaster Frame</h1>
   <p>State: ${state.step}</p>
