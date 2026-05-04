@@ -290,13 +290,48 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// GET handler — Initial snap load (for discovery/previews)
+// GET handler — Frame fallback for discovery (Warpcast previews)
+// Snap protocol is beta; Frame meta tags ensure it renders everywhere
 export async function GET(req: NextRequest) {
-  return snapResponse({
-    image: generateSnapImage('GhostAgent LARVA', 'FID-powered agent · No wallet required'),
-    title: 'GhostAgent LARVA',
-    description: 'Create an email-enabled AI agent tied to your Farcaster ID. 8-day free trial.',
-    buttons: [{ label: 'Claim Agent', action: 'post' }],
-    state: { step: 'entry' },
+  const image = generateSnapImage('GhostAgent LARVA', 'FID-powered agent · No wallet required');
+  const postUrl = `${APP_URL}/api/farcaster-snap`;
+
+  // Check if client wants JSON (Snap) or HTML (Frame)
+  const acceptHeader = req.headers.get('accept') || '';
+  const isSnapClient = acceptHeader.includes('application/json');
+
+  if (isSnapClient) {
+    // Return Snap JSON for beta clients
+    return snapResponse({
+      image,
+      title: 'GhostAgent LARVA',
+      description: 'Create an email-enabled AI agent tied to your Farcaster ID. 8-day free trial.',
+      buttons: [{ label: 'Claim Agent', action: 'post' }],
+      state: { step: 'entry' },
+    });
+  }
+
+  // Return HTML with Frame meta tags for Warpcast/others
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+  <title>GhostAgent LARVA</title>
+  <meta property="fc:frame" content="vNext" />
+  <meta property="fc:frame:image" content="${image}" />
+  <meta property="fc:frame:button:1" content="Claim Agent" />
+  <meta property="fc:frame:button:1:action" content="post" />
+  <meta property="fc:frame:post_url" content="${postUrl}" />
+  <meta property="og:title" content="GhostAgent LARVA" />
+  <meta property="og:description" content="FID-powered agent · No wallet required · 8-day trial" />
+  <meta property="og:image" content="${image}" />
+</head>
+<body>
+  <h1>GhostAgent LARVA</h1>
+  <p>Claim your FID-powered AI agent at ghostagent.ninja</p>
+</body>
+</html>`;
+
+  return new NextResponse(html, {
+    headers: { 'Content-Type': 'text/html' },
   });
 }
