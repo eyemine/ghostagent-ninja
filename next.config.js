@@ -12,6 +12,10 @@ const nextConfig = {
         source: '/.well-known/agent.json',
         destination: '/api/well-known/agent-card.json',
       },
+      {
+        source: '/frame',
+        destination: '/api/farcaster-frame',
+      },
     ];
   },
   images: {
