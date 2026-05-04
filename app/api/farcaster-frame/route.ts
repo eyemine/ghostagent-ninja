@@ -88,7 +88,12 @@ function frameResponse(params: {
   const html = `<!DOCTYPE html>
 <html>
 <head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width" />
   <title>GhostAgent LARVA</title>
+  <meta property="og:title" content="GhostAgent LARVA" />
+  <meta property="og:description" content="FID-powered agent provisioning" />
+  <meta property="og:image" content="${image}" />
   <meta property="fc:frame" content="vNext" />
   <meta property="fc:frame:image" content="${image}" />
 ${postUrlTag}${buttonTags}${inputTag}</head>
