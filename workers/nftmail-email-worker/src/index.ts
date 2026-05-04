@@ -4614,6 +4614,133 @@ export default {
           }), request);
         }
 
+        // --- FID Provision: LARVA agent from Farcaster Frame (no wallet required) ---
+        // Creates a KV-only LARVA agent tied to a Farcaster ID.
+        // 8-day retention; upgrade path via BYO NFT molt or wallet linking.
+        // Frame server validates Farcaster message signature before calling this.
+        if (email.action === 'provisionFidAgent') {
+          const secret = (email as any).secret || request.headers.get('X-Webhook-Secret') || '';
+          if (env.WEBHOOK_SECRET && secret !== env.WEBHOOK_SECRET) {
+            return corsify(Response.json({ error: 'Invalid secret' }, { status: 401 }), request);
+          }
+
+          const fid: number = parseInt((email as any).fid || '0', 10);
+          if (!fid || fid <= 0) {
+            return corsify(Response.json({ error: 'Missing or invalid fid' }, { status: 400 }), request);
+          }
+
+          const preferredName: string = ((email as any).preferredName || '').toLowerCase().trim().replace(/[^a-z0-9-]/g, '');
+          // Name format: preferred.fid-{fid} if custom name provided, else fid-{fid}
+          const agentName = preferredName ? `${preferredName}.fid-${fid}` : `fid-${fid}`;
+          const humanEmail = `${agentName}@nftmail.box`;
+          const agentEmail = `${agentName}_@nftmail.box`;
+
+          // Check if already provisioned
+          const existing = await env.INBOX_KV.get(`nftmailgno:${agentName}`);
+          if (existing) {
+            const existingData = JSON.parse(existing);
+            const tierRaw = await env.INBOX_KV.get(`acct-tier:${agentName}`);
+            const tierData = tierRaw ? JSON.parse(tierRaw) : { tier: 'basic' };
+            return corsify(Response.json({
+              status: 'already_provisioned',
+              agentName,
+              humanEmail,
+              agentEmail,
+              fid,
+              tier: tierData.tier,
+              walletLinked: !!existingData.controller && !existingData.controller.startsWith('fid:'),
+            }), request);
+          }
+
+          // LARVA tier: 8-day retention, no Safe, KV-only
+          const EIGHT_DAYS_MS = 8 * 24 * 60 * 60 * 1000;
+          const expiresAt = Date.now() + EIGHT_DAYS_MS;
+          const now = Date.now();
+
+          const kvEntry = JSON.stringify({
+            controller: `fid:${fid}`, // FID is the principal until wallet linked
+            origin_nft: null, // No NFT for LARVA
+            legacy_identity: null,
+            minted_tokenId: null,
+            registrar: null,
+            chain: null,
+            registered_at: now,
+            fid, // Store FID for linking later
+          });
+
+          const tierEntry = JSON.stringify({
+            tier: 'basic', // LARVA
+            expires_at: expiresAt,
+            upgraded_at: null,
+            safe: null,
+            retention: '8-day',
+            story_ip: null,
+          });
+
+          await Promise.all([
+            env.INBOX_KV.put(`nftmailgno:${agentName}`, kvEntry),
+            env.INBOX_KV.put(`acct-tier:${agentName}`, tierEntry),
+            env.INBOX_KV.put(`privacy:${agentName}`, JSON.stringify({ tier: 'exposed' })),
+            // Index by FID for lookup
+            env.INBOX_KV.put(`fid-agent:${fid}`, JSON.stringify({ agentName, provisionedAt: now })),
+          ]);
+
+          return corsify(Response.json({
+            status: 'provisioned',
+            agentName,
+            humanEmail,
+            agentEmail,
+            fid,
+            tier: 'larva',
+            expiresAt,
+            walletLinked: false,
+            upgradePath: '/byo-molt',
+          }), request);
+        }
+
+        // --- FID Link: attach a wallet to an existing FID-provisioned agent ---
+        // Upgrades controller from fid:{fid} to wallet address; enables on-chain upgrade path.
+        if (email.action === 'linkFidWallet') {
+          const secret = (email as any).secret || request.headers.get('X-Webhook-Secret') || '';
+          if (env.WEBHOOK_SECRET && secret !== env.WEBHOOK_SECRET) {
+            return corsify(Response.json({ error: 'Invalid secret' }, { status: 401 }), request);
+          }
+
+          const fid: number = parseInt((email as any).fid || '0', 10);
+          const wallet: string = ((email as any).wallet || '').toLowerCase().trim();
+          if (!fid || !/^0x[a-f0-9]{40}$/.test(wallet)) {
+            return corsify(Response.json({ error: 'Missing fid or invalid wallet' }, { status: 400 }), request);
+          }
+
+          // Find agent by FID
+          const fidIndexRaw = await env.INBOX_KV.get(`fid-agent:${fid}`);
+          if (!fidIndexRaw) {
+            return corsify(Response.json({ error: 'No agent found for this FID' }, { status: 404 }), request);
+          }
+          const fidIndex = JSON.parse(fidIndexRaw);
+          const agentName: string = fidIndex.agentName;
+
+          // Update nftmailgno entry with wallet as controller
+          const existingRaw = await env.INBOX_KV.get(`nftmailgno:${agentName}`);
+          if (!existingRaw) {
+            return corsify(Response.json({ error: 'Agent not found' }, { status: 404 }), request);
+          }
+          const existing = JSON.parse(existingRaw);
+          existing.controller = wallet;
+          existing.wallet_linked_at = Date.now();
+
+          await env.INBOX_KV.put(`nftmailgno:${agentName}`, JSON.stringify(existing));
+
+          return corsify(Response.json({
+            status: 'linked',
+            agentName,
+            fid,
+            wallet,
+            message: 'Wallet linked. You can now upgrade via BYO NFT molt.',
+            upgradeUrl: `/byo-molt?agent=${agentName}`,
+          }), request);
+        }
+
         // --- Delete nftmailgno account (admin cleanup) ---
         // Secured by WEBHOOK_SECRET. Removes nftmailgno:, privacy:, acct-tier: KV entries.
         if (email.action === 'deleteNftmailAccount') {
