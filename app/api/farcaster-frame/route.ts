@@ -94,6 +94,7 @@ function frameResponse(params: {
   <meta property="og:title" content="GhostAgent LARVA" />
   <meta property="og:description" content="FID-powered agent provisioning" />
   <meta property="og:image" content="${image}" />
+  <meta property="og:type" content="website" />
   <meta property="fc:frame" content="vNext" />
   <meta property="fc:frame:image" content="${image}" />
 ${postUrlTag}${buttonTags}${inputTag}</head>
