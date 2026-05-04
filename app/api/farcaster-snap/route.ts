@@ -63,28 +63,13 @@ interface SnapResponse {
   state?: SnapState;
 }
 
-// Generate SVG image for Snap (data URI)
+// Generate Snap/Frame image URL - uses OG image endpoint for proper hosting
+// Warpcast requires actual hosted images, not data URIs
 function generateSnapImage(title: string, description?: string): string {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630">
-    <defs>
-      <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" style="stop-color:#1a1a2e"/>
-        <stop offset="100%" style="stop-color:#16213e"/>
-      </linearGradient>
-      <filter id="glow">
-        <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
-        <feMerge>
-          <feMergeNode in="coloredBlur"/>
-          <feMergeNode in="SourceGraphic"/>
-        </feMerge>
-      </filter>
-    </defs>
-    <rect width="1200" height="630" fill="url(#bg)"/>
-    <text x="600" y="260" text-anchor="middle" font-family="system-ui, sans-serif" font-size="64" font-weight="bold" fill="#f2eee4" filter="url(#glow)">${title.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</text>
-    ${description ? `<text x="600" y="360" text-anchor="middle" font-family="system-ui, sans-serif" font-size="32" fill="#b0805c">${description.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</text>` : ''}
-    <text x="600" y="580" text-anchor="middle" font-family="system-ui, sans-serif" font-size="20" fill="#666">ghostagent.ninja · LARVA Agent</text>
-  </svg>`;
-  return `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`;
+  const params = new URLSearchParams();
+  params.set('title', title);
+  if (description) params.set('description', description);
+  return `${APP_URL}/api/og?${params.toString()}`;
 }
 
 // Build Snap JSON response

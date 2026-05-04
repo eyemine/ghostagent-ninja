@@ -99,21 +99,14 @@ ${buttonTags}${inputTag}</head>
   });
 }
 
-// Simple SVG image generator for Frame images (data URI)
+// Generate Frame image URL - uses OG image endpoint for proper hosting
+// Warpcast requires actual hosted images, not data URIs
 function generateFrameImage(text: string, subtext?: string): string {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630">
-    <defs>
-      <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" style="stop-color:#1a1a2e"/>
-        <stop offset="100%" style="stop-color:#16213e"/>
-      </linearGradient>
-    </defs>
-    <rect width="1200" height="630" fill="url(#bg)"/>
-    <text x="600" y="280" text-anchor="middle" font-family="system-ui, sans-serif" font-size="72" font-weight="bold" fill="#f2eee4">${text.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</text>
-    ${subtext ? `<text x="600" y="380" text-anchor="middle" font-family="system-ui, sans-serif" font-size="36" fill="#b0805c">${subtext.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</text>` : ''}
-    <text x="600" y="550" text-anchor="middle" font-family="system-ui, sans-serif" font-size="24" fill="#666">ghostagent.ninja</text>
-  </svg>`;
-  return `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`;
+  // Use the app's OG image endpoint with encoded params
+  const params = new URLSearchParams();
+  params.set('title', text);
+  if (subtext) params.set('description', subtext);
+  return `${APP_URL}/api/og?${params.toString()}`;
 }
 
 // Verify Farcaster message signature (simplified — in production, use @farcaster/hub-web)
