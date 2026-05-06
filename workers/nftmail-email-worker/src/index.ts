@@ -5010,6 +5010,96 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
           return corsify(Response.json({ status: 'sent', sendsRemaining: tierData.sendsRemaining }), request);
         }
 
+        // --- upgradeFidAgent: LARVA → PUPA after NFT mint ---
+        // Called by mint callback. Links wallet, provisions _@ agent address, upgrades tier.
+        if (email.action === 'upgradeFidAgent') {
+          const secret = (email as any).secret || request.headers.get('X-Webhook-Secret') || '';
+          if (env.WEBHOOK_SECRET && secret !== env.WEBHOOK_SECRET) {
+            return corsify(Response.json({ error: 'Invalid secret' }, { status: 401 }), request);
+          }
+          const fid: number = parseInt((email as any).fid || '0', 10);
+          const wallet: string = ((email as any).wallet || '').toLowerCase().trim();
+          const originNft: string = ((email as any).originNft || '').trim();
+          const tokenId: string = ((email as any).tokenId || '').trim();
+          if (!fid || !/^0x[a-f0-9]{40}$/.test(wallet)) {
+            return corsify(Response.json({ error: 'Missing fid or invalid wallet' }, { status: 400 }), request);
+          }
+
+          // Find agent by FID
+          const fidIndexRaw = await env.INBOX_KV.get(`fid-agent:${fid}`);
+          if (!fidIndexRaw) {
+            return corsify(Response.json({ error: 'No agent found for this FID' }, { status: 404 }), request);
+          }
+          const { agentName } = JSON.parse(fidIndexRaw) as { agentName: string };
+
+          const existingRaw = await env.INBOX_KV.get(`nftmailgno:${agentName}`);
+          if (!existingRaw) {
+            return corsify(Response.json({ error: 'Agent not found' }, { status: 404 }), request);
+          }
+
+          const now = Date.now();
+          const PUPA_RETENTION_MS = 365 * 24 * 60 * 60 * 1000; // 1 year
+
+          // 1. Upgrade human record — link wallet, add NFT provenance
+          const humanRecord = JSON.parse(existingRaw);
+          humanRecord.controller = wallet;
+          humanRecord.origin_nft = originNft || null;
+          humanRecord.minted_tokenId = tokenId || null;
+          humanRecord.upgraded_at = now;
+
+          // 2. Upgrade tier to pupa
+          const tierEntry = JSON.stringify({
+            tier: 'pupa',
+            expires_at: now + PUPA_RETENTION_MS,
+            upgraded_at: now,
+            safe: null,
+            retention: '1-year',
+            story_ip: null,
+            sendsRemaining: 100,
+          });
+
+          // 3. Provision _@ agent address (AI agent acting on behalf of human)
+          const agentRecord = JSON.stringify({
+            controller: wallet,
+            origin_nft: originNft || null,
+            minted_tokenId: tokenId || null,
+            registrar: 'nftmail.gno',
+            chain: 'gnosis',
+            registered_at: now,
+            fid,
+            fname: humanRecord.fname || null,
+            type: 'agent', // distinguishes from human address
+          });
+          const agentTierEntry = JSON.stringify({
+            tier: 'pupa',
+            expires_at: now + PUPA_RETENTION_MS,
+            upgraded_at: now,
+            safe: null,
+            retention: '1-year',
+            story_ip: null,
+            sendsRemaining: 'unlimited',
+          });
+
+          await Promise.all([
+            env.INBOX_KV.put(`nftmailgno:${agentName}`, JSON.stringify(humanRecord)),
+            env.INBOX_KV.put(`acct-tier:${agentName}`, tierEntry),
+            env.INBOX_KV.put(`nftmailgno:${agentName}_`, agentRecord),
+            env.INBOX_KV.put(`acct-tier:${agentName}_`, agentTierEntry),
+          ]);
+
+          const humanEmail = `${agentName}@nftmail.box`;
+          const agentEmail = `${agentName}_@nftmail.box`;
+          return corsify(Response.json({
+            status: 'upgraded',
+            agentName,
+            humanEmail,
+            agentEmail,
+            tier: 'pupa',
+            wallet,
+            message: 'LARVA → PUPA. Agent address provisioned.',
+          }), request);
+        }
+
         // --- FID Link: attach a wallet to an existing FID-provisioned agent ---
         // Upgrades controller from fid:{fid} to wallet address; enables on-chain upgrade path.
         if (email.action === 'linkFidWallet') {
