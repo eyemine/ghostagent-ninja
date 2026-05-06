@@ -177,7 +177,9 @@ export interface Env {
   INBOX_KV: KVNamespace;
   GHOST_CALENDAR: KVNamespace;
   WEBHOOK_SECRET?: string;
-  MAILGUN_API_KEY?: string;
+  MAILGUN_API_KEY?: string;       // inbound webhook signing key (HMAC verify)
+  GM_MAILGUN_API_KEY?: string;    // Mailgun Private API key for sending
+  SEND_MAILGUN_API_KEY?: string;  // alias — same as GM_MAILGUN_API_KEY
   IPFS_GATEWAY?: string;
   // Social recovery: Master Safe public key (optional auditor)
   MASTER_SAFE_PUBKEY?: string;
@@ -4961,6 +4963,8 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
             receivedAt: nowMs,
             type: 'email',
           };
+          // Use sending API key (not inbound HMAC signing key)
+          const sendKey = env.GM_MAILGUN_API_KEY || env.SEND_MAILGUN_API_KEY || env.MAILGUN_API_KEY;
           const pubKeyHex = await env.INBOX_KV.get(`ecies-pubkey:${agentName}`);
           let msgPayload: string;
           if (pubKeyHex) {
@@ -4982,7 +4986,7 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
           ]);
 
           // Also fire Mailgun outbound if key available (best-effort)
-          if (env.MAILGUN_API_KEY) {
+          if (sendKey) {
             const form = new URLSearchParams();
             form.append('from', 'nftmail.box <noreply@mg.nftmail.box>');
             form.append('to', toEmail);
@@ -4990,7 +4994,7 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
             form.append('text', msgBody);
             fetch('https://api.eu.mailgun.net/v3/mg.nftmail.box/messages', {
               method: 'POST',
-              headers: { Authorization: `Basic ${btoa(`api:${env.MAILGUN_API_KEY}`)}` },
+              headers: { Authorization: `Basic ${btoa(`api:${sendKey}`)}` },
               body: form,
             }).catch(() => {});
           }
@@ -5021,7 +5025,7 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
           if (remaining <= 0) {
             return corsify(Response.json({ error: 'Send limit reached', sendsRemaining: 0 }, { status: 429 }), request);
           }
-          const sendApiKey = (env as any).SEND_MAILGUN_API_KEY || env.MAILGUN_API_KEY;
+          const sendApiKey = env.GM_MAILGUN_API_KEY || env.SEND_MAILGUN_API_KEY || env.MAILGUN_API_KEY;
           if (!sendApiKey) {
             return corsify(Response.json({ error: 'Email sending not configured' }, { status: 503 }), request);
           }
