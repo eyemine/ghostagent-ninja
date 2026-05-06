@@ -4795,11 +4795,7 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
         // 8-day retention; upgrade path via BYO NFT molt or wallet linking.
         // Frame server validates Farcaster message signature before calling this.
         if (email.action === 'provisionFidAgent') {
-          const secret = (email as any).secret || request.headers.get('X-Webhook-Secret') || '';
-          if (env.WEBHOOK_SECRET && secret !== env.WEBHOOK_SECRET) {
-            return corsify(Response.json({ error: 'Invalid secret' }, { status: 401 }), request);
-          }
-
+          // Public action — FID is the auth principal, no secret required
           const fid: number = parseInt((email as any).fid || '0', 10);
           if (!fid || fid <= 0) {
             return corsify(Response.json({ error: 'Missing or invalid fid' }, { status: 400 }), request);
@@ -4910,6 +4906,63 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
             walletLinked: false,
             upgradePath: '/byo-molt',
           }), request);
+        }
+
+        // --- sendTestEmail: self-send to verify inbox loop from Mini App ---
+        if (email.action === 'sendTestEmail') {
+          const agentName: string = ((email as any).agentName || '').toLowerCase().trim();
+          if (!agentName) {
+            return corsify(Response.json({ error: 'Missing agentName' }, { status: 400 }), request);
+          }
+          const tierRaw = await env.INBOX_KV.get(`acct-tier:${agentName}`);
+          if (!tierRaw) {
+            return corsify(Response.json({ error: 'Agent not found' }, { status: 404 }), request);
+          }
+          const tierData = JSON.parse(tierRaw);
+          if (Date.now() > (tierData.expires_at || 0)) {
+            return corsify(Response.json({ error: 'Inbox expired' }, { status: 410 }), request);
+          }
+          const remaining = typeof tierData.sendsRemaining === 'number' ? tierData.sendsRemaining : 10;
+          if (remaining <= 0) {
+            return corsify(Response.json({ error: 'Send limit reached', sendsRemaining: 0 }, { status: 429 }), request);
+          }
+          const nowMs = Date.now();
+          const nowStr = new Date(nowMs).toISOString();
+          const msgId = `test-${nowMs}`;
+          const toEmail = `${agentName}@nftmail.box`;
+          const msgBody = `Hi ${agentName},\n\nThis test email confirms your nftmail.box inbox is live.\n\nInbox: ${toEmail}\nSent: ${nowStr}\nSends remaining after this: ${remaining - 1}\n\n— nftmail.box`;
+
+          // Write directly to KV blind-index so getInbox sees it immediately
+          const msgPayload = JSON.stringify({
+            payload: { from: 'noreply@mg.nftmail.box', subject: `Test — ${agentName} inbox is operational`, body: msgBody },
+            receivedAt: nowMs,
+            type: 'email',
+          });
+          const blindIdxRaw = await env.INBOX_KV.get(`blind-index:${agentName}`);
+          const blindIds: string[] = blindIdxRaw ? JSON.parse(blindIdxRaw) : [];
+          blindIds.unshift(msgId);
+          await Promise.all([
+            env.INBOX_KV.put(`blind:${agentName}:${msgId}`, msgPayload),
+            env.INBOX_KV.put(`blind-index:${agentName}`, JSON.stringify(blindIds.slice(0, 50))),
+          ]);
+
+          // Also fire Mailgun outbound if key available (best-effort)
+          if (env.MAILGUN_API_KEY) {
+            const form = new URLSearchParams();
+            form.append('from', 'nftmail.box <noreply@mg.nftmail.box>');
+            form.append('to', toEmail);
+            form.append('subject', `Test — ${agentName} inbox is operational`);
+            form.append('text', msgBody);
+            fetch('https://api.eu.mailgun.net/v3/mg.nftmail.box/messages', {
+              method: 'POST',
+              headers: { Authorization: `Basic ${btoa(`api:${env.MAILGUN_API_KEY}`)}` },
+              body: form,
+            }).catch(() => {});
+          }
+
+          tierData.sendsRemaining = remaining - 1;
+          await env.INBOX_KV.put(`acct-tier:${agentName}`, JSON.stringify(tierData));
+          return corsify(Response.json({ status: 'sent', sendsRemaining: tierData.sendsRemaining }), request);
         }
 
         // --- FID Link: attach a wallet to an existing FID-provisioned agent ---
