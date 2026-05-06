@@ -4965,6 +4965,51 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
           return corsify(Response.json({ status: 'sent', sendsRemaining: tierData.sendsRemaining }), request);
         }
 
+        // --- sendOutbound: compose + send from agentname.cast@nftmail.box to any address ---
+        if (email.action === 'sendOutbound') {
+          const agentName: string = ((email as any).agentName || '').toLowerCase().trim();
+          const to: string = ((email as any).to || '').trim();
+          const subject: string = ((email as any).subject || '').trim();
+          const body: string = ((email as any).body || '').trim();
+          if (!agentName || !to || !subject || !body) {
+            return corsify(Response.json({ error: 'Missing agentName, to, subject or body' }, { status: 400 }), request);
+          }
+          const tierRaw = await env.INBOX_KV.get(`acct-tier:${agentName}`);
+          if (!tierRaw) {
+            return corsify(Response.json({ error: 'Agent not found' }, { status: 404 }), request);
+          }
+          const tierData = JSON.parse(tierRaw);
+          if (Date.now() > (tierData.expires_at || 0)) {
+            return corsify(Response.json({ error: 'Inbox expired' }, { status: 410 }), request);
+          }
+          const remaining = typeof tierData.sendsRemaining === 'number' ? tierData.sendsRemaining : 10;
+          if (remaining <= 0) {
+            return corsify(Response.json({ error: 'Send limit reached', sendsRemaining: 0 }, { status: 429 }), request);
+          }
+          if (!env.MAILGUN_API_KEY) {
+            return corsify(Response.json({ error: 'Email sending not configured' }, { status: 503 }), request);
+          }
+          const fromEmail = `${agentName}@nftmail.box`;
+          const form = new URLSearchParams();
+          form.append('from', `${agentName} <${fromEmail}>`);
+          form.append('to', to);
+          form.append('subject', subject);
+          form.append('text', body);
+          form.append('h:Reply-To', fromEmail);
+          const mgRes = await fetch('https://api.eu.mailgun.net/v3/mg.nftmail.box/messages', {
+            method: 'POST',
+            headers: { Authorization: `Basic ${btoa(`api:${env.MAILGUN_API_KEY}`)}` },
+            body: form,
+          });
+          if (!mgRes.ok) {
+            const err = await mgRes.text();
+            return corsify(Response.json({ error: `Mailgun error: ${err}` }, { status: 502 }), request);
+          }
+          tierData.sendsRemaining = remaining - 1;
+          await env.INBOX_KV.put(`acct-tier:${agentName}`, JSON.stringify(tierData));
+          return corsify(Response.json({ status: 'sent', sendsRemaining: tierData.sendsRemaining }), request);
+        }
+
         // --- FID Link: attach a wallet to an existing FID-provisioned agent ---
         // Upgrades controller from fid:{fid} to wallet address; enables on-chain upgrade path.
         if (email.action === 'linkFidWallet') {
