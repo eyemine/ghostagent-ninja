@@ -4970,7 +4970,7 @@ It routes to the same inbox.
 
             const welcomePayload = {
               payload: {
-                from: 'nftmail.box <noreply@mg.nftmail.box>',
+                from: 'ghostagent <ghostagent@nftmail.box>',
                 subject: `Welcome to nftmail.box — ${humanEmail} is live`,
                 body: welcomeBody,
               },
