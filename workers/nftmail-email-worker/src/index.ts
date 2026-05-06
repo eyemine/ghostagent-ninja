@@ -4883,7 +4883,21 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
           const farcasterVis = ((email as any).farcasterVisibility as 'hidden' | 'fid-only' | 'full') || 'fid-only';
           const emailVis = ((email as any).emailVisibility as 'hidden' | 'domain-only' | 'full') || 'hidden';
 
-          await Promise.all([
+          // ── Generate ECIES keypair — pubkey stored, privkey returned once, never stored ──
+          // This is the stopgap until client-side keygen (Option 3 migration).
+          // The privkey window: exists in worker memory during this request only.
+          // The Mailgun window is separate and unaffected — closed by CF Email Workers migration.
+          let eciesPublicKey: string | null = null;
+          let eciesPrivateKey: string | null = null;
+          try {
+            const kp = await generateKeyPair();
+            eciesPublicKey = kp.publicKey;
+            eciesPrivateKey = kp.privateKey;
+          } catch (ekErr) {
+            console.error('[provisionFidAgent] ECIES keygen failed (non-fatal):', ekErr);
+          }
+
+          const kvWrites: Promise<void>[] = [
             env.INBOX_KV.put(`nftmailgno:${agentName}`, kvEntry),
             env.INBOX_KV.put(`acct-tier:${agentName}`, tierEntry),
             env.INBOX_KV.put(`privacy:${agentName}`, JSON.stringify({
@@ -4893,7 +4907,11 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
             })),
             // Index by FID for lookup
             env.INBOX_KV.put(`fid-agent:${fid}`, JSON.stringify({ agentName, provisionedAt: now })),
-          ]);
+          ];
+          if (eciesPublicKey) {
+            kvWrites.push(env.INBOX_KV.put(`ecies-pubkey:${agentName}`, eciesPublicKey));
+          }
+          await Promise.all(kvWrites);
 
           return corsify(Response.json({
             status: 'provisioned',
@@ -4905,6 +4923,11 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
             expiresAt,
             walletLinked: false,
             upgradePath: '/byo-molt',
+            eciesPublicKey,
+            ...(eciesPrivateKey ? {
+              eciesPrivateKey,
+              eciesPrivateKeyWarning: 'Store this private key securely in your client. It will NOT be stored on the server. Required to decrypt your inbox.',
+            } : {}),
           }), request);
         }
 
@@ -4932,12 +4955,24 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
           const toEmail = `${agentName}@nftmail.box`;
           const msgBody = `Hi ${agentName},\n\nThis test email confirms your nftmail.box inbox is live.\n\nInbox: ${toEmail}\nSent: ${nowStr}\nSends remaining after this: ${remaining - 1}\n\n— nftmail.box`;
 
-          // Write directly to KV blind-index so getInbox sees it immediately
-          const msgPayload = JSON.stringify({
+          // Write directly to KV blind-index — encrypt if pubkey exists, plaintext fallback
+          const plainPayload = {
             payload: { from: 'noreply@mg.nftmail.box', subject: `Test — ${agentName} inbox is operational`, body: msgBody },
             receivedAt: nowMs,
             type: 'email',
-          });
+          };
+          const pubKeyHex = await env.INBOX_KV.get(`ecies-pubkey:${agentName}`);
+          let msgPayload: string;
+          if (pubKeyHex) {
+            try {
+              const envelope = await eciesEncrypt(JSON.stringify(plainPayload), pubKeyHex);
+              msgPayload = JSON.stringify({ type: 'ecies-blind', encrypted: true, envelope, receivedAt: nowMs });
+            } catch {
+              msgPayload = JSON.stringify(plainPayload);
+            }
+          } else {
+            msgPayload = JSON.stringify(plainPayload);
+          }
           const blindIdxRaw = await env.INBOX_KV.get(`blind-index:${agentName}`);
           const blindIds: string[] = blindIdxRaw ? JSON.parse(blindIdxRaw) : [];
           blindIds.unshift(msgId);
