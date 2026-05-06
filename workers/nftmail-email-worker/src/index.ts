@@ -1,5 +1,6 @@
 /// <reference types="@cloudflare/workers-types" />
 
+import { createApp } from './router';
 import MailStorageAdapter, { CalendarInvite } from './storage';
 import { D1Store } from './d1';
 import { archiveBundleToZeroG, fetchBundleFromZeroG } from './zerog';
@@ -85,8 +86,8 @@ function keccak256(data: Uint8Array): Uint8Array {
     }
     // Keccak-f[1600]
     for (let round = 0; round < 24; round++) {
-      const C: bigint[] = Array.from({length:5},(_,x)=>state[x]^state[x+5]^state[x+10]^state[x+15]^state[x+20]) as bigint[];
-      const D: bigint[] = Array.from({length:5},(_,x)=>C[(x+4)%5]^rotl64(C[(x+1)%5],1)) as bigint[];
+      const C = Array.from({length:5},(_,x)=>state[x]^state[x+5]^state[x+10]^state[x+15]^state[x+20]) as unknown as bigint[];
+      const D = Array.from({length:5},(_,x)=>C[(x+4)%5]^rotl64(C[(x+1)%5],1)) as unknown as bigint[];
       for (let x = 0; x < 5; x++) for (let y = 0; y < 5; y++) state[x + y*5] ^= D[x];
       const B = new Array(25).fill(0n);
       let cur = 1; let t = 0n;
@@ -954,6 +955,7 @@ async function handleMailgunPayload(
   mgEmail: Record<string, unknown>,
   env: Env,
   request: Request,
+  ctx: ExecutionContext,
 ): Promise<Response> {
   const timestamp = Date.now();
   const rawRecipient = String(mgEmail['recipient'] || mgEmail['to'] || '');
@@ -1005,7 +1007,7 @@ async function handleMailgunPayload(
   // Phase 4: shadow-write (KV still written). Phase 5: D1 is sole store for PUPA+.
   const shadowWriteEmailToD1 = (label: string, bId: string, envelopeJson: string, ttlMs: number | null) => {
     if (!env.NFTMAIL_DB) return;
-    (async () => {
+    ctx.waitUntil((async () => {
       try {
         const d1 = new D1Store(env.NFTMAIL_DB!);
         const agentRow = await d1.getAgent(label.replace(/_+$/, ''));
@@ -1028,7 +1030,7 @@ async function handleMailgunPayload(
       } catch (e) {
         console.error('[D1 shadow] email insert failed (non-fatal):', e);
       }
-    })();
+    })());
   };
 
   // Mailgun provides two sender fields:
@@ -1052,14 +1054,16 @@ async function handleMailgunPayload(
     if (collection && tokenId) {
       ownerAddress = await verifyNFTOwner(collection, tokenId);
       if (!ownerAddress) {
-        return corsify(Response.json({
-          error: `Token #${tokenId} not found in ${collection.displayName}`,
-          stream: 'human', tokenId,
-        }, { status: 404 }), request);
+        // Store as unverified rather than rejecting — returning 4xx causes Mailgun to retry forever
+        console.warn(`[mailgunInbound] Token #${tokenId} not found in ${collection.displayName} — storing as unverified`);
       }
     }
     const blindId = `blind-${timestamp}-${crypto.randomUUID().slice(0, 8)}`;
-    const payloadObj = { from: sender, to: recipient, subject, body, ...(bodyHtmlRaw ? { bodyHtml: bodyHtmlRaw } : {}), timestamp };
+    const payloadObj = {
+      from: sender, to: recipient, subject,
+      body: ownerAddress === null && collection ? `[UNVERIFIED — Token #${tokenId} not found in ${collection.displayName}] ${body}` : body,
+      ...(bodyHtmlRaw ? { bodyHtml: bodyHtmlRaw } : {}), timestamp,
+    };
     const plaintextPayload = JSON.stringify(payloadObj);
     const plaintextHash = await sha256Hex(plaintextPayload);
     const envelope = {
@@ -1072,10 +1076,19 @@ async function handleMailgunPayload(
     const storageName = localPart || agentName;
     const _humanMgTier = await resolveAgentTierFast(storageName);
     const _humanMgEnvJson = JSON.stringify(envelope);
+    
+    // Check for forward-only config (IMAGO tier toggle to reduce clutter)
+    const forwardOnlyRaw = await env.INBOX_KV.get(`inbox-config:${storageName}`);
+    const forwardOnly = forwardOnlyRaw ? JSON.parse(forwardOnlyRaw).forwardOnly === true : false;
+    
+    // Always shadow-write to D1 for analytics/backup, but skip KV if forward-only
     shadowWriteEmailToD1(storageName, blindId, _humanMgEnvJson, mgTtlSecs ? mgTtlSecs * 1000 + timestamp : null);
-    if (_humanMgTier === 'basic') {
+    
+    if (!forwardOnly) {
       await env.INBOX_KV.put(`blind:${storeKeyName(storageName)}:${blindId}`, _humanMgEnvJson, mgPutOpts);
       await updateBlindIndex(env, storageName, blindId, storeDomainPrefix, mgTtlSecs);
+    } else {
+      console.log(`[inbox] ${storageName} forward-only mode - skipping KV storage`);
     }
 
     // Fire email forwarding for Imago human inboxes (non-fatal — storage already succeeded).
@@ -1107,10 +1120,8 @@ async function handleMailgunPayload(
       const _gbEnvJson = JSON.stringify(envelope);
       const _gbTier = await resolveAgentTierFast(storageName);
       shadowWriteEmailToD1(storageName, blindId, _gbEnvJson, mgTtlSecs ? mgTtlSecs * 1000 + timestamp : null);
-      if (_gbTier === 'basic') {
-        await env.INBOX_KV.put(`blind:${storeKeyName(storageName)}:${blindId}`, _gbEnvJson, mgPutOpts);
-        await updateBlindIndex(env, storageName, blindId, storeDomainPrefix, mgTtlSecs);
-      }
+      await env.INBOX_KV.put(`blind:${storeKeyName(storageName)}:${blindId}`, _gbEnvJson, mgPutOpts);
+      await updateBlindIndex(env, storageName, blindId, storeDomainPrefix, mgTtlSecs);
       return corsify(Response.json({ status: 'received', stream: 'agent', agentType: 'glassbox', blindId, plaintextHash, recipient: storageName }), request);
     }
 
@@ -1123,10 +1134,8 @@ async function handleMailgunPayload(
       const _cwEnvJson = JSON.stringify(envelope);
       const _cwTier = await resolveAgentTierFast(storageName);
       shadowWriteEmailToD1(storageName, blindId, _cwEnvJson, mgTtlSecs ? mgTtlSecs * 1000 + timestamp : null);
-      if (_cwTier === 'basic') {
-        await env.INBOX_KV.put(`blind:${storeKeyName(storageName)}:${blindId}`, _cwEnvJson, mgPutOpts);
-        await updateBlindIndex(env, storageName, blindId, storeDomainPrefix, mgTtlSecs);
-      }
+      await env.INBOX_KV.put(`blind:${storeKeyName(storageName)}:${blindId}`, _cwEnvJson, mgPutOpts);
+      await updateBlindIndex(env, storageName, blindId, storeDomainPrefix, mgTtlSecs);
       return corsify(Response.json({ status: 'received', stream: 'agent', agentType: 'blackbox', encrypted: false, blindId, plaintextHash, warning: 'No ECIES key — stored unencrypted.' }), request);
     }
 
@@ -1140,18 +1149,16 @@ async function handleMailgunPayload(
     const _agentBlindJson = JSON.stringify(blindEnvelope);
     const _agentBlindTier = await resolveAgentTierFast(storageName);
     shadowWriteEmailToD1(storageName, blindId, _agentBlindJson, mgTtlSecs ? mgTtlSecs * 1000 + timestamp : null);
-    if (_agentBlindTier === 'basic') {
-      await env.INBOX_KV.put(`blind:${storeKeyName(storageName)}:${blindId}`, _agentBlindJson, mgPutOpts);
-      await updateBlindIndex(env, storageName, blindId, storeDomainPrefix, mgTtlSecs);
-    }
+    await env.INBOX_KV.put(`blind:${storeKeyName(storageName)}:${blindId}`, _agentBlindJson, mgPutOpts);
+    await updateBlindIndex(env, storageName, blindId, storeDomainPrefix, mgTtlSecs);
     return corsify(Response.json({ status: 'received', stream: 'agent', agentType: 'blackbox', encrypted: true, blindId, plaintextHash, hasRecoveryKey: !!recoveryEnvelope, recipient: storageName }), request);
   }
 
   return corsify(Response.json({ error: 'Unclassified stream' }, { status: 400 }), request);
 }
 
-export default {
-  async email(message: EmailMessage, env: Env, ctx: ExecutionContext) {
+// ── Handler: Cloudflare Email Routing inbound ───────────────────────────────
+async function _handleEmail(message: EmailMessage, env: Env, ctx: ExecutionContext) {
     const storage = new MailStorageAdapter({
       backend: env.BACKEND,
       surgeToken: env.SURGE_TOKEN,
@@ -1220,24 +1227,20 @@ export default {
       const humanPutOpts = humanTtlSecs != null ? { expirationTtl: humanTtlSecs } : {};
       const _humanEnvJson = JSON.stringify(envelope);
       // Phase 5: D1 write + tier gate (inline — outside handleMailgunPayload scope)
-      let _humanTier = 'basic';
       if (env.NFTMAIL_DB) {
-        try {
-          const _r = await new D1Store(env.NFTMAIL_DB).getAgent(agentName);
-          if (_r) {
-            _humanTier = _r.tier;
-            if (_humanTier !== 'basic') {
+        ctx.waitUntil((async () => {
+          try {
+            const _r = await new D1Store(env.NFTMAIL_DB!).getAgent(agentName);
+            if (_r && _r.tier !== 'basic') {
               const _sh = await sha256Hex(sender).catch(() => null);
               const _subh = await sha256Hex(subject).catch(() => null);
-              new D1Store(env.NFTMAIL_DB).insertEmail({ agent_label: agentName, blind_id: blindId, domain_prefix: '', encrypted_blob: _humanEnvJson, sender_hash: _sh, subject_hash: _subh, received_at: timestamp, read: 0, frozen: 0, surge_allocation: null, ttl_expires_at: humanTtlSecs ? humanTtlSecs * 1000 + timestamp : null }).catch(e => console.error('[D1 shadow] email insert failed:', e));
+              await new D1Store(env.NFTMAIL_DB!).insertEmail({ agent_label: agentName, blind_id: blindId, domain_prefix: '', encrypted_blob: _humanEnvJson, sender_hash: _sh, subject_hash: _subh, received_at: timestamp, read: 0, frozen: 0, surge_allocation: null, ttl_expires_at: humanTtlSecs ? humanTtlSecs * 1000 + timestamp : null });
             }
-          }
-        } catch {}
+          } catch (e) { console.error('[D1 shadow] human email insert failed:', e); }
+        })());
       }
-      if (_humanTier === 'basic') {
-        await env.INBOX_KV.put(`blind:${agentName}:${blindId}`, _humanEnvJson, humanPutOpts);
-        await updateBlindIndex(env, agentName, blindId, '', humanTtlSecs);
-      }
+      await env.INBOX_KV.put(`blind:${agentName}:${blindId}`, _humanEnvJson, humanPutOpts);
+      await updateBlindIndex(env, agentName, blindId, '', humanTtlSecs);
       await storage.storeEmail(localPart, { from: sender, to: originalRecipient, subject, content: body, timestamp });
       // Storage complete — Mailgun inbound path
       return;
@@ -1271,24 +1274,20 @@ export default {
           recipient: localPart, receivedAt: timestamp,
         };
         const _noKeyEnvJson = JSON.stringify(envelope);
-        let _noKeyTier = 'basic';
         if (env.NFTMAIL_DB) {
-          try {
-            const _r2 = await new D1Store(env.NFTMAIL_DB).getAgent(storageName.replace(/_+$/, ''));
-            if (_r2) {
-              _noKeyTier = _r2.tier;
-              if (_noKeyTier !== 'basic') {
+          ctx.waitUntil((async () => {
+            try {
+              const _r2 = await new D1Store(env.NFTMAIL_DB!).getAgent(storageName.replace(/_+$/, ''));
+              if (_r2 && _r2.tier !== 'basic') {
                 const _sh2 = await sha256Hex(sender).catch(() => null);
                 const _subh2 = await sha256Hex(subject).catch(() => null);
-                new D1Store(env.NFTMAIL_DB).insertEmail({ agent_label: storageName.replace(/_+$/, ''), blind_id: blindId, domain_prefix: '', encrypted_blob: _noKeyEnvJson, sender_hash: _sh2, subject_hash: _subh2, received_at: timestamp, read: 0, frozen: 0, surge_allocation: null, ttl_expires_at: agentTtlSecs ? agentTtlSecs * 1000 + timestamp : null }).catch(e => console.error('[D1 shadow] email insert failed:', e));
+                await new D1Store(env.NFTMAIL_DB!).insertEmail({ agent_label: storageName.replace(/_+$/, ''), blind_id: blindId, domain_prefix: '', encrypted_blob: _noKeyEnvJson, sender_hash: _sh2, subject_hash: _subh2, received_at: timestamp, read: 0, frozen: 0, surge_allocation: null, ttl_expires_at: agentTtlSecs ? agentTtlSecs * 1000 + timestamp : null });
               }
-            }
-          } catch {}
+            } catch (e) { console.error('[D1 shadow] no-key email insert failed:', e); }
+          })());
         }
-        if (_noKeyTier === 'basic') {
-          await env.INBOX_KV.put(`blind:${storageName}:${blindId}`, _noKeyEnvJson, agentPutOpts);
-          await updateBlindIndex(env, storageName, blindId, '', agentTtlSecs);
-        }
+        await env.INBOX_KV.put(`blind:${storageName}:${blindId}`, _noKeyEnvJson, agentPutOpts);
+        await updateBlindIndex(env, storageName, blindId, '', agentTtlSecs);
         return;
       }
 
@@ -1306,24 +1305,20 @@ export default {
         edgeEncrypt: buildAuditHashEntry(sealedSafe as any, localPart, timestamp),
       };
       const _eciesBlindJson = JSON.stringify(blindEnvelope);
-      let _eciesTier = 'basic';
       if (env.NFTMAIL_DB) {
-        try {
-          const _r3 = await new D1Store(env.NFTMAIL_DB).getAgent(storageName.replace(/_+$/, ''));
-          if (_r3) {
-            _eciesTier = _r3.tier;
-            if (_eciesTier !== 'basic') {
+        ctx.waitUntil((async () => {
+          try {
+            const _r3 = await new D1Store(env.NFTMAIL_DB!).getAgent(storageName.replace(/_+$/, ''));
+            if (_r3 && _r3.tier !== 'basic') {
               const _sh3 = await sha256Hex(sender).catch(() => null);
               const _subh3 = await sha256Hex(subject).catch(() => null);
-              new D1Store(env.NFTMAIL_DB).insertEmail({ agent_label: storageName.replace(/_+$/, ''), blind_id: blindId, domain_prefix: '', encrypted_blob: _eciesBlindJson, sender_hash: _sh3, subject_hash: _subh3, received_at: timestamp, read: 0, frozen: 0, surge_allocation: null, ttl_expires_at: agentTtlSecs ? agentTtlSecs * 1000 + timestamp : null }).catch(e => console.error('[D1 shadow] email insert failed:', e));
+              await new D1Store(env.NFTMAIL_DB!).insertEmail({ agent_label: storageName.replace(/_+$/, ''), blind_id: blindId, domain_prefix: '', encrypted_blob: _eciesBlindJson, sender_hash: _sh3, subject_hash: _subh3, received_at: timestamp, read: 0, frozen: 0, surge_allocation: null, ttl_expires_at: agentTtlSecs ? agentTtlSecs * 1000 + timestamp : null });
             }
-          }
-        } catch {}
+          } catch (e) { console.error('[D1 shadow] ecies email insert failed:', e); }
+        })());
       }
-      if (_eciesTier === 'basic') {
-        await env.INBOX_KV.put(`blind:${storageName}:${blindId}`, _eciesBlindJson, agentPutOpts);
-        await updateBlindIndex(env, storageName, blindId, '', agentTtlSecs);
-      }
+      await env.INBOX_KV.put(`blind:${storageName}:${blindId}`, _eciesBlindJson, agentPutOpts);
+      await updateBlindIndex(env, storageName, blindId, '', agentTtlSecs);
 
       // Glass Box audit for molt.gno agents
       if (await isPublicAgent(localPart, env)) {
@@ -1353,27 +1348,11 @@ export default {
       content: body,
       timestamp,
     });
-  },
+}
 
-  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    // CORS preflight
-    if (request.method === 'OPTIONS') {
-      return new Response(null, { headers: corsHeaders(request) });
-    }
-
-    const url = new URL(request.url);
-    const pathname = url.pathname;
-
-    // ── PUBLIC API: Agent metadata for notapaperclip.red ─────────────────────
-    // GET /public/agent/{agentName} — read-only, no auth required
-    // Respects privacy settings (farcasterVisibility, emailVisibility)
-    if (pathname.startsWith('/public/agent/') && request.method === 'GET') {
-      const agentName = pathname.replace('/public/agent/', '').replace(/[^a-z0-9.-]/g, '');
-      if (!agentName) {
-        return corsify(Response.json({ error: 'Missing agent name' }, { status: 400 }), request);
-      }
-
-      try {
+// ── Handler: GET /public/agent/:name ────────────────────────────────────────
+export async function _handlePublicAgent(agentName: string, env: Env, request: Request): Promise<Response> {
+  try {
         // Read from KV (fast path) and D1 (if PUPA+)
         const [kvRaw, tierRaw, privacyRaw] = await Promise.all([
           env.INBOX_KV.get(`nftmailgno:${agentName}`),
@@ -1478,24 +1457,29 @@ export default {
         console.error('[public/api] error:', e);
         return corsify(Response.json({ error: 'Internal error' }, { status: 500 }), request);
       }
-    }
+}
 
-    // AUTH GUARD: Validate X-Worker-Secret header for API requests (bypass email webhooks)
-    const contentType = request.headers.get('content-type') || '';
-    const isEmailWebhook = contentType.includes('multipart/form-data');
-    
-    const workerSecret = env.WORKER_SECRET;
-    if (workerSecret && !isEmailWebhook) {
-      const requestSecret = request.headers.get('X-Worker-Secret');
-      if (requestSecret !== workerSecret) {
-        console.error(`[auth] Invalid or missing X-Worker-Secret from ${request.headers.get('host')}`);
-        return corsify(
-          Response.json({ error: 'Unauthorized - Invalid or missing X-Worker-Secret header' }, { status: 401 }),
-          request
-        );
-      }
+// ── Handler: POST /mailgun — multipart Mailgun inbound webhook ───────────────
+export async function handleMailgunWebhook(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+  try {
+    const formData = await request.formData();
+    const mgEmail: Record<string, unknown> = { action: 'mailgunInbound' };
+    for (const [key, value] of formData.entries()) {
+      mgEmail[key] = (typeof value === 'object' && value !== null && 'text' in value) ? await (value as Blob).text() : value;
     }
+    if (mgEmail['body-plain'])  mgEmail['bodyPlain'] = mgEmail['body-plain'];
+    if (mgEmail['body-html'])   mgEmail['bodyHtml']  = mgEmail['body-html'];
+    console.log(`[mailgun-webhook] recipient=${mgEmail['recipient']} sender=${mgEmail['sender']} subject=${String(mgEmail['subject']).slice(0,50)}`);
+    return await handleMailgunPayload(mgEmail, env, request, ctx);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`[mailgun-webhook] ERROR: ${msg}`);
+    return corsify(Response.json({ error: 'multipart parse failed', detail: msg }, { status: 500 }), request);
+  }
+}
 
+// ── Handler: POST / — all authenticated JSON actions ────────────────────────
+export async function _handleJsonPost(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     try {
       const storage = new MailStorageAdapter({
         backend: env.BACKEND,
@@ -1506,27 +1490,9 @@ export default {
       });
 
       if (request.method === 'POST') {
-        // Detect Mailgun inbound webhook (multipart/form-data) and convert to our JSON shape
-        const contentType = request.headers.get('content-type') || '';
-        if (contentType.includes('multipart/form-data')) {
-          try {
-            const formData = await request.formData();
-            const mgEmail: Record<string, unknown> = { action: 'mailgunInbound' };
-            for (const [key, value] of formData.entries()) {
-              mgEmail[key] = (typeof value === 'object' && value !== null && 'text' in value) ? await (value as Blob).text() : value;
-            }
-            if (mgEmail['body-plain'])  mgEmail['bodyPlain'] = mgEmail['body-plain'];
-            if (mgEmail['body-html'])   mgEmail['bodyHtml']  = mgEmail['body-html'];
-            console.log(`[multipart] parsed recipient=${mgEmail['recipient']} sender=${mgEmail['sender']} subject=${String(mgEmail['subject']).slice(0,50)}`);
-            return await handleMailgunPayload(mgEmail, env, request);
-          } catch (multipartErr: unknown) {
-            const msg = multipartErr instanceof Error ? multipartErr.message : String(multipartErr);
-            console.error(`[multipart] ERROR: ${msg}`);
-            return corsify(Response.json({ error: 'multipart parse failed', detail: msg }, { status: 500 }), request);
-          }
-        }
 
         // Extract zohoMessageId from raw body BEFORE JSON.parse to preserve 19-digit precision
+        const contentType = request.headers.get('content-type') || '';
         const rawBody = await request.text();
         let _rawZohoMessageId = '';
         const msgIdMatch = rawBody.match(/"zohoMessageId"\s*:\s*"?(\d+)"?/);
@@ -1618,7 +1584,32 @@ export default {
 
           throw parseErr;
         }
-        let result: Response;
+        let result: Response = new Response('Method not allowed', { status: 405 });
+
+        // ── Flag check: alert ghostagent@nftmail.box if a flagged account acts ──
+        const _flagSubject = (email as any).localPart || (email as any).agentName || (email as any).label || (email as any).name || '';
+        if (_flagSubject && env.MAILGUN_API_KEY) {
+          ctx.waitUntil((async () => {
+            try {
+              const flagRaw = await env.INBOX_KV.get(`flag:${_flagSubject}`);
+              if (flagRaw) {
+                const flag = JSON.parse(flagRaw);
+                const body = new FormData();
+                body.append('from', 'ghostagent@nftmail.box');
+                body.append('to', 'ghostagent@nftmail.box');
+                body.append('subject', `[FLAG ALERT] ${_flagSubject} triggered action: ${(email as any).action || 'unknown'}`);
+                body.append('text', `Flagged account activity detected.\n\nAccount: ${_flagSubject}\nAction: ${(email as any).action || 'unknown'}\nTimestamp: ${new Date().toISOString()}\n\nFlag record:\n${JSON.stringify(flag, null, 2)}`);
+                await fetch('https://api.eu.mailgun.net/v3/mg.nftmail.box/messages', {
+                  method: 'POST',
+                  headers: { Authorization: `Basic ${btoa(`api:${env.MAILGUN_API_KEY}`)}` },
+                  body,
+                });
+              }
+            } catch (e) {
+              console.error('[flag-check] alert failed (non-fatal):', e);
+            }
+          })());
+        }
 
         if (email.action === 'getInbox') {
           const rawAgent = email.localPart || email.email?.split('@')[0] || '';
@@ -2583,6 +2574,41 @@ export default {
             return corsify(Response.json({ names: results, total: results.length }), request);
           } catch (e: any) {
             return corsify(Response.json({ error: e?.message ?? 'listNftmailByController failed' }, { status: 500 }), request);
+          }
+        }
+
+        // Inbox Config: get/set forward-only toggle for IMAGO tier (reduce clutter)
+        if (email.action === 'getInboxConfig') {
+          const agentName = ((email as any).agentName || '').toLowerCase().trim();
+          if (!agentName) {
+            return corsify(Response.json({ error: 'Missing agentName' }, { status: 400 }), request);
+          }
+          try {
+            const configRaw = await env.INBOX_KV.get(`inbox-config:${agentName}`);
+            const config = configRaw ? JSON.parse(configRaw) : { forwardOnly: false, enable0GBackup: false, updatedAt: Date.now() };
+            return corsify(Response.json({ agentName, config }), request);
+          } catch (e: any) {
+            return corsify(Response.json({ error: e?.message ?? 'getInboxConfig failed' }, { status: 500 }), request);
+          }
+        }
+
+        if (email.action === 'setInboxConfig') {
+          const agentName = ((email as any).agentName || '').toLowerCase().trim();
+          const config = (email as any).config;
+          if (!agentName || !config || typeof config !== 'object') {
+            return corsify(Response.json({ error: 'Missing agentName or config' }, { status: 400 }), request);
+          }
+          try {
+            const configToStore = {
+              forwardOnly: config.forwardOnly === true,
+              enable0GBackup: config.enable0GBackup === true,
+              forwardAddress: config.forwardAddress || undefined,
+              updatedAt: Date.now()
+            };
+            await env.INBOX_KV.put(`inbox-config:${agentName}`, JSON.stringify(configToStore));
+            return corsify(Response.json({ agentName, config: configToStore, status: 'stored' }), request);
+          } catch (e: any) {
+            return corsify(Response.json({ error: e?.message ?? 'setInboxConfig failed' }, { status: 500 }), request);
           }
         }
 
@@ -4513,6 +4539,35 @@ export default {
           }), request);
         }
 
+        // --- Pending Upgrade Intent: store wallet→agentName+tier mapping for Mercuryo webhook ---
+        // Called by the UI before redirecting the user to the Mercuryo widget.
+        // TTL: 2 hours (Mercuryo payments typically complete within minutes).
+        if (email.action === 'setPendingUpgrade') {
+          const agentName: string = ((email as any).agentName || '').toLowerCase().trim();
+          const targetTier: string = ((email as any).tier || '').toLowerCase();
+          const walletAddress: string = ((email as any).walletAddress || '').toLowerCase();
+          if (!agentName || !targetTier || !walletAddress || !/^0x[a-f0-9]{40}$/.test(walletAddress)) {
+            return corsify(Response.json({ error: 'Missing agentName, tier, or walletAddress' }, { status: 400 }), request);
+          }
+          if (targetTier !== 'professional' && targetTier !== 'vault') {
+            return corsify(Response.json({ error: 'Invalid tier. Must be professional or vault' }, { status: 400 }), request);
+          }
+          await env.INBOX_KV.put(
+            `pending-upgrade:${walletAddress}`,
+            JSON.stringify({ agentName, tier: targetTier, createdAt: Date.now() }),
+            { expirationTtl: 7200 },
+          );
+          return corsify(Response.json({ status: 'pending', agentName, tier: targetTier, walletAddress }), request);
+        }
+
+        if (email.action === 'getPendingUpgrade') {
+          const walletAddress: string = ((email as any).walletAddress || '').toLowerCase();
+          if (!walletAddress) return corsify(Response.json({ error: 'Missing walletAddress' }, { status: 400 }), request);
+          const raw = await env.INBOX_KV.get(`pending-upgrade:${walletAddress}`);
+          if (!raw) return corsify(Response.json({ pending: false }), request);
+          return corsify(Response.json({ pending: true, ...JSON.parse(raw) }), request);
+        }
+
         // --- Upgrade Tier: Freemium → Professional/Vault ---
         if (email.action === 'upgradeTier') {
           const name: string = ((email as any).name || '').toLowerCase().trim();
@@ -4713,6 +4768,8 @@ export default {
                 origin_nft: originNft,
                 origin_image: null,
                 upgraded_at: null,
+                zerog_root_hash: null,
+                zerog_archived_at: null,
               });
             } catch (d1Err) {
               console.error('[D1 shadow] registerSovereign write failed (non-fatal):', d1Err);
@@ -4748,9 +4805,37 @@ export default {
             return corsify(Response.json({ error: 'Missing or invalid fid' }, { status: 400 }), request);
           }
 
+          // ── Resolve Farcaster fname via fname registry ───────────────────────
+          // fname.cast@nftmail.box — human-readable, namespace-safe
+          // Falls back to fid-{N}.cast if no fname registered
+          let resolvedFname = `fid-${fid}`;
+          let verifiedAddresses: string[] = [];
+          try {
+            const fnameRes = await fetch(`https://fnames.farcaster.xyz/transfers?fid=${fid}`);
+            if (fnameRes.ok) {
+              const fnameData = await fnameRes.json() as { transfers?: Array<{ username: string; to: number; from: number }> };
+              // Most recent transfer TO this fid with from=0 is the active fname registration
+              const active = fnameData?.transfers?.filter(t => t.to === fid && t.from === 0).pop();
+              if (active?.username) resolvedFname = active.username.toLowerCase().replace(/[^a-z0-9.-]/g, '');
+            }
+          } catch { /* non-fatal — use fid fallback */ }
+
+          // Reserved prefixes — block impersonation of protocol/well-known names
+          const RESERVED_PREFIXES = ['admin','support','security','noreply','no-reply','postmaster','abuse','hostmaster','webmaster','info','help','team','ghostagent','eyemine','victor','vitalik','ethereum','metamask','opensea','uniswap','coinbase','binance','kraken','safe','gnosis'];
+          const baseFname = resolvedFname.replace(/\.eth$/, ''); // strip .eth for prefix check
+          if (RESERVED_PREFIXES.includes(baseFname)) {
+            return corsify(Response.json({ error: `Name "${resolvedFname}" is reserved` }, { status: 400 }), request);
+          }
+
+          // preferredName overrides fname only if explicitly provided and not reserved
           const preferredName: string = ((email as any).preferredName || '').toLowerCase().trim().replace(/[^a-z0-9-]/g, '');
-          // Name format: preferred.fid-{fid} if custom name provided, else fid-{fid}
-          const agentName = preferredName ? `${preferredName}.fid-${fid}` : `fid-${fid}`;
+          if (preferredName && RESERVED_PREFIXES.includes(preferredName)) {
+            return corsify(Response.json({ error: `Name "${preferredName}" is reserved` }, { status: 400 }), request);
+          }
+          const baseName = preferredName || resolvedFname;
+
+          // Name format: {fname}.cast or {preferred}.cast — unambiguous Farcaster namespace
+          const agentName = `${baseName}.cast`;
           const humanEmail = `${agentName}@nftmail.box`;
           const agentEmail = `${agentName}_@nftmail.box`;
 
@@ -4784,7 +4869,9 @@ export default {
             registrar: null,
             chain: null,
             registered_at: now,
-            fid, // Store FID for linking later
+            fid,
+            fname: resolvedFname, // Farcaster username at time of provisioning
+            verified_addresses: verifiedAddresses, // ETH addresses verified in Farcaster app
           });
 
           const tierEntry = JSON.stringify({
@@ -4949,6 +5036,23 @@ export default {
 
           await env.INBOX_KV.put(`acct-tier:${label}`, updatedTier);
 
+          // ── Guard: ensure nftmailgno: registration key always exists ─────
+          // Prevents orphaned acct-tier records with no corresponding registration.
+          const existingReg = await env.INBOX_KV.get(`nftmailgno:${label}`);
+          if (!existingReg) {
+            console.warn(`[upgradeTier] nftmailgno:${label} missing — creating stub registration`);
+            await env.INBOX_KV.put(`nftmailgno:${label}`, JSON.stringify({
+              controller: existingTierData.controller || '',
+              origin_nft: `${label}.nftmail.gno`,
+              legacy_identity: null,
+              minted_tokenId: null,
+              registrar: null,
+              chain: 'gnosis',
+              registered_at: Date.now(),
+              stub: true,
+            }));
+          }
+
           // ── Phase 1 D1 shadow write ──────────────────────────────────────
           // PUPA+ only — LARVA stays KV-only.
           // Non-fatal: KV is still source of truth until Phase 3.
@@ -4969,6 +5073,8 @@ export default {
                 origin_nft: existing.origin_nft || null,
                 origin_image: existing.origin_image || null,
                 upgraded_at: Date.now(),
+                zerog_root_hash: null,
+                zerog_archived_at: null,
               });
               await d1.recordTierChange(
                 label,
@@ -6308,6 +6414,19 @@ export default {
         request
       );
     }
+}
+
+// ── Cloudflare Worker export ──────────────────────────────────────────────────
+export default {
+  email: _handleEmail,
+
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    const app = createApp({
+      handlePublicAgent: (agentName, env, req) => _handlePublicAgent(agentName, env, req),
+      handleMailgunWebhook: (req, env, ctx) => handleMailgunWebhook(req, env, ctx),
+      handleJsonPost: (req, env, ctx) => _handleJsonPost(req, env, ctx),
+    });
+    return app.fetch(request, env, ctx);
   },
 
   // --- Cron triggers ---
