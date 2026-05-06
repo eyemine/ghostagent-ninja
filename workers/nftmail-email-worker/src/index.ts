@@ -5021,7 +5021,8 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
           if (remaining <= 0) {
             return corsify(Response.json({ error: 'Send limit reached', sendsRemaining: 0 }, { status: 429 }), request);
           }
-          if (!env.MAILGUN_API_KEY) {
+          const sendApiKey = (env as any).SEND_MAILGUN_API_KEY || env.MAILGUN_API_KEY;
+          if (!sendApiKey) {
             return corsify(Response.json({ error: 'Email sending not configured' }, { status: 503 }), request);
           }
           const fromEmail = `${agentName}@nftmail.box`;
@@ -5033,7 +5034,7 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
           form.append('h:Reply-To', fromEmail);
           const mgRes = await fetch('https://api.eu.mailgun.net/v3/mg.nftmail.box/messages', {
             method: 'POST',
-            headers: { Authorization: `Basic ${btoa(`api:${env.MAILGUN_API_KEY}`)}` },
+            headers: { Authorization: `Basic ${btoa(`api:${sendApiKey}`)}` },
             body: form,
           });
           if (!mgRes.ok) {
