@@ -23,12 +23,12 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://ghostagent.ninja';
 
 const miniAppEmbed = JSON.stringify({
   version: '1',
-  imageUrl: `${APP_URL}/api/og?title=nftmail.box&description=Encrypted+agent+email+for+Farcaster`,
+  imageUrl: `${APP_URL}/api/og?title=GhostAgent&description=Trustless+AI+agent+protocol`,
   button: {
-    title: '👻 Claim Agent',
+    title: '👻 Open GhostAgent',
     action: {
       type: 'launch_frame',
-      name: 'nftmail.box',
+      name: 'GhostAgent',
       url: `${APP_URL}/mini`,
       splashImageUrl: `${APP_URL}/icon.svg`,
       splashBackgroundColor: '#000000',
