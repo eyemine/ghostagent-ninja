@@ -179,6 +179,7 @@ export interface Env {
   WEBHOOK_SECRET?: string;
   MAILGUN_API_KEY?: string;       // inbound webhook signing key (HMAC verify)
   GM_MAILGUN_API_KEY?: string;    // Mailgun Private API key for sending
+  MG_MAILGUN_API_KEY?: string;    // Mailgun Private API key (correct spelling)
   SEND_MAILGUN_API_KEY?: string;  // alias — same as GM_MAILGUN_API_KEY
   IPFS_GATEWAY?: string;
   // Social recovery: Master Safe public key (optional auditor)
@@ -5060,7 +5061,7 @@ It routes to the same inbox.
             type: 'email',
           };
           // Use sending API key (not inbound HMAC signing key)
-          const sendKey = env.GM_MAILGUN_API_KEY || env.SEND_MAILGUN_API_KEY || env.MAILGUN_API_KEY;
+          const sendKey = env.MG_MAILGUN_API_KEY || env.GM_MAILGUN_API_KEY || env.SEND_MAILGUN_API_KEY || env.MAILGUN_API_KEY;
           const pubKeyHex = await env.INBOX_KV.get(`ecies-pubkey:${agentName}`);
           let msgPayload: string;
           if (pubKeyHex) {
@@ -5121,7 +5122,8 @@ It routes to the same inbox.
           if (remaining <= 0) {
             return corsify(Response.json({ error: 'Send limit reached', sendsRemaining: 0 }, { status: 429 }), request);
           }
-          const sendApiKey = env.GM_MAILGUN_API_KEY || env.SEND_MAILGUN_API_KEY || env.MAILGUN_API_KEY;
+          const sendApiKey = env.MG_MAILGUN_API_KEY || env.GM_MAILGUN_API_KEY || env.SEND_MAILGUN_API_KEY || env.MAILGUN_API_KEY;
+          console.log('[sendOutbound] Key sources:', { mg_set: !!env.MG_MAILGUN_API_KEY, gm_set: !!env.GM_MAILGUN_API_KEY, send_set: !!env.SEND_MAILGUN_API_KEY, mailgun_set: !!env.MAILGUN_API_KEY, used_length: sendApiKey?.length || 0 });
           if (!sendApiKey) {
             return corsify(Response.json({ error: 'Email sending not configured' }, { status: 503 }), request);
           }
@@ -5139,7 +5141,8 @@ It routes to the same inbox.
           });
           if (!mgRes.ok) {
             const err = await mgRes.text();
-            return corsify(Response.json({ error: `Mailgun error: ${err}` }, { status: 502 }), request);
+            console.log('[sendOutbound] Mailgun error:', mgRes.status, err.slice(0, 200));
+            return corsify(Response.json({ error: `Mailgun error: ${err.slice(0, 100)}` }, { status: 502 }), request);
           }
           tierData.sendsRemaining = remaining - 1;
           await env.INBOX_KV.put(`acct-tier:${agentName}`, JSON.stringify(tierData));
