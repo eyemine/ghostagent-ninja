@@ -19,11 +19,32 @@ const geistMono = Roboto_Mono({
 
 export const dynamic = 'force-dynamic';
 
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://ghostagent.ninja';
+
+const miniAppEmbed = JSON.stringify({
+  version: '1',
+  imageUrl: `${APP_URL}/api/og?title=nftmail.box&description=Encrypted+agent+email+for+Farcaster`,
+  button: {
+    title: '👻 Claim Agent',
+    action: {
+      type: 'launch_frame',
+      name: 'nftmail.box',
+      url: `${APP_URL}/mini`,
+      splashImageUrl: `${APP_URL}/icon.svg`,
+      splashBackgroundColor: '#000000',
+    },
+  },
+});
+
 export const metadata: Metadata = {
   title: "GhostAgent Ninja",
   description: "GhostAgent control surface",
   icons: {
     icon: '/icon.svg',
+  },
+  other: {
+    'fc:miniapp': miniAppEmbed,
+    'fc:frame': miniAppEmbed,
   },
 };
 
