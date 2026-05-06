@@ -4854,9 +4854,10 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
             }), request);
           }
 
-          // LARVA tier: 8-day retention, no Safe, KV-only
-          const EIGHT_DAYS_MS = 8 * 24 * 60 * 60 * 1000;
-          const expiresAt = Date.now() + EIGHT_DAYS_MS;
+          // LARVA tier: 30-day account lifetime, 8-day inbox history window, no Safe, KV-only
+          const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+          const EIGHT_DAYS_MS  =  8 * 24 * 60 * 60 * 1000;
+          const expiresAt = Date.now() + THIRTY_DAYS_MS;
           const now = Date.now();
 
           const kvEntry = JSON.stringify({
@@ -4877,7 +4878,8 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
             expires_at: expiresAt,
             upgraded_at: null,
             safe: null,
-            retention: '8-day',
+            retention: '8-day',   // inbox history window
+            account_ttl: '30-day', // account lifetime before re-provision invite
             story_ip: null,
           });
 
@@ -4934,26 +4936,35 @@ Anyone can send you email here. Messages are stored encrypted — only you can r
 
 ## What you have now
 
-**LARVA tier** — your inbox is active for 8 days and includes **10 sends**.
+**LARVA tier** — free, secured by your Farcaster identity.
 
-Expires: *${expiresDate}*
+Active until: *${expiresDate}*
 
-This tier is secured by your Farcaster identity. No wallet, no NFT required to get started.
+- Inbox history: last **8 days** of messages
+- **10 sends** included
+- No wallet or NFT required to get started
 
 ---
 
 ## Upgrade to permanent
 
-To keep your inbox beyond the trial and unlock the full feature set, mint an nftmail.box NFT.
+Mint an nftmail.box NFT any time to unlock a permanent inbox.
 
 **PUPA** — Permanent inbox, backed by an NFT on Gnosis Chain or Base.
-Your address becomes yours forever. The NFT is the key.
+Your address is yours forever. The NFT is the key.
+
+- Inbox history extended to **30 days**
+- Unlimited sends
+- Sent history (30 days)
 
 **IMAGO** — Full sovereign inbox. Your Gnosis Safe is the controller.
-Multisig ownership, module-gated access, on-chain attestations.
 
-To upgrade: open nftmail.box on a desktop browser and connect your wallet.
-Your cast address carries over automatically.
+- Multisig ownership, module-gated access, on-chain attestations
+- Auto-forwarding and alias support
+- Extended feature set available at nftmail.box on desktop
+
+To upgrade: open *nftmail.box* on a desktop browser and connect your wallet.
+Your cast address carries over automatically — nothing is lost.
 
 ---
 

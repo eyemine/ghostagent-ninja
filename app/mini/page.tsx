@@ -123,7 +123,7 @@ export default function MiniApp() {
             >
               Claim LARVA Agent →
             </button>
-            <p className="text-gray-600 text-xs text-center">8-day free trial · Upgrade anytime</p>
+            <p className="text-gray-600 text-xs text-center">30-day free account · 8-day inbox history · Upgrade anytime</p>
           </div>
         </div>
       </div>
@@ -186,7 +186,7 @@ export default function MiniApp() {
   }
 
   if (step === 'success') {
-    const expiresStr = expiresAt ? new Date(expiresAt).toLocaleDateString() : '8 days';
+    const expiresStr = expiresAt ? new Date(expiresAt).toLocaleDateString() : '30 days';
     return (
       <div className="min-h-screen bg-black flex flex-col items-center justify-center px-6 py-8">
         <div className="w-full max-w-sm text-center">
@@ -194,7 +194,7 @@ export default function MiniApp() {
           <h2 className="text-white font-bold text-2xl mb-2">Agent Created!</h2>
           <div className="bg-gray-900 border border-green-400 rounded-lg p-4 my-6">
             <p className="text-green-400 font-mono text-sm font-bold">{humanEmail}</p>
-            <p className="text-gray-500 text-xs mt-1">LARVA tier · Expires {expiresStr}</p>
+            <p className="text-gray-500 text-xs mt-1">LARVA · Active until {expiresStr} · 8-day inbox history</p>
           </div>
           <p className="text-gray-400 text-xs mb-6">Your emails are end-to-end encrypted. No one — including us — can read them.</p>
           <div className="space-y-3">
