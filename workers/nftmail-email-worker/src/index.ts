@@ -4915,6 +4915,91 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
           }
           await Promise.all(kvWrites);
 
+          // ── Auto-send welcome email into KV inbox ──────────────────────────────
+          try {
+            const expiresDate = new Date(expiresAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+            const welcomeBody = `# Welcome to nftmail.box, ${agentName}
+
+Your sovereign inbox is live.
+
+---
+
+## Your address
+
+\`${humanEmail}\`
+
+Anyone can send you email here. Messages are stored encrypted — only you can read them.
+
+---
+
+## What you have now
+
+**LARVA tier** — your inbox is active for 8 days and includes **10 sends**.
+
+Expires: *${expiresDate}*
+
+This tier is secured by your Farcaster identity. No wallet, no NFT required to get started.
+
+---
+
+## Upgrade to permanent
+
+To keep your inbox beyond the trial and unlock the full feature set, mint an nftmail.box NFT.
+
+**PUPA** — Permanent inbox, backed by an NFT on Gnosis Chain or Base.
+Your address becomes yours forever. The NFT is the key.
+
+**IMAGO** — Full sovereign inbox. Your Gnosis Safe is the controller.
+Multisig ownership, module-gated access, on-chain attestations.
+
+To upgrade: open nftmail.box on a desktop browser and connect your wallet.
+Your cast address carries over automatically.
+
+---
+
+## Agent email
+
+\`${agentEmail}\`
+
+This is your agent address — for machine-readable mail, API callbacks, and autonomous agent use.
+It routes to the same inbox.
+
+---
+
+*Sent by nftmail.box · Powered by the ERC-8004 trustless agent protocol*`;
+
+            const welcomePayload = {
+              payload: {
+                from: 'nftmail.box <noreply@mg.nftmail.box>',
+                subject: `Welcome to nftmail.box — ${humanEmail} is live`,
+                body: welcomeBody,
+              },
+              receivedAt: Date.now(),
+              type: 'email',
+            };
+            const welcomeId = `welcome-${Date.now()}`;
+            let welcomeMsg: string;
+            if (eciesPublicKey) {
+              try {
+                const env2 = await eciesEncrypt(JSON.stringify(welcomePayload), eciesPublicKey);
+                welcomeMsg = JSON.stringify({ type: 'ecies-blind', encrypted: true, envelope: env2, receivedAt: welcomePayload.receivedAt });
+              } catch {
+                welcomeMsg = JSON.stringify(welcomePayload);
+              }
+            } else {
+              welcomeMsg = JSON.stringify(welcomePayload);
+            }
+            const existingIdx = await env.INBOX_KV.get(`blind-index:${agentName}`);
+            const welcomeIds: string[] = existingIdx ? JSON.parse(existingIdx) : [];
+            welcomeIds.unshift(welcomeId);
+            await Promise.all([
+              env.INBOX_KV.put(`blind:${agentName}:${welcomeId}`, welcomeMsg),
+              env.INBOX_KV.put(`blind-index:${agentName}`, JSON.stringify(welcomeIds.slice(0, 50))),
+            ]);
+          } catch (wErr) {
+            console.error('[provisionFidAgent] welcome email failed (non-fatal):', wErr);
+          }
+
           return corsify(Response.json({
             status: 'provisioned',
             agentName,
