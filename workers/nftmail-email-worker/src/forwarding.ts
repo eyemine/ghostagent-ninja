@@ -253,7 +253,7 @@ async function sendExternalEmail(
   const mailgunDomain = isGhostmailTarget ? 'mg.ghostmail.box' : (env.MAILGUN_DOMAIN || 'mg.nftmail.box');
   const mailgunApiKey = isGhostmailTarget 
     ? env.GM_MAILGUN_API_KEY 
-    : (env.SEND_MAILGUN_API_KEY || env.MAILGUN_API_KEY);
+    : (env.MG_SENDING_MAILGUN_API_KEY || env.SEND_MAILGUN_API_KEY || env.MAILGUN_API_KEY);
 
   if (!mailgunDomain || !mailgunApiKey) {
     console.warn(`Mailgun credentials not configured for ${isGhostmailTarget ? 'ghostmail' : 'nftmail'}, skipping email send`);
