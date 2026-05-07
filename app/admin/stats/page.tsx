@@ -40,12 +40,29 @@ interface AdminStats {
   error?: string;
 }
 
+interface DMARCReport {
+  id: string;
+  receivedAt: number;
+  subject: string;
+  hasAttachment: boolean;
+  attachmentType?: string;
+  reportId: string;
+  submitter: string;
+  domain: string;
+  body: string;
+}
+
 export default function NftmailAdminStats() {
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [adminSecret, setAdminSecret] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  
+  // DMARC reports state
+  const [dmarcReports, setDmarcReports] = useState<DMARCReport[]>([]);
+  const [dmarcLoading, setDmarcLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<'stats' | 'dmarc'>('stats');
 
   const loadStats = async (secret?: string) => {
     try {
@@ -57,28 +74,62 @@ export default function NftmailAdminStats() {
         headers['authorization'] = `Bearer ${secret}`;
       }
 
-      const response = await fetch('/api/admin/stats', { headers });
-      console.log('API Response status:', response.status);
+      const [statsRes, dmarcRes] = await Promise.all([
+        fetch('/api/admin/stats', { headers }),
+        fetch('/api/admin/dmarc', { headers }),
+      ]);
       
-      if (response.status === 401) {
+      console.log('Stats API Response status:', statsRes.status);
+      console.log('DMARC API Response status:', dmarcRes.status);
+      
+      if (statsRes.status === 401) {
         setIsAuthenticated(false);
         setError('Invalid admin secret');
         return;
       }
 
-      if (!response.ok) {
-        throw new Error(`API returned ${response.status}`);
+      if (!statsRes.ok) {
+        throw new Error(`Stats API returned ${statsRes.status}`);
       }
 
-      const data = await response.json();
-      console.log('API Response data:', data);
-      setStats(data);
+      const statsData = await statsRes.json();
+      console.log('Stats API Response data:', statsData);
+      setStats(statsData);
+      
+      // Load DMARC reports
+      if (dmarcRes.ok) {
+        const dmarcData = await dmarcRes.json();
+        setDmarcReports(dmarcData.reports || []);
+      }
+      
       setIsAuthenticated(true);
     } catch (err: any) {
       console.error('Failed to load stats:', err);
       setError(err.message || 'Failed to load statistics');
     } finally {
       setLoading(false);
+    }
+  };
+  
+  const loadDmarcReports = async () => {
+    if (!isAuthenticated) return;
+    
+    try {
+      setDmarcLoading(true);
+      const headers: Record<string, string> = {};
+      if (adminSecret) {
+        headers['authorization'] = `Bearer ${adminSecret}`;
+      }
+      
+      const response = await fetch('/api/admin/dmarc', { headers });
+      if (response.ok) {
+        const data = await response.json();
+        setDmarcReports(data.reports || []);
+      }
+    } catch (err) {
+      console.error('Failed to load DMARC reports:', err);
+    } finally {
+      setDmarcLoading(false);
     }
   };
 
@@ -196,12 +247,38 @@ export default function NftmailAdminStats() {
           </div>
         )}
 
+        {/* Tab Navigation */}
+        <div className="flex gap-2 mb-6">
+          <button
+            onClick={() => setActiveTab('stats')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
+              activeTab === 'stats'
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-900 text-gray-400 hover:text-white'
+            }`}
+          >
+            Statistics
+          </button>
+          <button
+            onClick={() => { setActiveTab('dmarc'); loadDmarcReports(); }}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
+              activeTab === 'dmarc'
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-900 text-gray-400 hover:text-white'
+            }`}
+          >
+            DMARC Reports {dmarcReports.length > 0 && `(${dmarcReports.length})`}
+          </button>
+        </div>
+
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <div className="h-8 w-8 animate-spin rounded-full border-2 border-[rgba(0,163,255,0.4)] border-t-transparent" />
           </div>
         ) : stats ? (
           <div className="space-y-6">
+            {activeTab === 'stats' && (
+              <>
             {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* Total Accounts */}
@@ -296,6 +373,76 @@ export default function NftmailAdminStats() {
             <div className="text-center text-xs text-gray-500">
               Last updated: {new Date(stats.last_updated).toLocaleString()}
             </div>
+              </>
+            )}
+            
+            {/* DMARC Reports Tab */}
+            {activeTab === 'dmarc' && (
+              <div className="space-y-4">
+                <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
+                  <h3 className="text-lg font-semibold text-white mb-4">DMARC Reports</h3>
+                  <p className="text-sm text-gray-400 mb-4">
+                    Daily authentication reports from email providers (Gmail, Yahoo, etc.) showing SPF/DKIM alignment results for your domain.
+                  </p>
+                  
+                  {dmarcLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+                    </div>
+                  ) : dmarcReports.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500">
+                      No DMARC reports found
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {dmarcReports.map((report) => (
+                        <div key={report.id} className="p-4 bg-black/20 rounded-lg">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm font-medium text-white">
+                              Report from {report.submitter}
+                            </span>
+                            <span className="text-xs text-gray-500">
+                              {new Date(report.receivedAt).toLocaleString()}
+                            </span>
+                          </div>
+                          <div className="text-xs text-gray-400 space-y-1">
+                            <p>Domain: <span className="text-cyan-300">{report.domain}</span></p>
+                            <p>Report ID: {report.reportId}</p>
+                            {report.hasAttachment ? (
+                              <p className="text-amber-300">
+                                ⚠️ Has {report.attachmentType || 'XML'} attachment (not yet parsed)
+                              </p>
+                            ) : (
+                              <p className="text-gray-500">No attachment found</p>
+                            )}
+                          </div>
+                          <div className="mt-3 p-2 bg-gray-900 rounded text-xs font-mono text-gray-500">
+                            Subject: {report.subject}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                
+                {/* DMARC Info */}
+                <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
+                  <h4 className="text-sm font-semibold text-white mb-3">About DMARC</h4>
+                  <ul className="text-xs text-gray-400 space-y-2">
+                    <li>• <strong>SPF</strong> — Validates sender IP address against your DNS</li>
+                    <li>• <strong>DKIM</strong> — Cryptographic signature verification</li>
+                    <li>• <strong>Alignment</strong> — Ensures From: header matches authenticated domain</li>
+                    <li>• Reports help detect spoofing attempts and configuration issues</li>
+                  </ul>
+                  <div className="mt-4 p-3 bg-amber-900/20 border border-amber-500/30 rounded">
+                    <p className="text-xs text-amber-300">
+                      <strong>Note:</strong> DMARC report attachments contain the actual XML data. 
+                      Currently stored but not parsed. Need to implement attachment extraction to view detailed authentication results.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <div className="text-center py-12 text-gray-400">
