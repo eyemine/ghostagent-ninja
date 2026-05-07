@@ -40,12 +40,21 @@ interface AdminStats {
   error?: string;
 }
 
+interface DMARCAttachment {
+  filename: string;
+  size: number;
+  type: string;
+  hasData: boolean;
+}
+
 interface DMARCReport {
   id: string;
   receivedAt: number;
   subject: string;
   hasAttachment: boolean;
   attachmentType?: string;
+  attachmentCount: number;
+  attachments: DMARCAttachment[];
   reportId: string;
   submitter: string;
   domain: string;
@@ -409,9 +418,28 @@ export default function NftmailAdminStats() {
                             <p>Domain: <span className="text-cyan-300">{report.domain}</span></p>
                             <p>Report ID: {report.reportId}</p>
                             {report.hasAttachment ? (
-                              <p className="text-amber-300">
-                                ⚠️ Has {report.attachmentType || 'XML'} attachment (not yet parsed)
-                              </p>
+                              <div className="space-y-1">
+                                <p className="text-emerald-300">
+                                  ✓ {report.attachmentCount} attachment(s) stored
+                                </p>
+                                {report.attachments.map((att, idx) => (
+                                  <div key={idx} className="flex items-center gap-2 ml-2">
+                                    <span className="text-gray-500">
+                                      {att.filename} ({(att.size / 1024).toFixed(1)} KB)
+                                    </span>
+                                    {att.hasData && (
+                                      <a 
+                                        href={`/api/admin/attachment?agent=dmarc&messageId=${report.id}&filename=${encodeURIComponent(att.filename)}`}
+                                        className="text-blue-400 hover:text-blue-300 underline"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                      >
+                                        Download
+                                      </a>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
                             ) : (
                               <p className="text-gray-500">No attachment found</p>
                             )}
@@ -434,10 +462,11 @@ export default function NftmailAdminStats() {
                     <li>• <strong>Alignment</strong> — Ensures From: header matches authenticated domain</li>
                     <li>• Reports help detect spoofing attempts and configuration issues</li>
                   </ul>
-                  <div className="mt-4 p-3 bg-amber-900/20 border border-amber-500/30 rounded">
-                    <p className="text-xs text-amber-300">
-                      <strong>Note:</strong> DMARC report attachments contain the actual XML data. 
-                      Currently stored but not parsed. Need to implement attachment extraction to view detailed authentication results.
+                  <div className="mt-4 p-3 bg-emerald-900/20 border border-emerald-500/30 rounded">
+                    <p className="text-xs text-emerald-300">
+                      <strong>Status:</strong> DMARC report attachments are now being stored in KV. 
+                      Download the .xml.gz files and extract them locally to view SPF/DKIM authentication results.
+                      XML parsing dashboard feature coming soon.
                     </p>
                   </div>
                 </div>

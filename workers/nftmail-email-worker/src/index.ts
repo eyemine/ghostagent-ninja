@@ -331,6 +331,93 @@ function extractBodyFromMime(rawMime: string): string {
   return bodySection;
 }
 
+// Extract attachments from MIME (for DMARC reports and testing)
+interface Attachment {
+  filename: string;
+  contentType: string;
+  size: number;
+  data: string; // base64
+}
+
+function extractAttachmentsFromMime(rawMime: string, maxSize = 100000): Attachment[] {
+  const attachments: Attachment[] = [];
+  
+  // Split headers from body
+  const blankLineIdx = rawMime.indexOf('\r\n\r\n');
+  const splitIdx = blankLineIdx !== -1 ? blankLineIdx : rawMime.indexOf('\n\n');
+  if (splitIdx === -1) return attachments;
+  
+  const headerSection = rawMime.substring(0, splitIdx);
+  const bodySection = rawMime.substring(splitIdx).replace(/^[\r\n]+/, '');
+  
+  // Check Content-Type for multipart
+  const ctMatch = /content-type:\s*([^\r\n;]+)/i.exec(headerSection);
+  const contentType = ctMatch ? ctMatch[1].trim().toLowerCase() : '';
+  
+  if (!contentType.startsWith('multipart/')) return attachments;
+  
+  // Extract boundary
+  const boundaryMatch = /boundary="?([^"\r\n;]+)"?/i.exec(headerSection);
+  if (!boundaryMatch) return attachments;
+  
+  const boundary = boundaryMatch[1];
+  const parts = bodySection.split('--' + boundary);
+  
+  for (const part of parts) {
+    if (part.trim() === '--' || part.trim() === '') continue;
+    
+    const partHeaderEnd = part.indexOf('\r\n\r\n') !== -1 ? part.indexOf('\r\n\r\n') : part.indexOf('\n\n');
+    if (partHeaderEnd === -1) continue;
+    
+    const partHeaders = part.substring(0, partHeaderEnd);
+    const partBody = part.substring(partHeaderEnd).replace(/^[\r\n]+/, '').replace(/[\r\n]+$/, '');
+    
+    // Check if this part has attachment indicators
+    const dispMatch = /content-disposition:\s*attachment/i.exec(partHeaders);
+    const filenameMatch = /filename="?([^"\r\n;]+)"?/i.exec(partHeaders);
+    const typeMatch = /content-type:\s*([^\r\n;]+)/i.exec(partHeaders);
+    const encMatch = /content-transfer-encoding:\s*(\S+)/i.exec(partHeaders);
+    
+    // Skip text parts (handled separately)
+    const partType = (typeMatch ? typeMatch[1].trim().toLowerCase() : '');
+    if (partType.startsWith('text/')) continue;
+    
+    // Only process if it looks like an attachment
+    if (!dispMatch && !filenameMatch) continue;
+    
+    const filename = filenameMatch ? filenameMatch[1].trim() : 'unnamed';
+    const encoding = encMatch ? encMatch[1].trim().toLowerCase() : '';
+    
+    // Decode based on transfer encoding
+    let decoded: Uint8Array;
+    if (encoding === 'base64') {
+      try {
+        decoded = Uint8Array.from(atob(partBody.replace(/\s/g, '')), c => c.charCodeAt(0));
+      } catch {
+        continue;
+      }
+    } else {
+      // Assume binary/8bit - store as-is
+      decoded = new TextEncoder().encode(partBody);
+    }
+    
+    // Skip if too large
+    if (decoded.length > maxSize) {
+      console.log(`[attachment] Skipped ${filename} (${decoded.length} bytes) - exceeds ${maxSize} limit`);
+      continue;
+    }
+    
+    attachments.push({
+      filename,
+      contentType: partType || 'application/octet-stream',
+      size: decoded.length,
+      data: btoa(String.fromCharCode(...decoded)),
+    });
+  }
+  
+  return attachments;
+}
+
 // --- Ghost-Router: Stream Classification ---
 // Suffix-Boundary Architecture (Vitalik Proof):
 //
@@ -1177,6 +1264,12 @@ async function _handleEmail(message: EmailMessage, env: Env, ctx: ExecutionConte
     const subject = message.headers.get('subject') || '';
     const rawMime = await new Response(message.raw).text();
     const body = extractBodyFromMime(rawMime);
+    // Extract attachments for DMARC reports and testing (<100KB limit for KV storage)
+    const attachments = extractAttachmentsFromMime(rawMime, 100000);
+    const hasAttachments = attachments.length > 0;
+    if (hasAttachments) {
+      console.log(`[inbound] Extracted ${attachments.length} attachment(s) for ${originalRecipient}: ${attachments.map(a => `${a.filename} (${a.size} bytes)`).join(', ')}`);
+    }
     const timestamp = Date.now();
 
     // ── EDGE ENCRYPT: seal cleartext immediately — hash before any log or KV write ──
@@ -1212,6 +1305,7 @@ async function _handleEmail(message: EmailMessage, env: Env, ctx: ExecutionConte
       const blindId = `blind-${timestamp}-${crypto.randomUUID().slice(0, 8)}`;
       const plaintextPayload = JSON.stringify({
         from: sender, to: originalRecipient, subject, body, timestamp,
+        ...(hasAttachments ? { attachments: attachments.map(a => ({ filename: a.filename, size: a.size, type: a.contentType })) } : {}),
         ...(collection ? { collection: { name: collectionName, tokenId, chain: collection.chainId, owner: ownerAddress } } : {}),
         ...(classified.socialPair ? { identity: { pair: classified.socialPair } } : {}),
       });
@@ -1225,6 +1319,15 @@ async function _handleEmail(message: EmailMessage, env: Env, ctx: ExecutionConte
         ...(ownerAddress ? { owner: ownerAddress } : {}),
         ...(collection ? { collection: collection.displayName, tokenId } : {}),
         receivedAt: timestamp,
+        // Store attachment data inline for small files (DMARC reports)
+        ...(hasAttachments ? { 
+          attachments: attachments.map(a => ({ 
+            filename: a.filename, 
+            size: a.size, 
+            type: a.contentType, 
+            data: a.data 
+          })) 
+        } : {}),
       };
       const humanTtlSecs = await getAgentTtlSecs(env, agentName);
       const humanPutOpts = humanTtlSecs != null ? { expirationTtl: humanTtlSecs } : {};

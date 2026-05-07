@@ -7,6 +7,13 @@ export const dynamic = 'force-dynamic';
 
 const WORKER_URL = process.env.NEXT_PUBLIC_WORKER_URL || 'https://nftmail-email-worker.richard-159.workers.dev';
 
+interface DMARCAttachment {
+  filename: string;
+  size: number;
+  type: string;
+  data?: string; // base64
+}
+
 interface DMARCMessage {
   id: string;
   receivedAt: number;
@@ -14,6 +21,7 @@ interface DMARCMessage {
   body: string;
   hasAttachment: boolean;
   attachmentType?: string;
+  attachments?: DMARCAttachment[];
 }
 
 export async function GET(request: NextRequest) {
@@ -52,8 +60,15 @@ export async function GET(request: NextRequest) {
       id: msg.id,
       receivedAt: msg.receivedAt,
       subject: msg.subject,
-      hasAttachment: msg.hasAttachment,
-      attachmentType: msg.attachmentType,
+      hasAttachment: msg.hasAttachment || (msg.attachments && msg.attachments.length > 0),
+      attachmentType: msg.attachmentType || (msg.attachments?.[0]?.type),
+      attachmentCount: msg.attachments?.length || 0,
+      attachments: msg.attachments?.map(a => ({ 
+        filename: a.filename, 
+        size: a.size, 
+        type: a.type,
+        hasData: !!a.data 
+      })) || [],
       // Extract report details from subject
       reportId: msg.subject.match(/Report-ID:\s*(\d+)/)?.[1] || 'unknown',
       submitter: msg.subject.match(/Submitter:\s*(\w+)/)?.[1] || 'unknown',
