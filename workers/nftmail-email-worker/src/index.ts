@@ -3981,6 +3981,34 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
           }), request);
         }
 
+        // D1 Diagnostic: check database health and get row counts
+        if (email.action === 'diagnoseD1') {
+          if (!env.NFTMAIL_DB) {
+            return corsify(Response.json({ error: 'D1 not configured', configured: false }), request);
+          }
+          try {
+            const d1 = new D1Store(env.NFTMAIL_DB);
+            const [agents, pupaCount, recentAgents] = await Promise.all([
+              d1.db.prepare('SELECT COUNT(*) as count FROM agents').first<{ count: number }>(),
+              d1.db.prepare("SELECT COUNT(*) as count FROM agents WHERE tier != 'basic'").first<{ count: number }>(),
+              d1.db.prepare('SELECT label, tier, controller, created_at FROM agents ORDER BY created_at DESC LIMIT 10').all(),
+            ]);
+            return corsify(Response.json({
+              configured: true,
+              healthy: true,
+              totalAgents: agents?.count ?? 0,
+              pupaPlusAgents: pupaCount?.count ?? 0,
+              recentAgents: recentAgents.results ?? [],
+            }), request);
+          } catch (e) {
+            return corsify(Response.json({
+              configured: true,
+              healthy: false,
+              error: e instanceof Error ? e.message : String(e),
+            }), request);
+          }
+        }
+
         // EIP-712 HandshakeCertificate: store bilateral P2P mutual-auth proof
         if (email.action === 'storeHandshakeCertificate') {
           const agentName     = ((email as any).agentName     || '').toLowerCase().trim();
@@ -5338,6 +5366,49 @@ It routes to the same inbox.
             env.INBOX_KV.put(`acct-tier:${agentName}_`, agentTierEntry),
           ]);
 
+          // ── Phase 1 D1 shadow write ──────────────────────────────────────
+          // Write PUPA agent to D1 for relational queries
+          if (env.NFTMAIL_DB) {
+            try {
+              const d1 = new D1Store(env.NFTMAIL_DB);
+              await d1.upsertAgent({
+                label: agentName,
+                controller: wallet,
+                tld: 'nftmail.gno',
+                tier: 'pupa',
+                safe: null,
+                ecies_pubkey: null,
+                retention: '1-year',
+                expires_at: now + PUPA_RETENTION_MS,
+                story_ip: null,
+                origin_nft: originNft || null,
+                origin_image: null,
+                upgraded_at: now,
+                zerog_root_hash: null,
+                zerog_archived_at: null,
+              });
+              // Also write the _@ agent variant
+              await d1.upsertAgent({
+                label: `${agentName}_`,
+                controller: wallet,
+                tld: 'nftmail.gno',
+                tier: 'pupa',
+                safe: null,
+                ecies_pubkey: null,
+                retention: '1-year',
+                expires_at: now + PUPA_RETENTION_MS,
+                story_ip: null,
+                origin_nft: originNft || null,
+                origin_image: null,
+                upgraded_at: now,
+                zerog_root_hash: null,
+                zerog_archived_at: null,
+              });
+            } catch (d1Err) {
+              console.error('[D1 shadow] upgradeFidAgent write failed (non-fatal):', d1Err);
+            }
+          }
+
           const humanEmail = `${agentName}@nftmail.box`;
           const agentEmail = `${agentName}_@nftmail.box`;
           return corsify(Response.json({
@@ -5383,6 +5454,24 @@ It routes to the same inbox.
           existing.wallet_linked_at = Date.now();
 
           await env.INBOX_KV.put(`nftmailgno:${agentName}`, JSON.stringify(existing));
+
+          // ── Phase 1 D1 shadow write ──────────────────────────────────────
+          // Update controller in D1 if agent already exists there (PUPA+ agents)
+          if (env.NFTMAIL_DB) {
+            try {
+              const d1 = new D1Store(env.NFTMAIL_DB);
+              const d1Agent = await d1.getAgent(agentName);
+              if (d1Agent) {
+                await d1.upsertAgent({
+                  ...d1Agent,
+                  controller: wallet,
+                  upgraded_at: Date.now(),
+                });
+              }
+            } catch (d1Err) {
+              console.error('[D1 shadow] linkFidWallet write failed (non-fatal):', d1Err);
+            }
+          }
 
           return corsify(Response.json({
             status: 'linked',

@@ -17,7 +17,7 @@ import { createHmac } from 'crypto';
 import { WORKER_URL } from '../../utils/config';
 
 const MERCURYO_SECRET = process.env.MERCURYO_SECRET_KEY ?? '';
-const WEBHOOK_SECRET = process.env.NFTMAIL_WEBHOOK_SECRET || '';
+const WORKER_SECRET = process.env.WEBHOOK_SECRET || '';
 
 interface MercuryoTransaction {
   id: string;
@@ -45,12 +45,63 @@ function verifyMercuryoSignature(rawBody: string, signature: string): boolean {
   return expected === signature;
 }
 
-async function logToGlassBox(tx: MercuryoTransaction): Promise<void> {
-  if (!WEBHOOK_SECRET) return;
+const PROFESSIONAL_MIN_XDAI = 9.5;  // 10 xDAI - 0.5 rounding buffer (tx.amount = net crypto received)
+const VAULT_MIN_XDAI       = 23.5;  // 24 xDAI - 0.5 rounding buffer
+
+async function triggerEvolveOnFundedWallet(tx: MercuryoTransaction): Promise<void> {
+  if (!WORKER_SECRET) return;
+  if (tx.network?.toUpperCase() !== 'GNOSIS') return;
+  if (tx.currency?.toUpperCase() !== 'XDAI') return;
+
+  const wallet = tx.address.toLowerCase();
+
+  // Look up pending upgrade intent for this wallet
+  let pending: { agentName: string; tier: string } | null = null;
+  try {
+    const res = await fetch(WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+      body: JSON.stringify({ action: 'getPendingUpgrade', walletAddress: wallet }),
+    });
+    const data = await res.json() as { pending: boolean; agentName?: string; tier?: string };
+    if (data.pending && data.agentName && data.tier) {
+      pending = { agentName: data.agentName, tier: data.tier };
+    }
+  } catch {
+    return; // Non-fatal
+  }
+
+  if (!pending) return;
+
+  // Verify amount is sufficient for the requested tier
+  const amount = Number(tx.amount);
+  if (pending.tier === 'vault'       && amount < VAULT_MIN_XDAI)        return;
+  if (pending.tier === 'professional' && amount < PROFESSIONAL_MIN_XDAI) return;
+
+  // Fire upgradeTier
   try {
     await fetch(WORKER_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+      body: JSON.stringify({
+        action:        'upgradeTier',
+        name:          pending.agentName,
+        tier:          pending.tier,
+        walletAddress: wallet,
+        txHash:        tx.tx_id ?? '',
+      }),
+    });
+  } catch {
+    // Non-fatal — Glass Box audit already logged the payment
+  }
+}
+
+async function logToGlassBox(tx: MercuryoTransaction): Promise<void> {
+  if (!WORKER_SECRET) return;
+  try {
+    await fetch(WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
       body: JSON.stringify({
         action: 'auditLog',
         event:  'mercuryo_transaction_paid',
@@ -65,7 +116,7 @@ async function logToGlassBox(tx: MercuryoTransaction): Promise<void> {
           onChainTxHash:   tx.tx_id ?? null,
           completedAt:     tx.updated_at ?? tx.created_at,
         },
-        secret: WEBHOOK_SECRET,
+        secret: WORKER_SECRET,
       }),
     });
   } catch {
@@ -96,10 +147,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   // Only act on paid transactions
   if (tx.status === 'paid') {
-    await logToGlassBox(tx);
-
-    // Future hook: if wallet matches a pending evolve, trigger tier unlock
-    // await triggerEvolveOnFundedWallet(tx.address, tx.amount);
+    await Promise.all([
+      logToGlassBox(tx),
+      triggerEvolveOnFundedWallet(tx),
+    ]);
   }
 
   return NextResponse.json({ received: true, txId: tx.id, status: tx.status });

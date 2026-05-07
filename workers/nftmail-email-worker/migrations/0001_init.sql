@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS agents (
   story_ip        TEXT,                         -- Story Protocol IP asset address
   origin_nft      TEXT,                         -- beacon NFT label, e.g. 'atom-158.agent.gno'
   origin_image    TEXT,                         -- IPFS URL for NFT avatar
-  created_at      INTEGER NOT NULL DEFAULT (unixepoch() * 1000),
+  created_at      INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
   upgraded_at     INTEGER
 );
 
@@ -57,7 +57,7 @@ CREATE TABLE IF NOT EXISTS reputation_flags (
   source          TEXT    NOT NULL,             -- 'notapaperclip' | 'surge-oracle' | 'community'
   flag            TEXT    NOT NULL,             -- 'low-reputation' | 'burn-detected' | 'spam'
   evidence_url    TEXT,                         -- link to on-chain tx or public report
-  created_at      INTEGER NOT NULL DEFAULT (unixepoch() * 1000),
+  created_at      INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
   resolved_at     INTEGER                       -- NULL = active flag
 );
 
@@ -71,7 +71,7 @@ CREATE TABLE IF NOT EXISTS tier_history (
   to_tier         TEXT    NOT NULL,
   tx_hash         TEXT,                         -- payment tx on Gnosis
   safe            TEXT,
-  changed_at      INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
+  changed_at      INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000)
 );
 
 CREATE INDEX IF NOT EXISTS idx_tier_history_label ON tier_history(agent_label);
@@ -83,7 +83,7 @@ CREATE TABLE IF NOT EXISTS identities (
   agent_label     TEXT    NOT NULL,
   chain           TEXT    NOT NULL,             -- 'gnosis' | 'base'
   erc8004_agent_id INTEGER,
-  registered_at   INTEGER NOT NULL DEFAULT (unixepoch() * 1000),
+  registered_at   INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
   UNIQUE(agent_label, chain)
 );
 
@@ -96,7 +96,7 @@ CREATE TABLE IF NOT EXISTS memory (
   session_id      TEXT,
   tag             TEXT,
   content         TEXT    NOT NULL,
-  created_at      INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
+  created_at      INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000)
 );
 
 CREATE INDEX IF NOT EXISTS idx_memory_agent       ON memory(agent_label, created_at DESC);
@@ -108,5 +108,5 @@ CREATE TABLE IF NOT EXISTS shared_context (
   namespace       TEXT    PRIMARY KEY,
   data            TEXT    NOT NULL,             -- JSON blob
   writer          TEXT,                         -- agent label that last wrote
-  updated_at      INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
+  updated_at      INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000)
 );
