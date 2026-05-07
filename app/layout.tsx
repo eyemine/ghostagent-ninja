@@ -20,6 +20,7 @@ const geistMono = Roboto_Mono({
 export const dynamic = 'force-dynamic';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://ghostagent.ninja';
+const LOGO_URL = 'https://moccasin-useful-vole-840.mypinata.cloud/ipfs/bafkreicx5r5qfonzdmnhkeblrfbhaj7gcbgc34g6kvkh7hbxypd54qqx3a';
 
 const miniAppEmbed = JSON.stringify({
   version: '1',
@@ -30,7 +31,7 @@ const miniAppEmbed = JSON.stringify({
       type: 'launch_frame',
       name: 'GhostAgent',
       url: `${APP_URL}/mini`,
-      splashImageUrl: `${APP_URL}/icon.svg`,
+      splashImageUrl: LOGO_URL,
       splashBackgroundColor: '#000000',
     },
   },
@@ -40,7 +41,9 @@ export const metadata: Metadata = {
   title: "GhostAgent Ninja",
   description: "GhostAgent control surface",
   icons: {
-    icon: '/icon.svg',
+    icon: LOGO_URL,
+    shortcut: LOGO_URL,
+    apple: LOGO_URL,
   },
   other: {
     'fc:miniapp': miniAppEmbed,
@@ -56,7 +59,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+        <link rel="icon" href={LOGO_URL} type="image/png" />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
