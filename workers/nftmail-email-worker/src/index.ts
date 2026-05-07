@@ -1675,6 +1675,11 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
                   const cid = await env.INBOX_KV.get(`ipfs:${agent}:${id}`);
                   if (cid) parsed.ipfsCid = cid;
                   const payload = parsed.payload || {};
+                  // Detect DMARC reports (should have XML attachments)
+                  const isDmarcReport = payload.subject?.includes('Report domain:') && 
+                                        payload.subject?.includes('Submitter:');
+                  const isDmarcMailbox = kvKeyName === 'dmarc';
+                  
                   messages.push({
                     id,
                     from: payload.from || parsed.from || '',
@@ -1688,6 +1693,10 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
                     warning: parsed.warning,
                     envelope: parsed.encrypted ? parsed.envelope : undefined,
                     ipfsCid: cid ?? undefined,
+                    // Attachment metadata
+                    hasAttachment: isDmarcReport || isDmarcMailbox || parsed.hasAttachment || false,
+                    attachmentType: isDmarcReport ? 'application/gzip+xml' : parsed.attachmentType,
+                    attachmentNote: isDmarcReport ? 'DMARC XML report attachment not stored (need attachment extraction)' : undefined,
                   });
                 } catch {}
               }
