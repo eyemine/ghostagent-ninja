@@ -3987,11 +3987,11 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
             return corsify(Response.json({ error: 'D1 not configured', configured: false }), request);
           }
           try {
-            const d1 = new D1Store(env.NFTMAIL_DB);
+            const db = env.NFTMAIL_DB;
             const [agents, pupaCount, recentAgents] = await Promise.all([
-              d1.db.prepare('SELECT COUNT(*) as count FROM agents').first<{ count: number }>(),
-              d1.db.prepare("SELECT COUNT(*) as count FROM agents WHERE tier != 'basic'").first<{ count: number }>(),
-              d1.db.prepare('SELECT label, tier, controller, created_at FROM agents ORDER BY created_at DESC LIMIT 10').all(),
+              db.prepare('SELECT COUNT(*) as count FROM agents').first<{ count: number }>(),
+              db.prepare("SELECT COUNT(*) as count FROM agents WHERE tier != 'basic'").first<{ count: number }>(),
+              db.prepare('SELECT label, tier, controller, created_at FROM agents ORDER BY created_at DESC LIMIT 10').all(),
             ]);
             return corsify(Response.json({
               configured: true,
