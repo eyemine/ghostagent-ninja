@@ -4010,6 +4010,42 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
           }
         }
 
+        // Diagnostic: Check and optionally reset sendsRemaining for an account
+        if (email.action === 'checkSendLimit') {
+          const agentName: string = ((email as any).agentName || '').toLowerCase().trim();
+          const reset: boolean = !!(email as any).reset;
+          if (!agentName) {
+            return corsify(Response.json({ error: 'Missing agentName' }, { status: 400 }), request);
+          }
+          const tierRaw = await env.INBOX_KV.get(`acct-tier:${agentName}`);
+          if (!tierRaw) {
+            return corsify(Response.json({ error: 'Agent not found' }, { status: 404 }), request);
+          }
+          const tierData = JSON.parse(tierRaw);
+          const currentRemaining = typeof tierData.sendsRemaining === 'number' ? tierData.sendsRemaining : 10;
+          
+          if (reset) {
+            tierData.sendsRemaining = 10;
+            tierData.sendsUsed = 0;
+            await env.INBOX_KV.put(`acct-tier:${agentName}`, JSON.stringify(tierData));
+            return corsify(Response.json({
+              agentName,
+              previousRemaining: currentRemaining,
+              sendsRemaining: 10,
+              sendsUsed: 0,
+              reset: true,
+            }), request);
+          }
+          
+          return corsify(Response.json({
+            agentName,
+            sendsRemaining: currentRemaining,
+            sendsUsed: tierData.sendsUsed || 0,
+            tier: tierData.tier,
+            expiresAt: tierData.expires_at,
+          }), request);
+        }
+
         // EIP-712 HandshakeCertificate: store bilateral P2P mutual-auth proof
         if (email.action === 'storeHandshakeCertificate') {
           const agentName     = ((email as any).agentName     || '').toLowerCase().trim();
@@ -5023,6 +5059,8 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
             retention: '8-day',   // inbox history window
             account_ttl: '30-day', // account lifetime before re-provision invite
             story_ip: null,
+            sendsRemaining: 10,
+            sendsUsed: 0,
           });
 
           // Privacy visibility settings from Frame (defaults to safe values)
