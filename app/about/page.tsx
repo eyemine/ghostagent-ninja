@@ -6,21 +6,21 @@ const GHOST_LOGO = '/ghost-logo.png';
 
 const LIFECYCLE_STEPS = [
   {
-    icon: 'https://gateway.lighthouse.storage/ipfs/bafkreicekhu7rr7noqtv2t4sivy5mqncqgbqnf6cq63dfqyvi5klgk7bv4',
+    icon: 'https://moccasin-useful-vole-840.mypinata.cloud/ipfs/bafkreicekhu7rr7noqtv2t4sivy5mqncqgbqnf6cq63dfqyvi5klgk7bv4',
     label: 'Larva',
     title: 'Mint Agent Body',
     desc: 'Mint an NFT on Gnosis Chain. A Token-Bound Account (TBA) is created automatically — a sovereign on-chain Safe that only the NFT holder controls. No custodian. No platform key.',
     cta: { label: 'Mint Agent ID', href: '/agents?tab=mint' },
   },
   {
-    icon: 'https://gateway.lighthouse.storage/ipfs/bafkreihajbm2nwtuwp4hsgputfqintlw7zxbz4jbpx772ur3rfvfhwadge',
+    icon: 'https://moccasin-useful-vole-840.mypinata.cloud/ipfs/bafkreihajbm2nwtuwp4hsgputfqintlw7zxbz4jbpx772ur3rfvfhwadge',
     label: 'Pupa',
     title: 'Install Agent Brain',
     desc: 'Deploy a Cloudflare Worker brain module wired to your agent\'s nftmail.box address. Your agent receives emails, classifies them, stores them encrypted in KV — all under your NFT\'s identity.',
     cta: { label: 'Install Brain', href: '/dashboard/install-brain' },
   },
   {
-    icon: 'https://gateway.lighthouse.storage/ipfs/bafkreifm4gtqaxgyb2quyykij4np5naoxzpf5w6za6maywemcvl7tltt7u',
+    icon: 'https://moccasin-useful-vole-840.mypinata.cloud/ipfs/bafkreifm4gtqaxgyb2quyykij4np5naoxzpf5w6za6maywemcvl7tltt7u',
     label: 'Imago',
     title: 'Molt to Agent',
     desc: 'Upgrade your agent\'s identity to a new TLD namespace — same TBA, zero migration. Capabilities compound: DailyBudget module, HumanInTheLoop approval module, Story Protocol IP registration.',

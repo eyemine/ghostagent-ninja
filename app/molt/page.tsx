@@ -44,7 +44,7 @@ export default function MoltPage() {
         <header className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="https://gateway.lighthouse.storage/ipfs/bafkreihajbm2nwtuwp4hsgputfqintlw7zxbz4jbpx772ur3rfvfhwadge" alt="Molt" className="h-8 w-8 rounded object-contain" />
+            <img src="https://moccasin-useful-vole-840.mypinata.cloud/ipfs/bafkreihajbm2nwtuwp4hsgputfqintlw7zxbz4jbpx772ur3rfvfhwadge" alt="Molt" className="h-8 w-8 rounded object-contain" />
             <div className="text-xs font-semibold tracking-[0.18em] text-amber-300">MOLT</div>
           </div>
           <div className="flex items-center gap-2">

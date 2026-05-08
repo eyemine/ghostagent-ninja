@@ -85,9 +85,9 @@ function HeartbeatDot({ lastHeartbeat }: { lastHeartbeat?: number }) {
 }
 
 const EVOLVE_META: Record<EvolveLevel, { icon: string; label: string; color: string; bg: string }> = {
-  larva: { icon: 'https://gateway.lighthouse.storage/ipfs/bafkreicekhu7rr7noqtv2t4sivy5mqncqgbqnf6cq63dfqyvi5klgk7bv4', label: 'Larva',  color: 'text-zinc-400',    bg: 'bg-zinc-500/10' },
-  pupa:  { icon: 'https://gateway.lighthouse.storage/ipfs/bafkreihajbm2nwtuwp4hsgputfqintlw7zxbz4jbpx772ur3rfvfhwadge', label: 'Pupa',   color: 'text-amber-300',   bg: 'bg-amber-500/10' },
-  imago: { icon: 'https://gateway.lighthouse.storage/ipfs/bafkreifm4gtqaxgyb2quyykij4np5naoxzpf5w6za6maywemcvl7tltt7u', label: 'Imago',  color: 'text-violet-300',  bg: 'bg-violet-500/10' },
+  larva: { icon: 'https://moccasin-useful-vole-840.mypinata.cloud/ipfs/bafkreicekhu7rr7noqtv2t4sivy5mqncqgbqnf6cq63dfqyvi5klgk7bv4', label: 'Larva',  color: 'text-zinc-400',    bg: 'bg-zinc-500/10' },
+  pupa:  { icon: 'https://moccasin-useful-vole-840.mypinata.cloud/ipfs/bafkreihajbm2nwtuwp4hsgputfqintlw7zxbz4jbpx772ur3rfvfhwadge', label: 'Pupa',   color: 'text-amber-300',   bg: 'bg-amber-500/10' },
+  imago: { icon: 'https://moccasin-useful-vole-840.mypinata.cloud/ipfs/bafkreifm4gtqaxgyb2quyykij4np5naoxzpf5w6za6maywemcvl7tltt7u', label: 'Imago',  color: 'text-violet-300',  bg: 'bg-violet-500/10' },
   ghost: { icon: 'https://gateway.lighthouse.storage/ipfs/bafkreifjrzcptcss7qvdzpphjdvupmfhizjejqyswycrofjlm72tfi43hq', label: 'Ghost',  color: 'text-fuchsia-300', bg: 'bg-fuchsia-500/10' },
 };
 

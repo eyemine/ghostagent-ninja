@@ -759,7 +759,7 @@ export default function OgNftMoltPage() {
                   <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full border-2 border-fuchsia-500/30">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src="https://gateway.lighthouse.storage/ipfs/bafkreifm4gtqaxgyb2quyykij4np5naoxzpf5w6za6maywemcvl7tltt7u"
+                      src="https://moccasin-useful-vole-840.mypinata.cloud/ipfs/bafkreifm4gtqaxgyb2quyykij4np5naoxzpf5w6za6maywemcvl7tltt7u"
                       alt="White Butterfly (Imago)"
                       className="h-full w-full object-cover"
                     />
@@ -800,7 +800,7 @@ export default function OgNftMoltPage() {
                             <img 
                               src={
                                 agent.tld === 'nftmail.gno' ? 'https://gateway.lighthouse.storage/ipfs/bafkreifv35abvqlhdtc4g2i4xelnmxnhaac7exyu6r24o3fbgthwcmupwy' :
-                                agent.tld === 'molt.gno' ? 'https://gateway.lighthouse.storage/ipfs/bafkreifm4gtqaxgyb2quyykij4np5naoxzpf5w6za6maywemcvl7tltt7u' :
+                                agent.tld === 'molt.gno' ? 'https://moccasin-useful-vole-840.mypinata.cloud/ipfs/bafkreifm4gtqaxgyb2quyykij4np5naoxzpf5w6za6maywemcvl7tltt7u' :
                                 agent.tld === 'openclaw.gno' ? 'https://gateway.lighthouse.storage/ipfs/bafkreiczeqhex35dvj4ewbzn2gyqnbgqb22np5zgp223vnbfhaod6sv4sq' :
                                 agent.tld === 'vault.gno' ? 'https://gateway.lighthouse.storage/ipfs/bafkreick55xkc2ucnmk2wjbzl6a5chqkvmwjll4oqbqajfh5mapd3s7fku' :
                                 agent.tld === 'agent.gno' ? 'https://gateway.lighthouse.storage/ipfs/bafkreigdisoyfs75rneioevm5irn2k4prdddtuum5bpn27bykhjtdc4fii' :
@@ -841,7 +841,7 @@ export default function OgNftMoltPage() {
                         <div className="relative h-6 w-6 overflow-hidden rounded-full border border-fuchsia-500/30">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img 
-                            src="https://gateway.lighthouse.storage/ipfs/bafkreifm4gtqaxgyb2quyykij4np5naoxzpf5w6za6maywemcvl7tltt7u" 
+                            src="https://moccasin-useful-vole-840.mypinata.cloud/ipfs/bafkreifm4gtqaxgyb2quyykij4np5naoxzpf5w6za6maywemcvl7tltt7u" 
                             alt="White Butterfly" 
                             className="h-full w-full object-cover" 
                           />
@@ -853,7 +853,7 @@ export default function OgNftMoltPage() {
                         <div className="relative h-6 w-6 overflow-hidden rounded-full border border-amber-500/30">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img 
-                            src="https://gateway.lighthouse.storage/ipfs/bafkreifm4gtqaxgyb2quyykij4np5naoxzpf5w6za6maywemcvl7tltt7u" 
+                            src="https://moccasin-useful-vole-840.mypinata.cloud/ipfs/bafkreifm4gtqaxgyb2quyykij4np5naoxzpf5w6za6maywemcvl7tltt7u" 
                             alt="Agent" 
                             className="h-full w-full object-cover" 
                           />
