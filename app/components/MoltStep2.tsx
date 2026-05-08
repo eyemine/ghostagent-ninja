@@ -4,11 +4,13 @@ import { useState } from 'react';
 
 const BLOCKED_TLDS = ['picoclaw.gno'];
 
+const PINATA = 'https://moccasin-useful-vole-840.mypinata.cloud/ipfs';
+
 const SLD_IMAGES: Record<string, string> = {
-  'molt.gno': 'https://cloudflare-ipfs.com/ipfs/bafkreicyrwnh4oxk4e53kly7kzmlpb345pqr5gd2v5acf4kcyl75e4hjdy',
-  'agent.gno': 'https://cloudflare-ipfs.com/ipfs/bafkreihdpulp5riv3dkhtomi2iurgeypvplhdsi3nnkumzmvx725xc4yly',
-  'openclaw.gno': 'https://cloudflare-ipfs.com/ipfs/bafkreigyk2c7gg5ijwvg4v6pyopcioatdjsfffvnkplgqyc2t3jowe3t7e',
-  'vault.gno': 'https://cloudflare-ipfs.com/ipfs/bafkreibxujpkkylek6uznnl2d2d4vmpxi3aiowxyx2ydf5xo4xexcnksau',
+  'molt.gno':     `${PINATA}/bafkreicyrwnh4oxk4e53kly7kzmlpb345pqr5gd2v5acf4kcyl75e4hjdy`,
+  'agent.gno':    `${PINATA}/bafkreihdpulp5riv3dkhtomi2iurgeypvplhdsi3nnkumzmvx725xc4yly`,
+  'openclaw.gno': `${PINATA}/bafkreigyk2c7gg5ijwvg4v6pyopcioatdjsfffvnkplgqyc2t3jowe3t7e`,
+  'vault.gno':    `${PINATA}/bafkreibxujpkkylek6uznnl2d2d4vmpxi3aiowxyx2ydf5xo4xexcnksau`,
 };
 
 const PRESET_IDENTITIES = [

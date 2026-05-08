@@ -42,6 +42,29 @@ const NORMIE_BASE_CONTRACT = '0x7Bc1C072742D8391817EB4Eb2317F98dc72C61dB';
 const MOONCAT_CONTRACT = '0xc3f733ca98e0dad0386979eb96fb1722a1a05e69';
 const GNOSIS_TREASURY = '0xeD0B0694953158dd54D0c36D320b391f44cd67f3'; // Treasury for BYO molt fees
 
+const PINATA = 'https://moccasin-useful-vole-840.mypinata.cloud/ipfs';
+
+// All icons served from Pinata
+const ICONS = {
+  larva:   `${PINATA}/bafkreicekhu7rr7noqtv2t4sivy5mqncqgbqnf6cq63dfqyvi5klgk7bv4`,
+  pupa:    `${PINATA}/bafkreihajbm2nwtuwp4hsgputfqintlw7zxbz4jbpx772ur3rfvfhwadge`,
+  imago:   `${PINATA}/bafkreifm4gtqaxgyb2quyykij4np5naoxzpf5w6za6maywemcvl7tltt7u`,
+  ghost:   `${PINATA}/bafkreiggfgwko2etlo4uxu65bou2cfv33awklo5m5zj7fypxwvfjp72xk4`,
+  byo:     `${PINATA}/bafkreiejmu35lnu34e6dm754c6tad34nogywf2oslbql6lzcdpz4acxjue`,
+  ens:     `${PINATA}/bafkreifv35abvqlhdtc4g2i4xelnmxnhaac7exyu6r24o3fbgthwcmupwy`,
+  chonk:   `${PINATA}/bafkreiczeqhex35dvj4ewbzn2gyqnbgqb22np5zgp223vnbfhaod6sv4sq`,
+  pownft:  `${PINATA}/bafybeieh52xw6mbyoifd2xwwuxu5wp33g6mljuvdbqcue67xfywnf7huhi`,
+  normie:  `${PINATA}/bafkreigdisoyfs75rneioevm5irn2k4prdddtuum5bpn27bykhjtdc4fii`,
+  other:   `${PINATA}/bafkreid7jamriw5jneuarcq2q6lrbfsqe76eebv6r2rworrnhyj2rpsuem`,
+  mooncat: '/collection-icons/mooncat.png',
+  nftmail: `${PINATA}/bafkreiftlxmthuftcrcxa27jtsigsuf2s37dngcxpmqrnhefjaybstpscm`,
+  molt:    `${PINATA}/bafkreicyrwnh4oxk4e53kly7kzmlpb345pqr5gd2v5acf4kcyl75e4hjdy`,
+  openclaw:`${PINATA}/bafkreigyk2c7gg5ijwvg4v6pyopcioatdjsfffvnkplgqyc2t3jowe3t7e`,
+  picoclaw:`${PINATA}/bafkreic7ec6elxd7b425wpsovvgkumidkqsxmgj5ffnhp6icznagaqlgti`,
+  vault:   `${PINATA}/bafkreibxujpkkylek6uznnl2d2d4vmpxi3aiowxyx2ydf5xo4xexcnksau`,
+  agent:   `${PINATA}/bafkreihdpulp5riv3dkhtomi2iurgeypvplhdsi3nnkumzmvx725xc4yly`,
+};
+
 // Verified ERC-721 collections — whitelisted, check-only (not yet activated for minting)
 const VERIFIED_COLLECTIONS = [
   { slug: 'deadfellaz',       name: 'Dead Fellaz',        field1: 'DFZ',        contract: '0x2acab3dea77832c09420663b0e1cb386031ba17b', chain: 'eth', rpc: 'https://cloudflare-eth.com', opensea: 'https://opensea.io/collection/dead-fellaz' },
@@ -548,7 +571,7 @@ export default function OgNftMoltPage() {
       {/* Header — marketplace-style */}
       <div className="flex items-center gap-3">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="https://ipfs.io/ipfs/bafkreiejmu35lnu34e6dm754c6tad34nogywf2oslbql6lzcdpz4acxjue" alt="BYO NFT Molt" className="h-28 w-28 shrink-0 rounded-xl border border-fuchsia-500/40 object-contain" />
+        <img src={ICONS.byo} alt="BYO NFT Molt" className="h-28 w-28 shrink-0 rounded-xl border border-fuchsia-500/40 object-contain" />
         <div>
           <h1 className="pl-1 text-2xl font-bold text-[#f2eee4]">BYO NFT Molt</h1>
           <p className="mt-1 pl-1 text-sm text-[var(--muted)]">Use an NFT you already own — ENS, Chonk, or Verified Collection — as the governing key to your GhostAgent Safe</p>
@@ -596,12 +619,12 @@ export default function OgNftMoltPage() {
             <label className="block text-[10px] font-semibold tracking-wider text-[var(--muted)] mb-2">NFT COLLECTION</label>
             <div className="grid grid-cols-6 gap-2">
               {([
-                {k:'ens'     as NftType, l:'ENS\nName',       img:'https://ipfs.io/ipfs/bafkreifv35abvqlhdtc4g2i4xelnmxnhaac7exyu6r24o3fbgthwcmupwy'},
-                {k:'chonk'   as NftType, l:'CHONKS\nON BASE', img:'https://ipfs.io/ipfs/bafkreiczeqhex35dvj4ewbzn2gyqnbgqb22np5zgp223vnbfhaod6sv4sq'},
-                {k:'pownft'  as NftType, l:'POWNFT\nON ETH',  img:'https://ipfs.io/ipfs/bafkreick55xkc2ucnmk2wjbzl6a5chqkvmwjll4oqbqajfh5mapd3s7fku'},
-                {k:'normie'  as NftType, l:'NORMIES\nON BASE', img:'https://ipfs.io/ipfs/bafkreigdisoyfs75rneioevm5irn2k4prdddtuum5bpn27bykhjtdc4fii'},
-                {k:'mooncat' as NftType, l:'MOONCATS\nON ETH', img:'/collection-icons/mooncat.png'},
-                {k:'other'   as NftType, l:'OTHER\nERC-721',  img:'https://moccasin-useful-vole-840.mypinata.cloud/ipfs/bafkreid7jamriw5jneuarcq2q6lrbfsqe76eebv6r2rworrnhyj2rpsuem'},
+                {k:'ens'     as NftType, l:'ENS\nName',       img:ICONS.ens},
+                {k:'chonk'   as NftType, l:'CHONKS\nON BASE', img:ICONS.chonk},
+                {k:'pownft'  as NftType, l:'POWNFT\nON ETH',  img:ICONS.pownft},
+                {k:'normie'  as NftType, l:'NORMIES\nON BASE', img:ICONS.normie},
+                {k:'mooncat' as NftType, l:'MOONCATS\nON ETH', img:ICONS.mooncat},
+                {k:'other'   as NftType, l:'OTHER\nERC-721',  img:ICONS.other},
               ]).map(opt => (
                 <button key={opt.k} onClick={() => { selectNftType(opt.k); setTokenId(''); }}
                   className={`rounded-lg border p-2 font-semibold transition flex flex-col items-center justify-center gap-1.5 ${
@@ -758,7 +781,7 @@ export default function OgNftMoltPage() {
                   <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full border-2 border-fuchsia-500/30">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src="https://moccasin-useful-vole-840.mypinata.cloud/ipfs/bafkreifm4gtqaxgyb2quyykij4np5naoxzpf5w6za6maywemcvl7tltt7u"
+                      src={ICONS.imago}
                       alt="White Butterfly (Imago)"
                       className="h-full w-full object-cover"
                     />
@@ -798,12 +821,12 @@ export default function OgNftMoltPage() {
                             /* eslint-disable-next-line @next/next/no-img-element */
                             <img 
                               src={
-                                agent.tld === 'nftmail.gno' ? 'https://gateway.lighthouse.storage/ipfs/bafkreifv35abvqlhdtc4g2i4xelnmxnhaac7exyu6r24o3fbgthwcmupwy' :
-                                agent.tld === 'molt.gno' ? 'https://moccasin-useful-vole-840.mypinata.cloud/ipfs/bafkreifm4gtqaxgyb2quyykij4np5naoxzpf5w6za6maywemcvl7tltt7u' :
-                                agent.tld === 'openclaw.gno' ? 'https://gateway.lighthouse.storage/ipfs/bafkreiczeqhex35dvj4ewbzn2gyqnbgqb22np5zgp223vnbfhaod6sv4sq' :
-                                agent.tld === 'vault.gno' ? 'https://gateway.lighthouse.storage/ipfs/bafkreick55xkc2ucnmk2wjbzl6a5chqkvmwjll4oqbqajfh5mapd3s7fku' :
-                                agent.tld === 'agent.gno' ? 'https://gateway.lighthouse.storage/ipfs/bafkreigdisoyfs75rneioevm5irn2k4prdddtuum5bpn27bykhjtdc4fii' :
-                                'https://gateway.lighthouse.storage/ipfs/bafkreid7jamriw5jneuarcq2q6lrbfsqe76eebv6r2rworrnhyj2rpsuem'
+                                agent.tld === 'nftmail.gno' ? ICONS.nftmail :
+                                agent.tld === 'molt.gno' ? ICONS.molt :
+                                agent.tld === 'openclaw.gno' ? ICONS.openclaw :
+                                agent.tld === 'vault.gno' ? ICONS.vault :
+                                agent.tld === 'agent.gno' ? ICONS.agent :
+                                ICONS.other
                               }
                               alt={agent.tld ?? 'agent'}
                               className="h-full w-full object-cover"
@@ -840,7 +863,7 @@ export default function OgNftMoltPage() {
                         <div className="relative h-6 w-6 overflow-hidden rounded-full border border-fuchsia-500/30">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img 
-                            src="https://moccasin-useful-vole-840.mypinata.cloud/ipfs/bafkreifm4gtqaxgyb2quyykij4np5naoxzpf5w6za6maywemcvl7tltt7u" 
+                            src={ICONS.imago} 
                             alt="White Butterfly" 
                             className="h-full w-full object-cover" 
                           />
@@ -852,7 +875,7 @@ export default function OgNftMoltPage() {
                         <div className="relative h-6 w-6 overflow-hidden rounded-full border border-amber-500/30">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img 
-                            src="https://moccasin-useful-vole-840.mypinata.cloud/ipfs/bafkreifm4gtqaxgyb2quyykij4np5naoxzpf5w6za6maywemcvl7tltt7u" 
+                            src={ICONS.imago} 
                             alt="Agent" 
                             className="h-full w-full object-cover" 
                           />
@@ -878,14 +901,7 @@ export default function OgNftMoltPage() {
                 ) : (
                   <div className="flex h-28 w-28 shrink-0 items-center justify-center rounded-lg border border-emerald-500/20 bg-emerald-500/8 overflow-hidden">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={
-                      nftPreview.type==='ens' ? 'https://ipfs.io/ipfs/bafkreifv35abvqlhdtc4g2i4xelnmxnhaac7exyu6r24o3fbgthwcmupwy' :
-                      nftPreview.type==='chonk' ? 'https://ipfs.io/ipfs/bafkreiczeqhex35dvj4ewbzn2gyqnbgqb22np5zgp223vnbfhaod6sv4sq' :
-                      nftPreview.type==='pownft' ? 'https://ipfs.io/ipfs/bafkreick55xkc2ucnmk2wjbzl6a5chqkvmwjll4oqbqajfh5mapd3s7fku' :
-                      nftPreview.type==='normie' ? 'https://ipfs.io/ipfs/bafkreigdisoyfs75rneioevm5irn2k4prdddtuum5bpn27bykhjtdc4fii' :
-                      nftPreview.type==='mooncat' ? '/collection-icons/mooncat.png' :
-                      'https://moccasin-useful-vole-840.mypinata.cloud/ipfs/bafkreid7jamriw5jneuarcq2q6lrbfsqe76eebv6r2rworrnhyj2rpsuem'
-                    } alt={nftPreview.type} className="h-20 w-20 rounded object-contain" />
+                    <img src={ICONS[nftPreview.type] ?? ICONS.other} alt={nftPreview.type} className="h-20 w-20 rounded object-contain" />
                   </div>
                 )}
                 <div>
