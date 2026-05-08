@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Image from 'next/image';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
@@ -810,12 +809,11 @@ export default function OgNftMoltPage() {
                       <div className="flex items-center gap-2">
                         <div className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full border border-amber-500/30">
                           {(agent as any).imageUrl ? (
-                            <Image 
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img 
                               src={(agent as any).imageUrl} 
                               alt={agent.name}
-                              fill
-                              unoptimized
-                              className="object-cover"
+                              className="h-full w-full object-cover"
                             />
                           ) : (
                             /* eslint-disable-next-line @next/next/no-img-element */
@@ -894,16 +892,15 @@ export default function OgNftMoltPage() {
               </div>
               {/* NFT preview card with image */}
               <div className="flex items-center gap-3 rounded-xl border border-emerald-500/25 bg-emerald-500/5 px-3 py-2.5">
-                {nftPreview.imageUrl ? (
-                  <div className="relative h-28 w-28 shrink-0 overflow-hidden rounded-lg border border-[rgba(176,128,92,0.3)]">
-                    <Image src={nftPreview.imageUrl} alt={nftPreview.name} fill unoptimized className="object-cover" />
-                  </div>
-                ) : (
-                  <div className="flex h-28 w-28 shrink-0 items-center justify-center rounded-lg border border-emerald-500/20 bg-emerald-500/8 overflow-hidden">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={ICONS[nftPreview.type] ?? ICONS.other} alt={nftPreview.type} className="h-20 w-20 rounded object-contain" />
-                  </div>
-                )}
+                <div className="h-28 w-28 shrink-0 overflow-hidden rounded-lg border border-[rgba(176,128,92,0.3)] bg-black/30">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={nftPreview.imageUrl ?? (ICONS[nftPreview.type] ?? ICONS.other)}
+                    alt={nftPreview.name}
+                    className="h-full w-full object-cover"
+                    onError={(e) => { (e.currentTarget as HTMLImageElement).src = ICONS[nftPreview.type] ?? ICONS.other; }}
+                  />
+                </div>
                 <div>
                   <p className="text-[10px] font-semibold text-emerald-400">✓ Ownership confirmed</p>
                   <p className="text-sm font-bold text-[#f2eee4]">{nftPreview.name}</p>
@@ -1002,10 +999,11 @@ export default function OgNftMoltPage() {
           <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-5 space-y-3">
             <div className="flex items-center gap-3">
               {nftPreview?.imageUrl ? (
-                <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl border border-emerald-500/30">
-                  <Image src={nftPreview.imageUrl} alt={nftPreview.name} fill unoptimized className="object-cover" />
+                <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl border border-emerald-500/30">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={nftPreview.imageUrl} alt={nftPreview.name} className="h-full w-full object-cover" />
                 </div>
-              ) : <span className="text-2xl">�</span>}
+              ) : <span className="text-2xl">🪲</span>}
               <div>
                 <p className="text-lg font-bold text-emerald-300">{result.message}</p>
                 <p className="text-xs text-[var(--muted)]">BYO NFT identity overlay active</p>

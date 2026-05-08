@@ -25,9 +25,21 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ name: `ATOM #${tokenId}`, imageUrl: null });
       }
       const data = await res.json() as { name?: string; image?: string; poster?: string };
+      // poster is a redirect — resolve to the direct GCS URL so the browser img tag doesn't need to follow redirects
+      let imageUrl: string | null = null;
+      if (data.poster) {
+        try {
+          const posterRes = await fetch(data.poster, { method: 'HEAD', redirect: 'follow', signal: AbortSignal.timeout(5000) });
+          imageUrl = posterRes.url || data.poster;
+        } catch {
+          imageUrl = data.poster;
+        }
+      } else if (data.image) {
+        imageUrl = data.image;
+      }
       return NextResponse.json({
-        name:     data.name     || `ATOM #${tokenId}`,
-        imageUrl: data.poster   || data.image || null,
+        name:     data.name || `ATOM #${tokenId}`,
+        imageUrl,
       }, { headers: { 'Cache-Control': 'public, max-age=86400' } });
     } catch {
       return NextResponse.json({ name: `ATOM #${tokenId}`, imageUrl: null });
