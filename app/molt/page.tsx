@@ -44,7 +44,7 @@ export default function MoltPage() {
         <header className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="https://moccasin-useful-vole-840.mypinata.cloud/ipfs/bafkreihajbm2nwtuwp4hsgputfqintlw7zxbz4jbpx772ur3rfvfhwadge" alt="Molt" className="h-8 w-8 rounded object-contain" />
+            <img src="/collection-icons/pupa.png" alt="Molt" className="h-8 w-8 rounded object-contain" />
             <div className="text-xs font-semibold tracking-[0.18em] text-amber-300">MOLT</div>
           </div>
           <div className="flex items-center gap-2">
@@ -173,7 +173,7 @@ export default function MoltPage() {
                 <div className="mt-6 rounded-xl border border-zinc-500/30 bg-zinc-900/40 p-5">
                   <div className="flex items-start gap-4">
                     <img 
-                      src="https://moccasin-useful-vole-840.mypinata.cloud/ipfs/bafkreiggfgwko2etlo4uxu65bou2cfv33awklo5m5zj7fypxwvfjp72xk4" 
+                      src="/collection-icons/ghost.png" 
                       alt="Ghost" 
                       className="h-12 w-12 rounded-lg object-cover"
                     />
@@ -199,7 +199,7 @@ export default function MoltPage() {
                 <div className="mt-6 rounded-xl border border-zinc-500/20 bg-zinc-900/20 p-5 opacity-50">
                   <div className="flex items-start gap-4">
                     <img 
-                      src="https://moccasin-useful-vole-840.mypinata.cloud/ipfs/bafkreiggfgwko2etlo4uxu65bou2cfv33awklo5m5zj7fypxwvfjp72xk4" 
+                      src="/collection-icons/ghost.png" 
                       alt="Ghost" 
                       className="h-12 w-12 rounded-lg object-cover grayscale"
                     />

@@ -41,27 +41,27 @@ const NORMIE_BASE_CONTRACT = '0x7Bc1C072742D8391817EB4Eb2317F98dc72C61dB';
 const MOONCAT_CONTRACT = '0xc3f733ca98e0dad0386979eb96fb1722a1a05e69';
 const GNOSIS_TREASURY = '0xeD0B0694953158dd54D0c36D320b391f44cd67f3'; // Treasury for BYO molt fees
 
-const PINATA = 'https://moccasin-useful-vole-840.mypinata.cloud/ipfs';
+const CI = '/collection-icons';
 
-// All icons served from Pinata
+// All icons are static files in public/collection-icons/ — served by Netlify CDN
 const ICONS = {
-  larva:   `${PINATA}/bafkreicekhu7rr7noqtv2t4sivy5mqncqgbqnf6cq63dfqyvi5klgk7bv4`,
-  pupa:    `${PINATA}/bafkreihajbm2nwtuwp4hsgputfqintlw7zxbz4jbpx772ur3rfvfhwadge`,
-  imago:   `${PINATA}/bafkreifm4gtqaxgyb2quyykij4np5naoxzpf5w6za6maywemcvl7tltt7u`,
-  ghost:   `${PINATA}/bafkreiggfgwko2etlo4uxu65bou2cfv33awklo5m5zj7fypxwvfjp72xk4`,
-  byo:     `${PINATA}/bafkreiejmu35lnu34e6dm754c6tad34nogywf2oslbql6lzcdpz4acxjue`,
-  ens:     `${PINATA}/bafkreifv35abvqlhdtc4g2i4xelnmxnhaac7exyu6r24o3fbgthwcmupwy`,
-  chonk:   `${PINATA}/bafkreiczeqhex35dvj4ewbzn2gyqnbgqb22np5zgp223vnbfhaod6sv4sq`,
-  pownft:  `${PINATA}/bafybeieh52xw6mbyoifd2xwwuxu5wp33g6mljuvdbqcue67xfywnf7huhi`,
-  normie:  `${PINATA}/bafkreigdisoyfs75rneioevm5irn2k4prdddtuum5bpn27bykhjtdc4fii`,
-  other:   `${PINATA}/bafkreid7jamriw5jneuarcq2q6lrbfsqe76eebv6r2rworrnhyj2rpsuem`,
-  mooncat: '/collection-icons/mooncat.png',
-  nftmail: `${PINATA}/bafkreiftlxmthuftcrcxa27jtsigsuf2s37dngcxpmqrnhefjaybstpscm`,
-  molt:    `${PINATA}/bafkreicyrwnh4oxk4e53kly7kzmlpb345pqr5gd2v5acf4kcyl75e4hjdy`,
-  openclaw:`${PINATA}/bafkreigyk2c7gg5ijwvg4v6pyopcioatdjsfffvnkplgqyc2t3jowe3t7e`,
-  picoclaw:`${PINATA}/bafkreic7ec6elxd7b425wpsovvgkumidkqsxmgj5ffnhp6icznagaqlgti`,
-  vault:   `${PINATA}/bafkreibxujpkkylek6uznnl2d2d4vmpxi3aiowxyx2ydf5xo4xexcnksau`,
-  agent:   `${PINATA}/bafkreihdpulp5riv3dkhtomi2iurgeypvplhdsi3nnkumzmvx725xc4yly`,
+  larva:   `${CI}/larva.png`,
+  pupa:    `${CI}/pupa.png`,
+  imago:   `${CI}/imago.png`,
+  ghost:   `${CI}/ghost.png`,
+  byo:     `${CI}/byo.png`,
+  ens:     `${CI}/ens.png`,
+  chonk:   `${CI}/chonk.png`,
+  pownft:  `${CI}/pownft.png`,
+  normie:  `${CI}/normie.png`,
+  other:   `${CI}/other.png`,
+  mooncat: `${CI}/mooncat.png`,
+  nftmail: `${CI}/nftmail.png`,
+  molt:    `${CI}/molt.png`,
+  openclaw:`${CI}/openclaw.png`,
+  picoclaw:`${CI}/picoclaw.png`,
+  vault:   `${CI}/vault.png`,
+  agent:   `${CI}/agent.png`,
 };
 
 // Verified ERC-721 collections — whitelisted, check-only (not yet activated for minting)

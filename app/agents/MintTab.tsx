@@ -12,10 +12,10 @@ type Namespace = 'agent' | 'openclaw' | 'molt' | 'picoclaw' | 'vault' | 'nftmail
 type VaultPath = 'imago' | 'ghost';
 
 const LIFECYCLE_ICONS = {
-  larva: 'https://moccasin-useful-vole-840.mypinata.cloud/ipfs/bafkreicekhu7rr7noqtv2t4sivy5mqncqgbqnf6cq63dfqyvi5klgk7bv4',
-  pupa:  'https://moccasin-useful-vole-840.mypinata.cloud/ipfs/bafkreihajbm2nwtuwp4hsgputfqintlw7zxbz4jbpx772ur3rfvfhwadge',
-  imago: 'https://moccasin-useful-vole-840.mypinata.cloud/ipfs/bafkreifm4gtqaxgyb2quyykij4np5naoxzpf5w6za6maywemcvl7tltt7u',
-  ghost: 'https://moccasin-useful-vole-840.mypinata.cloud/ipfs/bafkreiggfgwko2etlo4uxu65bou2cfv33awklo5m5zj7fypxwvfjp72xk4',
+  larva: '/collection-icons/larva.png',
+  pupa:  '/collection-icons/pupa.png',
+  imago: '/collection-icons/imago.png',
+  ghost: '/collection-icons/ghost.png',
 };
 
 interface NsConfig {

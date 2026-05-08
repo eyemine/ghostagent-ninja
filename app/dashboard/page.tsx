@@ -195,13 +195,13 @@ function AgentCard({ agent, onSelect, selected }: { agent: DemoAgent; onSelect: 
             {agent.tier === 'pro' ? (
               <span className="inline-flex items-center gap-1 rounded-full bg-violet-500/15 px-2 py-0.5 text-[9px] font-bold text-violet-300 ring-1 ring-violet-500/30">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="https://moccasin-useful-vole-840.mypinata.cloud/ipfs/bafkreihajbm2nwtuwp4hsgputfqintlw7zxbz4jbpx772ur3rfvfhwadge" alt="Pupa" className="h-3 w-3 object-contain" />
+                <img src="/collection-icons/pupa.png" alt="Pupa" className="h-3 w-3 object-contain" />
                 PUPA
               </span>
             ) : (
               <span className="inline-flex items-center gap-1 rounded-full bg-zinc-500/15 px-2 py-0.5 text-[9px] font-medium text-zinc-400 ring-1 ring-zinc-500/20">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="https://moccasin-useful-vole-840.mypinata.cloud/ipfs/bafkreicekhu7rr7noqtv2t4sivy5mqncqgbqnf6cq63dfqyvi5klgk7bv4" alt="Larva" className="h-3 w-3 object-contain" />
+                <img src="/collection-icons/larva.png" alt="Larva" className="h-3 w-3 object-contain" />
                 LARVA
               </span>
             )}

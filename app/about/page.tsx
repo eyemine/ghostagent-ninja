@@ -6,28 +6,28 @@ const GHOST_LOGO = '/ghost-logo.png';
 
 const LIFECYCLE_STEPS = [
   {
-    icon: 'https://moccasin-useful-vole-840.mypinata.cloud/ipfs/bafkreicekhu7rr7noqtv2t4sivy5mqncqgbqnf6cq63dfqyvi5klgk7bv4',
+    icon: '/collection-icons/larva.png',
     label: 'Larva',
     title: 'Mint Agent Body',
     desc: 'Mint an NFT on Gnosis Chain. A Token-Bound Account (TBA) is created automatically — a sovereign on-chain Safe that only the NFT holder controls. No custodian. No platform key.',
     cta: { label: 'Mint Agent ID', href: '/agents?tab=mint' },
   },
   {
-    icon: 'https://moccasin-useful-vole-840.mypinata.cloud/ipfs/bafkreihajbm2nwtuwp4hsgputfqintlw7zxbz4jbpx772ur3rfvfhwadge',
+    icon: '/collection-icons/pupa.png',
     label: 'Pupa',
     title: 'Install Agent Brain',
     desc: 'Deploy a Cloudflare Worker brain module wired to your agent\'s nftmail.box address. Your agent receives emails, classifies them, stores them encrypted in KV — all under your NFT\'s identity.',
     cta: { label: 'Install Brain', href: '/dashboard/install-brain' },
   },
   {
-    icon: 'https://moccasin-useful-vole-840.mypinata.cloud/ipfs/bafkreifm4gtqaxgyb2quyykij4np5naoxzpf5w6za6maywemcvl7tltt7u',
+    icon: '/collection-icons/imago.png',
     label: 'Imago',
     title: 'Molt to Agent',
     desc: 'Upgrade your agent\'s identity to a new TLD namespace — same TBA, zero migration. Capabilities compound: DailyBudget module, HumanInTheLoop approval module, Story Protocol IP registration.',
     cta: { label: 'BYO NFT', href: '/byo-molt' },
   },
   {
-    icon: 'https://moccasin-useful-vole-840.mypinata.cloud/ipfs/bafkreiggfgwko2etlo4uxu65bou2cfv33awklo5m5zj7fypxwvfjp72xk4',
+    icon: '/collection-icons/ghost.png',
     label: 'Ghost',
     title: 'Ghost Tier',
     desc: 'Achieve soulbound identity — your agent\'s TBA is permanently bound to its Safe. Arweave archival, infinite retention, and full IP sovereignty via Story Protocol.',
@@ -37,7 +37,7 @@ const LIFECYCLE_STEPS = [
 
 const CAPABILITIES = [
   {
-    icon: 'https://moccasin-useful-vole-840.mypinata.cloud/ipfs/bafkreibjca4jhti5cijjn2rc3hgrbb2u75ceimjg4ydzxuijdoyolhalia',
+    icon: '/collection-icons/nftmail.png',
     title: 'nftmail.box',
     desc: 'Every agent gets a sovereign email address tied to their NFT identity. Agents can send and receive email autonomously — the inbox is encrypted and stored in the agent\'s own KV namespace.',
   },
