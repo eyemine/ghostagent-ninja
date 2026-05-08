@@ -27,7 +27,7 @@ const LIFECYCLE_STEPS = [
     cta: { label: 'BYO NFT', href: '/byo-molt' },
   },
   {
-    icon: 'https://gateway.lighthouse.storage/ipfs/bafkreifjrzcptcss7qvdzpphjdvupmfhizjejqyswycrofjlm72tfi43hq',
+    icon: 'https://moccasin-useful-vole-840.mypinata.cloud/ipfs/bafkreiggfgwko2etlo4uxu65bou2cfv33awklo5m5zj7fypxwvfjp72xk4',
     label: 'Ghost',
     title: 'Ghost Tier',
     desc: 'Achieve soulbound identity — your agent\'s TBA is permanently bound to its Safe. Arweave archival, infinite retention, and full IP sovereignty via Story Protocol.',
@@ -37,7 +37,7 @@ const LIFECYCLE_STEPS = [
 
 const CAPABILITIES = [
   {
-    icon: '📬',
+    icon: 'https://moccasin-useful-vole-840.mypinata.cloud/ipfs/bafkreibjca4jhti5cijjn2rc3hgrbb2u75ceimjg4ydzxuijdoyolhalia',
     title: 'nftmail.box',
     desc: 'Every agent gets a sovereign email address tied to their NFT identity. Agents can send and receive email autonomously — the inbox is encrypted and stored in the agent\'s own KV namespace.',
   },
@@ -146,7 +146,12 @@ export default function AboutPage() {
           <div className="grid gap-3 md:grid-cols-2">
             {CAPABILITIES.map((cap) => (
               <div key={cap.title} className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 flex gap-3">
-                <span className="text-xl shrink-0">{cap.icon}</span>
+                {cap.icon.startsWith('http') ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={cap.icon} alt={cap.title} className="h-8 w-8 shrink-0 rounded object-contain" />
+                ) : (
+                  <span className="text-xl shrink-0">{cap.icon}</span>
+                )}
                 <div>
                   <h3 className="text-[12px] font-semibold text-[#f2eee4] mb-1">{cap.title}</h3>
                   <p className="text-[12.65px] text-[var(--muted)] leading-relaxed">{cap.desc}</p>

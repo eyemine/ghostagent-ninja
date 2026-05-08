@@ -173,7 +173,7 @@ export default function MoltPage() {
                 <div className="mt-6 rounded-xl border border-zinc-500/30 bg-zinc-900/40 p-5">
                   <div className="flex items-start gap-4">
                     <img 
-                      src="https://gateway.lighthouse.storage/ipfs/bafkreiggfgwko2etlo4uxu65bou2cfv33awklo5m5zj7fypxwvfjp72xk4" 
+                      src="https://moccasin-useful-vole-840.mypinata.cloud/ipfs/bafkreiggfgwko2etlo4uxu65bou2cfv33awklo5m5zj7fypxwvfjp72xk4" 
                       alt="Ghost" 
                       className="h-12 w-12 rounded-lg object-cover"
                     />
@@ -199,7 +199,7 @@ export default function MoltPage() {
                 <div className="mt-6 rounded-xl border border-zinc-500/20 bg-zinc-900/20 p-5 opacity-50">
                   <div className="flex items-start gap-4">
                     <img 
-                      src="https://gateway.lighthouse.storage/ipfs/bafkreiggfgwko2etlo4uxu65bou2cfv33awklo5m5zj7fypxwvfjp72xk4" 
+                      src="https://moccasin-useful-vole-840.mypinata.cloud/ipfs/bafkreiggfgwko2etlo4uxu65bou2cfv33awklo5m5zj7fypxwvfjp72xk4" 
                       alt="Ghost" 
                       className="h-12 w-12 rounded-lg object-cover grayscale"
                     />
