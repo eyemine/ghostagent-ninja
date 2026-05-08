@@ -4037,12 +4037,27 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
             }), request);
           }
           
+          const nowMsDiag = Date.now();
+          const todayUtcMsDiag = nowMsDiag - (nowMsDiag % 86400000);
+          const isPupa = tierData.tier === 'pupa';
+          const dailyUsed = isPupa ? (tierData.dailySendCount || 0) : undefined;
+          const dailyWindowFresh = isPupa && (tierData.dailySendWindowStart || 0) >= todayUtcMsDiag;
+          
           return corsify(Response.json({
             agentName,
-            sendsRemaining: currentRemaining,
-            sendsUsed: tierData.sendsUsed || 0,
             tier: tierData.tier,
             expiresAt: tierData.expires_at,
+            // LARVA lifetime counter
+            sendsRemaining: currentRemaining,
+            sendsUsed: tierData.sendsUsed || 0,
+            // PUPA daily rolling counter
+            ...(isPupa && {
+              dailySendCount: dailyWindowFresh ? dailyUsed : 0,
+              dailySendRemaining: dailyWindowFresh ? (100 - (dailyUsed ?? 0)) : 100,
+              dailyLimit: 100,
+              dailyWindowStart: tierData.dailySendWindowStart || null,
+              dailyResetsAt: todayUtcMsDiag + 86400000,
+            }),
           }), request);
         }
 
@@ -5297,12 +5312,51 @@ It routes to the same inbox.
           if (Date.now() > (tierData.expires_at || 0)) {
             return corsify(Response.json({ error: 'Inbox expired' }, { status: 410 }), request);
           }
-          const remaining = typeof tierData.sendsRemaining === 'number' ? tierData.sendsRemaining : 10;
-          if (remaining <= 0) {
-            return corsify(Response.json({ error: 'Send limit reached', sendsRemaining: 0 }, { status: 429 }), request);
+
+          // ── Rolling send-limit logic ──────────────────────────────────────────
+          // LARVA (basic): 10 lifetime sends (sendsRemaining, no reset)
+          // PUPA:          100 sends/day rolling — counter resets each UTC day
+          // IMAGO / vault: unlimited
+          const tier: string = tierData.tier || 'basic';
+          const nowMs = Date.now();
+          // UTC midnight of today (ms)
+          const todayUtcMs = nowMs - (nowMs % 86400000);
+
+          let sendsRemainingOut: number | string = 'unlimited';
+
+          if (tier === 'basic') {
+            // Lifetime counter
+            const remaining = typeof tierData.sendsRemaining === 'number' ? tierData.sendsRemaining : 10;
+            if (remaining <= 0) {
+              return corsify(Response.json({ error: 'Send limit reached', sendsRemaining: 0 }, { status: 429 }), request);
+            }
+            tierData.sendsRemaining = remaining - 1;
+            tierData.sendsUsed = (tierData.sendsUsed || 0) + 1;
+            sendsRemainingOut = tierData.sendsRemaining;
+          } else if (tier === 'pupa') {
+            const DAILY_LIMIT = 100;
+            // Reset counter if we've crossed into a new UTC day
+            if ((tierData.dailySendWindowStart || 0) < todayUtcMs) {
+              tierData.dailySendCount = 0;
+              tierData.dailySendWindowStart = todayUtcMs;
+            }
+            const used = tierData.dailySendCount || 0;
+            if (used >= DAILY_LIMIT) {
+              const resetAt = todayUtcMs + 86400000;
+              return corsify(Response.json({
+                error: 'Send limit reached',
+                sendsRemaining: 0,
+                dailyLimit: DAILY_LIMIT,
+                resetsAt: resetAt,
+              }, { status: 429 }), request);
+            }
+            tierData.dailySendCount = used + 1;
+            tierData.dailySendWindowStart = todayUtcMs;
+            sendsRemainingOut = DAILY_LIMIT - tierData.dailySendCount;
           }
+          // imago / vault / professional: fall through with sendsRemainingOut = 'unlimited'
+
           const sendApiKey = env.MG_SENDING_MAILGUN_API_KEY || env.MG_MAILGUN_API_KEY || env.GM_MAILGUN_API_KEY || env.SEND_MAILGUN_API_KEY || env.MAILGUN_API_KEY;
-          console.log('[sendOutbound] Key sources:', { mg_sending_set: !!env.MG_SENDING_MAILGUN_API_KEY, mg_set: !!env.MG_MAILGUN_API_KEY, gm_set: !!env.GM_MAILGUN_API_KEY, send_set: !!env.SEND_MAILGUN_API_KEY, mailgun_set: !!env.MAILGUN_API_KEY, used_length: sendApiKey?.length || 0 });
           if (!sendApiKey) {
             return corsify(Response.json({ error: 'Email sending not configured' }, { status: 503 }), request);
           }
@@ -5323,9 +5377,8 @@ It routes to the same inbox.
             console.log('[sendOutbound] Mailgun error:', mgRes.status, err.slice(0, 200));
             return corsify(Response.json({ error: `Mailgun error: ${err.slice(0, 100)}` }, { status: 502 }), request);
           }
-          tierData.sendsRemaining = remaining - 1;
           await env.INBOX_KV.put(`acct-tier:${agentName}`, JSON.stringify(tierData));
-          return corsify(Response.json({ status: 'sent', sendsRemaining: tierData.sendsRemaining }), request);
+          return corsify(Response.json({ status: 'sent', sendsRemaining: sendsRemainingOut }), request);
         }
 
         // --- upgradeFidAgent: LARVA → PUPA after NFT mint ---
