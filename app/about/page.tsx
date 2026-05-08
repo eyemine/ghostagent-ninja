@@ -146,7 +146,7 @@ export default function AboutPage() {
           <div className="grid gap-3 md:grid-cols-2">
             {CAPABILITIES.map((cap) => (
               <div key={cap.title} className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 flex gap-3">
-                {cap.icon.startsWith('http') ? (
+                {(cap.icon.startsWith('http') || cap.icon.startsWith('/')) ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={cap.icon} alt={cap.title} className="h-8 w-8 shrink-0 rounded object-contain" />
                 ) : (
