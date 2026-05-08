@@ -95,12 +95,11 @@ async function fetchChonkImage(tokenId: string): Promise<{ name: string; imageUr
 
 async function fetchPownftImage(tokenId: string): Promise<{ name: string; imageUrl: string | null }> {
   try {
-    // POW NFT: `image` = video (/v/{id}), `poster` = still PNG (/p/{id})
-    const metaRes = await fetch(`https://www.pownftmetadata.com/t/${tokenId}`, { signal: AbortSignal.timeout(6000) });
+    // Proxy through Next.js API route to avoid CORS on pownftmetadata.com
+    const metaRes = await fetch(`/api/nft-preview?type=pownft&tokenId=${tokenId}`, { signal: AbortSignal.timeout(8000) });
     if (!metaRes.ok) return { name: `ATOM #${tokenId}`, imageUrl: null };
-    const data = await metaRes.json() as { name?: string; image?: string; poster?: string };
-    const imageUrl = data.poster ?? null;
-    return { name: data.name || `ATOM #${tokenId}`, imageUrl };
+    const data = await metaRes.json() as { name?: string; imageUrl?: string | null };
+    return { name: data.name || `ATOM #${tokenId}`, imageUrl: data.imageUrl ?? null };
   } catch {
     return { name: `ATOM #${tokenId}`, imageUrl: null };
   }
@@ -880,12 +879,12 @@ export default function OgNftMoltPage() {
                   <div className="flex h-28 w-28 shrink-0 items-center justify-center rounded-lg border border-emerald-500/20 bg-emerald-500/8 overflow-hidden">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={
-                      nftPreview.type==='ens' ? 'https://gateway.lighthouse.storage/ipfs/bafkreifv35abvqlhdtc4g2i4xelnmxnhaac7exyu6r24o3fbgthwcmupwy' :
-                      nftPreview.type==='chonk' ? 'https://gateway.lighthouse.storage/ipfs/bafkreiczeqhex35dvj4ewbzn2gyqnbgqb22np5zgp223vnbfhaod6sv4sq' :
-                      nftPreview.type==='pownft' ? 'https://gateway.lighthouse.storage/ipfs/bafkreick55xkc2ucnmk2wjbzl6a5chqkvmwjll4oqbqajfh5mapd3s7fku' :
-                      nftPreview.type==='normie' ? 'https://gateway.lighthouse.storage/ipfs/bafkreigdisoyfs75rneioevm5irn2k4prdddtuum5bpn27bykhjtdc4fii' :
+                      nftPreview.type==='ens' ? 'https://ipfs.io/ipfs/bafkreifv35abvqlhdtc4g2i4xelnmxnhaac7exyu6r24o3fbgthwcmupwy' :
+                      nftPreview.type==='chonk' ? 'https://ipfs.io/ipfs/bafkreiczeqhex35dvj4ewbzn2gyqnbgqb22np5zgp223vnbfhaod6sv4sq' :
+                      nftPreview.type==='pownft' ? 'https://ipfs.io/ipfs/bafkreick55xkc2ucnmk2wjbzl6a5chqkvmwjll4oqbqajfh5mapd3s7fku' :
+                      nftPreview.type==='normie' ? 'https://ipfs.io/ipfs/bafkreigdisoyfs75rneioevm5irn2k4prdddtuum5bpn27bykhjtdc4fii' :
                       nftPreview.type==='mooncat' ? '/collection-icons/mooncat.png' :
-                      'https://gateway.lighthouse.storage/ipfs/bafkreid7jamriw5jneuarcq2q6lrbfsqe76eebv6r2rworrnhyj2rpsuem'
+                      'https://moccasin-useful-vole-840.mypinata.cloud/ipfs/bafkreid7jamriw5jneuarcq2q6lrbfsqe76eebv6r2rworrnhyj2rpsuem'
                     } alt={nftPreview.type} className="h-20 w-20 rounded object-contain" />
                   </div>
                 )}

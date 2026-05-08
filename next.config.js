@@ -27,6 +27,10 @@ const nextConfig = {
       { protocol: 'https', hostname: '**.amazonaws.com' },
       { protocol: 'https', hostname: 'i.imgur.com' },
       { protocol: 'https', hostname: 'gateway.lighthouse.storage' },
+      { protocol: 'https', hostname: 'moccasin-useful-vole-840.mypinata.cloud' },
+      { protocol: 'https', hostname: 'ipfs.io' },
+      { protocol: 'https', hostname: 'www.pownftmetadata.com' },
+      { protocol: 'https', hostname: 'storage.googleapis.com' },
     ],
   },
   webpack: (config) => {
