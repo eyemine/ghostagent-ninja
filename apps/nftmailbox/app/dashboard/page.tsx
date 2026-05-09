@@ -314,8 +314,8 @@ export default function DashboardPage() {
         {!authenticated && (
           <div className="flex flex-1 flex-col items-center justify-center gap-6">
             <div className="text-center">
-              <h1 className="text-3xl font-bold">NFTMail Dashboard</h1>
-              <p className="mt-2 text-sm text-[var(--muted)]">Connect your wallet to access your NFTMail inbox</p>
+              <h1 className="text-3xl font-bold">NFTmail Dashboard</h1>
+              <p className="mt-2 text-sm text-[var(--muted)]">Connect your wallet holding the governing NFT to access your account</p>
             </div>
             <button onClick={login} className="rounded-xl border border-[rgba(0,163,255,0.35)] bg-[rgba(0,163,255,0.08)] px-8 py-4 text-sm font-semibold text-[rgb(160,220,255)] transition-all hover:bg-[rgba(0,163,255,0.16)] hover:shadow-[0_0_32px_rgba(0,163,255,0.12)]">Connect Wallet</button>
             <p className="text-[10px] text-[var(--muted)]">Supports Privy email login, MetaMask, Rabby, or any injected wallet holding NFTMail.gno</p>

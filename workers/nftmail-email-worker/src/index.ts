@@ -2103,8 +2103,15 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
 
           // Parse TBA address (tba: key set by byo-molt or retrofit-tba)
           let tbaAddress: string | null = null;
+          let byoTba: { tbaAddress: string; sourceChainId: number; nftType: string; tokenId: string } | null = null;
           if (tbaRaw) {
-            try { const t = JSON.parse(tbaRaw); tbaAddress = t.tbaAddress || null; } catch {}
+            try {
+              const t = JSON.parse(tbaRaw);
+              tbaAddress = t.tbaAddress || null;
+              if (t.tbaAddress && t.sourceChainId) {
+                byoTba = { tbaAddress: t.tbaAddress, sourceChainId: t.sourceChainId, nftType: t.nftType || 'unknown', tokenId: t.tokenId || '' };
+              }
+            } catch {}
           }
 
           const tld = (_d1Row?.tld ?? tldRaw) as string | null;
@@ -2139,8 +2146,9 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
             // Safe (multisig treasury) — both field names for compatibility
             safe: safe ?? null,
             safeAddress: safe ?? null,
-            // TBA (Gnosis-side mirror ERC-6551 token bound account)
+            // TBA (Gnosis-side mirror ERC-6551 token bound account — source chain controller of Safe)
             tbaAddress: tbaAddress ?? null,
+            byoTba: byoTba ?? null,
             // Story Protocol IP
             storyIp: storyIp ?? null,
             // ERC-8004 registrations (multi-chain)
@@ -6661,6 +6669,80 @@ It routes to the same inbox.
           }
           // Also remove IPFS CID if present
           await env.INBOX_KV.delete(`ipfs:${agent}:${messageId}`);
+          return corsify(Response.json({ status: 'deleted', agent, messageId }), request);
+        }
+
+        // --- Sentbox: Save a sent message with tier-based TTL ---
+        if (email.action === 'saveSentMessage') {
+          const agent = (email as any).localPart || '';
+          const message = (email as any).message;
+          if (!agent || !message || !message.id) {
+            return corsify(Response.json({ error: 'Missing localPart or message' }, { status: 400 }), request);
+          }
+          // Get tier to determine TTL
+          const tierRaw = await env.INBOX_KV.get(`acct-tier:${agent}`);
+          let ttlSeconds: number;
+          if (tierRaw) {
+            const tierData = JSON.parse(tierRaw);
+            // larva/basic = 8 days, pupa/professional/vault = 30 days
+            const isLarva = !tierData.tier || tierData.tier === 'basic' || tierData.tier === 'larva';
+            ttlSeconds = isLarva ? 8 * 24 * 60 * 60 : 30 * 24 * 60 * 60;
+          } else {
+            ttlSeconds = 8 * 24 * 60 * 60; // default 8-day
+          }
+          // Store message with TTL
+          await env.INBOX_KV.put(`sent:${agent}:${message.id}`, JSON.stringify(message), { expirationTtl: ttlSeconds });
+          // Update index
+          const indexKey = `sent-index:${agent}`;
+          const raw = await env.INBOX_KV.get(indexKey);
+          const ids: string[] = raw ? JSON.parse(raw) : [];
+          if (!ids.includes(message.id)) {
+            ids.unshift(message.id);
+            // Keep only last 10
+            const trimmed = ids.slice(0, 10);
+            await env.INBOX_KV.put(indexKey, JSON.stringify(trimmed), { expirationTtl: ttlSeconds });
+          }
+          return corsify(Response.json({ status: 'saved', agent, messageId: message.id, ttlDays: ttlSeconds / 86400 }), request);
+        }
+
+        // --- Sentbox: Get all sent messages ---
+        if (email.action === 'getSentbox') {
+          const agent = (email as any).localPart || '';
+          if (!agent) {
+            return corsify(Response.json({ error: 'Missing localPart' }, { status: 400 }), request);
+          }
+          const indexKey = `sent-index:${agent}`;
+          const raw = await env.INBOX_KV.get(indexKey);
+          const ids: string[] = raw ? JSON.parse(raw) : [];
+          const fetches = ids.map(async (id: string) => {
+            const data = await env.INBOX_KV.get(`sent:${agent}:${id}`);
+            if (!data) return null;
+            try {
+              return JSON.parse(data);
+            } catch {
+              return null;
+            }
+          });
+          const messages = (await Promise.all(fetches)).filter(Boolean);
+          messages.sort((a: any, b: any) => (b.receivedAt || 0) - (a.receivedAt || 0));
+          return corsify(Response.json({ agent, messages, count: messages.length }), request);
+        }
+
+        // --- Sentbox: Delete a sent message ---
+        if (email.action === 'deleteSentMessage') {
+          const agent = (email as any).localPart || '';
+          const messageId = (email as any).messageId || '';
+          if (!agent || !messageId) {
+            return corsify(Response.json({ error: 'Missing localPart or messageId' }, { status: 400 }), request);
+          }
+          await env.INBOX_KV.delete(`sent:${agent}:${messageId}`);
+          const indexKey = `sent-index:${agent}`;
+          const raw = await env.INBOX_KV.get(indexKey);
+          if (raw) {
+            const ids: string[] = JSON.parse(raw);
+            const updated = ids.filter(id => id !== messageId);
+            await env.INBOX_KV.put(indexKey, JSON.stringify(updated));
+          }
           return corsify(Response.json({ status: 'deleted', agent, messageId }), request);
         }
 
