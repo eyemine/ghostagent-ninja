@@ -11,6 +11,71 @@ import { GhostHandshakePanel } from '../../../components/GhostHandshakePanel';
 
 const WORKER_URL = process.env.NEXT_PUBLIC_WORKER_URL ?? 'https://nftmail-email-worker.richard-159.workers.dev';
 
+const PANEL_ICONS = {
+  identity: 'https://moccasin-useful-vole-840.mypinata.cloud/ipfs/bafkreibxrtske55ycsfk5pex4htm6b5owyvnd5chxx5mllk2a7tcrtdnyq',
+  inbox:    'https://moccasin-useful-vole-840.mypinata.cloud/ipfs/bafkreigsbizftt4tysymzdxea62juyhjcoy7xwiqjvalaxnrlkoddy2iae',
+  safe:     'https://moccasin-useful-vole-840.mypinata.cloud/ipfs/bafkreifflytowpb6kppkmoywvgwfldn4owtetlvjfbhjco2rb3lxq6uw3a',
+  erc8004:  'https://moccasin-useful-vole-840.mypinata.cloud/ipfs/bafkreic6v7tuwadtaybqxso4itzew4m6ycteuu4zeuyaf3zlttoctma3ui',
+};
+
+const CHONK_CONTRACT   = '0x07152bfde079b5319e5308C43fB1DBc9C76CB4f9';
+const POWNFT_CONTRACT  = '0x9abb7bddc43fa67c76a62d8c016513827f59be1b';
+const NORMIE_CONTRACT  = '0x7Bc1C072742D8391817EB4Eb2317F98dc72C61dB';
+const MOONCAT_CONTRACT = '0xc3f733ca98e0dad0386979eb96fb1722a1a05e69';
+
+type ByoType = 'chonk' | 'pownft' | 'normie' | 'mooncat' | 'ens' | null;
+
+function detectByoType(agentName: string): { type: ByoType; tokenId: string | null; contract: string | null; marketLink: string | null } {
+  const n = agentName.toLowerCase();
+  const chonkM = n.match(/^chonk[._](\d+)/);
+  if (chonkM) return { type: 'chonk', tokenId: chonkM[1], contract: CHONK_CONTRACT, marketLink: `https://www.chonks.xyz/market/chonks/${chonkM[1]}` };
+  const pownftM = n.match(/^atom[._](\d+)/);
+  if (pownftM) return { type: 'pownft', tokenId: pownftM[1], contract: POWNFT_CONTRACT, marketLink: `https://pownft.com/atom/${pownftM[1]}` };
+  const normieM = n.match(/^normie[._](\d+)/);
+  if (normieM) return { type: 'normie', tokenId: normieM[1], contract: NORMIE_CONTRACT, marketLink: `https://opensea.io/assets/base/${NORMIE_CONTRACT}/${normieM[1]}` };
+  const mooncatM = n.match(/^mooncat[._](\d+)/);
+  if (mooncatM) return { type: 'mooncat', tokenId: mooncatM[1], contract: MOONCAT_CONTRACT, marketLink: `https://opensea.io/assets/ethereum/${MOONCAT_CONTRACT}/${mooncatM[1]}` };
+  return { type: null, tokenId: null, contract: null, marketLink: null };
+}
+
+async function fetchByoNftImage(type: ByoType, tokenId: string): Promise<string | null> {
+  if (!tokenId) return null;
+  try {
+    if (type === 'pownft') {
+      const r = await fetch(`/api/nft-preview?type=pownft&tokenId=${tokenId}`, { signal: AbortSignal.timeout(8000) });
+      if (!r.ok) return null;
+      const d = await r.json() as { imageUrl?: string | null };
+      return d.imageUrl ?? null;
+    }
+    if (type === 'chonk') {
+      const key = process.env.NEXT_PUBLIC_ALCHEMY_API_KEY;
+      if (!key) return null;
+      const r = await fetch(`https://base-mainnet.g.alchemy.com/nft/v3/${key}/getNFTMetadata?contractAddress=${CHONK_CONTRACT}&tokenId=${tokenId}&refreshCache=false`);
+      if (!r.ok) return null;
+      const d = await r.json() as any;
+      const isVideo = d?.image?.contentType?.startsWith('video/');
+      return isVideo ? (d?.image?.pngUrl ?? d?.image?.thumbnailUrl ?? null) : (d?.image?.cachedUrl ?? d?.image?.pngUrl ?? null);
+    }
+    if (type === 'normie') {
+      const key = process.env.NEXT_PUBLIC_ALCHEMY_API_KEY;
+      if (!key) return null;
+      const r = await fetch(`https://base-mainnet.g.alchemy.com/nft/v3/${key}/getNFTMetadata?contractAddress=${NORMIE_CONTRACT}&tokenId=${tokenId}&refreshCache=false`);
+      if (!r.ok) return null;
+      const d = await r.json() as any;
+      return d?.image?.cachedUrl ?? d?.image?.pngUrl ?? null;
+    }
+    if (type === 'mooncat') {
+      const key = process.env.NEXT_PUBLIC_ALCHEMY_API_KEY;
+      if (!key) return null;
+      const r = await fetch(`https://eth-mainnet.g.alchemy.com/nft/v3/${key}/getNFTMetadata?contractAddress=${MOONCAT_CONTRACT}&tokenId=${tokenId}&refreshCache=false`);
+      if (!r.ok) return null;
+      const d = await r.json() as any;
+      return d?.image?.cachedUrl ?? d?.image?.pngUrl ?? null;
+    }
+  } catch { /* fall through */ }
+  return null;
+}
+
 const HITL_ABI = parseAbi([
   'function threshold() view returns (uint256)',
   'function emergencyPaused() view returns (bool)',
@@ -88,6 +153,9 @@ export default function AgentDetailPage() {
   const [hitl, setHitl]         = useState<HITLState | null>(null);
   const [safeBalance, setSafeBalance] = useState<string | null>(null);
   const [loading, setLoading]   = useState(true);
+  const [byoImage, setByoImage] = useState<string | null>(null);
+
+  const byo = detectByoType(String(name));
 
   useEffect(() => {
     if (!name) return;
@@ -140,6 +208,12 @@ export default function AgentDetailPage() {
           .then(b => setSafeBalance(`${formatEther(b)} xDAI`))
           .catch(() => setSafeBalance(null));
       }
+
+      // 4. BYO NFT image
+      const { type: byoType, tokenId: byoTokenId } = detectByoType(String(name));
+      if (byoType && byoTokenId) {
+        fetchByoNftImage(byoType, byoTokenId).then(img => setByoImage(img));
+      }
     }).finally(() => setLoading(false));
   }, [name]);
 
@@ -149,12 +223,12 @@ export default function AgentDetailPage() {
       {/* Header */}
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          {/* SLD image at ~200% of card size */}
+          {/* Agent image — BYO NFT image if available, else SLD background */}
           <div className="h-32 w-32 shrink-0 rounded-2xl overflow-hidden border border-[rgba(176,128,92,0.2)] bg-black/40">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={sld ? `/sld-images/${sld}.png` : '/ghost-logo.png'}
-              alt={sld ? `${sld}.gno` : 'GhostAgent'}
+              src={byoImage ?? (sld ? `/sld-images/${sld}.png` : '/ghost-logo.png')}
+              alt={byo.type ? `${byo.type} #${byo.tokenId}` : (sld ? `${sld}.gno` : 'GhostAgent')}
               className="h-full w-full object-cover"
             />
           </div>
@@ -219,22 +293,23 @@ export default function AgentDetailPage() {
         {/* Identity */}
         <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-5">
           <div className="flex items-center gap-2 mb-4">
-            <span className="text-lg">🪪</span>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={PANEL_ICONS.identity} alt="Identity" className="h-6 w-6 rounded object-contain" />
             <h2 className="text-sm font-semibold text-amber-300">Identity Graph</h2>
           </div>
           <div className="space-y-2">
             {([
               { label: 'Agent Name',       value: identity?.name ?? String(name) },
               { label: 'Namespace',        value: identity?.identityNft?.tld ?? (sld ? `${sld}.gno` : '—') },
-              { label: 'NFT',              value: identity?.identityNft?.name ?? '—' },
+              { label: 'Beacon NFT',       value: identity?.identityNft?.name ?? '—' },
               { label: 'Safe Address',     value: identity?.safe ? shortAddr(identity.safe) : '—', href: identity?.safe ? `https://app.safe.global/home?safe=gno:${identity.safe}` : undefined, full: identity?.safe },
               { label: 'ERC-8004 (Gnosis)',value: identity?.erc8004?.gnosis ? `#${identity.erc8004.gnosis.agentId}` : '—' },
               { label: 'ERC-8004 (Base)',  value: identity?.erc8004?.base   ? `#${identity.erc8004.base.agentId}`   : '—' },
-              { label: 'Agent URI',        value: identity?.erc8004?.gnosis?.agentURI ? '✓ set' : '—' },
-              { label: 'NFTMail',          value: identity?.email ?? '—' },
-            ] as Array<{ label: string; value: string; href?: string; full?: string }>).map(row => (
+              { label: 'Agent URI',        value: identity?.erc8004?.gnosis?.agentURI ? '✓ live' : '—',
+                title: 'The ERC-8004 agent-card JSON URI — registered on-chain so other agents can discover capabilities' },
+            ] as Array<{ label: string; value: string; href?: string; full?: string; title?: string }>).map(row => (
               <div key={row.label} className="flex items-center justify-between gap-4 text-[11px]">
-                <span className="text-[var(--muted)] shrink-0">{row.label}</span>
+                <span className="text-[var(--muted)] shrink-0" title={row.title}>{row.label}{row.title ? ' ℹ' : ''}</span>
                 {row.href ? (
                   <a href={row.href} target="_blank" rel="noopener noreferrer"
                     className="font-mono text-[#b0805c] hover:underline truncate max-w-[160px]" title={row.full}>
@@ -245,13 +320,28 @@ export default function AgentDetailPage() {
                 )}
               </div>
             ))}
+            {/* BYO NFT row — only shown for BYO agents */}
+            {byo.type && byo.tokenId && (
+              <div className="flex items-center justify-between gap-4 text-[11px] pt-1 border-t border-amber-500/10">
+                <span className="text-[var(--muted)] shrink-0 capitalize">{byo.type} NFT</span>
+                {byo.marketLink ? (
+                  <a href={byo.marketLink} target="_blank" rel="noopener noreferrer"
+                    className="font-mono text-[#b0805c] hover:underline truncate max-w-[160px]">
+                    #{byo.tokenId} ↗
+                  </a>
+                ) : (
+                  <span className="font-mono text-zinc-300">#{byo.tokenId}</span>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
         {/* Safe & HITL */}
         <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-5">
           <div className="flex items-center gap-2 mb-4">
-            <span className="text-lg">🏦</span>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={PANEL_ICONS.safe} alt="Safe" className="h-6 w-6 rounded object-contain" />
             <h2 className="text-sm font-semibold text-emerald-300">Safe &amp; HITL Module</h2>
           </div>
           <div className="space-y-2">
@@ -290,7 +380,8 @@ export default function AgentDetailPage() {
         {/* ERC-8004 & Links */}
         <div className="rounded-2xl border border-violet-500/30 bg-violet-500/5 p-5">
           <div className="flex items-center gap-2 mb-4">
-            <span className="text-lg">📡</span>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={PANEL_ICONS.erc8004} alt="ERC-8004" className="h-6 w-6 rounded object-contain" />
             <h2 className="text-sm font-semibold text-violet-300">ERC-8004 &amp; Links</h2>
           </div>
           <div className="space-y-2">
@@ -319,13 +410,24 @@ export default function AgentDetailPage() {
         {/* Inbox & IP */}
         <div className="rounded-2xl border border-sky-500/30 bg-sky-500/5 p-5">
           <div className="flex items-center gap-2 mb-4">
-            <span className="text-lg">📬</span>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={PANEL_ICONS.inbox} alt="Inbox" className="h-6 w-6 rounded object-contain" />
             <h2 className="text-sm font-semibold text-sky-300">Inbox &amp; IP</h2>
           </div>
           <div className="space-y-2 text-[11px]">
+            {/* BYO NFT token ID with contract link */}
             <div className="flex justify-between">
               <span className="text-[var(--muted)]">NFT token ID</span>
-              <span className="font-mono text-zinc-300">{identity?.identityNft?.tokenId ?? '—'}</span>
+              {byo.contract && byo.tokenId ? (
+                <a href={byo.marketLink ?? '#'} target="_blank" rel="noopener noreferrer"
+                  className="font-mono text-[10px] text-sky-400 hover:underline truncate max-w-[180px]" title={`${byo.contract}/${byo.tokenId}`}>
+                  {byo.contract.slice(0, 8)}…/{byo.tokenId} ↗
+                </a>
+              ) : (
+                <span className="font-mono text-zinc-300">
+                  {identity?.identityNft?.tokenId != null ? String(identity.identityNft.tokenId) : '—'}
+                </span>
+              )}
             </div>
             <div className="flex justify-between">
               <span className="text-[var(--muted)]">NFT owner</span>
@@ -338,10 +440,14 @@ export default function AgentDetailPage() {
               <span className="font-mono text-zinc-500">not registered</span>
             </div>
             <div className="flex justify-between pt-1 border-t border-sky-500/10">
-              <span className="text-[var(--muted)]">Safe Modules</span>
-              <a href={`https://app.safe.global/settings/modules?safe=gno:${identity?.safe ?? ''}`}
-                target="_blank" rel="noopener noreferrer"
-                className="text-sky-400 hover:underline">Configure ↗</a>
+              <span className="text-[var(--muted)]">NFTMail HITL</span>
+              <span className="font-mono text-zinc-300 text-[10px]">
+                {identity?.email ? identity.email.replace('_@', '@') : '—'}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-[var(--muted)]">NFTMail agent</span>
+              <span className="font-mono text-zinc-300 text-[10px]">{identity?.email ?? '—'}</span>
             </div>
           </div>
         </div>
