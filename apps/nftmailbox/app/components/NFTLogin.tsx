@@ -330,14 +330,15 @@ export function NFTLogin() {
             <rect x="2" y="6" width="20" height="12" rx="2" />
             <path d="M22 8l-10 5L2 8" />
           </svg>
-          NFT Login
+          Connect
           <svg className="h-4 w-4 transition-transform group-hover:translate-x-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M5 12h14" />
             <path d="m12 5 7 7-7 7" />
           </svg>
         </div>
       </button>
-      <p className="text-center text-[10px] text-[var(--muted)]">Connect wallet to check ENS name or browse NFTs for your nftmail.box address</p>
+      <p className="text-center text-[10px] text-[var(--muted)]">mint your nftmail address</p>
+      <p className="text-center text-[10px] text-[var(--muted)]"><a href="/terms" className="underline">Terms of Use</a> and <a href="/privacy" className="underline">Privacy Policy</a></p>
       {error && <p className="text-center text-xs text-amber-400">{error}</p>}
     </div>
   );

@@ -409,12 +409,12 @@ export default function NftmailPage() {
               <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[rgba(0,163,255,0.12)] text-[10px] font-bold text-[rgb(160,220,255)]">
                 {authenticated ? '✓' : '1'}
               </div>
-              <h2 className="text-lg font-semibold text-white">Connect</h2>
+              <h2 className="text-xl font-semibold text-white">Connect</h2>
+              <p className="text-sm text-[var(--muted)]">Sign in with wallet, email or Social</p>
             </div>
-            <p className="mt-1 ml-8 text-xs text-[var(--muted)]">Sign in with wallet or email to get started.</p>
-          </div>
-          <div className="ml-8">
-            <NFTLogin />
+            <div className="ml-8">
+              <NFTLogin />
+            </div>
           </div>
         </section>
 
