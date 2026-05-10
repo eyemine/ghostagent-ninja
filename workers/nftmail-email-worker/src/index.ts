@@ -4170,6 +4170,85 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
           return corsify(Response.json({ status: 'molted', transition }), request);
         }
 
+        // --- OTP Golden Bridge: FID → NFT Upgrade ---
+        // Generate OTP for migrating FID-based Lite account to NFT Sovereign
+        if (email.action === 'generateOTP') {
+          const fid = ((email as any).fid || '').toString();
+          if (!fid) {
+            return corsify(Response.json({ error: 'Missing FID' }, { status: 400 }), request);
+          }
+
+          // Generate 6-digit OTP
+          const otp = Math.floor(100000 + Math.random() * 900000).toString();
+          const otpKey = `otp:${fid}`;
+          const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes
+
+          // Store OTP with expiration
+          await env.INBOX_KV.put(otpKey, JSON.stringify({
+            otp,
+            fid,
+            used: false,
+            expiresAt,
+            createdAt: Date.now(),
+          }), { expirationTtl: 600 }); // 10 min TTL
+
+          // Return OTP (will be shown in Snap UI or emailed)
+          return corsify(Response.json({
+            success: true,
+            otp, // In production, email this instead of returning
+            expiresAt,
+            message: 'Use this code on nftmail.box/upgrade to claim your NFT',
+          }), request);
+        }
+
+        // Verify OTP and return FID data for NFT minting
+        if (email.action === 'verifyOTP') {
+          const { fid, otp } = email as any;
+          if (!fid || !otp) {
+            return corsify(Response.json({ error: 'Missing FID or OTP' }, { status: 400 }), request);
+          }
+
+          const otpKey = `otp:${fid}`;
+          const otpData = await env.INBOX_KV.get(otpKey);
+
+          if (!otpData) {
+            return corsify(Response.json({ error: 'OTP expired or not found' }, { status: 404 }), request);
+          }
+
+          const parsed = JSON.parse(otpData);
+
+          if (parsed.used) {
+            return corsify(Response.json({ error: 'OTP already used' }, { status: 400 }), request);
+          }
+
+          if (Date.now() > parsed.expiresAt) {
+            return corsify(Response.json({ error: 'OTP expired' }, { status: 400 }), request);
+          }
+
+          if (parsed.otp !== otp.toString()) {
+            return corsify(Response.json({ error: 'Invalid OTP' }, { status: 401 }), request);
+          }
+
+          // Mark OTP as used
+          await env.INBOX_KV.put(otpKey, JSON.stringify({ ...parsed, used: true }), { expirationTtl: 3600 });
+
+          // Get FID account data for migration
+          const agent = fid; // FID is the agent name in Lite mode
+          const inbox = await env.INBOX_KV.get(`inbox:${agent}`);
+          const messages = inbox ? JSON.parse(inbox) : [];
+          const tier = await env.INBOX_KV.get(`tier:${agent}`);
+          const tierData = tier ? JSON.parse(tier) : { tier: 'larva', sendsUsed: 0 };
+
+          return corsify(Response.json({
+            success: true,
+            fid,
+            emailCount: messages.length,
+            tier: tierData.tier,
+            sendsUsed: tierData.sendsUsed || 0,
+            message: 'OTP verified. Ready to mint NFT and migrate inbox.',
+          }), request);
+        }
+
         // --- Ghost-Router: Inbound Email ---
         // Webhook receives *@nftmail.box → Worker classifies:
         //   Agent (.agent@): ECIES encrypt → blind KV + IPFS
