@@ -5134,10 +5134,9 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
             }), request);
           }
 
-          // LARVA tier: 30-day account lifetime, 8-day inbox history window, no Safe, KV-only
-          const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+          // LARVA tier: 8-day inbox history window, no Safe, KV-only
+          // Farcaster accounts: NO expiry - just exhaust send quota
           const EIGHT_DAYS_MS  =  8 * 24 * 60 * 60 * 1000;
-          const expiresAt = Date.now() + THIRTY_DAYS_MS;
           const now = Date.now();
 
           const kvEntry = JSON.stringify({
@@ -5155,11 +5154,11 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
 
           const tierEntry = JSON.stringify({
             tier: 'basic', // LARVA
-            expires_at: expiresAt,
+            expires_at: null, // Farcaster: no account expiry - exhaust sends instead
             upgraded_at: null,
             safe: null,
             retention: '8-day',   // inbox history window
-            account_ttl: '30-day', // account lifetime before re-provision invite
+            account_ttl: 'never', // account never expires, just exhausts sends
             story_ip: null,
             sendsRemaining: 10,
             sendsUsed: 0,
