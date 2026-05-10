@@ -139,6 +139,7 @@ export async function GET(req: NextRequest) {
 
   // BYO NFT molt: override image with origin NFT image if stored
   // Try both dot format (email local part) and hyphen format (beacon label)
+  let originImageUrl: string | null = null;
   try {
     const beaconName = agentName.replace(/\./g, '-');
     const imgKv = await fetch(WORKER_URL, {
@@ -151,7 +152,7 @@ export async function GET(req: NextRequest) {
       if (value) {
         const parsed = JSON.parse(value) as { imageUrl?: string };
         if (parsed.imageUrl) {
-          regFile = { ...regFile, image: parsed.imageUrl };
+          originImageUrl = parsed.imageUrl;
         }
       } else if (beaconName !== agentName) {
         // Try hyphen format as fallback
@@ -165,14 +166,55 @@ export async function GET(req: NextRequest) {
           if (value2) {
             const parsed2 = JSON.parse(value2) as { imageUrl?: string };
             if (parsed2.imageUrl) {
-              regFile = { ...regFile, image: parsed2.imageUrl };
+              originImageUrl = parsed2.imageUrl;
             }
           }
         }
       }
     }
+    if (originImageUrl) {
+      regFile = { ...regFile, image: originImageUrl };
+    }
   } catch {
     // Non-fatal
+  }
+
+  // If no BYO image in KV, try to detect POW NFT pattern and fetch poster directly
+  // Pattern: atom.158 (element.atomicNumber) or atom-158 beacon label
+  if (!originImageUrl) {
+    const powMatch = agentName.match(/^(\w+)[.-](\d+)$/);
+    if (powMatch) {
+      const tokenId = powMatch[2];
+      try {
+        const powRes = await fetch(`https://www.pownftmetadata.com/t/${tokenId}`, { signal: AbortSignal.timeout(5000) });
+        if (powRes.ok) {
+          const powMeta = await powRes.json() as { poster?: string; image?: string };
+          // Use poster if available, otherwise use image
+          const posterUrl = powMeta.poster || powMeta.image;
+          if (posterUrl) {
+            regFile = { ...regFile, image: posterUrl };
+            // Store in KV for future requests (best-effort)
+            try {
+              await fetch(WORKER_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  action: 'kvPut',
+                  key: `byo-origin-image:${agentName}`,
+                  value: JSON.stringify({ imageUrl: posterUrl, nftType: 'pownft', tokenId, storedAt: Date.now() }),
+                  ownerAddress: '0x0000000000000000000000000000000000000000',
+                  webhookSecret: process.env.WEBHOOK_SECRET || '',
+                }),
+              });
+            } catch {
+              // Non-fatal
+            }
+          }
+        }
+      } catch {
+        // Non-fatal
+      }
+    }
   }
 
   // Content negotiation: browsers get a human-readable agent profile page;
