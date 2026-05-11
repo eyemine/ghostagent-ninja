@@ -1,12 +1,119 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { sdk } from '@farcaster/miniapp-sdk';
 
 const WORKER_URL = process.env.NEXT_PUBLIC_WORKER_URL || 'https://nftmail-email-worker.richard-159.workers.dev';
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://ghostagent.ninja';
 
-function LarvaAboutModal({ onClose }: { onClose: () => void }) {
+type AccountTier = 'basic' | 'lite' | 'professional' | 'freemium';
+
+const TIER_META: Record<AccountTier, {
+  label: string;
+  emoji: string;
+  color: string;
+  border: string;
+  hoverBorder: string;
+  description: string;
+  features: Array<[string, string]>;
+  upsell: React.ReactNode | null;
+  cta: string;
+  ctaUrl: string;
+}> = {
+  basic: {
+    label: 'LARVA',
+    emoji: '🪲',
+    color: 'text-green-400',
+    border: 'border-green-800',
+    hoverBorder: 'hover:border-green-400',
+    description: 'Free inbox secured by your Farcaster identity. No wallet required.',
+    features: [
+      ['Inbox history', '8 days'],
+      ['Outbound sends', '10'],
+      ['Account expiry', 'Never'],
+      ['Identity', 'ERC-8004 permanent'],
+    ],
+    upsell: (
+      <div className="space-y-2 text-xs text-gray-500">
+        <p className="text-gray-400 font-semibold text-xs mb-1">Upgrade your agent</p>
+        <p><span className="text-yellow-400 font-semibold">PUPA</span> — Mint a BYO NFT → 30-day history, 50 sends, Gnosis Safe ownership</p>
+        <p><span className="text-purple-400 font-semibold">IMAGO</span> — Gold POW or Agent Normie → unlimited retention, 200 sends, multisig Safe</p>
+      </div>
+    ),
+    cta: 'Upgrade at nftmail.box →',
+    ctaUrl: 'https://nftmail.box',
+  },
+  freemium: {
+    label: 'FREEMIUM',
+    emoji: '⏱',
+    color: 'text-orange-400',
+    border: 'border-orange-800',
+    hoverBorder: 'hover:border-orange-400',
+    description: 'Trial inbox for API and SDK use. Expires after 30 days.',
+    features: [
+      ['Inbox history', '8 days'],
+      ['Outbound sends', '10'],
+      ['Account expiry', '30 days'],
+      ['Identity', 'ERC-8004 permanent'],
+    ],
+    upsell: (
+      <div className="space-y-2 text-xs text-gray-500">
+        <p className="text-gray-400 font-semibold text-xs mb-1">Upgrade before expiry</p>
+        <p><span className="text-yellow-400 font-semibold">PUPA</span> — Mint a BYO NFT → permanent inbox, 30-day history, 50 sends</p>
+        <p><span className="text-purple-400 font-semibold">IMAGO</span> — Gold POW or Agent Normie → unlimited everything</p>
+      </div>
+    ),
+    cta: 'Upgrade at nftmail.box →',
+    ctaUrl: 'https://nftmail.box',
+  },
+  lite: {
+    label: 'PUPA',
+    emoji: '🫘',
+    color: 'text-yellow-400',
+    border: 'border-yellow-800',
+    hoverBorder: 'hover:border-yellow-400',
+    description: 'Permanent inbox. Your NFT is the key — as long as you hold it, it\'s yours.',
+    features: [
+      ['Inbox history', '30 days'],
+      ['Outbound sends', '50'],
+      ['Account expiry', 'Never'],
+      ['Gnosis Safe', 'On-chain controller'],
+    ],
+    upsell: (
+      <div className="space-y-2 text-xs text-gray-500">
+        <p className="text-gray-400 font-semibold text-xs mb-1">Reach IMAGO</p>
+        <p><span className="text-purple-400 font-semibold">IMAGO</span> — Gold POW NFT or Agent Normie → unlimited retention, 200 sends, multisig modules, on-chain attestations</p>
+      </div>
+    ),
+    cta: 'Explore IMAGO at nftmail.box →',
+    ctaUrl: 'https://nftmail.box',
+  },
+  professional: {
+    label: 'IMAGO',
+    emoji: '👻',
+    color: 'text-purple-400',
+    border: 'border-purple-800',
+    hoverBorder: 'hover:border-purple-400',
+    description: 'Sovereign agent. Your Gnosis Safe is the controller. Trait-gated, on-chain identity.',
+    features: [
+      ['Inbox history', 'Unlimited'],
+      ['Outbound sends', '200'],
+      ['Gnosis Safe', 'Multisig controller'],
+      ['Attestations', 'On-chain, ERC-8004'],
+    ],
+    upsell: (
+      <div className="space-y-2 text-xs text-gray-500">
+        <p className="text-gray-400 font-semibold text-xs mb-1">You have the full stack</p>
+        <p>Manage modules, aliases, agent pipelines, and A2A commerce at <span className="text-white">ghostagent.ninja</span></p>
+      </div>
+    ),
+    cta: 'Open ghostagent.ninja →',
+    ctaUrl: 'https://ghostagent.ninja',
+  },
+};
+
+function TierAboutModal({ tier, onClose }: { tier: AccountTier; onClose: () => void }) {
+  const meta = TIER_META[tier];
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70" onClick={onClose}>
       <div
@@ -14,40 +121,43 @@ function LarvaAboutModal({ onClose }: { onClose: () => void }) {
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
-          <span className="text-green-400 font-mono text-xs font-bold tracking-widest uppercase">LARVA tier</span>
+          <span className={`${meta.color} font-mono text-xs font-bold tracking-widest uppercase`}>
+            {meta.emoji} {meta.label}
+          </span>
           <button onClick={onClose} className="text-gray-500 hover:text-white text-xl leading-none">×</button>
         </div>
-        <p className="text-gray-300 text-sm mb-4">
-          Free inbox secured by your Farcaster identity. No wallet required.
-        </p>
+        <p className="text-gray-300 text-sm mb-4">{meta.description}</p>
         <div className="space-y-2 mb-5 text-xs text-gray-400">
-          <div className="flex justify-between"><span>Inbox history</span><span className="text-white">8 days</span></div>
-          <div className="flex justify-between"><span>Outbound sends</span><span className="text-white">10</span></div>
-          <div className="flex justify-between"><span>Account expiry</span><span className="text-white">Never</span></div>
-          <div className="flex justify-between"><span>Identity</span><span className="text-white">ERC-8004 permanent</span></div>
+          {meta.features.map(([k, v]) => (
+            <div key={k} className="flex justify-between">
+              <span>{k}</span><span className="text-white">{v}</span>
+            </div>
+          ))}
         </div>
-        <div className="border-t border-gray-800 pt-4 space-y-2 text-xs text-gray-500">
-          <p><span className="text-yellow-400 font-semibold">PUPA</span> — Mint a BYO NFT → 30-day history, 50 sends, Gnosis Safe</p>
-          <p><span className="text-purple-400 font-semibold">IMAGO</span> — Gold POW / Agent Normie → unlimited retention, 200 sends</p>
-        </div>
+        {meta.upsell && (
+          <div className="border-t border-gray-800 pt-4 mb-5">
+            {meta.upsell}
+          </div>
+        )}
         <button
-          onClick={() => sdk.actions.openUrl('https://nftmail.box')}
-          className="mt-5 w-full bg-gray-900 border border-gray-700 hover:border-green-400 text-white text-sm py-3 rounded-lg transition-colors"
+          onClick={() => sdk.actions.openUrl(meta.ctaUrl)}
+          className={`w-full bg-gray-900 border border-gray-700 ${meta.hoverBorder} text-white text-sm py-3 rounded-lg transition-colors`}
         >
-          Open nftmail.box →
+          {meta.cta}
         </button>
       </div>
     </div>
   );
 }
 
-function LarvaBadge({ onClick }: { onClick: () => void }) {
+function TierBadge({ tier, onClick }: { tier: AccountTier; onClick: () => void }) {
+  const meta = TIER_META[tier];
   return (
     <button
       onClick={onClick}
-      className="absolute top-4 right-4 bg-gray-900 border border-green-800 hover:border-green-400 text-green-400 font-mono text-xs px-2.5 py-1 rounded-full transition-colors"
+      className={`absolute top-4 right-4 bg-gray-900 border ${meta.border} ${meta.hoverBorder} ${meta.color} font-mono text-xs px-2.5 py-1 rounded-full transition-colors`}
     >
-      LARVA
+      {meta.emoji} {meta.label}
     </button>
   );
 }
@@ -59,6 +169,7 @@ interface ProvisionResult {
   agentName?: string;
   humanEmail?: string;
   expiresAt?: number;
+  tier?: string;
   error?: string;
 }
 
@@ -71,6 +182,7 @@ export default function MiniApp() {
   const [expiresAt, setExpiresAt] = useState<number | null>(null);
   const [error, setError] = useState('');
   const [showAbout, setShowAbout] = useState(false);
+  const [accountTier, setAccountTier] = useState<AccountTier>('basic');
 
   useEffect(() => {
     const init = async () => {
@@ -106,6 +218,8 @@ export default function MiniApp() {
       const data: ProvisionResult = await res.json();
       if (data.status === 'already_provisioned' && data.agentName) {
         setAgentName(data.agentName);
+        const t = (data.tier as AccountTier | undefined);
+        setAccountTier(t && t in TIER_META ? t : 'basic');
         setStep('already');
         return;
       }
@@ -113,6 +227,8 @@ export default function MiniApp() {
         setAgentName(data.agentName);
         setHumanEmail(data.humanEmail || `${data.agentName}@nftmail.box`);
         setExpiresAt(data.expiresAt || null);
+        const t = (data.tier as AccountTier | undefined);
+        setAccountTier(t && t in TIER_META ? t : 'basic');
         setStep('success');
         return;
       }
@@ -146,8 +262,8 @@ export default function MiniApp() {
   if (step === 'entry') {
     return (
       <div className="relative min-h-screen bg-black flex flex-col items-center justify-center px-6 py-8">
-        {showAbout && <LarvaAboutModal onClose={() => setShowAbout(false)} />}
-        <LarvaBadge onClick={() => setShowAbout(true)} />
+        {showAbout && <TierAboutModal tier={accountTier} onClose={() => setShowAbout(false)} />}
+        <TierBadge tier={accountTier} onClick={() => setShowAbout(true)} />
         <div className="w-full max-w-sm">
           <div className="text-center mb-8">
             <div className="text-5xl mb-3">👻</div>
@@ -184,8 +300,8 @@ export default function MiniApp() {
     const displayName = name ? `${name}.fid-${fid}` : `fid-${fid}`;
     return (
       <div className="relative min-h-screen bg-black flex flex-col items-center justify-center px-6 py-8">
-        {showAbout && <LarvaAboutModal onClose={() => setShowAbout(false)} />}
-        <LarvaBadge onClick={() => setShowAbout(true)} />
+        {showAbout && <TierAboutModal tier={accountTier} onClose={() => setShowAbout(false)} />}
+        <TierBadge tier={accountTier} onClick={() => setShowAbout(true)} />
         <div className="w-full max-w-sm">
           <div className="text-center mb-8">
             <div className="text-4xl mb-3">🔒</div>
@@ -239,14 +355,14 @@ export default function MiniApp() {
   if (step === 'success') {
     return (
       <div className="relative min-h-screen bg-black flex flex-col items-center justify-center px-6 py-8">
-        {showAbout && <LarvaAboutModal onClose={() => setShowAbout(false)} />}
-        <LarvaBadge onClick={() => setShowAbout(true)} />
+        {showAbout && <TierAboutModal tier={accountTier} onClose={() => setShowAbout(false)} />}
+        <TierBadge tier={accountTier} onClick={() => setShowAbout(true)} />
         <div className="w-full max-w-sm text-center">
           <div className="text-5xl mb-3">🎉</div>
           <h2 className="text-white font-bold text-2xl mb-2">Agent Created!</h2>
           <div className="bg-gray-900 border border-green-400 rounded-lg p-4 my-6">
             <p className="text-green-400 font-mono text-sm font-bold">{humanEmail}</p>
-            <p className="text-gray-500 text-xs mt-1">LARVA · Account never expires · 8-day inbox history</p>
+            <p className="text-gray-500 text-xs mt-1">{TIER_META[accountTier].label} · {TIER_META[accountTier].features[0][1]} inbox history · {TIER_META[accountTier].features[1][1]} sends</p>
           </div>
           <p className="text-gray-400 text-xs mb-6">Your emails are end-to-end encrypted. No one — including us — can read them.</p>
           <div className="space-y-3">
@@ -265,8 +381,8 @@ export default function MiniApp() {
   if (step === 'already') {
     return (
       <div className="relative min-h-screen bg-black flex flex-col items-center justify-center px-6 py-8">
-        {showAbout && <LarvaAboutModal onClose={() => setShowAbout(false)} />}
-        <LarvaBadge onClick={() => setShowAbout(true)} />
+        {showAbout && <TierAboutModal tier={accountTier} onClose={() => setShowAbout(false)} />}
+        <TierBadge tier={accountTier} onClick={() => setShowAbout(true)} />
         <div className="w-full max-w-sm text-center">
           <div className="text-5xl mb-3">👻</div>
           <h2 className="text-white font-bold text-xl mb-2">Already Claimed</h2>
@@ -286,8 +402,8 @@ export default function MiniApp() {
 
   return (
     <div className="relative min-h-screen bg-black flex flex-col items-center justify-center px-6">
-      {showAbout && <LarvaAboutModal onClose={() => setShowAbout(false)} />}
-      <LarvaBadge onClick={() => setShowAbout(true)} />
+      {showAbout && <TierAboutModal tier={accountTier} onClose={() => setShowAbout(false)} />}
+      <TierBadge tier={accountTier} onClick={() => setShowAbout(true)} />
       <div className="w-full max-w-sm text-center">
         <div className="text-4xl mb-3">⚠️</div>
         <h2 className="text-white font-bold text-xl mb-3">Something went wrong</h2>
