@@ -4995,7 +4995,7 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
           const accountTier: string = (email as any).accountTier || 'basic';
           const EIGHT_DAYS_MS = 8 * 24 * 60 * 60 * 1000;
           const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
-          const expiresAt = accountTier === 'basic' ? Date.now() + EIGHT_DAYS_MS : accountTier === 'lite' ? Date.now() + THIRTY_DAYS_MS : null;
+          const expiresAt = accountTier === 'basic' ? null : accountTier === 'lite' ? Date.now() + THIRTY_DAYS_MS : null; // basic+: no expiry; lite: 30-day; professional+: no expiry
 
           const kvEntry = JSON.stringify({
             controller,
@@ -5006,13 +5006,18 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
             chain: 'gnosis',
             registered_at: Date.now(),
           });
+          const tierRetention = accountTier === 'professional' ? 'never' : accountTier === 'lite' ? '30-day' : '8-day';
+          const tierSends = accountTier === 'professional' ? 200 : accountTier === 'lite' ? 50 : 10;
           const tierEntry = JSON.stringify({
             tier: accountTier,
             expires_at: expiresAt,
             upgraded_at: null,
             safe: safeFromRequest,
-            retention: '8-day',
+            retention: tierRetention,
+            account_ttl: 'never',
             story_ip: null,
+            sendsRemaining: tierSends,
+            sendsUsed: 0,
           });
           // Derive SLD from originNft e.g. 'ghostagent.vault.gno' → 'vault'
           const originParts = originNft.split('.');
@@ -5034,7 +5039,7 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
           // ── Phase 1 D1 shadow write ──────────────────────────────────────
           // PUPA+ only on registration (LARVA stays KV-only).
           // Shadow mode: non-fatal, KV is still source of truth.
-          if (accountTier !== 'basic' && env.NFTMAIL_DB) {
+          if ((accountTier === 'lite' || accountTier === 'professional' || accountTier === 'premium' || accountTier === 'ghost') && env.NFTMAIL_DB) {
             try {
               const d1 = new D1Store(env.NFTMAIL_DB);
               await d1.upsertAgent({
@@ -5044,7 +5049,7 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
                 tier: accountTier,
                 safe: safeFromRequest,
                 ecies_pubkey: null,
-                retention: accountTier === 'lite' ? '30-day' : 'infinite',
+                retention: tierRetention === 'never' ? 'infinite' : tierRetention,
                 expires_at: expiresAt,
                 story_ip: null,
                 origin_nft: originNft,
@@ -5707,10 +5712,13 @@ It routes to the same inbox.
           // Ghost: full agent identity, infinite retention
           const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000;
           const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
-          const isPro = newTierStr === 'premium' || newTierStr === 'ghost';
-          const retention: 'infinite' | '30-day' = ((email as any).retention === 'infinite' || isPro) ? 'infinite' : '30-day';
+          const isPro = newTierStr === 'premium' || newTierStr === 'ghost' || newTierStr === 'professional';
+          const isImago = newTierStr === 'professional';
+          const isLite = newTierStr === 'lite';
+          const retention: 'infinite' | '30-day' | '8-day' = ((email as any).retention === 'infinite' || isPro) ? 'infinite' : isLite ? '30-day' : '8-day';
           let newExpiresAt: number | null = existingTierData.expires_at || null;
-          if (newTierStr === 'lite') newExpiresAt = Date.now() + THIRTY_DAYS_MS;
+          if (isLite) newExpiresAt = Date.now() + THIRTY_DAYS_MS;
+          else if (isImago) newExpiresAt = null; // Imago: no expiry — governed by NFT ownership
           else if (isPro) newExpiresAt = Date.now() + ONE_YEAR_MS;
 
           const updatedTier = JSON.stringify({

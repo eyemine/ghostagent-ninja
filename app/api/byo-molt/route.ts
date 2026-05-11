@@ -21,7 +21,7 @@ import {
   recordChonkMolt,
 } from '../../services/chonk-molt';
 import { WORKER_URL } from '../../utils/config';
-import { fetchNftImageOnChain } from '../../utils/nft-image';
+import { fetchNftImageOnChain, fetchNftTraitsOnChain, type NftTrait } from '../../utils/nft-image';
 import { createSafeForByoMolt } from '../../services/create-safe';
 import { deployGnosisTba } from '../../services/gnosis-tba';
 
@@ -49,6 +49,45 @@ const NFT_SOURCE_CHAIN_ID: Record<string, number> = {
   pownft:  1,
   mooncat: 1,
 };
+
+// ── Trait-based tier determination ───────────────────────────────────────────
+// Tier hierarchy: basic (Larva+) < lite (Pupa) < professional (Imago)
+//
+// POW NFT:   Gold trait → imago | Silver trait → lite | all else → basic+
+// Normie:    Agent trait → imago | all else → basic+
+// Chonk:     basic+ (traits mutable/transferable — cannot be used for tier)
+// MoonCat:   basic+
+// ENS / Other: basic+
+//
+// basic+ = same quota as Farcaster free (10 sends, 8-day decay) but account
+//          never expires, gets a Safe + D1 entry (trustless identity).
+
+const TIER_CONFIG: Record<string, { retention: string; sendsRemaining: number; account_ttl: string }> = {
+  basic:        { retention: '8-day',  sendsRemaining: 10,  account_ttl: 'never' },
+  lite:         { retention: '30-day', sendsRemaining: 50,  account_ttl: 'never' },
+  professional: { retention: 'never',  sendsRemaining: 200, account_ttl: 'never' },
+};
+
+function determineTierFromTraits(nftType: string, traits: NftTrait[]): string {
+  const traitVal = (name: string) =>
+    traits.find(t => t.trait_type.toLowerCase() === name.toLowerCase())?.value;
+
+  if (nftType === 'pownft') {
+    const material = String(traitVal('Material') ?? traitVal('material') ?? '').toLowerCase();
+    if (material === 'gold')   return 'professional'; // Imago
+    if (material === 'silver') return 'lite';          // Pupa
+    return 'basic';                                    // Larva+
+  }
+
+  if (nftType === 'normie') {
+    const type = String(traitVal('Type') ?? traitVal('type') ?? '').toLowerCase();
+    if (type === 'agent') return 'professional'; // Imago
+    return 'basic';
+  }
+
+  // chonk, mooncat, ens, other: traits mutable or unavailable — always basic+
+  return 'basic';
+}
 
 async function verifyGenericOwnership(
   contract: string, tokenId: string, rpc: string, claimedOwner: string,
@@ -310,6 +349,23 @@ export async function POST(req: NextRequest) {
     // controller is always the human EOA (ownerWallet) — used to show inboxes in nftmail.box
     // The Safe is stored separately in the safe: field of acct-tier and nftmailgno records
 
+    // ── Step 3d: Fetch on-chain traits to determine service tier ──
+    // POW NFT: Gold → imago (professional), Silver → lite, else → basic+
+    // Normie:  Agent type → imago, else → basic+
+    // Chonk/MoonCat/Other: basic+ (traits mutable or unavailable)
+    let accountTier = 'basic';
+    try {
+      const nftContract = NFT_CONTRACTS[type]?.contract ?? contractAddress;
+      const nftChain = (NFT_CONTRACTS[type]?.chain ?? 'mainnet') as 'base' | 'mainnet' | 'gnosis';
+      if (nftContract && (type === 'pownft' || type === 'normie')) {
+        const traits = await fetchNftTraitsOnChain(nftContract, tokenId, nftChain);
+        accountTier = determineTierFromTraits(type, traits);
+        console.log(`[byo-molt] ${type}#${tokenId} traits:`, JSON.stringify(traits), '→ tier:', accountTier);
+      }
+    } catch (err) {
+      console.error('[byo-molt] trait fetch failed (defaulting to basic):', err);
+    }
+
     // ── Step 4: Register aliases (both human + agent emails) ──
     // Human HITL email: chonk.123@nftmail.box (dot separator, no underscore)
     // Agent A2A email:  chonk.123_@nftmail.box (dot separator, trailing underscore)
@@ -422,7 +478,7 @@ export async function POST(req: NextRequest) {
               label: humanLocalPart,
               controller: ownerWallet.toLowerCase(),
               originNft: beacon.beaconNft,
-              accountTier: 'lite',
+              accountTier,
               safe: safeAddress ?? null,
             }),
           }),
@@ -435,7 +491,7 @@ export async function POST(req: NextRequest) {
               label: agentLocalPart,
               controller: ownerWallet.toLowerCase(),
               originNft: beacon.beaconNft,
-              accountTier: 'lite',
+              accountTier,
               safe: safeAddress ?? null,
             }),
           }),
@@ -457,7 +513,7 @@ export async function POST(req: NextRequest) {
           body: JSON.stringify({
             action: 'upgradeTier',
             label: humanLocalPart,
-            newTier: 'lite',
+            newTier: accountTier,
             safe: safeAddress ?? null,
             secret: webhookSecret,
           }),

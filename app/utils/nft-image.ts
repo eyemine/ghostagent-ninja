@@ -48,6 +48,37 @@ function resolveImage(image: unknown): string | null {
   return image; // data URI or https
 }
 
+export interface NftTrait { trait_type: string; value: string | number }
+
+export async function fetchNftTraitsOnChain(
+  contract: string,
+  tokenId: string,
+  chain: 'base' | 'mainnet' | 'gnosis' = 'mainnet',
+): Promise<NftTrait[]> {
+  const rpc = RPC[chain];
+  try {
+    const tokenIdHex = BigInt(tokenId).toString(16).padStart(64, '0');
+    const calldata   = '0xc87b56dd' + tokenIdHex; // tokenURI(uint256)
+    const res = await fetch(rpc, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0', id: 1, method: 'eth_call',
+        params: [{ to: contract, data: calldata }, 'latest'],
+      }),
+      signal: AbortSignal.timeout(10000),
+    });
+    const json = await res.json() as { result?: string; error?: unknown };
+    if (!json.result || json.result === '0x') return [];
+    const uri  = decodeAbiString(json.result);
+    const meta = await resolveUri(uri);
+    if (!meta) return [];
+    return Array.isArray(meta.attributes) ? (meta.attributes as NftTrait[]) : [];
+  } catch {
+    return [];
+  }
+}
+
 export async function fetchNftImageOnChain(
   contract: string,
   tokenId: string,
