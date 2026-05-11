@@ -116,7 +116,7 @@ export async function POST(req: NextRequest) {
         return snapResponse({
           image: generateSnapImage('GhostAgent LARVA', 'FID-powered agent · No wallet required'),
           title: 'Claim Your LARVA Agent',
-          description: 'Create an email-enabled AI agent tied to your Farcaster ID. 8-day free trial.',
+          description: 'Create an email-enabled AI agent tied to your Farcaster ID. Free forever, 8-day inbox history.',
           buttons: [
             { label: `Use Default (fid-${fid})`, action: 'post' },
             { label: 'Custom Name →', action: 'post' },
@@ -232,12 +232,8 @@ export async function POST(req: NextRequest) {
         }
 
         // Success snap with fireworks!
-        const expiresDate = provisionData.expiresAt
-          ? new Date(provisionData.expiresAt).toLocaleDateString()
-          : '8 days';
-
         return snapResponse({
-          image: generateSnapImage('LARVA Agent Claimed!', `Expires: ${expiresDate}`),
+          image: generateSnapImage('LARVA Agent Claimed!', 'Free forever · 8-day inbox history'),
           title: 'Agent Created!',
           description: `${provisionData.agentName}@nftmail.box is ready. Your emails are encrypted and secure.`,
           buttons: [

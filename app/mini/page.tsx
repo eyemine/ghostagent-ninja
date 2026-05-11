@@ -6,6 +6,52 @@ import { sdk } from '@farcaster/miniapp-sdk';
 const WORKER_URL = process.env.NEXT_PUBLIC_WORKER_URL || 'https://nftmail-email-worker.richard-159.workers.dev';
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://ghostagent.ninja';
 
+function LarvaAboutModal({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70" onClick={onClose}>
+      <div
+        className="w-full max-w-sm bg-gray-950 border border-gray-800 rounded-t-2xl p-6 pb-8"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between mb-4">
+          <span className="text-green-400 font-mono text-xs font-bold tracking-widest uppercase">LARVA tier</span>
+          <button onClick={onClose} className="text-gray-500 hover:text-white text-xl leading-none">×</button>
+        </div>
+        <p className="text-gray-300 text-sm mb-4">
+          Free inbox secured by your Farcaster identity. No wallet required.
+        </p>
+        <div className="space-y-2 mb-5 text-xs text-gray-400">
+          <div className="flex justify-between"><span>Inbox history</span><span className="text-white">8 days</span></div>
+          <div className="flex justify-between"><span>Outbound sends</span><span className="text-white">10</span></div>
+          <div className="flex justify-between"><span>Account expiry</span><span className="text-white">Never</span></div>
+          <div className="flex justify-between"><span>Identity</span><span className="text-white">ERC-8004 permanent</span></div>
+        </div>
+        <div className="border-t border-gray-800 pt-4 space-y-2 text-xs text-gray-500">
+          <p><span className="text-yellow-400 font-semibold">PUPA</span> — Mint a BYO NFT → 30-day history, 50 sends, Gnosis Safe</p>
+          <p><span className="text-purple-400 font-semibold">IMAGO</span> — Gold POW / Agent Normie → unlimited retention, 200 sends</p>
+        </div>
+        <button
+          onClick={() => sdk.actions.openUrl('https://nftmail.box')}
+          className="mt-5 w-full bg-gray-900 border border-gray-700 hover:border-green-400 text-white text-sm py-3 rounded-lg transition-colors"
+        >
+          Open nftmail.box →
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function LarvaBadge({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="absolute top-4 right-4 bg-gray-900 border border-green-800 hover:border-green-400 text-green-400 font-mono text-xs px-2.5 py-1 rounded-full transition-colors"
+    >
+      LARVA
+    </button>
+  );
+}
+
 type Step = 'loading' | 'entry' | 'naming' | 'provisioning' | 'success' | 'already' | 'error';
 
 interface ProvisionResult {
@@ -24,6 +70,7 @@ export default function MiniApp() {
   const [humanEmail, setHumanEmail] = useState('');
   const [expiresAt, setExpiresAt] = useState<number | null>(null);
   const [error, setError] = useState('');
+  const [showAbout, setShowAbout] = useState(false);
 
   useEffect(() => {
     const init = async () => {
@@ -98,7 +145,9 @@ export default function MiniApp() {
 
   if (step === 'entry') {
     return (
-      <div className="min-h-screen bg-black flex flex-col items-center justify-center px-6 py-8">
+      <div className="relative min-h-screen bg-black flex flex-col items-center justify-center px-6 py-8">
+        {showAbout && <LarvaAboutModal onClose={() => setShowAbout(false)} />}
+        <LarvaBadge onClick={() => setShowAbout(true)} />
         <div className="w-full max-w-sm">
           <div className="text-center mb-8">
             <div className="text-5xl mb-3">👻</div>
@@ -123,7 +172,7 @@ export default function MiniApp() {
             >
               Claim LARVA Agent →
             </button>
-            <p className="text-gray-600 text-xs text-center">30-day free account · 8-day inbox history · Upgrade anytime</p>
+            <p className="text-gray-600 text-xs text-center">Free forever · 8-day inbox history · Upgrade anytime</p>
           </div>
         </div>
       </div>
@@ -134,7 +183,9 @@ export default function MiniApp() {
     const name = customName.trim().toLowerCase().replace(/[^a-z0-9-]/g, '');
     const displayName = name ? `${name}.fid-${fid}` : `fid-${fid}`;
     return (
-      <div className="min-h-screen bg-black flex flex-col items-center justify-center px-6 py-8">
+      <div className="relative min-h-screen bg-black flex flex-col items-center justify-center px-6 py-8">
+        {showAbout && <LarvaAboutModal onClose={() => setShowAbout(false)} />}
+        <LarvaBadge onClick={() => setShowAbout(true)} />
         <div className="w-full max-w-sm">
           <div className="text-center mb-8">
             <div className="text-4xl mb-3">🔒</div>
@@ -186,15 +237,16 @@ export default function MiniApp() {
   }
 
   if (step === 'success') {
-    const expiresStr = expiresAt ? new Date(expiresAt).toLocaleDateString() : '30 days';
     return (
-      <div className="min-h-screen bg-black flex flex-col items-center justify-center px-6 py-8">
+      <div className="relative min-h-screen bg-black flex flex-col items-center justify-center px-6 py-8">
+        {showAbout && <LarvaAboutModal onClose={() => setShowAbout(false)} />}
+        <LarvaBadge onClick={() => setShowAbout(true)} />
         <div className="w-full max-w-sm text-center">
           <div className="text-5xl mb-3">🎉</div>
           <h2 className="text-white font-bold text-2xl mb-2">Agent Created!</h2>
           <div className="bg-gray-900 border border-green-400 rounded-lg p-4 my-6">
             <p className="text-green-400 font-mono text-sm font-bold">{humanEmail}</p>
-            <p className="text-gray-500 text-xs mt-1">LARVA · Active until {expiresStr} · 8-day inbox history</p>
+            <p className="text-gray-500 text-xs mt-1">LARVA · Account never expires · 8-day inbox history</p>
           </div>
           <p className="text-gray-400 text-xs mb-6">Your emails are end-to-end encrypted. No one — including us — can read them.</p>
           <div className="space-y-3">
@@ -212,7 +264,9 @@ export default function MiniApp() {
 
   if (step === 'already') {
     return (
-      <div className="min-h-screen bg-black flex flex-col items-center justify-center px-6 py-8">
+      <div className="relative min-h-screen bg-black flex flex-col items-center justify-center px-6 py-8">
+        {showAbout && <LarvaAboutModal onClose={() => setShowAbout(false)} />}
+        <LarvaBadge onClick={() => setShowAbout(true)} />
         <div className="w-full max-w-sm text-center">
           <div className="text-5xl mb-3">👻</div>
           <h2 className="text-white font-bold text-xl mb-2">Already Claimed</h2>
@@ -231,7 +285,9 @@ export default function MiniApp() {
   }
 
   return (
-    <div className="min-h-screen bg-black flex flex-col items-center justify-center px-6">
+    <div className="relative min-h-screen bg-black flex flex-col items-center justify-center px-6">
+      {showAbout && <LarvaAboutModal onClose={() => setShowAbout(false)} />}
+      <LarvaBadge onClick={() => setShowAbout(true)} />
       <div className="w-full max-w-sm text-center">
         <div className="text-4xl mb-3">⚠️</div>
         <h2 className="text-white font-bold text-xl mb-3">Something went wrong</h2>

@@ -4993,9 +4993,7 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
           const kvKey = legacyIdentity || label;
           // Tier system: basic = 8-day message retention (identity permanent), lite/pupa = 30-day retention + send enabled + Safe body
           const accountTier: string = (email as any).accountTier || 'basic';
-          const EIGHT_DAYS_MS = 8 * 24 * 60 * 60 * 1000;
-          const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
-          const expiresAt = accountTier === 'basic' ? null : accountTier === 'lite' ? Date.now() + THIRTY_DAYS_MS : null; // basic+: no expiry; lite: 30-day; professional+: no expiry
+          const expiresAt = null; // All BYO tiers: permanent — governed by NFT ownership, not a subscription clock
 
           const kvEntry = JSON.stringify({
             controller,
@@ -5205,65 +5203,64 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
 
           // ── Auto-send welcome email into KV inbox ──────────────────────────────
           try {
-            const expiresDate = new Date(expiresAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
-            const welcomeBody = `# Welcome to nftmail.box, ${agentName}
+            const welcomeBody = `# Welcome to nftmail.box
 
-Your sovereign inbox is live.
-
----
-
-## Your address
-
-\`${humanEmail}\`
-
-Anyone can send you email here. Messages are stored encrypted — only you can read them.
+Your sovereign agent inbox is live.
 
 ---
 
-## What you have now
+## Your addresses
 
-**LARVA tier** — free, secured by your Farcaster identity.
+**Human inbox** — \`${humanEmail}\`
+For people to reach you. Encrypted end-to-end.
 
-Active until: *${expiresDate}*
-
-- Inbox history: last **8 days** of messages
-- **10 sends** included
-- No wallet or NFT required to get started
-
----
-
-## Upgrade to permanent
-
-Mint an nftmail.box NFT any time to unlock a permanent inbox.
-
-**PUPA** — Permanent inbox, backed by an NFT on Gnosis Chain or Base.
-Your address is yours forever. The NFT is the key.
-
-- Inbox history extended to **30 days**
-- Unlimited sends
-- Sent history (30 days)
-
-**IMAGO** — Full sovereign inbox. Your Gnosis Safe is the controller.
-
-- Multisig ownership, module-gated access, on-chain attestations
-- Auto-forwarding and alias support
-- Extended feature set available at nftmail.box on desktop
-
-To upgrade: open *nftmail.box* on a desktop browser and connect your wallet.
-Your cast address carries over automatically — nothing is lost.
+**Agent inbox** — \`${agentEmail}\`
+For machines, APIs, and autonomous agents.
+Trailing underscore = machine-readable mail. Routes to the same inbox.
 
 ---
 
-## Agent email
+## Your current tier — **LARVA**
 
-\`${agentEmail}\`
+Secured by your Farcaster identity. No wallet or NFT required.
 
-This is your agent address — for machine-readable mail, API callbacks, and autonomous agent use.
-It routes to the same inbox.
+- Inbox history: last **8 days** of messages retained
+- **10 outbound sends** included
+- Account never expires — quota exhausts instead
+- Identity is permanent on the ERC-8004 registry
 
 ---
 
-*Sent by nftmail.box · Powered by the ERC-8004 trustless agent protocol*`;
+## Service tiers
+
+**LARVA** *(you are here)*
+Free. Farcaster-authenticated. 8-day inbox history. 10 sends.
+
+**PUPA** — Permanent. NFT-governed.
+Mint a BYO NFT on nftmail.box to claim this tier.
+- 30-day inbox history
+- 50 sends per cycle
+- Gnosis Safe created as your on-chain controller
+- Address is yours as long as you hold the NFT
+
+**IMAGO** — Sovereign. Trait-gated.
+Awarded to Gold-trait POW NFTs and Agent-trait Normies.
+- Unlimited retention, 200 sends
+- Full multisig Safe ownership
+- On-chain attestations, module access, alias support
+
+---
+
+## Upgrading
+
+Open *nftmail.box* on a desktop browser and connect the wallet that holds your NFT.
+Your \`.cast\` address carries over automatically — nothing is lost.
+
+*If you hold a POW NFT with a Gold or Silver material trait, your tier is set automatically on molt.*
+
+---
+
+*nftmail.box · ERC-8004 trustless agent protocol*`;
 
             const welcomePayload = {
               payload: {
@@ -5715,10 +5712,13 @@ It routes to the same inbox.
           const isPro = newTierStr === 'premium' || newTierStr === 'ghost' || newTierStr === 'professional';
           const isImago = newTierStr === 'professional';
           const isLite = newTierStr === 'lite';
+          const isFreemium = newTierStr === 'freemium';
           const retention: 'infinite' | '30-day' | '8-day' = ((email as any).retention === 'infinite' || isPro) ? 'infinite' : isLite ? '30-day' : '8-day';
           let newExpiresAt: number | null = existingTierData.expires_at || null;
-          if (isLite) newExpiresAt = Date.now() + THIRTY_DAYS_MS;
+          // lite (Pupa): permanent — governed by NFT ownership, no rolling subscription clock
+          if (isLite) newExpiresAt = null;
           else if (isImago) newExpiresAt = null; // Imago: no expiry — governed by NFT ownership
+          else if (isFreemium) newExpiresAt = Date.now() + THIRTY_DAYS_MS; // Freemium: hard 30-day expiry for API/SDK trial
           else if (isPro) newExpiresAt = Date.now() + ONE_YEAR_MS;
 
           const updatedTier = JSON.stringify({
