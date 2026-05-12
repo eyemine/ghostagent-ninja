@@ -517,6 +517,14 @@ export default function OgNftMoltPage() {
       const usdcAddress = paymentChainForNftType(nftType) === 'base' ? USDC_BASE : USDC_ETH;
       const walletClient = createWalletClient({ chain, transport: custom(provider as Parameters<typeof custom>[0]) });
       const [account] = await walletClient.requestAddresses();
+
+      // Switch to the correct chain if needed
+      try {
+        await walletClient.switchChain({ id: chain.id });
+      } catch {
+        // Some wallets auto-switch; ignore errors here as writeContract will fail properly if not switched
+      }
+
       // ERC-20 transfer: transfer(address to, uint256 amount)
       const txHash = await walletClient.writeContract({
         account,
