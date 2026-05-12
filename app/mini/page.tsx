@@ -2,12 +2,11 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { sdk } from '@farcaster/miniapp-sdk';
-import { useAccount, useConnect, useSendTransaction, useWaitForTransactionReceipt } from 'wagmi';
-import { parseEther } from 'viem';
 
 const WORKER_URL = process.env.NEXT_PUBLIC_WORKER_URL || 'https://nftmail-email-worker.richard-159.workers.dev';
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://ghostagent.ninja';
-const GNOSIS_TREASURY = '0xeD0B0694953158dd54D0c36D320b391f44cd67f3';
+const TREASURY = '0xeD0B0694953158dd54D0c36D320b391f44cd67f3';
+const BASE_USDC_CAIP19 = 'eip155:8453/erc20:0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
 
 type AccountTier = 'basic' | 'lite' | 'professional' | 'freemium';
 
@@ -187,11 +186,7 @@ export default function MiniApp() {
   const [showAbout, setShowAbout] = useState(false);
   const [accountTier, setAccountTier] = useState<AccountTier>('basic');
   const [upgradeLog, setUpgradeLog] = useState<string[]>([]);
-
-  const { address, isConnected } = useAccount();
-  const { connect, connectors } = useConnect();
-  const { sendTransaction, data: txHash, isPending: txPending, error: txError } = useSendTransaction();
-  const { isSuccess: txConfirmed, isLoading: txConfirming } = useWaitForTransactionReceipt({ hash: txHash });
+  const [upgrading, setUpgrading] = useState(false);
 
   useEffect(() => {
     const init = async () => {
@@ -259,16 +254,35 @@ export default function MiniApp() {
     setUpgradeLog(prev => [...prev, msg]);
   }
 
-  const TIER_FEES: Record<AccountTier, number> = { basic: 10, freemium: 10, lite: 14, professional: 2 };
-  const upgradeFee = TIER_FEES[accountTier] ?? 10;
+  const TIER_FEES_USDC: Record<AccountTier, number> = { basic: 10, freemium: 10, lite: 14, professional: 2 };
+  const upgradeFee = TIER_FEES_USDC[accountTier] ?? 10;
   const upgradeTierTarget: string = accountTier === 'basic' || accountTier === 'freemium' ? 'lite' : accountTier === 'lite' ? 'professional' : '';
 
-  async function handleLinkAndUpgrade(confirmedTxHash: string) {
-    if (!fid || !agentName || !address) return;
-    setStep('upgrading');
-    setUpgradeLog([]);
+  async function handlePayAndUpgrade() {
+    if (!fid || !agentName || upgrading) return;
+    setUpgrading(true);
     try {
-      addUpgradeLog('Verifying payment…');
+      // 1. Native 1-tap USDC send via Farcaster wallet
+      const amountMicro = String(upgradeFee * 1_000_000); // USDC has 6 decimals
+      const result = await sdk.actions.sendToken({
+        token: BASE_USDC_CAIP19,
+        amount: amountMicro,
+        recipientAddress: TREASURY,
+      });
+      if (!result.success) {
+        setUpgrading(false);
+        if (result.reason !== 'rejected_by_user') {
+          setError(result.error?.message ?? 'Payment failed');
+          setStep('error');
+        }
+        return;
+      }
+      const confirmedTxHash = result.send.transaction;
+
+      // 2. Server-side: verify payment + link wallet + upgrade tier
+      setStep('upgrading');
+      setUpgradeLog([]);
+      addUpgradeLog('Payment confirmed. Verifying…');
       addUpgradeLog('Linking wallet & upgrading tier…');
       const res = await fetch('/api/mini-upgrade', {
         method: 'POST',
@@ -276,14 +290,12 @@ export default function MiniApp() {
         body: JSON.stringify({
           fid,
           agentName,
-          walletAddress: address,
           txHash: confirmedTxHash,
           currentTier: accountTier,
         }),
       });
       const data = await res.json() as { status?: string; newTier?: string; error?: string };
       if (data.status !== 'upgraded') throw new Error(data.error || 'Upgrade failed');
-      addUpgradeLog(`✓ Wallet linked: ${address.slice(0, 8)}…`);
       addUpgradeLog(`✓ Tier upgraded to ${(data.newTier ?? upgradeTierTarget).toUpperCase()}`);
       const newTier = (data.newTier ?? upgradeTierTarget) as AccountTier;
       setAccountTier(newTier in TIER_META ? newTier as AccountTier : 'lite');
@@ -291,15 +303,10 @@ export default function MiniApp() {
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Upgrade failed');
       setStep('error');
+    } finally {
+      setUpgrading(false);
     }
   }
-
-  useEffect(() => {
-    if (txConfirmed && txHash && step === 'upgrade') {
-      handleLinkAndUpgrade(txHash);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [txConfirmed, txHash]);
 
   if (step === 'loading') {
     return (
@@ -469,8 +476,8 @@ export default function MiniApp() {
           </div>
 
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 mb-5 space-y-2 text-xs text-gray-400">
-            <div className="flex justify-between"><span>Fee</span><span className="text-white font-bold">{upgradeFee} xDAI</span></div>
-            <div className="flex justify-between"><span>Network</span><span className="text-white">Gnosis Chain</span></div>
+            <div className="flex justify-between"><span>Fee</span><span className="text-white font-bold">{upgradeFee} USDC</span></div>
+            <div className="flex justify-between"><span>Network</span><span className="text-white">Base · USDC</span></div>
             <div className="flex justify-between"><span>Account</span><span className="text-white font-mono">{agentName}@nftmail.box</span></div>
             {nextTierMeta && nextTierMeta.features.map(([k, v]) => (
               <div key={k} className="flex justify-between border-t border-gray-800 pt-2 first:border-0 first:pt-0">
@@ -479,33 +486,13 @@ export default function MiniApp() {
             ))}
           </div>
 
-          {txError && (
-            <p className="text-red-400 text-xs mb-3 text-center">{txError.message.slice(0, 80)}</p>
-          )}
-
-          {!isConnected ? (
-            <button
-              onClick={() => connect({ connector: connectors[0] })}
-              className="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-3 rounded-lg transition-colors mb-3"
-            >
-              Connect Farcaster Wallet
-            </button>
-          ) : (
-            <>
-              <p className="text-gray-600 text-xs text-center mb-3 font-mono">{address?.slice(0, 10)}…{address?.slice(-6)} connected</p>
-              <button
-                disabled={txPending || txConfirming || !upgradeTierTarget}
-                onClick={() => sendTransaction({
-                  to: GNOSIS_TREASURY as `0x${string}`,
-                  value: parseEther(String(upgradeFee)),
-                  chainId: 100,
-                })}
-                className="w-full bg-yellow-500 hover:bg-yellow-400 disabled:opacity-50 text-black font-bold py-3 rounded-lg transition-colors mb-3"
-              >
-                {txPending ? 'Confirm in wallet…' : txConfirming ? 'Waiting for confirmation…' : `Pay ${upgradeFee} xDAI & Upgrade`}
-              </button>
-            </>
-          )}
+          <button
+            disabled={upgrading || !upgradeTierTarget}
+            onClick={handlePayAndUpgrade}
+            className="w-full bg-yellow-500 hover:bg-yellow-400 disabled:opacity-50 text-black font-bold py-3 rounded-lg transition-colors mb-3"
+          >
+            {upgrading ? 'Processing…' : `Pay ${upgradeFee} USDC & Upgrade`}
+          </button>
 
           <button onClick={() => setStep('already')} className="w-full text-gray-600 text-sm py-2">
             ← Back
