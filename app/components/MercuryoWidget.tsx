@@ -22,17 +22,24 @@ const MERCURYO_WIDGET_URL = 'https://exchange.mercuryo.io';
 export interface MercuryoWidgetProps {
   walletAddress: string;
   defaultAmount?: number;  // fiat USD, default 10
+  currency?: string;       // crypto to buy, e.g. 'USDC' or 'XDAI' (default 'USDC')
+  network?: string;        // network slug, e.g. 'BASE' or 'ETHEREUM' (default 'BASE')
   onSuccess?: (txId: string) => void;
   onClose?: () => void;
 }
 
-function buildMercuryoUrl(walletAddress: string, defaultAmount: number): string {
+function buildMercuryoUrl(
+  walletAddress: string,
+  defaultAmount: number,
+  currency = 'USDC',
+  network = 'BASE',
+): string {
   const widgetId = process.env.NEXT_PUBLIC_MERCURYO_WIDGET_ID ?? 'YOUR_MERCURYO_WIDGET_ID';
   const params = new URLSearchParams({
     widget_id:    widgetId,
     type:         'buy',
-    currency:     'XDAI',
-    network:      'GNOSIS',
+    currency:     currency.toUpperCase(),
+    network:      network.toUpperCase(),
     address:      walletAddress,
     fiat_currency:'USD',
     amount:       String(defaultAmount),
@@ -48,11 +55,13 @@ function buildMercuryoUrl(walletAddress: string, defaultAmount: number): string 
 export function MercuryoWidget({
   walletAddress,
   defaultAmount = 10,
+  currency = 'USDC',
+  network = 'BASE',
   onSuccess,
   onClose,
 }: MercuryoWidgetProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  const url = buildMercuryoUrl(walletAddress, defaultAmount);
+  const url = buildMercuryoUrl(walletAddress, defaultAmount, currency, network);
 
   useEffect(() => {
     function handleMessage(e: MessageEvent) {
@@ -79,7 +88,7 @@ export function MercuryoWidget({
         ref={iframeRef}
         src={url}
         allow="camera; microphone; payment"
-        title="Mercuryo — Buy xDAI with card"
+        title={`Mercuryo — Buy ${currency} with card`}
         className="h-[570px] w-full border-none"
       />
     </div>
@@ -91,6 +100,8 @@ export function MercuryoWidget({
 export interface MercuryoButtonProps {
   walletAddress: string;
   defaultAmount?: number;
+  currency?: string;   // 'USDC' (default) or 'XDAI'
+  network?: string;    // 'BASE' (default), 'ETHEREUM', or 'GNOSIS'
   onSuccess?: (txId: string) => void;
   label?: string;
   className?: string;
@@ -99,8 +110,10 @@ export interface MercuryoButtonProps {
 export function MercuryoButton({
   walletAddress,
   defaultAmount = 10,
+  currency = 'USDC',
+  network = 'BASE',
   onSuccess,
-  label = 'Pay with Card from $10 (Mercuryo)',
+  label = 'Pay with Card (Mercuryo)',
   className,
 }: MercuryoButtonProps) {
   const [open, setOpen] = useState(false);
@@ -130,7 +143,7 @@ export function MercuryoButton({
             {/* Header */}
             <div className="mb-2 flex items-center justify-between px-1">
               <div className="text-xs font-semibold text-[var(--muted)]">
-                Buy xDAI with card · Gnosis Chain · Mercuryo
+                Buy {currency.toUpperCase()} with card · {network.charAt(0).toUpperCase() + network.slice(1).toLowerCase()} · Mercuryo
               </div>
               <button
                 onClick={() => setOpen(false)}
@@ -143,12 +156,14 @@ export function MercuryoButton({
             <MercuryoWidget
               walletAddress={walletAddress}
               defaultAmount={defaultAmount}
+              currency={currency}
+              network={network}
               onSuccess={handleSuccess}
               onClose={() => setOpen(false)}
             />
 
             <p className="mt-2 text-center text-[9px] text-[var(--muted)]">
-              Powered by Mercuryo · KYC required above limits · xDAI sent directly to your wallet
+              Powered by Mercuryo · KYC required above limits · {currency.toUpperCase()} sent directly to your wallet
             </p>
           </div>
         </div>

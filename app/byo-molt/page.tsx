@@ -968,8 +968,20 @@ export default function OgNftMoltPage() {
                           <>🦋 Pay {BYO_FEE_USDC} USDC &amp; Molt</>
                         )}
                       </button>
+                      <div className="flex items-center gap-2 text-[10px] text-[var(--muted)]">
+                        <span className="flex-1 border-t border-[rgba(176,128,92,0.15)]" />
+                        <span>or pay with card</span>
+                        <span className="flex-1 border-t border-[rgba(176,128,92,0.15)]" />
+                      </div>
+                      <MercuryoButton
+                        walletAddress={ownerWallet || TREASURY}
+                        defaultAmount={BYO_FEE_USDC + 2}
+                        currency="USDC"
+                        network={paymentChainForNftType(nftType) === 'base' ? 'BASE' : 'ETHEREUM'}
+                        label={`💳 Buy USDC with Card (~$${BYO_FEE_USDC + 2} USD)`}
+                      />
                       <p className="text-[9px] text-[var(--muted)] text-center">
-                        Sends {BYO_FEE_USDC} USDC on {paymentChainForNftType(nftType) === 'base' ? 'Base' : 'Ethereum'} to{' '}
+                        Wallet payment sends {BYO_FEE_USDC} USDC on {paymentChainForNftType(nftType) === 'base' ? 'Base' : 'Ethereum'} to{' '}
                         <span className="font-mono text-amber-300/60">{TREASURY.slice(0,10)}…</span>
                       </p>
                     </div>
