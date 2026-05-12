@@ -33,13 +33,24 @@ function buildMercuryoUrl(
   defaultAmount: number,
   currency = 'USDC',
   network = 'BASE',
-): string {
-  const widgetId = process.env.NEXT_PUBLIC_MERCURYO_WIDGET_ID ?? 'YOUR_MERCURYO_WIDGET_ID';
+): string | null {
+  const widgetId = process.env.NEXT_PUBLIC_MERCURYO_WIDGET_ID;
+  if (!widgetId || widgetId === 'YOUR_MERCURYO_WIDGET_ID') {
+    return null; // Widget not configured
+  }
+  // Map network to Mercuryo's expected format
+  const networkMap: Record<string, string> = {
+    'BASE': 'base',
+    'ETHEREUM': 'ethereum',
+    'GNOSIS': 'gnosis',
+    'XDAI': 'gnosis',
+  };
+  const mercuryoNetwork = networkMap[network.toUpperCase()] || network.toLowerCase();
   const params = new URLSearchParams({
     widget_id:    widgetId,
     type:         'buy',
     currency:     currency.toUpperCase(),
-    network:      network.toUpperCase(),
+    network:      mercuryoNetwork,
     address:      walletAddress,
     fiat_currency:'USD',
     amount:       String(defaultAmount),
@@ -48,6 +59,32 @@ function buildMercuryoUrl(
     theme:        'dark',
     lang:         'en',
     return_url:   typeof window !== 'undefined' ? window.location.href : 'https://ghostagent.ninja',
+  });
+  return `${MERCURYO_WIDGET_URL}?${params.toString()}`;
+}
+
+// Fallback: open Mercuryo in new tab (works without widget ID)
+function buildMercuryoDirectUrl(
+  walletAddress: string,
+  defaultAmount: number,
+  currency = 'USDC',
+  network = 'BASE',
+): string {
+  const networkMap: Record<string, string> = {
+    'BASE': 'base',
+    'ETHEREUM': 'ethereum',
+    'GNOSIS': 'gnosis',
+    'XDAI': 'gnosis',
+  };
+  const mercuryoNetwork = networkMap[network.toUpperCase()] || network.toLowerCase();
+  const params = new URLSearchParams({
+    type:         'buy',
+    currency:     currency.toUpperCase(),
+    network:      mercuryoNetwork,
+    address:      walletAddress,
+    fiat_currency:'USD',
+    amount:       String(defaultAmount),
+    theme:        'dark',
   });
   return `${MERCURYO_WIDGET_URL}?${params.toString()}`;
 }
@@ -117,10 +154,31 @@ export function MercuryoButton({
   className,
 }: MercuryoButtonProps) {
   const [open, setOpen] = useState(false);
+  const widgetUrl = buildMercuryoUrl(walletAddress, defaultAmount, currency, network);
+  const directUrl = buildMercuryoDirectUrl(walletAddress, defaultAmount, currency, network);
+  const isConfigured = !!widgetUrl;
 
   function handleSuccess(txId: string) {
     onSuccess?.(txId);
     setOpen(false);
+  }
+
+  // If widget not configured, open in new tab
+  if (!isConfigured) {
+    return (
+      <a
+        href={directUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={
+          className ??
+          'flex w-full items-center justify-center gap-2 rounded-xl border border-sky-500/30 bg-sky-500/10 py-3 text-sm font-semibold text-sky-200 transition hover:bg-sky-500/20'
+        }
+      >
+        <span>💳</span>
+        {label}
+      </a>
+    );
   }
 
   return (

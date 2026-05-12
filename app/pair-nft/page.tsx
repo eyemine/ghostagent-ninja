@@ -552,6 +552,7 @@ export default function OgNftMoltPage() {
         }],
         functionName: 'transfer',
         args: [TREASURY as `0x${string}`, amount],
+        chain, // Explicit chain required for MetaMask to not throw chainId undefined error
       });
       setPaymentTxHash(txHash);
       await executeMolt(txHash);
