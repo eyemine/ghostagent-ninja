@@ -84,9 +84,12 @@ function isVerifiedCollectionSlug(slug: string): slug is VerifiedCollectionSlug 
 // Fee tiers (kept for tier-aware overlay molts via getAgentTier)
 const TIER_FEES = { basic: 10, lite: 14, premium: 2 } as const;
 
-// Payment chain per NFT type
+// Payment chain per NFT type — pay on the chain where NFT lives for user consistency
 function paymentChainForNftType(type: NftType): 'base' | 'mainnet' {
-  return (type === 'chonk' || type === 'normie') ? 'base' : 'mainnet';
+  // Base NFTs: pay on Base (cheap ~$0.01)
+  if (type === 'chonk' || type === 'normie') return 'base';
+  // Ethereum NFTs: ENS, POWNFT, Mooncat, Other ERC-721
+  return 'mainnet';
 }
 
 async function fetchEnsImage(tokenId: string): Promise<{ name: string; imageUrl: string | null }> {
@@ -546,13 +549,14 @@ export default function OgNftMoltPage() {
         abi: [{
           name: 'transfer',
           type: 'function',
-          inputs: [{ name: 'to', type: 'address' }, { name: 'amount', type: 'uint256' }],
+          inputs: [{ name: 'to', type: 'address' }, { name: 'value', type: 'uint256' }],
           outputs: [{ name: '', type: 'bool' }],
           stateMutability: 'nonpayable',
         }],
         functionName: 'transfer',
         args: [TREASURY as `0x${string}`, amount],
-        chain, // Explicit chain required for MetaMask to not throw chainId undefined error
+        chain,
+        gas: 100000n, // Explicit gas limit to prevent MetaMask over-estimation bug
       });
       setPaymentTxHash(txHash);
       await executeMolt(txHash);
