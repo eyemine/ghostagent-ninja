@@ -786,88 +786,31 @@ export default function OgNftMoltPage() {
             <div className="space-y-4">
               <div className="text-center">
                 <h3 className="text-sm font-semibold text-[#f2eee4]">Choose target for this NFT</h3>
-                <p className="text-xs text-[var(--muted)] mt-1">Create a new agent or overlay onto an existing one</p>
+                <p className="text-xs text-[var(--muted)] mt-1">Create a new agent</p>
               </div>
 
-              {/* Option 1: Create new agent */}
+              {/* Option 1: Molt a new agent body */}
               <button
-                onClick={() => { setMoltTarget('new-agent'); setStep('confirm'); }}
-                className={`w-full rounded-xl border px-4 py-3 text-left transition ${
+                onClick={() => setMoltTarget('new-agent')}
+                className={`flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition ${
                   moltTarget === 'new-agent'
                     ? 'border-fuchsia-500/50 bg-fuchsia-500/10'
-                    : 'border-[var(--border)] bg-black/20 hover:border-fuchsia-500/20'
+                    : 'border-[var(--border)] bg-black/20 hover:bg-black/30'
                 }`}
               >
-                <div className="flex items-center gap-3">
-                  <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full border-2 border-fuchsia-500/30">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={ICONS.premium}
-                      alt="White Butterfly (Premium)"
-                      className="h-full w-full object-cover"
-                    />
-                  </div>
-                  <div className="flex-1">
-                    <div className="text-sm font-semibold text-fuchsia-300">Create New Agent Body</div>
-                    <div className="text-[10px] text-[var(--muted)]">Mint a fresh beacon NFT and start a new GhostAgent</div>
-                  </div>
+                <div className="shrink-0">
+                  <input
+                    type="radio"
+                    checked={moltTarget === 'new-agent'}
+                    onChange={() => setMoltTarget('new-agent')}
+                    className="h-4 w-4 accent-fuchsia-500"
+                  />
+                </div>
+                <div className="flex-1">
+                  <div className="text-sm font-semibold text-fuchsia-300">Molt a New Agent Body</div>
+                  <div className="text-[10px] text-[var(--muted)]">Mint a paired beacon NFT and build a new GhostAgent</div>
                 </div>
               </button>
-
-              {/* Option 2: Overlay onto existing agent */}
-              {userAgents.length > 0 && (
-                <div className="space-y-2">
-                  <div className="text-[10px] font-semibold tracking-wider text-[var(--muted)]">Overlay onto Existing Agent</div>
-                  {userAgents.map(agent => (
-                    <button
-                      key={agent.name}
-                      onClick={() => { setMoltTarget('existing-agent'); setSelectedAgent(agent.name); setStep('confirm'); }}
-                      className={`w-full rounded-xl border px-3 py-2 text-left transition ${
-                        selectedAgent === agent.name && moltTarget === 'existing-agent'
-                          ? 'border-amber-500/50 bg-amber-500/10'
-                          : 'border-[var(--border)] bg-black/20 hover:border-amber-500/20'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <div className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full border border-amber-500/30">
-                          {(agent as any).imageUrl ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img 
-                              src={(agent as any).imageUrl} 
-                              alt={agent.name}
-                              className="h-full w-full object-cover"
-                            />
-                          ) : (
-                            /* eslint-disable-next-line @next/next/no-img-element */
-                            <img 
-                              src={
-                                agent.tld === 'nftmail.gno' ? ICONS.nftmail :
-                                agent.tld === 'molt.gno' ? ICONS.molt :
-                                agent.tld === 'openclaw.gno' ? ICONS.openclaw :
-                                agent.tld === 'vault.gno' ? ICONS.vault :
-                                agent.tld === 'agent.gno' ? ICONS.agent :
-                                ICONS.other
-                              }
-                              alt={agent.tld ?? 'agent'}
-                              className="h-full w-full object-cover"
-                            />
-                          )}
-                        </div>
-                        <div className="flex-1">
-                          <div className="text-xs font-semibold text-amber-300">{agent.name}</div>
-                          <div className="text-[9px] text-[var(--muted)]">tld: {agent.tld ?? 'none'}</div>
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {userAgents.length === 0 && (
-                <div className="rounded-lg border border-[var(--border)] bg-black/20 px-3 py-2 text-center">
-                  <p className="text-xs text-[var(--muted)]">No existing agents found. Create a new agent to get started.</p>
-                </div>
-              )}
             </div>
           )}
 
@@ -888,7 +831,7 @@ export default function OgNftMoltPage() {
                             className="h-full w-full object-cover" 
                           />
                         </div>
-                        <span className="text-xs font-semibold text-fuchsia-300">Create New Agent Body</span>
+                        <span className="text-xs font-semibold text-fuchsia-300">Molt a New Agent Body</span>
                       </div>
                     ) : (
                       <div className="flex items-center gap-2">
@@ -900,7 +843,7 @@ export default function OgNftMoltPage() {
                             className="h-full w-full object-cover" 
                           />
                         </div>
-                        <span className="text-xs font-semibold text-amber-300">Overlay onto {selectedAgent}</span>
+                        <span className="text-xs font-semibold text-amber-300">Pair onto {selectedAgent}</span>
                       </div>
                     )}
                   </div>
@@ -972,7 +915,7 @@ export default function OgNftMoltPage() {
                         {paying ? (
                           <><svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Awaiting wallet…</>
                         ) : (
-                          <>🦋 Pay {BYO_FEE_USDC} USDC &amp; Molt</>
+                          <>Pay $USDC {BYO_FEE_USDC} to Pair</>
                         )}
                       </button>
                       <div className="flex items-center gap-2 text-[10px] text-[var(--muted)]">
