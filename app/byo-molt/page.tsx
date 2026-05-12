@@ -518,27 +518,26 @@ export default function OgNftMoltPage() {
       const walletClient = createWalletClient({ chain, transport: custom(provider as Parameters<typeof custom>[0]) });
       const [account] = await walletClient.requestAddresses();
 
-      // Switch to the correct chain if needed
+      // Switch to the correct chain if needed - wait for completion
       try {
         await walletClient.switchChain({ id: chain.id });
+        // Small delay to ensure wallet has processed the switch
+        await new Promise(r => setTimeout(r, 500));
       } catch {
-        // Some wallets auto-switch; ignore errors here as writeContract will fail properly if not switched
+        // Some wallets auto-switch; proceed optimistically
       }
 
       // ERC-20 transfer: transfer(address to, uint256 amount)
-      const txHash = await walletClient.writeContract({
+      // Use raw transaction to avoid ABI encoding issues
+      const amount = parseUnits(String(BYO_FEE_USDC), 6);
+      const data = `0xa9059cbb${TREASURY.slice(2).padStart(64, '0')}${amount.toString(16).padStart(64, '0')}` as `0x${string}`;
+
+      const txHash = await walletClient.sendTransaction({
         account,
-        address: usdcAddress as `0x${string}`,
-        abi: [{
-          name: 'transfer',
-          type: 'function',
-          inputs: [{ name: 'to', type: 'address' }, { name: 'amount', type: 'uint256' }],
-          outputs: [{ name: '', type: 'bool' }],
-          stateMutability: 'nonpayable',
-        }],
-        functionName: 'transfer',
-        args: [TREASURY as `0x${string}`, parseUnits(String(BYO_FEE_USDC), 6)],
+        to: usdcAddress as `0x${string}`,
+        data,
         chain,
+        gas: 100000n, // Explicit gas limit for ERC-20 transfer (~65k + buffer)
       });
       setPaymentTxHash(txHash);
       await executeMolt(txHash);
