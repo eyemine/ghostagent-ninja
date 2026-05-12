@@ -16,6 +16,7 @@ import { type Address } from 'viem';
 import {
   verifyChonkOwnership,
   verifyFeePayment,
+  verifyUsdcFeePayment,
   mintChonkBeacon,
   registerChonkAlias,
   recordChonkMolt,
@@ -217,7 +218,10 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ status: 'error', step: 'fee', error: couponResult.error ?? 'Coupon invalid or already used' }, { status: 402 });
       }
     } else {
-      const fee = await verifyFeePayment(paymentTxHash!, ownerWallet);
+      // Fees paid in USDC on the NFT's native chain (Base for chonk/normie, Ethereum for all others)
+      const feeChain: 'base' | 'mainnet' = (type === 'chonk' || type === 'normie') ? 'base' : 'mainnet';
+      const BYO_FEE_USDC = 10; // $10 USDC flat fee for new agents; tier upgrades handled by mini app
+      const fee = await verifyUsdcFeePayment(paymentTxHash!, feeChain, BYO_FEE_USDC);
       if (!fee.verified) {
         return NextResponse.json({ status: 'error', step: 'fee', error: fee.error ?? 'Fee verification failed' }, { status: 402 });
       }

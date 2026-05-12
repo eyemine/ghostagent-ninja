@@ -4,8 +4,8 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
-import { keccak256, toHex, createWalletClient, custom, parseEther } from 'viem';
-import { gnosis } from '../utils/chains';
+import { keccak256, toHex, createWalletClient, custom, parseUnits } from 'viem';
+import { base, mainnet } from 'viem/chains';
 import { MercuryoButton } from '../components/MercuryoWidget';
 import { EmailAliasToggle } from '../components/EmailAliasToggle';
 import type { AgentRegistryEntry } from '../api/agents/route';
@@ -39,7 +39,10 @@ const ENS_CONTRACT     = '0x57f1887a8BF19b14fC0dF6Fd9B2acc9Af147eA85';
 const POWNFT_CONTRACT  = '0x9abb7bddc43fa67c76a62d8c016513827f59be1b';
 const NORMIE_BASE_CONTRACT = '0x7Bc1C072742D8391817EB4Eb2317F98dc72C61dB';
 const MOONCAT_CONTRACT = '0xc3f733ca98e0dad0386979eb96fb1722a1a05e69';
-const GNOSIS_TREASURY = '0xeD0B0694953158dd54D0c36D320b391f44cd67f3'; // Treasury for BYO molt fees
+const TREASURY = '0xeD0B0694953158dd54D0c36D320b391f44cd67f3';
+const USDC_BASE = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
+const USDC_ETH  = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48';
+const BYO_FEE_USDC = 10; // $10 USDC flat
 
 const CI = '/collection-icons';
 
@@ -77,12 +80,13 @@ type VerifiedCollectionSlug = typeof VERIFIED_COLLECTIONS[number]['slug'];
 const VERIFIED_COLLECTION_SLUGS = new Set<string>(VERIFIED_COLLECTIONS.map(c => c.slug));
 function isVerifiedCollectionSlug(slug: string): slug is VerifiedCollectionSlug { return VERIFIED_COLLECTION_SLUGS.has(slug); }
 
-// Fee structure based on current tier
-const TIER_FEES = {
-  'basic': 10,   // LARVA → PUPA (Free to paid tier)
-  'lite': 14,    // PUPA → IMAGO  
-  'premium': 2,  // IMAGO → IMAGO (identity change)
-} as const;
+// Fee tiers (kept for tier-aware overlay molts via getAgentTier)
+const TIER_FEES = { basic: 10, lite: 14, premium: 2 } as const;
+
+// Payment chain per NFT type
+function paymentChainForNftType(type: NftType): 'base' | 'mainnet' {
+  return (type === 'chonk' || type === 'normie') ? 'base' : 'mainnet';
+}
 
 async function fetchEnsImage(tokenId: string): Promise<{ name: string; imageUrl: string | null }> {
   try {
@@ -509,13 +513,24 @@ export default function OgNftMoltPage() {
     try {
       const provider = (window as unknown as { ethereum?: unknown }).ethereum;
       if (!provider) throw new Error('No wallet provider — connect MetaMask or WalletConnect');
-      const walletClient = createWalletClient({ chain: gnosis, transport: custom(provider as Parameters<typeof custom>[0]) });
+      const chain = paymentChainForNftType(nftType) === 'base' ? base : mainnet;
+      const usdcAddress = paymentChainForNftType(nftType) === 'base' ? USDC_BASE : USDC_ETH;
+      const walletClient = createWalletClient({ chain, transport: custom(provider as Parameters<typeof custom>[0]) });
       const [account] = await walletClient.requestAddresses();
-      const txHash = await walletClient.sendTransaction({
+      // ERC-20 transfer: transfer(address to, uint256 amount)
+      const txHash = await walletClient.writeContract({
         account,
-        to: GNOSIS_TREASURY as `0x${string}`,
-        value: parseEther(String(moltFee)),
-        chain: gnosis,
+        address: usdcAddress as `0x${string}`,
+        abi: [{
+          name: 'transfer',
+          type: 'function',
+          inputs: [{ name: 'to', type: 'address' }, { name: 'amount', type: 'uint256' }],
+          outputs: [{ name: '', type: 'bool' }],
+          stateMutability: 'nonpayable',
+        }],
+        functionName: 'transfer',
+        args: [TREASURY as `0x${string}`, parseUnits(String(BYO_FEE_USDC), 6)],
+        chain,
       });
       setPaymentTxHash(txHash);
       await executeMolt(txHash);
@@ -528,7 +543,7 @@ export default function OgNftMoltPage() {
   async function executeMolt(txHash: string) {
     setStep('molting'); setError(null); setLogs([]);
     addLog(`Verifying ${nftPreview?.name ?? 'NFT'} ownership on-chain…`);
-    addLog(txHash ? 'Verifying 2 xDAI fee payment on Gnosis…' : 'Coupon applied — fee waived');
+    addLog(txHash ? `Verifying ${BYO_FEE_USDC} USDC payment on ${paymentChainForNftType(nftType) === 'base' ? 'Base' : 'Ethereum'}…` : 'Coupon applied — fee waived');
     try {
       const res = await fetch(`/api/byo-molt-v2?t=${Date.now()}`, {
         method: 'POST',
@@ -604,7 +619,7 @@ export default function OgNftMoltPage() {
         </div>
         <div className="mt-3 flex items-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2">
           <svg className="h-3.5 w-3.5 shrink-0 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-          <p className="text-[10px] text-amber-300">Fee: <strong>{moltFee} xDAI</strong> on Gnosis ({currentTier.toUpperCase()} tier) · send to <span className="font-mono">{GNOSIS_TREASURY.slice(0,10)}…</span> then paste tx hash</p>
+          <p className="text-[10px] text-amber-300">Fee: <strong>{BYO_FEE_USDC} USDC</strong> on {paymentChainForNftType(nftType) === 'base' ? 'Base' : 'Ethereum'} · send to <span className="font-mono">{TREASURY.slice(0,10)}…</span></p>
         </div>
       </div>
 
@@ -942,28 +957,20 @@ export default function OgNftMoltPage() {
                   </div>
                   {!couponValid && (
                     <div className="space-y-2">
-                      <div className="text-[10px] font-semibold tracking-wider text-[var(--muted)]">PAY {moltFee} xDAI ({currentTier.toUpperCase()} tier)</div>
+                      <div className="text-[10px] font-semibold tracking-wider text-[var(--muted)]">
+                        PAY {BYO_FEE_USDC} USDC · {paymentChainForNftType(nftType) === 'base' ? 'Base' : 'Ethereum'}
+                      </div>
                       <button onClick={handlePayWithWallet} disabled={paying}
                         className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 py-3 text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-40">
                         {paying ? (
                           <><svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Awaiting wallet…</>
                         ) : (
-                          <>🦋 Pay {moltFee} xDAI &amp; Molt</>
+                          <>🦋 Pay {BYO_FEE_USDC} USDC &amp; Molt</>
                         )}
                       </button>
-                      <div className="flex items-center gap-2 text-[10px] text-[var(--muted)]">
-                        <span className="flex-1 border-t border-[rgba(176,128,92,0.15)]" />
-                        <span>or pay with card</span>
-                        <span className="flex-1 border-t border-[rgba(176,128,92,0.15)]" />
-                      </div>
-                      <MercuryoButton
-                        walletAddress={GNOSIS_TREASURY}
-                        defaultAmount={3}
-                        label={`💳 Pay with Card (~$${moltFee} USD)`}
-                      />
                       <p className="text-[9px] text-[var(--muted)] text-center">
-                        Wallet payment sends {moltFee} xDAI on Gnosis to Treasury{' '}
-                        <span className="font-mono text-amber-300/60">{GNOSIS_TREASURY.slice(0,10)}…</span>
+                        Sends {BYO_FEE_USDC} USDC on {paymentChainForNftType(nftType) === 'base' ? 'Base' : 'Ethereum'} to{' '}
+                        <span className="font-mono text-amber-300/60">{TREASURY.slice(0,10)}…</span>
                       </p>
                     </div>
                   )}

@@ -136,6 +136,62 @@ export async function verifyFeePayment(
   }
 }
 
+// ─── Step 2b: Verify USDC fee payment on Base or Ethereum ────────────────────
+// Replaces xDAI-on-Gnosis for BYO NFT molt fees.
+// chain: 'base' → Base USDC;  'mainnet' → Ethereum USDC
+
+const USDC_BASE     = '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913';
+const USDC_ETH      = '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48';
+const BASE_RPC_URL  = 'https://mainnet.base.org';
+const ETH_RPC_URL   = 'https://ethereum.publicnode.com';
+const ERC20_TRANSFER_TOPIC = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
+
+export async function verifyUsdcFeePayment(
+  txHash: string,
+  chain: 'base' | 'mainnet',
+  expectedUsdc: number,
+): Promise<{ verified: boolean; fromWallet: string | null; error?: string }> {
+  const rpc       = chain === 'base' ? BASE_RPC_URL : ETH_RPC_URL;
+  const usdcAddr  = chain === 'base' ? USDC_BASE    : USDC_ETH;
+  const treasury  = GNOSIS_TREASURY.toLowerCase();
+
+  try {
+    const [txRes, rcptRes] = await Promise.all([
+      fetch(rpc, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_getTransactionByHash', params: [txHash] }) }),
+      fetch(rpc, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'eth_getTransactionReceipt', params: [txHash] }) }),
+    ]);
+    const txData   = await txRes.json()   as { result?: any };
+    const rcptData = await rcptRes.json() as { result?: any };
+
+    if (!txData.result)   return { verified: false, fromWallet: null, error: 'Transaction not found' };
+    if (!rcptData.result) return { verified: false, fromWallet: null, error: 'Transaction not yet confirmed' };
+    if (rcptData.result.status !== '0x1') return { verified: false, fromWallet: null, error: 'Transaction reverted' };
+
+    const fromWallet = (txData.result.from as string).toLowerCase();
+    const expectedWei = BigInt(Math.floor(expectedUsdc * 1e6));
+    const logs: any[] = rcptData.result.logs ?? [];
+
+    const match = logs.find((log: any) => {
+      if (log.address?.toLowerCase() !== usdcAddr) return false;
+      if (log.topics?.[0] !== ERC20_TRANSFER_TOPIC) return false;
+      const from = ('0x' + (log.topics[1] ?? '').slice(26)).toLowerCase();
+      const to   = ('0x' + (log.topics[2] ?? '').slice(26)).toLowerCase();
+      if (from !== fromWallet) return false;
+      if (to !== treasury)     return false;
+      return BigInt(log.data || '0x0') >= expectedWei;
+    });
+
+    if (!match) {
+      return { verified: false, fromWallet, error: `No USDC transfer ≥${expectedUsdc} USDC to treasury found in tx` };
+    }
+    return { verified: true, fromWallet };
+  } catch (err: any) {
+    return { verified: false, fromWallet: null, error: err?.message ?? 'Fee verification failed' };
+  }
+}
+
 // ─── Step 3: Mint beacon NFT {type}-{tokenId}.nftmail.gno ──────────────────────
 // Reuses the gnosis-mint endpoint internally via server-side fetch.
 // label: hyphenated subname label (e.g. "chonk-123", "atom-1234", "eyemine")
