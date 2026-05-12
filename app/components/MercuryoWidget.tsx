@@ -33,10 +33,10 @@ function buildMercuryoUrl(
   defaultAmount: number,
   currency = 'USDC',
   network = 'BASE',
-): string | null {
+): string | undefined {
   const widgetId = process.env.NEXT_PUBLIC_MERCURYO_WIDGET_ID;
   if (!widgetId || widgetId === 'YOUR_MERCURYO_WIDGET_ID') {
-    return null; // Widget not configured
+    return undefined; // Widget not configured
   }
   // Map network to Mercuryo's expected format
   const networkMap: Record<string, string> = {
@@ -156,7 +156,7 @@ export function MercuryoButton({
   const [open, setOpen] = useState(false);
   const widgetUrl = buildMercuryoUrl(walletAddress, defaultAmount, currency, network);
   const directUrl = buildMercuryoDirectUrl(walletAddress, defaultAmount, currency, network);
-  const isConfigured = !!widgetUrl;
+  const isConfigured = typeof widgetUrl === 'string';
 
   function handleSuccess(txId: string) {
     onSuccess?.(txId);
