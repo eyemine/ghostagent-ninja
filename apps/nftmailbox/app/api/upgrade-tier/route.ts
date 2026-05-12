@@ -237,8 +237,8 @@ export async function POST(req: NextRequest) {
       message: normalisedTier === 'ghost'
         ? 'Agent activated — sovereign identity, Brain module eligible, Mirror Body deployed'
         : normalisedTier === 'premium'
-        ? 'Imago activated — infinite KV retention, sovereign relay MTA, Mirror Body deployed'
-        : 'Pupa activated — Mirror Body Safe deployed, sending enabled, 30-day cycle reset',
+        ? 'Premium activated — infinite KV retention, sovereign relay MTA, Mirror Body deployed'
+        : 'Lite activated — Mirror Body Safe deployed, sending enabled, 30-day cycle reset',
     });
   } catch (err: any) {
     console.error('upgrade-tier error:', err);

@@ -16,7 +16,7 @@ const PRESET_IDENTITIES = [
   { id: 'agent', label: 'Agent', tld: 'agent.gno', description: 'Black-box autonomous agent', image: SLD_IMAGES['agent.gno'] },
   { id: 'openclaw', label: 'OpenClaw', tld: 'openclaw.gno', description: 'Transparent governance agent', image: SLD_IMAGES['openclaw.gno'] },
   { id: 'vault', label: 'Vault', tld: 'vault.gno', description: 'Terminal Safe-locked identity', image: SLD_IMAGES['vault.gno'] },
-  { id: 'imago', label: 'Imago', tld: '', description: 'Pupa → Imago tier upgrade (any SLD)', icon: '🦋' },
+  { id: 'premium', label: 'Premium', tld: '', description: 'Lite → Premium tier upgrade (any SLD)', icon: '🦋' },
 ];
 
 export interface TargetIdentity {
@@ -41,7 +41,7 @@ export function MoltStep2({ sourceAgentName, onSelect, onBack }: MoltStep2Props)
   const [error, setError] = useState<string | null>(null);
 
   const preset = PRESET_IDENTITIES.find(p => p.id === selected);
-  const isCustom = selected === 'imago';
+  const isCustom = selected === 'premium';
   const targetName = isCustom ? customName : (selected || '');
   const targetTld = isCustom ? customTld : (preset?.tld ?? '');
   const fullTarget = targetName ? `${targetName}.${targetTld}` : '';
@@ -109,7 +109,7 @@ export function MoltStep2({ sourceAgentName, onSelect, onBack }: MoltStep2Props)
                   <div className="text-[9px] text-[var(--muted)]">{opt.description}</div>
                 </div>
               </div>
-              {opt.tld && opt.id !== 'imago' && (
+              {opt.tld && opt.id !== 'premium' && (
                 <div className="mt-1.5 font-mono text-[9px] text-amber-400/60">.{opt.tld}</div>
               )}
               {blocked && (

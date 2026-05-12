@@ -33,7 +33,7 @@ export default function PrivacyPage() {
           <section>
             <h2 className="mb-3 text-base font-semibold text-white">1. Who We Are</h2>
             <p>
-              NFTMail.box is operated by GhostAgent / Imago Labs (&quot;we&quot;, &quot;us&quot;, &quot;our&quot;).
+              NFTMail.box is operated by GhostAgent / Premium Labs (&quot;we&quot;, &quot;us&quot;, &quot;our&quot;).
               We provide sovereign email identities anchored to on-chain assets on the Gnosis network.
               Contact us at{' '}
               <a href={`mailto:${CONTACT_EMAIL}`} className="text-[rgb(160,220,255)] hover:underline">{CONTACT_EMAIL}</a>
@@ -49,7 +49,7 @@ export default function PrivacyPage() {
                 <strong className="text-white">Wallet address</strong> — provided when you connect your wallet. Used to identify your NFTMail inbox and verify on-chain ownership. Not linked to your real-world identity by us.
               </li>
               <li>
-                <strong className="text-white">Email content</strong> — inbound emails are stored in Cloudflare KV. In paid tiers, content is encrypted with your wallet signature — only you can decrypt it. In the free (Larva) tier, content is stored in cleartext and decays after 8 days.
+                <strong className="text-white">Email content</strong> — inbound emails are stored in Cloudflare KV. In paid tiers, content is encrypted with your wallet signature — only you can decrypt it. In the free (Basic) tier, content is stored in cleartext and decays after 8 days.
               </li>
               <li>
                 <strong className="text-white">NFT and ENS data</strong> — when you connect your wallet, we query public blockchain data (ENS names, NFT ownership) to determine eligibility for sovereign claims. This data is already public on-chain.

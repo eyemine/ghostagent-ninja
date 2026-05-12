@@ -30,20 +30,20 @@ export async function GET(request: NextRequest) {
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width" />
-  <title>GhostAgent LARVA</title>
-  <meta property="og:title" content="GhostAgent LARVA" />
+  <title>GhostAgent BASIC</title>
+  <meta property="og:title" content="GhostAgent BASIC" />
   <meta property="og:description" content="FID-powered agent provisioning. No wallet required." />
-  <meta property="og:image" content="${APP_URL}/api/og?title=GhostAgent+LARVA&description=FID-powered+agent+provisioning" />
+  <meta property="og:image" content="${APP_URL}/api/og?title=GhostAgent+BASIC&description=FID-powered+agent+provisioning" />
   <meta property="og:type" content="website" />
   <meta property="fc:frame" content="vNext" />
-  <meta property="fc:frame:image" content="${APP_URL}/api/og?title=GhostAgent+LARVA&description=FID-powered+agent+provisioning" />
+  <meta property="fc:frame:image" content="${APP_URL}/api/og?title=GhostAgent+BASIC&description=FID-powered+agent+provisioning" />
   <meta property="fc:frame:post_url" content="${APP_URL}/api/snap" />
   <meta property="fc:frame:button:1" content="Claim Agent" />
 </head>
 <body>
   <h1>GhostAgent Farcaster Snap</h1>
   <p>State: entry</p>
-  <p>Open in Warpcast to claim your LARVA agent.</p>
+  <p>Open in Warpcast to claim your BASIC agent.</p>
 </body>
 </html>`;
     
@@ -55,8 +55,8 @@ export async function GET(request: NextRequest) {
   // Farcaster Snap JSON response
   return NextResponse.json({
     version: 'vNext',
-    title: 'GhostAgent LARVA',
-    image: `${APP_URL}/api/og?title=GhostAgent+LARVA&description=FID-powered+agent`,
+    title: 'GhostAgent BASIC',
+    image: `${APP_URL}/api/og?title=GhostAgent+BASIC&description=FID-powered+agent`,
     buttons: [
       {
         label: 'Claim Agent',

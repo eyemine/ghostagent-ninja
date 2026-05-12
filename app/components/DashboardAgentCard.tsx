@@ -32,8 +32,8 @@ export function DashboardAgentCard({ agent, onMoltComplete }: DashboardAgentCard
   const tierColor =
     agent.tier === 'ghost' ? 'text-amber-300 bg-amber-500/10 ring-amber-500/20' :
     agent.tier === 'pro'   ? 'text-violet-300 bg-violet-500/10 ring-violet-500/20' :
-    agent.tier === 'imago' ? 'text-sky-300 bg-sky-500/10 ring-sky-500/20' :
-    agent.tier === 'pupa'  ? 'text-emerald-300 bg-emerald-500/10 ring-emerald-500/20' :
+    agent.tier === 'premium' ? 'text-sky-300 bg-sky-500/10 ring-sky-500/20' :
+    agent.tier === 'lite'  ? 'text-emerald-300 bg-emerald-500/10 ring-emerald-500/20' :
                              'text-zinc-400 bg-white/5 ring-white/10';
 
   const currentIdentity = latestMolt?.targetIdentity ?? agent.currentIdentity ?? 'default';

@@ -1,10 +1,10 @@
-/// Email forwarding service for Imago level accounts
+/// Email forwarding service for Premium level accounts
 /// Forwards emails to external addresses while maintaining local storage
 
 export interface ForwardingConfig {
   enabled: boolean;
   targetEmail: string;
-  level: 'imago' | 'ghost';
+  level: 'premium' | 'ghost';
   filters?: {
     sendOtpOnly?: boolean;
     excludeNewsletters?: boolean;
@@ -21,17 +21,17 @@ export async function checkForwardingConfig(
     const configData = await env.INBOX_KV.get(configKey);
     
     if (!configData) {
-      // Check if agent is Imago level and has default forwarding
+      // Check if agent is Premium level and has default forwarding
       const acctTierKey = `acct-tier:${agentName}`;
       const acctTierData = await env.INBOX_KV.get(acctTierKey);
       
       if (acctTierData) {
         const acctTier = JSON.parse(acctTierData);
-        if (acctTier.tier === 'imago' && acctTier.forwardingEmail) {
+        if (acctTier.tier === 'premium' && acctTier.forwardingEmail) {
           return {
             enabled: true,
             targetEmail: acctTier.forwardingEmail,
-            level: 'imago'
+            level: 'premium'
           };
         }
       }
@@ -188,7 +188,7 @@ function buildForwardedEmail(
       </div>
       
       <div class="footer">
-        <p>Forwarded by GhostAgent Imago Service</p>
+        <p>Forwarded by GhostAgent Premium Service</p>
         <p>Manage forwarding: <a href="https://ghostagent.ninja/agent/${agentName}">ghostagent.ninja/agent/${agentName}</a></p>
       </div>
     </body>
@@ -221,7 +221,7 @@ Summary: ${parsedData.summary}
 ${originalEmail.content}
 
 ---
-Forwarded by GhostAgent Imago Service
+Forwarded by GhostAgent Premium Service
 Manage forwarding: https://ghostagent.ninja/agent/${agentName}
   `;
   

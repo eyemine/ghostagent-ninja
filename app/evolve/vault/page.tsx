@@ -89,7 +89,7 @@ export default function EvolveVaultPage() {
             <div className="space-y-2">
               <div className="grid grid-cols-2 gap-3">
                 <div className="rounded-lg border border-[var(--border)] bg-black/20 p-3 space-y-0.5">
-                  <p className="text-[9px] font-semibold tracking-wider text-[var(--muted)]">CURRENT (LARVA)</p>
+                  <p className="text-[9px] font-semibold tracking-wider text-[var(--muted)]">CURRENT (BASIC)</p>
                   <p className="text-[11px] font-mono text-amber-300">{humanEmailAddress(clientName)}</p>
                 </div>
                 <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3 space-y-0.5">

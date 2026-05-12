@@ -284,7 +284,7 @@ export default function DashboardPage() {
 
   const isAgent = selectedName?.label.endsWith('_') ?? false;
   const canSend = isAgent || inboxTier === 'premium' || inboxTier === 'ghost' || inboxTier === 'lite';
-  const isImago = inboxTier === 'premium' || inboxTier === 'ghost';
+  const isPremium = inboxTier === 'premium' || inboxTier === 'ghost';
 
   if (!ready) return null;
 
@@ -368,11 +368,11 @@ export default function DashboardPage() {
               <span className="text-[10px] text-[var(--muted)]">{selectedName?.gnoName}</span>
               {inboxTier && (
                 <span className={`rounded-full px-2 py-0.5 text-[9px] font-semibold ring-1 ${
-                  isImago ? 'bg-violet-500/10 text-violet-300 ring-violet-500/20'
+                  isPremium ? 'bg-violet-500/10 text-violet-300 ring-violet-500/20'
                     : canSend ? 'bg-amber-500/10 text-amber-300 ring-amber-500/20'
                     : 'bg-zinc-500/10 text-zinc-400 ring-zinc-500/20'
                 }`}>
-                  {isImago ? 'IMAGO' : canSend ? 'PUPA' : 'LARVA'}
+                  {isPremium ? 'PREMIUM' : canSend ? 'LITE' : 'BASIC'}
                 </span>
               )}
             </div>
@@ -399,10 +399,10 @@ export default function DashboardPage() {
               </button>
               <button
                 onClick={() => canSend && setTab('compose')}
-                title={!canSend ? 'Molt to PUPA to unlock sending' : undefined}
+                title={!canSend ? 'Molt to LITE to unlock sending' : undefined}
                 className={`flex-1 rounded-md px-4 py-2 text-xs font-semibold transition ${tab === 'compose' ? 'bg-violet-500/12 text-violet-300' : canSend ? 'text-[var(--muted)] hover:text-white/60' : 'cursor-not-allowed opacity-40 text-[var(--muted)]'}`}
               >
-                Compose <span className={`ml-1 rounded-full px-1.5 py-0.5 text-[9px] ring-1 ${isImago ? 'bg-violet-500/10 text-violet-300 ring-violet-500/20' : 'bg-zinc-500/10 text-zinc-400 ring-zinc-500/20'}`}>{isImago ? 'IMAGO' : 'PUPA+'}</span>
+                Compose <span className={`ml-1 rounded-full px-1.5 py-0.5 text-[9px] ring-1 ${isPremium ? 'bg-violet-500/10 text-violet-300 ring-violet-500/20' : 'bg-zinc-500/10 text-zinc-400 ring-zinc-500/20'}`}>{isPremium ? 'PREMIUM' : 'LITE+'}</span>
               </button>
               <button
                 onClick={() => setTab('killswitch')}
@@ -419,7 +419,7 @@ export default function DashboardPage() {
                 <div className="flex items-center justify-between border-b border-[var(--border)] bg-black/20 px-4 py-2">
                   <div className="flex items-center gap-4">
                     <span className="text-[10px] font-semibold tracking-wider text-[var(--muted)]">INBOX{messages.length > 0 ? ` (${messages.length})` : ''}</span>
-                    {!isImago && messages.length > 0 && (
+                    {!isPremium && messages.length > 0 && (
                       <div className="hidden sm:flex items-center gap-3">
                         {[['bg-emerald-500','Fresh'],['bg-amber-500','Aging'],['bg-red-500','Expiring']].map(([c,l]) => (
                           <div key={l} className="flex items-center gap-1"><div className={`h-1.5 w-1.5 rounded-full ${c}`} /><span className="text-[9px] text-[var(--muted)]">{l}</span></div>
@@ -484,7 +484,7 @@ export default function DashboardPage() {
                                   {msg.summary && <p className="truncate text-[10px] text-[var(--muted)] opacity-50 mt-0.5">{stripHtml(msg.summary)}</p>}
                                   <div className="flex items-center justify-between mt-1.5">
                                     <span className="text-[9px] text-[var(--muted)]">{formatTimeAgo(msg.receivedTime)}</span>
-                                    {!isImago && (
+                                    {!isPremium && (
                                       <div className="h-0.5 w-8 overflow-hidden rounded-full bg-white/5">
                                         <div className={`h-full rounded-full ${decayBarColor(msg.decayPct)}`} style={{ width: `${100 - msg.decayPct}%` }} />
                                       </div>
@@ -527,7 +527,7 @@ export default function DashboardPage() {
                             {/* Reply */}
                             <button
                               disabled={!canSend}
-                              title={!canSend ? 'PUPA+ required to reply' : 'Reply'}
+                              title={!canSend ? 'LITE+ required to reply' : 'Reply'}
                               onClick={() => { if (!canSend) return; setComposeTo(selectedMessage.fromAddress || selectedMessage.sender); setComposeSubject(`Re: ${selectedMessage.subject}`); setTab('compose'); }}
                               className="rounded p-1.5 text-[var(--muted)] transition hover:text-white disabled:opacity-30"
                             >
@@ -536,7 +536,7 @@ export default function DashboardPage() {
                             {/* Forward */}
                             <button
                               disabled={!canSend}
-                              title={!canSend ? 'PUPA+ required to forward' : 'Forward'}
+                              title={!canSend ? 'LITE+ required to forward' : 'Forward'}
                               onClick={() => { if (!canSend) return; setComposeSubject(`Fwd: ${selectedMessage.subject}`); setComposeBody(`\n\n-------- Forwarded Message --------\nFrom: ${selectedMessage.sender}\nSubject: ${selectedMessage.subject}\n\n${selectedMessage.body || selectedMessage.summary}`); setTab('compose'); }}
                               className="rounded p-1.5 text-[var(--muted)] transition hover:text-white disabled:opacity-30"
                             >
@@ -622,8 +622,8 @@ export default function DashboardPage() {
                 {!canSend && (
                   <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 px-5 py-4">
                     <div className="flex items-center gap-2">
-                      <span className="rounded-full bg-violet-500/10 px-2 py-0.5 text-[10px] font-semibold text-violet-300 ring-1 ring-violet-500/20">LARVA</span>
-                      <span className="text-sm text-violet-300">Compose &amp; Send requires a PUPA or IMAGO mailbox</span>
+                      <span className="rounded-full bg-violet-500/10 px-2 py-0.5 text-[10px] font-semibold text-violet-300 ring-1 ring-violet-500/20">BASIC</span>
+                      <span className="text-sm text-violet-300">Compose &amp; Send requires a LITE or PREMIUM mailbox</span>
                     </div>
                     <p className="mt-2 text-xs text-[var(--muted)]">Molt your inbox on the <Link href="/nftmail" className="text-violet-300 hover:underline">mint page</Link> to unlock sending.</p>
                   </div>
@@ -684,7 +684,7 @@ export default function DashboardPage() {
         <footer className="mt-auto flex items-center justify-center gap-3 text-xs text-[var(--muted)]">
           <span>nftmail.box dashboard — privacy-first email</span>
           <Link href="/nftmail" className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-[10px] font-semibold text-amber-300 hover:bg-amber-500/20 transition whitespace-nowrap">
-            Molt to Imago →
+            Molt to Premium →
           </Link>
         </footer>
       </div>

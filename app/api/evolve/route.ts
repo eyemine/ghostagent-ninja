@@ -32,14 +32,14 @@ export async function GET(req: NextRequest) {
     });
 
     if (!res.ok) {
-      return NextResponse.json({ level: 'larva', workerTier: 'basic', sendEnabled: false, retention: '8-day', expiresAt: null, safe: null, storyIp: null, marketplaceBadge: null, ipAssetDomain: null });
+      return NextResponse.json({ level: 'basic', workerTier: 'basic', sendEnabled: false, retention: '8-day', expiresAt: null, safe: null, storyIp: null, marketplaceBadge: null, ipAssetDomain: null });
     }
 
     const raw = await res.json() as { tier?: string; raw?: string; [k: string]: any };
     const record = parseLevelRecord(raw.raw ?? JSON.stringify(raw));
     return NextResponse.json(record);
   } catch {
-    return NextResponse.json({ level: 'larva', workerTier: 'basic', sendEnabled: false, retention: '8-day', expiresAt: null, safe: null, storyIp: null, marketplaceBadge: null, ipAssetDomain: null });
+    return NextResponse.json({ level: 'basic', workerTier: 'basic', sendEnabled: false, retention: '8-day', expiresAt: null, safe: null, storyIp: null, marketplaceBadge: null, ipAssetDomain: null });
   }
 }
 
@@ -47,12 +47,12 @@ export async function GET(req: NextRequest) {
  * POST /api/evolve
  * Body: { action: 'upgrade'|'downgrade', name, tld, walletAddress, safeAddress?, txHash? }
  *
- * upgrade   (pupa → imago): +14 xDAI one-off + 24 xDAI/yr
+ * upgrade   (lite → premium): +14 xDAI one-off + 24 xDAI/yr
  *   - Calls worker upgradeTier (newTier=premium)
  *   - Triggers Story .ip asset mint via /api/gasless-ip-mint
  *   - Updates marketplace badge in KV
  *
- * downgrade (imago → pupa): cancel subscription, preserve all data
+ * downgrade (premium → lite): cancel subscription, preserve all data
  *   - Calls worker upgradeTier (newTier=lite)
  *   - Preserves email, Safe, history
  */
@@ -104,12 +104,12 @@ export async function POST(req: NextRequest) {
       // Non-fatal — proceed with assumed 'basic'
     }
     const fromLevel: EvolveLevel = workerTierToLevel(currentWorkerTier);
-    const isLarvaToPupa = fromLevel === 'larva' && action === 'upgrade';
+    const isBasicToLite = fromLevel === 'basic' && action === 'upgrade';
 
-    const newWorkerTier = isLarvaToPupa ? 'lite' : action === 'upgrade' ? 'premium' : 'lite';
+    const newWorkerTier = isBasicToLite ? 'lite' : action === 'upgrade' ? 'premium' : 'lite';
     const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000;
     const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
-    const expiresAt = isLarvaToPupa || action === 'downgrade'
+    const expiresAt = isBasicToLite || action === 'downgrade'
       ? Date.now() + THIRTY_DAYS_MS
       : Date.now() + ONE_YEAR_MS;
 
@@ -123,7 +123,7 @@ export async function POST(req: NextRequest) {
         label: name,
         newTier: newWorkerTier,
         safe: safeAddress ?? null,
-        retention: isLarvaToPupa ? '30-day' : action === 'upgrade' ? 'infinite' : '30-day',
+        retention: isBasicToLite ? '30-day' : action === 'upgrade' ? 'infinite' : '30-day',
       }),
     });
 
@@ -145,27 +145,27 @@ export async function POST(req: NextRequest) {
       error?: string;
     }
     let storyIpResult: StoryIpResult | null = null;
-    let larvaToPupaIPResult: Awaited<ReturnType<typeof mintIPAsset>> | null = null;
+    let basicToLiteIPResult: Awaited<ReturnType<typeof mintIPAsset>> | null = null;
 
-    // Step 2a: Larva → Pupa — mint creation.ip on first paid evolution
-    if (isLarvaToPupa && tbaAddress) {
+    // Step 2a: Basic → Lite — mint creation.ip on first paid evolution
+    if (isBasicToLite && tbaAddress) {
       try {
-        larvaToPupaIPResult = await mintIPAsset({
+        basicToLiteIPResult = await mintIPAsset({
           agentName: name,
           tld,
           tbaAddress,
           ownerWallet: walletAddress,
           safeAddress: safeAddress ?? undefined,
-          fromLevel: 'larva',
-          toLevel: 'pupa',
+          fromLevel: 'basic',
+          toLevel: 'lite',
           webhookSecret: WEBHOOK_SECRET,
         });
       } catch {
         // Non-fatal — tier upgrade already committed
-        larvaToPupaIPResult = { success: false, ipType: 'creation.ip', error: 'IP mint deferred' };
+        basicToLiteIPResult = { success: false, ipType: 'creation.ip', error: 'IP mint deferred' };
       }
 
-      // Step 2a.1: Larva → Pupa — register ERC-8004 identity (agent brain)
+      // Step 2a.1: Basic → Lite — register ERC-8004 identity (agent brain)
       // This gives the body its agent identity and email account
       try {
         const sld = tld.replace('.gno', '');
@@ -193,8 +193,8 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Step 2b: Pupa → Imago — deploy Story .ip asset via gasless-ip-mint
-    if (action === 'upgrade' && !isLarvaToPupa && tbaAddress) {
+    // Step 2b: Lite → Premium — deploy Story .ip asset via gasless-ip-mint
+    if (action === 'upgrade' && !isBasicToLite && tbaAddress) {
       try {
         const ipRes = await fetch(
           `${process.env.NEXT_PUBLIC_APP_URL || 'https://ghostagent.ninja'}/api/gasless-ip-mint`,
@@ -233,7 +233,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const newLevel: EvolveLevel = isLarvaToPupa ? 'pupa' : action === 'upgrade' ? 'imago' : 'pupa';
+    const newLevel: EvolveLevel = isBasicToLite ? 'lite' : action === 'upgrade' ? 'premium' : 'lite';
 
     // Step 3: Track molt path + re-pin beacon metadata (non-fatal)
     const xdaiBurned = action === 'upgrade' ? 38 : 0; // 14 one-off + 24 annual
@@ -253,7 +253,7 @@ export async function POST(req: NextRequest) {
           txHash: txHash ?? '',
           safeAddress: safeAddress ?? null,
           tbaAddress: tbaAddress ?? null,
-          storyIpDomain: larvaToPupaIPResult?.fullDomain ?? storyIpResult?.fullDomain ?? null,
+          storyIpDomain: basicToLiteIPResult?.fullDomain ?? storyIpResult?.fullDomain ?? null,
           repinBeacon: true,
         },
         WEBHOOK_SECRET,
@@ -269,9 +269,9 @@ export async function POST(req: NextRequest) {
       level: newLevel,
       workerTier: newWorkerTier,
       expiresAt,
-      retention: isLarvaToPupa ? '30-day' : action === 'upgrade' ? 'infinite' : '30-day',
-      marketplaceBadge: isLarvaToPupa ? 'Pupa' : action === 'upgrade' ? 'Imago' : 'Pupa',
-      storyIp: larvaToPupaIPResult ?? storyIpResult ?? null,
+      retention: isBasicToLite ? '30-day' : action === 'upgrade' ? 'infinite' : '30-day',
+      marketplaceBadge: isBasicToLite ? 'Lite' : action === 'upgrade' ? 'Premium' : 'Lite',
+      storyIp: basicToLiteIPResult ?? storyIpResult ?? null,
       paymentTxHash: txHash ?? null,
       molt_path: moltPathResult
         ? {
@@ -284,11 +284,11 @@ export async function POST(req: NextRequest) {
             beaconMetadataUrl:      moltPathResult.beaconMetadataUrl,
           }
         : null,
-      message: isLarvaToPupa
-        ? `Evolved to Pupa ✓ — send enabled + ${larvaToPupaIPResult?.fullDomain ? `.IP Minted: ${larvaToPupaIPResult.fullDomain}` : 'Story .ip asset registered'}`
+      message: isBasicToLite
+        ? `Evolved to Lite ✓ — send enabled + ${basicToLiteIPResult?.fullDomain ? `.IP Minted: ${basicToLiteIPResult.fullDomain}` : 'Story .ip asset registered'}`
         : action === 'upgrade'
-        ? `Evolved to Imago ✓ — infinite retention + Story .ip asset registered`
-        : `Returned to Pupa — 30-day cycle active. Email, Safe, and history preserved.`,
+        ? `Evolved to Premium ✓ — infinite retention + Story .ip asset registered`
+        : `Returned to Lite — 30-day cycle active. Email, Safe, and history preserved.`,
     });
   } catch (err: any) {
     return NextResponse.json({ error: err?.message ?? 'Internal error' }, { status: 500 });

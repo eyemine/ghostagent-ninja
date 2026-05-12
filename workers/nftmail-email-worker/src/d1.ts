@@ -5,8 +5,8 @@
  *
  * Phase 1 (shadow mode): all writes go to both KV and D1.
  *                         reads still come from KV.
- * Phase 3: reads switch to D1 for PUPA+ paths.
- * Phase 4: KV writes removed for PUPA+.
+ * Phase 3: reads switch to D1 for LITE+ paths.
+ * Phase 4: KV writes removed for LITE+.
  *
  * Keeping this as a plain class (not a generic KVStore adapter) because
  * D1 enables JOIN / WHERE / pagination that KV never could — we want to
@@ -176,7 +176,7 @@ export class D1Store {
     return result.meta?.changes ?? 0;
   }
 
-  async getAllPupaAgents(): Promise<AgentRow[]> {
+  async getAllLiteAgents(): Promise<AgentRow[]> {
     const result = await this.db
       .prepare("SELECT * FROM agents WHERE tier != 'basic' ORDER BY created_at ASC")
       .all<AgentRow>();

@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 
 const RULES: Record<string, { canToggle: boolean; defaultEnabled: boolean; locked?: string }> = {
-  'picoclaw.gno': { canToggle: false, defaultEnabled: false, locked: 'Upgrade to PUPA to unlock XMTP.' },
+  'picoclaw.gno': { canToggle: false, defaultEnabled: false, locked: 'Upgrade to LITE to unlock XMTP.' },
   'openclaw.gno': { canToggle: true, defaultEnabled: false },
   'molt.gno':     { canToggle: true, defaultEnabled: false },
   'vault.gno':    { canToggle: true, defaultEnabled: false },

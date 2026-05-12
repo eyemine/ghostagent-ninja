@@ -9,12 +9,12 @@ import { GenomeEditor } from '../components/GenomeEditor';
 import { defaultGenomeMetadata, type GenomeMetadata } from '../services/genome-metadata';
 
 type Namespace = 'agent' | 'openclaw' | 'molt' | 'picoclaw' | 'vault' | 'nftmail';
-type VaultPath = 'imago' | 'ghost';
+type VaultPath = 'premium' | 'ghost';
 
 const LIFECYCLE_ICONS = {
-  larva: '/collection-icons/larva.png',
-  pupa:  '/collection-icons/pupa.png',
-  imago: '/collection-icons/imago.png',
+  basic: '/collection-icons/basic.png',
+  lite:  '/collection-icons/lite.png',
+  premium: '/collection-icons/premium.png',
   ghost: '/collection-icons/ghost.png',
 };
 
@@ -28,12 +28,12 @@ interface NsConfig {
   privacyDefault: 'private' | 'glassbox';
   decayDays: number | null;
   ipDomain: string;
-  moltPath: string | null;               // e.g. 'imago/ghost', 'ghost', null
+  moltPath: string | null;               // e.g. 'premium/ghost', 'ghost', null
   fullDesc: string;
   staking?: string;
   badges: string[];
-  tier: 'larva' | 'pupa' | 'imago';
-  tierLabel: string;                     // 'Can Molt', 'Can Cycle', 'Larva-only', 'Imago-only'
+  tier: 'basic' | 'lite' | 'premium';
+  tierLabel: string;                     // 'Can Molt', 'Can Cycle', 'Basic-only', 'Premium-only'
 }
 
 const NAMESPACES: NsConfig[] = [
@@ -47,11 +47,11 @@ const NAMESPACES: NsConfig[] = [
     privacyDefault: 'private',
     decayDays: 8,
     ipDomain: '*.creation.ip',
-    moltPath: 'imago/ghost',
+    moltPath: 'premium/ghost',
     fullDesc: 'Full agent identity with on-chain IP and molt path. 8-day history. Private by default.\n10 xDAI mint · 2 xDAI molt-to (10 xDAI from nftmail.gno). Bundled *.creation.ip + nftmail.box address.',
     staking: '$10 $HOST staking for 365-day persistence',
     badges: ['Gnosis Safe', '*.creation.ip', 'Private default', '8-day history'],
-    tier: 'pupa',
+    tier: 'lite',
     tierLabel: 'Can Molt',
   },
   {
@@ -64,10 +64,10 @@ const NAMESPACES: NsConfig[] = [
     privacyDefault: 'private',
     decayDays: 8,
     ipDomain: '*.creation.ip',
-    moltPath: 'imago/ghost',
+    moltPath: 'premium/ghost',
     fullDesc: 'Full agent identity with on-chain IP and molt path. 8-day history. Private by default.\n10 xDAI mint · 2 xDAI molt-to (10 xDAI from nftmail.gno). Bundled *.creation.ip + nftmail.box address.',
     badges: ['Gnosis Safe', '*.creation.ip', 'Private default', '8-day history'],
-    tier: 'pupa',
+    tier: 'lite',
     tierLabel: 'Can Molt',
   },
   {
@@ -80,16 +80,16 @@ const NAMESPACES: NsConfig[] = [
     privacyDefault: 'glassbox',
     decayDays: 30,
     ipDomain: '*.moltbook.ip',
-    moltPath: 'imago/ghost',
+    moltPath: 'premium/ghost',
     fullDesc: 'Glassbox by default — all work is publicly verifiable. Public conversations (any OTP comms protected) + Story Protocol .moltbook.ip IP registration. 30-day history.\n10 xDAI mint · 2 xDAI molt-to (10 xDAI from nftmail.gno).',
     badges: ['Gnosis Safe', '*.moltbook.ip', 'Glassbox', '30-day history'],
-    tier: 'pupa',
+    tier: 'lite',
     tierLabel: 'Can Cycle',
   },
   {
     key: 'picoclaw',
     domain: 'picoclaw.gno',
-    shortDesc: 'Larva agent — zero cost entry',
+    shortDesc: 'Basic agent — zero cost entry',
     mintFee: 'free',
     moltToFee: null,
     moltToFeeFromNftmail: null,
@@ -97,15 +97,15 @@ const NAMESPACES: NsConfig[] = [
     decayDays: 8,
     ipDomain: '*.picoclaw.ip',
     moltPath: null,
-    fullDesc: 'The free on-ramp. Mint a larva agent with no fees, explore the ecosystem. 8-day inbox history window on free tier.\nNo molt path — larva-only namespace.',
+    fullDesc: 'The free on-ramp. Mint a basic agent with no fees, explore the ecosystem. 8-day inbox history window on free tier.\nNo molt path — basic-only namespace.',
     badges: ['Gnosis Safe', 'Private default', '8-day history'],
-    tier: 'larva',
-    tierLabel: 'Larva-only',
+    tier: 'basic',
+    tierLabel: 'Basic-only',
   },
   {
     key: 'vault',
     domain: 'vault.gno',
-    shortDesc: 'Top-tier Imago namespace with persistent storage',
+    shortDesc: 'Top-tier Premium namespace with persistent storage',
     mintFee: 24,
     moltToFee: 14,
     moltToFeeFromNftmail: 22,
@@ -113,10 +113,10 @@ const NAMESPACES: NsConfig[] = [
     decayDays: null,
     ipDomain: '*.creation.ip',
     moltPath: 'ghost',
-    fullDesc: 'Top-tier Imago namespace. Private by default, persistent storage, IP protection on Story Protocol, and full $HOST earning.\n24 xDAI includes 1 year subscription, then 24 xDAI annually (or downgrade to Pupa 30-day history).\n14 xDAI molt-to (22 xDAI from nftmail.gno).',
+    fullDesc: 'Top-tier Premium namespace. Private by default, persistent storage, IP protection on Story Protocol, and full $HOST earning.\n24 xDAI includes 1 year subscription, then 24 xDAI annually (or downgrade to Lite 30-day history).\n14 xDAI molt-to (22 xDAI from nftmail.gno).',
     badges: ['Gnosis Safe', '*.creation.ip', 'Private default', 'Persistent'],
-    tier: 'imago',
-    tierLabel: 'Imago-only',
+    tier: 'premium',
+    tierLabel: 'Premium-only',
   },
   {
     key: 'nftmail',
@@ -128,10 +128,10 @@ const NAMESPACES: NsConfig[] = [
     privacyDefault: 'private',
     decayDays: 30,
     ipDomain: '*.creation.ip',
-    moltPath: 'imago/ghost',
+    moltPath: 'premium/ghost',
     fullDesc: 'NFT-gated encrypted inbox. Your NFT is your key — transfer it to transfer access. No custodian, no middleman. Pairs with nftmail.box addresses.\n2 xDAI mint · 2 xDAI molt-to.',
     badges: ['Gnosis Safe', '*.creation.ip', 'Private default', '30-day history'],
-    tier: 'pupa',
+    tier: 'lite',
     tierLabel: 'Can Cycle',
   },
 ];
@@ -171,7 +171,7 @@ export default function MintTab() {
 
   const searchParams = useSearchParams();
   const [selected, setSelected] = useState<Namespace>('agent');
-  const [vaultPath, setVaultPath] = useState<VaultPath>('imago');
+  const [vaultPath, setVaultPath] = useState<VaultPath>('premium');
   const [agentName, setAgentName] = useState('');
   const [checkStatus, setCheckStatus] = useState<CheckStatus>('idle');
   const [checkResult, setCheckResult] = useState<CheckResult | null>(null);
@@ -314,7 +314,7 @@ export default function MintTab() {
                       <img src={tierIcon} alt={n.tier} className="h-3.5 w-3.5 object-contain" />
                       {n.tier.charAt(0).toUpperCase() + n.tier.slice(1)}
                     </span>
-                    {/* Tier label (Can Molt / Larva-only / etc.) */}
+                    {/* Tier label (Can Molt / Basic-only / etc.) */}
                     <span className={`rounded-full px-2 py-0.5 text-[9px] font-semibold ring-1 ${
                       n.tierLabel.includes('Molt') || n.tierLabel.includes('Cycle')
                         ? 'bg-violet-500/10 text-violet-300 ring-violet-500/20'
@@ -478,15 +478,15 @@ export default function MintTab() {
         )}
       </div>
 
-      {/* ── Vault fork: Imago vs Ghost ── */}
+      {/* ── Vault fork: Premium vs Ghost ── */}
       {selected === 'vault' && (
         <div className="space-y-3">
           <div className="text-xs font-semibold tracking-[0.18em] text-[var(--muted)]">FORK IN THE ROAD</div>
           <div className="grid gap-3 sm:grid-cols-2">
             <button
-              onClick={() => setVaultPath('imago')}
+              onClick={() => setVaultPath('premium')}
               className={`group relative flex flex-col gap-2 rounded-xl border p-4 text-left transition-all ${
-                vaultPath === 'imago'
+                vaultPath === 'premium'
                   ? 'border-violet-400/50 bg-violet-500/10'
                   : 'border-violet-500/20 bg-violet-500/5 hover:border-violet-400/30'
               }`}
@@ -494,20 +494,20 @@ export default function MintTab() {
               <div className="flex items-center justify-between gap-2">
                 <span className="flex items-center gap-1.5 text-sm font-semibold text-violet-300">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={LIFECYCLE_ICONS.imago} alt="Imago" className="h-5 w-5 object-contain" />
+                  <img src={LIFECYCLE_ICONS.premium} alt="Premium" className="h-5 w-5 object-contain" />
                   Option A — Molt Path
                 </span>
                 <span className="rounded-full bg-violet-500/10 px-2 py-0.5 text-[10px] font-semibold text-violet-300 ring-1 ring-violet-500/20">24 xDAI/yr</span>
               </div>
               <p className="text-xs text-[var(--muted)] leading-relaxed">
-                Cycle to <span className="text-[#f2eee4] font-medium">Imago</span>. GhostAgent hosts the brain. Fully transferable NFT — list on marketplace, rehome to a new owner.
+                Cycle to <span className="text-[#f2eee4] font-medium">Premium</span>. GhostAgent hosts the brain. Fully transferable NFT — list on marketplace, rehome to a new owner.
               </p>
               <div className="mt-1 flex flex-wrap gap-1">
                 {['Transferable NFT', 'Cloud-hosted', 'Marketplace eligible', '24 xDAI/yr'].map(b => (
                   <span key={b} className="rounded-full bg-white/[0.05] px-2 py-0.5 text-[9px] font-medium text-[var(--muted)] ring-1 ring-white/[0.08]">{b}</span>
                 ))}
               </div>
-              {vaultPath === 'imago' && <span className="absolute right-3 top-3 text-[10px] font-bold text-violet-400">✓ Selected</span>}
+              {vaultPath === 'premium' && <span className="absolute right-3 top-3 text-[10px] font-bold text-violet-400">✓ Selected</span>}
             </button>
 
             <button

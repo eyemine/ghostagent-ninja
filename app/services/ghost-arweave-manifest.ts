@@ -195,7 +195,7 @@ export interface ArchiveInitResult {
  * Uploads identity anchor + brain config + empty attestation index,
  * then assembles and uploads the manifest.
  *
- * Called once when an imago agent upgrades to ghost tier.
+ * Called once when an premium agent upgrades to ghost tier.
  * Returns the manifest arweave URL to store in the SBT metadata.
  */
 export async function initGhostEternalArchive(

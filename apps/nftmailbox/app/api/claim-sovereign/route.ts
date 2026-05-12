@@ -37,7 +37,7 @@ async function sendWelcomeEmail(claimedEmail: string, keyType: string): Promise<
     ``,
     `─────────────────────────────────────────`,
     ``,
-    `Molt to Imago — unlock the full agent experience:`,
+    `Molt to Premium — unlock the full agent experience:`,
     ``,
     `  · Unlimited sending`,
     `  · 30-day message history`,

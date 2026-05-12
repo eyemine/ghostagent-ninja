@@ -255,7 +255,7 @@ export class BrainAdder {
         recommendations.push('Deploy TBA contract first');
       }
       
-      if (agentInfo.tier === 'freemium') {
+      if (agentInfo.tier === 'free') {
         recommendations.push('Consider upgrading to Professional tier for better brain performance');
       }
 

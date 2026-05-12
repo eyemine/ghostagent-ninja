@@ -69,7 +69,7 @@ export async function GET(req: NextRequest) {
 
       if (workerRes.ok) {
         const workerData = await workerRes.json() as Record<string, any>;
-        // decayDays from resolveAddress: 8 for Larva, 30 for Pupa, null for Imago/Agent
+        // decayDays from resolveAddress: 8 for Basic, 30 for Lite, null for Premium/Agent
         const acctDecayDays: number | null = workerData.decayDays ?? null;
         kvMessages = (workerData.messages || []).map((m: any) => {
           const isEnc = m.encrypted === true;

@@ -178,7 +178,7 @@ export class PaymentProcessor {
     }
     
     // Loyalty discount for existing users
-    if (currentTier !== 'freemium') {
+    if (currentTier !== 'free') {
       discount += basePrice / BigInt(10); // 10% loyalty discount
     }
     

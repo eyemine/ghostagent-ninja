@@ -48,9 +48,9 @@ const CI = '/collection-icons';
 
 // All icons are static files in public/collection-icons/ — served by Netlify CDN
 const ICONS = {
-  larva:   `${CI}/larva.png`,
-  pupa:    `${CI}/pupa.png`,
-  imago:   `${CI}/imago.png`,
+  basic:   `${CI}/basic.png`,
+  lite:    `${CI}/lite.png`,
+  premium:   `${CI}/premium.png`,
   ghost:   `${CI}/ghost.png`,
   byo:     `${CI}/byo.png`,
   ens:     `${CI}/ens.svg`,
@@ -795,8 +795,8 @@ export default function OgNftMoltPage() {
                   <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full border-2 border-fuchsia-500/30">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src={ICONS.imago}
-                      alt="White Butterfly (Imago)"
+                      src={ICONS.premium}
+                      alt="White Butterfly (Premium)"
                       className="h-full w-full object-cover"
                     />
                   </div>
@@ -876,7 +876,7 @@ export default function OgNftMoltPage() {
                         <div className="relative h-6 w-6 overflow-hidden rounded-full border border-fuchsia-500/30">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img 
-                            src={ICONS.imago} 
+                            src={ICONS.premium} 
                             alt="White Butterfly" 
                             className="h-full w-full object-cover" 
                           />
@@ -888,7 +888,7 @@ export default function OgNftMoltPage() {
                         <div className="relative h-6 w-6 overflow-hidden rounded-full border border-amber-500/30">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img 
-                            src={ICONS.imago} 
+                            src={ICONS.premium} 
                             alt="Agent" 
                             className="h-full w-full object-cover" 
                           />

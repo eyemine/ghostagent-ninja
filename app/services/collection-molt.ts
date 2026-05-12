@@ -10,7 +10,7 @@
  *   2. Verify 2 xDAI fee payment on Gnosis
  *   3. Deploy Gnosis-side ERC-6551 TBA for the legacy NFT (deterministic, idempotent)
  *   4. Mint beacon NFT: {prefix}.{tokenId}.nftmail.gno — owned by the Gnosis TBA
- *   5. Record molt + upgrade tier larva→pupa if needed
+ *   5. Record molt + upgrade tier basic→lite if needed
  *
  * Ownership chain (transfer-safe):
  *   Legacy NFT (any chain) → Gnosis TBA → owns beacon NFT → beacon TBA → Safe signer

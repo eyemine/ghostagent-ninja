@@ -187,7 +187,7 @@ export interface Env {
   MASTER_SAFE_PUBKEY?: string;
   // Worker authentication secret
   WORKER_SECRET?: string;
-  // D1 — PUPA+ relational store (Phase 1: shadow writes only; Phase 3: reads switch here)
+  // D1 — LITE+ relational store (Phase 1: shadow writes only; Phase 3: reads switch here)
   NFTMAIL_DB?: D1Database;
   // 0G Storage archive — Next.js archiver URL + wallet key
   ZEROG_ARCHIVER_URL?: string;
@@ -626,7 +626,7 @@ function classifyRecipient(emailAddr: string): ClassifiedRecipient {
 }
 
 // --- Tier-aware TTL ---
-// basic=8d, lite(Pupa)=30d, premium/ghost=no expiry (null = no TTL arg)
+// basic=8d, lite(Lite)=30d, premium/ghost=no expiry (null = no TTL arg)
 const TIER_TTL: Record<string, number | null> = {
   basic: 8 * 24 * 60 * 60,
   lite:  30 * 24 * 60 * 60,
@@ -1094,15 +1094,15 @@ async function handleMailgunPayload(
     return 'basic';
   };
 
-  // ── Phase 4/5: D1 email write for PUPA+ ──────────────────────────────────
-  // Phase 4: shadow-write (KV still written). Phase 5: D1 is sole store for PUPA+.
+  // ── Phase 4/5: D1 email write for LITE+ ──────────────────────────────────
+  // Phase 4: shadow-write (KV still written). Phase 5: D1 is sole store for LITE+.
   const shadowWriteEmailToD1 = (label: string, bId: string, envelopeJson: string, ttlMs: number | null) => {
     if (!env.NFTMAIL_DB) return;
     ctx.waitUntil((async () => {
       try {
         const d1 = new D1Store(env.NFTMAIL_DB!);
         const agentRow = await d1.getAgent(label.replace(/_+$/, ''));
-        if (!agentRow || agentRow.tier === 'basic') return; // LARVA stays KV-only
+        if (!agentRow || agentRow.tier === 'basic') return; // BASIC stays KV-only
         const senderHashVal = await sha256Hex(sender).catch(() => null);
         const subjectHashVal = await sha256Hex(subject).catch(() => null);
         await d1.insertEmail({
@@ -1168,7 +1168,7 @@ async function handleMailgunPayload(
     const _humanMgTier = await resolveAgentTierFast(storageName);
     const _humanMgEnvJson = JSON.stringify(envelope);
     
-    // Check for forward-only config (IMAGO tier toggle to reduce clutter)
+    // Check for forward-only config (PREMIUM tier toggle to reduce clutter)
     const forwardOnlyRaw = await env.INBOX_KV.get(`inbox-config:${storageName}`);
     const forwardOnly = forwardOnlyRaw ? JSON.parse(forwardOnlyRaw).forwardOnly === true : false;
     
@@ -1182,7 +1182,7 @@ async function handleMailgunPayload(
       console.log(`[inbox] ${storageName} forward-only mode - skipping KV storage`);
     }
 
-    // Fire email forwarding for Imago human inboxes (non-fatal — storage already succeeded).
+    // Fire email forwarding for Premium human inboxes (non-fatal — storage already succeeded).
     // Keyed by agentName (base identity), not storageName — forwarding config is tied to the
     // on-chain NFT identity, not the @-local-part variant.
     try {
@@ -1460,7 +1460,7 @@ async function _handleEmail(message: EmailMessage, env: Env, ctx: ExecutionConte
 // ── Handler: GET /public/agent/:name ────────────────────────────────────────
 export async function _handlePublicAgent(agentName: string, env: Env, request: Request): Promise<Response> {
   try {
-        // Read from KV (fast path) and D1 (if PUPA+)
+        // Read from KV (fast path) and D1 (if LITE+)
         const [kvRaw, tierRaw, privacyRaw] = await Promise.all([
           env.INBOX_KV.get(`nftmailgno:${agentName}`),
           env.INBOX_KV.get(`acct-tier:${agentName}`),
@@ -1730,7 +1730,7 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
           const kvKeyName = domainPfx ? `${domainPfx}:${agent}` : agent;
           const baseAgent = agent.replace(/_+$/, '');
 
-          // ── Phase 5: D1-first for PUPA+ ───────────────────────────────────
+          // ── Phase 5: D1-first for LITE+ ───────────────────────────────────
           if (env.NFTMAIL_DB) {
             try {
               const d1 = new D1Store(env.NFTMAIL_DB);
@@ -1766,7 +1766,7 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
             }
           }
 
-          // ── KV path: LARVA accounts only ──
+          // ── KV path: BASIC accounts only ──
           const blindIdxRaw = await env.INBOX_KV.get(`blind-index:${kvKeyName}`);
           if (blindIdxRaw) {
             const blindIds: string[] = JSON.parse(blindIdxRaw);
@@ -2061,7 +2061,7 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
           if (!agentName) {
             return corsify(Response.json({ error: 'Missing agentName' }, { status: 400 }), request);
           }
-          // ── Phase 3: D1 read for PUPA+ identity fields ────────────────────
+          // ── Phase 3: D1 read for LITE+ identity fields ────────────────────
           let _d1Row: import('./d1').AgentRow | null = null;
           if (env.NFTMAIL_DB) {
             try { _d1Row = await new D1Store(env.NFTMAIL_DB).getAgent(agentName); }
@@ -2081,7 +2081,7 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
           // Fetch explicit principal override (if set via setPrincipal action)
           const principalRaw = await env.INBOX_KV.get(`principal:${agentName}`);
 
-          // Parse identity NFT record — D1 takes precedence for PUPA+
+          // Parse identity NFT record — D1 takes precedence for LITE+
           let originNft: string | null = _d1Row?.origin_nft ?? null;
           let tokenId: number | null = null;
           let onChainOwner: string | null = _d1Row?.controller ?? null;
@@ -2659,7 +2659,7 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
             }));
             
             // Add aliases for owned base agents (e.g., rgbanksy owns rgbanksy_)
-            // Only for pupa (lite) tier or above — larva (basic) does not get a _ alias
+            // Only for lite (lite) tier or above — basic (basic) does not get a _ alias
             for (const baseName of ownedBaseNames) {
               const tierRaw = await env.INBOX_KV.get(`acct-tier:${baseName}`);
               if (tierRaw) {
@@ -2701,7 +2701,7 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
           }
         }
 
-        // Inbox Config: get/set forward-only toggle for IMAGO tier (reduce clutter)
+        // Inbox Config: get/set forward-only toggle for PREMIUM tier (reduce clutter)
         if (email.action === 'getInboxConfig') {
           const agentName = ((email as any).agentName || '').toLowerCase().trim();
           if (!agentName) {
@@ -2935,7 +2935,7 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
           const owner  = ((email as any).ownerAddress || '').toLowerCase();
           const note   = (email as any).auditNote || '';
           if (!agent || !tld || !owner) return corsify(Response.json({ error: 'Missing agentName, tld, or ownerAddress' }, { status: 400 }), request);
-          if (tld === 'picoclaw.gno') return corsify(Response.json({ error: 'PICOCLAW: upgrade to PUPA first' }, { status: 403 }), request);
+          if (tld === 'picoclaw.gno') return corsify(Response.json({ error: 'PICOCLAW: upgrade to LITE first' }, { status: 403 }), request);
           await env.INBOX_KV.put(`xmtp:${agent}:${tld}`, JSON.stringify({ enabled: enable, updatedAt: Date.now(), owner, note }));
           return corsify(Response.json({ status: 'ok', enabled: enable }), request);
         }
@@ -3728,7 +3728,7 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
           }), request);
         }
 
-        // Imago Forwarding: Get forwarding configuration
+        // Premium Forwarding: Get forwarding configuration
         if (email.action === 'getForwardingConfig') {
           const agentName = ((email as any).agentName || '').toLowerCase().trim();
           
@@ -3739,20 +3739,20 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
           const configKey = `forwarding:${agentName}`;
           const configData = await env.INBOX_KV.get(configKey);
           
-          // Check acct-tier for Imago level default forwarding
+          // Check acct-tier for Premium level default forwarding
           if (!configData) {
             const acctTierKey = `acct-tier:${agentName}`;
             const acctTierData = await env.INBOX_KV.get(acctTierKey);
             
             if (acctTierData) {
               const acctTier = JSON.parse(acctTierData);
-              if (acctTier.tier === 'imago' && acctTier.forwardingEmail) {
+              if (acctTier.tier === 'premium' && acctTier.forwardingEmail) {
                 return corsify(Response.json({
                   agentName,
                   config: {
                     enabled: true,
                     targetEmail: acctTier.forwardingEmail,
-                    level: 'imago'
+                    level: 'premium'
                   }
                 }), request);
               }
@@ -3765,7 +3765,7 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
           }), request);
         }
 
-        // Imago Forwarding: Set forwarding configuration
+        // Premium Forwarding: Set forwarding configuration
         if (email.action === 'setForwardingConfig') {
           const agentName = ((email as any).agentName || '').toLowerCase().trim();
           const config = (email as any).config;
@@ -3774,7 +3774,7 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
             return corsify(Response.json({ error: 'Missing agentName or config' }, { status: 400 }), request);
           }
           
-          // Validate agent is Imago level
+          // Validate agent is Premium level
           const acctTierKey = `acct-tier:${agentName}`;
           const acctTierData = await env.INBOX_KV.get(acctTierKey);
           
@@ -3783,8 +3783,8 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
           }
           
           const acctTier = JSON.parse(acctTierData);
-          if (acctTier.tier !== 'imago' && acctTier.tier !== 'ghost') {
-            return corsify(Response.json({ error: 'Forwarding only available for Imago and Ghost level agents' }, { status: 403 }), request);
+          if (acctTier.tier !== 'premium' && acctTier.tier !== 'ghost') {
+            return corsify(Response.json({ error: 'Forwarding only available for Premium and Ghost level agents' }, { status: 403 }), request);
           }
           
           const configKey = `forwarding:${agentName}`;
@@ -3799,7 +3799,7 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
           }), request);
         }
 
-        // Imago Forwarding: Delete forwarding configuration
+        // Premium Forwarding: Delete forwarding configuration
         if (email.action === 'deleteForwardingConfig') {
           const agentName = ((email as any).agentName || '').toLowerCase().trim();
           
@@ -3816,7 +3816,7 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
           }), request);
         }
 
-        // Imago Forwarding: Get forwarding log
+        // Premium Forwarding: Get forwarding log
         if (email.action === 'getForwardingLog') {
           const agentName = ((email as any).agentName || '').toLowerCase().trim();
           
@@ -3842,7 +3842,7 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
           
           const key = `forwarding:${agentName}`;
           const configRaw = await env.INBOX_KV.get(key);
-          const config = configRaw ? JSON.parse(configRaw) : { enabled: false, targetEmail: '', level: 'imago' };
+          const config = configRaw ? JSON.parse(configRaw) : { enabled: false, targetEmail: '', level: 'premium' };
           
           return corsify(Response.json(config), request);
         }
@@ -3997,7 +3997,7 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
           }
           try {
             const db = env.NFTMAIL_DB;
-            const [agents, pupaCount, recentAgents] = await Promise.all([
+            const [agents, liteCount, recentAgents] = await Promise.all([
               db.prepare('SELECT COUNT(*) as count FROM agents').first<{ count: number }>(),
               db.prepare("SELECT COUNT(*) as count FROM agents WHERE tier != 'basic'").first<{ count: number }>(),
               db.prepare('SELECT label, tier, controller, created_at FROM agents ORDER BY created_at DESC LIMIT 10').all(),
@@ -4006,7 +4006,7 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
               configured: true,
               healthy: true,
               totalAgents: agents?.count ?? 0,
-              pupaPlusAgents: pupaCount?.count ?? 0,
+              litePlusAgents: liteCount?.count ?? 0,
               recentAgents: recentAgents.results ?? [],
             }), request);
           } catch (e) {
@@ -4047,19 +4047,19 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
           
           const nowMsDiag = Date.now();
           const todayUtcMsDiag = nowMsDiag - (nowMsDiag % 86400000);
-          const isPupa = tierData.tier === 'pupa';
-          const dailyUsed = isPupa ? (tierData.dailySendCount || 0) : undefined;
-          const dailyWindowFresh = isPupa && (tierData.dailySendWindowStart || 0) >= todayUtcMsDiag;
+          const isLite = tierData.tier === 'lite';
+          const dailyUsed = isLite ? (tierData.dailySendCount || 0) : undefined;
+          const dailyWindowFresh = isLite && (tierData.dailySendWindowStart || 0) >= todayUtcMsDiag;
           
           return corsify(Response.json({
             agentName,
             tier: tierData.tier,
             expiresAt: tierData.expires_at,
-            // LARVA lifetime counter
+            // BASIC lifetime counter
             sendsRemaining: currentRemaining,
             sendsUsed: tierData.sendsUsed || 0,
-            // PUPA daily rolling counter
-            ...(isPupa && {
+            // LITE daily rolling counter
+            ...(isLite && {
               dailySendCount: dailyWindowFresh ? dailyUsed : 0,
               dailySendRemaining: dailyWindowFresh ? (100 - (dailyUsed ?? 0)) : 100,
               dailyLimit: 100,
@@ -4237,7 +4237,7 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
           const inbox = await env.INBOX_KV.get(`inbox:${agent}`);
           const messages = inbox ? JSON.parse(inbox) : [];
           const tier = await env.INBOX_KV.get(`tier:${agent}`);
-          const tierData = tier ? JSON.parse(tier) : { tier: 'larva', sendsUsed: 0 };
+          const tierData = tier ? JSON.parse(tier) : { tier: 'basic', sendsUsed: 0 };
 
           return corsify(Response.json({
             success: true,
@@ -4509,7 +4509,7 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
           }), request);
         }
 
-        // --- Trial Registration: KV-only entry for freemium agents ---
+        // --- Trial Registration: KV-only entry for free agents ---
         // Called by /api/register-trial to create shadow mint without NFT.
         // No auth required - rate limited and IP-keyed.
         if (email.action === 'registerTrial') {
@@ -4543,14 +4543,14 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
             return corsify(Response.json({ error: 'Claim code already used' }, { status: 409 }), request);
           }
 
-          // 8-day destroy cycle for freemium tier
+          // 8-day destroy cycle for free tier
           const EIGHT_DAYS_MS = 8 * 24 * 60 * 60 * 1000;
           const now = Date.now();
           const creatorIp = request.headers.get('cf-connecting-ip') || 'unknown';
 
-          // Create trial KV entries - freemium tier
+          // Create trial KV entries - free tier
           const trialEntry = JSON.stringify({
-            type: 'freemium',
+            type: 'free',
             status: 'trial',
             claimCode,
             sendsRemaining: 10,
@@ -4564,8 +4564,8 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
           });
 
           const tierEntry = JSON.stringify({
-            tier: 'freemium',
-            type: 'freemium',
+            tier: 'free',
+            type: 'free',
             expiresAt: now + EIGHT_DAYS_MS,
             upgradedAt: null,
             safe: null,
@@ -4582,7 +4582,7 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
 
           return corsify(Response.json({
             status: 'trial_created',
-            type: 'freemium',
+            type: 'free',
             name: kvKey,
             email: `${name}@nftmail.box`,
             expiresAt: now + EIGHT_DAYS_MS,
@@ -4711,7 +4711,7 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
         }
 
         // --- Destroy and Recreate (8-day destroy cycle) ---
-        // Destroys expired freemium inbox and creates fresh trial
+        // Destroys expired free inbox and creates fresh trial
         if (email.action === 'destroyAndRecreate') {
           const name: string = ((email as any).name || '').toLowerCase().trim();
           const requestIp = request.headers.get('cf-connecting-ip') || 'unknown';
@@ -4731,10 +4731,10 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
 
           const trial = JSON.parse(trialData);
           
-          // Only freemium trials can be destroyed and recreated
-          if (trial.type !== 'freemium') {
+          // Only free trials can be destroyed and recreated
+          if (trial.type !== 'free') {
             return corsify(Response.json({ 
-              error: 'Only freemium inboxes can be destroyed and recreated',
+              error: 'Only free inboxes can be destroyed and recreated',
               type: trial.type 
             }, { status: 403 }), request);
           }
@@ -4772,7 +4772,7 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
           const newCreatorIp = requestIp;
 
           const newTrialEntry = JSON.stringify({
-            type: 'freemium',
+            type: 'free',
             status: 'trial',
             claimCode: newClaimCode,
             sendsRemaining: 10,
@@ -4788,8 +4788,8 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
           });
 
           const newTierEntry = JSON.stringify({
-            tier: 'freemium',
-            type: 'freemium',
+            tier: 'free',
+            type: 'free',
             expiresAt: now + EIGHT_DAYS_MS,
             upgradedAt: null,
             safe: null,
@@ -4811,7 +4811,7 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
 
           return corsify(Response.json({
             status: 'recreated',
-            type: 'freemium',
+            type: 'free',
             name: kvKey,
             email: `${name}@nftmail.box`,
             expiresAt: now + EIGHT_DAYS_MS,
@@ -4850,7 +4850,7 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
           return corsify(Response.json({ pending: true, ...JSON.parse(raw) }), request);
         }
 
-        // --- Upgrade Tier: Freemium → Professional/Vault ---
+        // --- Upgrade Tier: Free → Professional/Vault ---
         if (email.action === 'upgradeTier') {
           const name: string = ((email as any).name || '').toLowerCase().trim();
           const targetTier: string = ((email as any).tier || '').toLowerCase();
@@ -4880,10 +4880,10 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
           
           const trial = JSON.parse(trialData);
           
-          // Can only upgrade freemium inboxes
-          if (trial.type !== 'freemium' && trial.type !== 'trial') {
+          // Can only upgrade free inboxes
+          if (trial.type !== 'free' && trial.type !== 'trial') {
             return corsify(Response.json({ 
-              error: 'Can only upgrade freemium inboxes',
+              error: 'Can only upgrade free inboxes',
               currentType: trial.type 
             }, { status: 403 }), request);
           }
@@ -4991,7 +4991,7 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
           // KV key: use legacyIdentity (dot format: mac.slave) if provided, else label (hyphen: mac-slave)
           // resolveAddress looks up by the email local-part (dot format)
           const kvKey = legacyIdentity || label;
-          // Tier system: basic = 8-day message retention (identity permanent), lite/pupa = 30-day retention + send enabled + Safe body
+          // Tier system: basic = 8-day message retention (identity permanent), lite/lite = 30-day retention + send enabled + Safe body
           const accountTier: string = (email as any).accountTier || 'basic';
           const expiresAt = null; // All BYO tiers: permanent — governed by NFT ownership, not a subscription clock
 
@@ -5035,7 +5035,7 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
           await env.INBOX_KV.put(acctKey, String(acctCount + 1));
 
           // ── Phase 1 D1 shadow write ──────────────────────────────────────
-          // PUPA+ only on registration (LARVA stays KV-only).
+          // LITE+ only on registration (BASIC stays KV-only).
           // Shadow mode: non-fatal, KV is still source of truth.
           if ((accountTier === 'lite' || accountTier === 'professional' || accountTier === 'premium' || accountTier === 'ghost') && env.NFTMAIL_DB) {
             try {
@@ -5075,8 +5075,8 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
           }), request);
         }
 
-        // --- FID Provision: LARVA agent from Farcaster Frame (no wallet required) ---
-        // Creates a KV-only LARVA agent tied to a Farcaster ID.
+        // --- FID Provision: BASIC agent from Farcaster Frame (no wallet required) ---
+        // Creates a KV-only BASIC agent tied to a Farcaster ID.
         // 8-day retention; upgrade path via BYO NFT molt or wallet linking.
         // Frame server validates Farcaster message signature before calling this.
         if (email.action === 'provisionFidAgent') {
@@ -5137,14 +5137,14 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
             }), request);
           }
 
-          // LARVA tier: 8-day inbox history window, no Safe, KV-only
+          // BASIC tier: 8-day inbox history window, no Safe, KV-only
           // Farcaster accounts: NO expiry - just exhaust send quota
           const EIGHT_DAYS_MS  =  8 * 24 * 60 * 60 * 1000;
           const now = Date.now();
 
           const kvEntry = JSON.stringify({
             controller: `fid:${fid}`, // FID is the principal until wallet linked
-            origin_nft: null, // No NFT for LARVA
+            origin_nft: null, // No NFT for BASIC
             legacy_identity: null,
             minted_tokenId: null,
             registrar: null,
@@ -5156,7 +5156,7 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
           });
 
           const tierEntry = JSON.stringify({
-            tier: 'basic', // LARVA
+            tier: 'basic', // BASIC
             expires_at: null, // Farcaster: no account expiry - exhaust sends instead
             upgraded_at: null,
             safe: null,
@@ -5220,7 +5220,7 @@ Trailing underscore = machine-readable mail. Routes to the same inbox.
 
 ---
 
-## Your current tier — **LARVA**
+## Your current tier — **BASIC**
 
 Secured by your Farcaster identity. No wallet or NFT required.
 
@@ -5233,17 +5233,17 @@ Secured by your Farcaster identity. No wallet or NFT required.
 
 ## Service tiers
 
-**LARVA** *(you are here)*
+**BASIC** *(you are here)*
 Free. Farcaster-authenticated. 8-day inbox history. 10 sends.
 
-**PUPA** — Permanent. NFT-governed.
+**LITE** — Permanent. NFT-governed.
 Mint a BYO NFT on nftmail.box to claim this tier.
 - 30-day inbox history
 - 50 sends per cycle
 - Gnosis Safe created as your on-chain controller
 - Address is yours as long as you hold the NFT
 
-**IMAGO** — Sovereign. Trait-gated.
+**PREMIUM** — Sovereign. Trait-gated.
 Awarded to Gold-trait POW NFTs and Agent-trait Normies.
 - Unlimited retention, 200 sends
 - Full multisig Safe ownership
@@ -5300,7 +5300,7 @@ Your \`.cast\` address carries over automatically — nothing is lost.
             humanEmail,
             agentEmail,
             fid,
-            tier: 'larva',
+            tier: 'basic',
             expiresAt,
             walletLinked: false,
             upgradePath: '/byo-molt',
@@ -5309,6 +5309,74 @@ Your \`.cast\` address carries over automatically — nothing is lost.
               eciesPrivateKey,
               eciesPrivateKeyWarning: 'Store this private key securely in your client. It will NOT be stored on the server. Required to decrypt your inbox.',
             } : {}),
+          }), request);
+        }
+
+        // --- linkWallet: bind an EOA to a Farcaster-provisioned agent ---
+        // Called from the mini app after user confirms wallet via Farcaster client.
+        // Updates nftmailgno: controller from fid:N to EOA, making the account
+        // visible in listAgents and eligible for byo-molt upgrade.
+        // Auth: fid + agentName must match existing provisioned record.
+        if (email.action === 'linkWallet') {
+          const fid: number = parseInt((email as any).fid || '0', 10);
+          const agentName: string = ((email as any).agentName || '').toLowerCase().trim();
+          const walletAddress: string = ((email as any).walletAddress || '').toLowerCase().trim();
+
+          if (!fid || fid <= 0) return corsify(Response.json({ error: 'Missing fid' }, { status: 400 }), request);
+          if (!agentName) return corsify(Response.json({ error: 'Missing agentName' }, { status: 400 }), request);
+          if (!walletAddress || !/^0x[a-f0-9]{40}$/.test(walletAddress)) {
+            return corsify(Response.json({ error: 'Invalid walletAddress' }, { status: 400 }), request);
+          }
+
+          const regRaw = await env.INBOX_KV.get(`nftmailgno:${agentName}`);
+          if (!regRaw) return corsify(Response.json({ error: 'Agent not found' }, { status: 404 }), request);
+
+          let reg: any = {};
+          try { reg = JSON.parse(regRaw); } catch {}
+
+          // Verify this fid matches the provisioned record
+          if (reg.fid !== fid) {
+            return corsify(Response.json({ error: 'FID does not match agent record' }, { status: 403 }), request);
+          }
+
+          // Optionally verify walletAddress is a verified address for this FID
+          // (non-fatal — Farcaster wallet connect is sufficient auth)
+          let isVerifiedAddress = false;
+          try {
+            const fcRes = await fetch(`https://fnames.farcaster.xyz/transfers?fid=${fid}`);
+            if (fcRes.ok) {
+              // Try Neynar verified addresses
+              const neynarRes = await fetch(`https://api.neynar.com/v2/farcaster/user/bulk?fids=${fid}`, {
+                headers: { 'accept': 'application/json', 'x-neynar-experimental': 'false' },
+              });
+              if (neynarRes.ok) {
+                const nd = await neynarRes.json() as any;
+                const user = nd?.users?.[0];
+                const verified = (user?.verified_addresses?.eth_addresses ?? []).map((a: string) => a.toLowerCase());
+                const custody = (user?.custody_address ?? '').toLowerCase();
+                isVerifiedAddress = verified.includes(walletAddress) || custody === walletAddress;
+              }
+            }
+          } catch { /* non-fatal */ }
+
+          // Update controller to EOA
+          const updatedReg = { ...reg, controller: walletAddress, wallet_linked_at: Date.now(), fid_verified: isVerifiedAddress };
+          await env.INBOX_KV.put(`nftmailgno:${agentName}`, JSON.stringify(updatedReg));
+
+          // Update acct-tier controller too
+          const tierRaw = await env.INBOX_KV.get(`acct-tier:${agentName}`);
+          let tierData: any = {};
+          try { tierData = tierRaw ? JSON.parse(tierRaw) : {}; } catch {}
+          tierData.controller = walletAddress;
+          tierData.wallet_linked_at = Date.now();
+          await env.INBOX_KV.put(`acct-tier:${agentName}`, JSON.stringify(tierData));
+
+          return corsify(Response.json({
+            status: 'linked',
+            agentName,
+            walletAddress,
+            isVerifiedAddress,
+            tier: tierData.tier || 'basic',
           }), request);
         }
 
@@ -5402,9 +5470,9 @@ Your \`.cast\` address carries over automatically — nothing is lost.
           }
 
           // ── Rolling send-limit logic ──────────────────────────────────────────
-          // LARVA (basic): 10 lifetime sends (sendsRemaining, no reset)
-          // PUPA:          100 sends/day rolling — counter resets each UTC day
-          // IMAGO / vault: unlimited
+          // BASIC (basic): 10 lifetime sends (sendsRemaining, no reset)
+          // LITE:          100 sends/day rolling — counter resets each UTC day
+          // PREMIUM / vault: unlimited
           const tier: string = tierData.tier || 'basic';
           const nowMs = Date.now();
           // UTC midnight of today (ms)
@@ -5421,7 +5489,7 @@ Your \`.cast\` address carries over automatically — nothing is lost.
             tierData.sendsRemaining = remaining - 1;
             tierData.sendsUsed = (tierData.sendsUsed || 0) + 1;
             sendsRemainingOut = tierData.sendsRemaining;
-          } else if (tier === 'pupa') {
+          } else if (tier === 'lite') {
             const DAILY_LIMIT = 100;
             // Reset counter if we've crossed into a new UTC day
             if ((tierData.dailySendWindowStart || 0) < todayUtcMs) {
@@ -5442,7 +5510,7 @@ Your \`.cast\` address carries over automatically — nothing is lost.
             tierData.dailySendWindowStart = todayUtcMs;
             sendsRemainingOut = DAILY_LIMIT - tierData.dailySendCount;
           }
-          // imago / vault / professional: fall through with sendsRemainingOut = 'unlimited'
+          // premium / vault / professional: fall through with sendsRemainingOut = 'unlimited'
 
           const sendApiKey = env.MG_SENDING_MAILGUN_API_KEY || env.MG_MAILGUN_API_KEY || env.GM_MAILGUN_API_KEY || env.SEND_MAILGUN_API_KEY || env.MAILGUN_API_KEY;
           if (!sendApiKey) {
@@ -5469,7 +5537,7 @@ Your \`.cast\` address carries over automatically — nothing is lost.
           return corsify(Response.json({ status: 'sent', sendsRemaining: sendsRemainingOut }), request);
         }
 
-        // --- upgradeFidAgent: LARVA → PUPA after NFT mint ---
+        // --- upgradeFidAgent: BASIC → LITE after NFT mint ---
         // Called by mint callback. Links wallet, provisions _@ agent address, upgrades tier.
         if (email.action === 'upgradeFidAgent') {
           const secret = (email as any).secret || request.headers.get('X-Webhook-Secret') || '';
@@ -5497,7 +5565,7 @@ Your \`.cast\` address carries over automatically — nothing is lost.
           }
 
           const now = Date.now();
-          const PUPA_RETENTION_MS = 365 * 24 * 60 * 60 * 1000; // 1 year
+          const LITE_RETENTION_MS = 365 * 24 * 60 * 60 * 1000; // 1 year
 
           // 1. Upgrade human record — link wallet, add NFT provenance
           const humanRecord = JSON.parse(existingRaw);
@@ -5506,10 +5574,10 @@ Your \`.cast\` address carries over automatically — nothing is lost.
           humanRecord.minted_tokenId = tokenId || null;
           humanRecord.upgraded_at = now;
 
-          // 2. Upgrade tier to pupa
+          // 2. Upgrade tier to lite
           const tierEntry = JSON.stringify({
-            tier: 'pupa',
-            expires_at: now + PUPA_RETENTION_MS,
+            tier: 'lite',
+            expires_at: now + LITE_RETENTION_MS,
             upgraded_at: now,
             safe: null,
             retention: '1-year',
@@ -5530,8 +5598,8 @@ Your \`.cast\` address carries over automatically — nothing is lost.
             type: 'agent', // distinguishes from human address
           });
           const agentTierEntry = JSON.stringify({
-            tier: 'pupa',
-            expires_at: now + PUPA_RETENTION_MS,
+            tier: 'lite',
+            expires_at: now + LITE_RETENTION_MS,
             upgraded_at: now,
             safe: null,
             retention: '1-year',
@@ -5547,7 +5615,7 @@ Your \`.cast\` address carries over automatically — nothing is lost.
           ]);
 
           // ── Phase 1 D1 shadow write ──────────────────────────────────────
-          // Write PUPA agent to D1 for relational queries
+          // Write LITE agent to D1 for relational queries
           if (env.NFTMAIL_DB) {
             try {
               const d1 = new D1Store(env.NFTMAIL_DB);
@@ -5555,11 +5623,11 @@ Your \`.cast\` address carries over automatically — nothing is lost.
                 label: agentName,
                 controller: wallet,
                 tld: 'nftmail.gno',
-                tier: 'pupa',
+                tier: 'lite',
                 safe: null,
                 ecies_pubkey: null,
                 retention: '1-year',
-                expires_at: now + PUPA_RETENTION_MS,
+                expires_at: now + LITE_RETENTION_MS,
                 story_ip: null,
                 origin_nft: originNft || null,
                 origin_image: null,
@@ -5572,11 +5640,11 @@ Your \`.cast\` address carries over automatically — nothing is lost.
                 label: `${agentName}_`,
                 controller: wallet,
                 tld: 'nftmail.gno',
-                tier: 'pupa',
+                tier: 'lite',
                 safe: null,
                 ecies_pubkey: null,
                 retention: '1-year',
-                expires_at: now + PUPA_RETENTION_MS,
+                expires_at: now + LITE_RETENTION_MS,
                 story_ip: null,
                 origin_nft: originNft || null,
                 origin_image: null,
@@ -5596,9 +5664,9 @@ Your \`.cast\` address carries over automatically — nothing is lost.
             agentName,
             humanEmail,
             agentEmail,
-            tier: 'pupa',
+            tier: 'lite',
             wallet,
-            message: 'LARVA → PUPA. Agent address provisioned.',
+            message: 'BASIC → LITE. Agent address provisioned.',
           }), request);
         }
 
@@ -5636,7 +5704,7 @@ Your \`.cast\` address carries over automatically — nothing is lost.
           await env.INBOX_KV.put(`nftmailgno:${agentName}`, JSON.stringify(existing));
 
           // ── Phase 1 D1 shadow write ──────────────────────────────────────
-          // Update controller in D1 if agent already exists there (PUPA+ agents)
+          // Update controller in D1 if agent already exists there (LITE+ agents)
           if (env.NFTMAIL_DB) {
             try {
               const d1 = new D1Store(env.NFTMAIL_DB);
@@ -5704,21 +5772,21 @@ Your \`.cast\` address carries over automatically — nothing is lost.
           let existingTierData: any = {};
           try { existingTierData = existingTierRaw ? JSON.parse(existingTierRaw) : {}; } catch {}
 
-          // Lite/Pupa (PUPA): 30-day retention window (renewable), unlocks send
-          // Premium/PRO/Imago: 1yr subscription window, infinite KV retention (no TTL on messages)
+          // Lite/Lite (LITE): 30-day retention window (renewable), unlocks send
+          // Premium/PRO/Premium: 1yr subscription window, infinite KV retention (no TTL on messages)
           // Ghost: full agent identity, infinite retention
           const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000;
           const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
           const isPro = newTierStr === 'premium' || newTierStr === 'ghost' || newTierStr === 'professional';
-          const isImago = newTierStr === 'professional';
+          const isPremium = newTierStr === 'professional';
           const isLite = newTierStr === 'lite';
-          const isFreemium = newTierStr === 'freemium';
+          const isFree = newTierStr === 'free';
           const retention: 'infinite' | '30-day' | '8-day' = ((email as any).retention === 'infinite' || isPro) ? 'infinite' : isLite ? '30-day' : '8-day';
           let newExpiresAt: number | null = existingTierData.expires_at || null;
-          // lite (Pupa): permanent — governed by NFT ownership, no rolling subscription clock
+          // lite (Lite): permanent — governed by NFT ownership, no rolling subscription clock
           if (isLite) newExpiresAt = null;
-          else if (isImago) newExpiresAt = null; // Imago: no expiry — governed by NFT ownership
-          else if (isFreemium) newExpiresAt = Date.now() + THIRTY_DAYS_MS; // Freemium: hard 30-day expiry for API/SDK trial
+          else if (isPremium) newExpiresAt = null; // Premium: no expiry — governed by NFT ownership
+          else if (isFree) newExpiresAt = Date.now() + THIRTY_DAYS_MS; // Free: hard 30-day expiry for API/SDK trial
           else if (isPro) newExpiresAt = Date.now() + ONE_YEAR_MS;
 
           const updatedTier = JSON.stringify({
@@ -5768,7 +5836,7 @@ Your \`.cast\` address carries over automatically — nothing is lost.
           }
 
           // ── Phase 1 D1 shadow write ──────────────────────────────────────
-          // PUPA+ only — LARVA stays KV-only.
+          // LITE+ only — BASIC stays KV-only.
           // Non-fatal: KV is still source of truth until Phase 3.
           if (newTierStr !== 'basic' && env.NFTMAIL_DB) {
             try {
@@ -5815,7 +5883,7 @@ Your \`.cast\` address carries over automatically — nothing is lost.
         }
 
         // --- Freeze Email: Stake-to-Freeze High-Value Memory ---
-        // Pupa tier: lock 50 $SURGE against a specific emailId to remove its TTL
+        // Lite tier: lock 50 $SURGE against a specific emailId to remove its TTL
         if (email.action === 'freezeEmail') {
           const secret = (email as any).secret || request.headers.get('X-Webhook-Secret') || '';
           if (env.WEBHOOK_SECRET && secret !== env.WEBHOOK_SECRET) {
@@ -5827,13 +5895,13 @@ Your \`.cast\` address carries over automatically — nothing is lost.
           if (!label || !emailId) {
             return corsify(Response.json({ error: 'Missing label or emailId' }, { status: 400 }), request);
           }
-          // Verify tier is at least pupa/lite
+          // Verify tier is at least lite/lite
           const freezeTierRaw = await env.INBOX_KV.get(`acct-tier:${label}`);
           let freezeTierData: any = {};
           try { freezeTierData = freezeTierRaw ? JSON.parse(freezeTierRaw) : {}; } catch {}
           const freezeTier = freezeTierData.tier || 'basic';
           if (freezeTier === 'basic') {
-            return corsify(Response.json({ error: 'Freeze requires Pupa tier or above. Molt at nftmail.box' }, { status: 403 }), request);
+            return corsify(Response.json({ error: 'Freeze requires Lite tier or above. Molt at nftmail.box' }, { status: 403 }), request);
           }
           // Fetch existing blind envelope
           const blindKey = `blind:${label}:${emailId}`;
@@ -5977,11 +6045,11 @@ Your \`.cast\` address carries over automatically — nothing is lost.
         }
 
         // ── Episodic Memory ───────────────────────────────────────────────────
-        // LARVA: KV only (memory:{agentName} JSON array, capped at 200)
-        // PUPA:  D1 memory table, capped at 200 rows (oldest trimmed)
-        // IMAGO/GHOST: D1 memory table, unlimited rows, full tag+session filtering
+        // BASIC: KV only (memory:{agentName} JSON array, capped at 200)
+        // LITE:  D1 memory table, capped at 200 rows (oldest trimmed)
+        // PREMIUM/GHOST: D1 memory table, unlimited rows, full tag+session filtering
         //
-        // Cross-agent coordination: shared_context D1 table for PUPA+, KV fallback.
+        // Cross-agent coordination: shared_context D1 table for LITE+, KV fallback.
 
         if (email.action === 'setMemory') {
           const agentName = ((email as any).agentName || '').toLowerCase().trim();
@@ -6007,7 +6075,7 @@ Your \`.cast\` address carries over automatically — nothing is lost.
             if (tierRaw) { try { agentTier = JSON.parse(tierRaw).tier ?? 'basic'; } catch {} }
           }
 
-          // ── LARVA: KV path ──
+          // ── BASIC: KV path ──
           if (agentTier === 'basic') {
             const maxEntries = 200;
             const memKey = `memory:${agentName}`;
@@ -6019,13 +6087,13 @@ Your \`.cast\` address carries over automatically — nothing is lost.
               ...newEntries.map((e: any, i: number) => ({ id: `${ts}-${i}`, ts, ...e })),
             ].slice(-maxEntries);
             await env.INBOX_KV.put(memKey, JSON.stringify(appended));
-            return corsify(Response.json({ status: 'stored', agentName, tier: 'larva', total: appended.length, appended: newEntries.length }), request);
+            return corsify(Response.json({ status: 'stored', agentName, tier: 'basic', total: appended.length, appended: newEntries.length }), request);
           }
 
-          // ── PUPA+: D1 path ──
-          // cap: 200 for pupa, unlimited (null) for imago/ghost
-          const isPupa = agentTier === 'lite';
-          const memoryCap = isPupa ? 200 : null;
+          // ── LITE+: D1 path ──
+          // cap: 200 for lite, unlimited (null) for premium/ghost
+          const isLite = agentTier === 'lite';
+          const memoryCap = isLite ? 200 : null;
           const d1 = new D1Store(env.NFTMAIL_DB!);
           let appended = 0;
           for (const entry of newEntries) {
@@ -6057,14 +6125,14 @@ Your \`.cast\` address carries over automatically — nothing is lost.
           const filterTag: string | null = (email as any).tag || null;
           const filterSession: string | null = (email as any).sessionId || null;
 
-          // ── D1-first for PUPA+ ──
+          // ── D1-first for LITE+ ──
           if (env.NFTMAIL_DB) {
             try {
               const d1 = new D1Store(env.NFTMAIL_DB);
               const agentRow = await d1.getAgent(agentName);
               if (agentRow && agentRow.tier !== 'basic') {
-                const isImago = agentRow.tier === 'premium' || agentRow.tier === 'ghost';
-                const maxLimit = isImago ? 500 : 200;
+                const isPremium = agentRow.tier === 'premium' || agentRow.tier === 'ghost';
+                const maxLimit = isPremium ? 500 : 200;
                 const limit = Math.min(parseInt(String((email as any).limit ?? '50'), 10), maxLimit);
                 const rows = await d1.getRecentMemory(agentName, {
                   limit,
@@ -6084,7 +6152,7 @@ Your \`.cast\` address carries over automatically — nothing is lost.
             }
           }
 
-          // ── KV fallback (LARVA or D1 miss) ──
+          // ── KV fallback (BASIC or D1 miss) ──
           const limit = Math.min(parseInt(String((email as any).limit ?? '50'), 10), 200);
           const raw = await env.INBOX_KV.get(`memory:${agentName}`);
           let entries: any[] = [];
@@ -6096,8 +6164,8 @@ Your \`.cast\` address carries over automatically — nothing is lost.
         }
 
         // ── Cross-Agent Shared Context ────────────────────────────────────────
-        // PUPA+: D1 shared_context table (concurrent-safe upsert, writer attribution)
-        // LARVA: KV fallback
+        // LITE+: D1 shared_context table (concurrent-safe upsert, writer attribution)
+        // BASIC: KV fallback
         if (email.action === 'setSharedContext') {
           const namespace = ((email as any).namespace || '').toLowerCase().trim();
           if (!namespace) {
@@ -6343,8 +6411,8 @@ Your \`.cast\` address carries over automatically — nothing is lost.
               }), request);
             }
             if (sExists) {
-              // All sovereign human inboxes default to private — LARVA is plaintext but not public.
-              // Encryption (ECIES) is unlocked at PUPA (lite) via Safe deployment.
+              // All sovereign human inboxes default to private — BASIC is plaintext but not public.
+              // Encryption (ECIES) is unlocked at LITE (lite) via Safe deployment.
               // Explicit KV privacy: record overrides this default.
               if (!sPrivacy) {
                 sPrivacyTier = 'private';
@@ -6770,9 +6838,9 @@ Your \`.cast\` address carries over automatically — nothing is lost.
           let ttlSeconds: number;
           if (tierRaw) {
             const tierData = JSON.parse(tierRaw);
-            // larva/basic = 8 days, pupa/professional/vault = 30 days
-            const isLarva = !tierData.tier || tierData.tier === 'basic' || tierData.tier === 'larva';
-            ttlSeconds = isLarva ? 8 * 24 * 60 * 60 : 30 * 24 * 60 * 60;
+            // basic/basic = 8 days, lite/professional/vault = 30 days
+            const isBasic = !tierData.tier || tierData.tier === 'basic' || tierData.tier === 'basic';
+            ttlSeconds = isBasic ? 8 * 24 * 60 * 60 : 30 * 24 * 60 * 60;
           } else {
             ttlSeconds = 8 * 24 * 60 * 60; // default 8-day
           }
@@ -6832,7 +6900,7 @@ Your \`.cast\` address carries over automatically — nothing is lost.
           return corsify(Response.json({ status: 'deleted', agent, messageId }), request);
         }
 
-        // Check freemium send allowance and increment counter atomically
+        // Check free send allowance and increment counter atomically
         // Updated for 8-day destroy cycle: uses sendsRemaining from trial entry
         if (email.action === 'checkAndIncrementSendCount') {
           const agent = (email as any).localPart || '';
@@ -6854,7 +6922,7 @@ Your \`.cast\` address carries over automatically — nothing is lost.
           }
           
           const trial = JSON.parse(trialData);
-          const tier = tierData ? JSON.parse(tierData) : { tier: 'freemium' };
+          const tier = tierData ? JSON.parse(tierData) : { tier: 'free' };
           
           // Check if expired (8-day destroy cycle)
           const isExpired = trial.expiresAt && now > trial.expiresAt;
@@ -6868,7 +6936,7 @@ Your \`.cast\` address carries over automatically — nothing is lost.
             }), request);
           }
           
-          // Basic/Larva tier: 10-send lifetime limit tracked in send-count: KV
+          // Basic/Basic tier: 10-send lifetime limit tracked in send-count: KV
           if (!tier.tier || tier.tier === 'basic') {
             const BASIC_SEND_LIMIT = 10;
             const countRaw = await env.INBOX_KV.get(`send-count:${kvKey}`);
@@ -6892,8 +6960,8 @@ Your \`.cast\` address carries over automatically — nothing is lost.
             }), request);
           }
 
-          // Freemium tier: check sendsRemaining
-          if (tier.tier === 'freemium' || trial.type === 'freemium') {
+          // Free tier: check sendsRemaining
+          if (tier.tier === 'free' || trial.type === 'free') {
             const sendsRemaining = trial.sendsRemaining ?? 0;
             const sendsUsed = trial.sendsUsed ?? 0;
             
@@ -6903,7 +6971,7 @@ Your \`.cast\` address carries over automatically — nothing is lost.
                 error: 'Send limit reached',
                 sendsUsed,
                 sendsRemaining: 0,
-                tier: 'freemium',
+                tier: 'free',
                 upgradeRequired: true,
               }), request);
             }
@@ -6920,7 +6988,7 @@ Your \`.cast\` address carries over automatically — nothing is lost.
               allowed: true, 
               sendsUsed: sendsUsed + 1,
               sendsRemaining: sendsRemaining - 1,
-              tier: 'freemium',
+              tier: 'free',
               expiresAt: trial.expiresAt,
               daysRemaining: Math.floor((trial.expiresAt - now) / (24 * 60 * 60 * 1000)),
             }), request);
@@ -7220,7 +7288,7 @@ export default {
   // --- Cron triggers ---
   // */5 * * * *  → heartbeat
   // 0 9 * * 1    → weekly agent report via ghostagent.ninja API
-  // 0 2 * * *    → daily 0G archive sweep for all PUPA+ agents
+  // 0 2 * * *    → daily 0G archive sweep for all LITE+ agents
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
     // ── Daily 0G archive sweep ───────────────────────────────────────────────
     if (event.cron === '0 2 * * *') {
@@ -7229,8 +7297,8 @@ export default {
         return;
       }
       const d1 = new D1Store(env.NFTMAIL_DB);
-      const agents = await d1.getAllPupaAgents();
-      console.log(`[0G cron] archiving ${agents.length} PUPA+ agents`);
+      const agents = await d1.getAllLiteAgents();
+      console.log(`[0G cron] archiving ${agents.length} LITE+ agents`);
       for (const agentRow of agents) {
         if (!agentRow.ecies_pubkey) {
           console.log(`[0G cron] skipping ${agentRow.label} — no ECIES key, cannot encrypt`);

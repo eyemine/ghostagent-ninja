@@ -70,7 +70,7 @@ const BASE_REQUIREMENTS: StakeRequirement[] = [
 
 // agent.gno: $10 send, $100/yr persistence (same as base)
 // molt.gno:  send only, $0.20/email billing — no persistence tier
-// picoclaw:  send only (no persistence — larva tier)
+// picoclaw:  send only (no persistence — basic tier)
 // openclaw:  send + persist available
 // vault:     all tiers
 // nftmail:   all tiers

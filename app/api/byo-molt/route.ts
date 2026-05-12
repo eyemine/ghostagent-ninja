@@ -6,7 +6,7 @@
 ///   2. Verify 2 xDAI fee payment on Gnosis  OR  redeem coupon
 ///   3. Mint beacon NFT: {type}.{tokenId}.nftmail.gno
 ///   4. Register alias email → primaryName inbox
-///   5. Record molt + upgrade tier larva→pupa
+///   5. Record molt + upgrade tier basic→lite
 ///
 /// Body: { primaryName, tokenId, ownerWallet, paymentTxHash?, couponCode?,
 ///         nftType, contractAddress?, nftName? }
@@ -52,10 +52,10 @@ const NFT_SOURCE_CHAIN_ID: Record<string, number> = {
 };
 
 // ── Trait-based tier determination ───────────────────────────────────────────
-// Tier hierarchy: basic (Larva+) < lite (Pupa) < professional (Imago)
+// Tier hierarchy: basic (Basic+) < lite (Lite) < professional (Premium)
 //
-// POW NFT:   Gold trait → imago | Silver trait → lite | all else → basic+
-// Normie:    Agent trait → imago | all else → basic+
+// POW NFT:   Gold trait → premium | Silver trait → lite | all else → basic+
+// Normie:    Agent trait → premium | all else → basic+
 // Chonk:     basic+ (traits mutable/transferable — cannot be used for tier)
 // MoonCat:   basic+
 // ENS / Other: basic+
@@ -75,14 +75,14 @@ function determineTierFromTraits(nftType: string, traits: NftTrait[]): string {
 
   if (nftType === 'pownft') {
     const material = String(traitVal('Material') ?? traitVal('material') ?? '').toLowerCase();
-    if (material === 'gold')   return 'professional'; // Imago
-    if (material === 'silver') return 'lite';          // Pupa
-    return 'basic';                                    // Larva+
+    if (material === 'gold')   return 'professional'; // Premium
+    if (material === 'silver') return 'lite';          // Lite
+    return 'basic';                                    // Basic+
   }
 
   if (nftType === 'normie') {
     const type = String(traitVal('Type') ?? traitVal('type') ?? '').toLowerCase();
-    if (type === 'agent') return 'professional'; // Imago
+    if (type === 'agent') return 'professional'; // Premium
     return 'basic';
   }
 
@@ -354,8 +354,8 @@ export async function POST(req: NextRequest) {
     // The Safe is stored separately in the safe: field of acct-tier and nftmailgno records
 
     // ── Step 3d: Fetch on-chain traits to determine service tier ──
-    // POW NFT: Gold → imago (professional), Silver → lite, else → basic+
-    // Normie:  Agent type → imago, else → basic+
+    // POW NFT: Gold → premium (professional), Silver → lite, else → basic+
+    // Normie:  Agent type → premium, else → basic+
     // Chonk/MoonCat/Other: basic+ (traits mutable or unavailable)
     let accountTier = 'basic';
     try {
@@ -508,7 +508,7 @@ export async function POST(req: NextRequest) {
     // ── Step 5b-ii: Generate ECIES keypair for the HITL human inbox (non-fatal) ──
     // Collection NFT molts provision a sovereign human inbox (humanLocalPart@nftmail.box).
     // upgradeTier auto-generates an ECIES keypair if none exists, enabling darkbox encryption
-    // at PUPA tier. The private key is logged server-side only (not returned to client).
+    // at LITE tier. The private key is logged server-side only (not returned to client).
     if (!isOverlay) {
       try {
         const eciesRes = await fetch(NFTMAIL_WORKER_URL, {

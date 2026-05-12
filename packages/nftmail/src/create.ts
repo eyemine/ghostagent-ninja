@@ -62,7 +62,7 @@ export default async function createCommand(name: string, options: { domain: str
     console.log(chalk.cyan(`📧 Email: ${name}@${options.domain}`));
     console.log(chalk.cyan(`📧 Agent Email: ${name}_@${options.domain}`));
     console.log(chalk.cyan(`🎫 Claim Code: ${claimCode}`));
-    console.log(chalk.cyan(`⏱️  Storage: 8 days (freemium)`));
+    console.log(chalk.cyan(`⏱️  Storage: 8 days (free)`));
     console.log(chalk.cyan(`📤 Sends: 10 remaining`));
     console.log(chalk.gray('─'.repeat(50)));
 

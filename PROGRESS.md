@@ -115,9 +115,9 @@ nft-token:{sld}:{tokenId}
 ## nftmail.box — Key Features
 
 ### Mint tiers
-- **Larva (free):** 8-day history, receive only. Gasless treasury mint via `/api/gasless-mint`.
-- **Pupa (10 xDAI):** 30-day cycle, send + receive, Gnosis Safe body.
-- **Imago (24/yr):** Infinite retention, Story IP NFT, Zoho seat (direct delivery).
+- **Basic (free):** 8-day history, receive only. Gasless treasury mint via `/api/gasless-mint`.
+- **Lite (10 xDAI):** 30-day cycle, send + receive, Gnosis Safe body.
+- **Premium (24/yr):** Infinite retention, Story IP NFT, Zoho seat (direct delivery).
 - **Ghost:** Sovereign agent, governance.
 
 ### ENS Holder free mint ← NEW (2026-03-26)
@@ -217,10 +217,10 @@ Both `/post` and `/reply` now cross-post to Farcaster.
 **Outbound:**
 - Mailgun API via `mg.nftmail.box`, `From: label@nftmail.box` (all tiers)
 
-**Imago/premium (future — zero users currently):**
+**Premium/premium (future — zero users currently):**
 - Completely separate from Mailgun inbound path
 - When provisioning: call Mailgun Routes API to add per-address forward rule → Zoho seat
-- `specificuser@nftmail.box` → Mailgun route → forward to `specificuser@nftmail-imago.zoho.com`
+- `specificuser@nftmail.box` → Mailgun route → forward to `specificuser@nftmail-premium.zoho.com`
 - No DNS changes needed per user — Mailgun routing handles it
 - NOT YET BUILT — design only
 
@@ -228,7 +228,7 @@ Both `/post` and `/reply` now cross-post to Farcaster.
 
 **imap-poll worker:** cron disabled 2026-03-26 (`wrangler.toml` triggers commented out, redeployed). Zoho IMAP no longer polled.
 
-**Remaining Zoho code:** `nftmail-email-worker` still contains `zohoDeleteMessage` / `getZohoAccessToken` — dormant for Mailgun-inbound path (`skipZohoDelete: true`). Safe to leave; remove when Imago provisioning is built.
+**Remaining Zoho code:** `nftmail-email-worker` still contains `zohoDeleteMessage` / `getZohoAccessToken` — dormant for Mailgun-inbound path (`skipZohoDelete: true`). Safe to leave; remove when Premium provisioning is built.
 
 ### Farcaster (Neynar) — 2026-03-26
 - Replaced hand-rolled Ed25519 protobuf → **Neynar REST API** `POST /v2/farcaster/cast`

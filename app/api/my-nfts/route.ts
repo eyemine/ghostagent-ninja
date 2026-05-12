@@ -153,7 +153,7 @@ async function getTotalSupply(contract: string): Promise<number> {
   }
 }
 
-// Check worker KV to see if a body has evolved to PUPA (agent with brain)
+// Check worker KV to see if a body has evolved to LITE (agent with brain)
 async function isAgentRegistered(name: string): Promise<boolean> {
   try {
     const res = await fetch(WORKER_URL, {
@@ -163,7 +163,7 @@ async function isAgentRegistered(name: string): Promise<boolean> {
     });
     if (!res.ok) return false;
     const data = await res.json() as { tier?: string; error?: string };
-    // Agent = PUPA (lite) tier or above; basic = larva (body only)
+    // Agent = LITE (lite) tier or above; basic = basic (body only)
     return !!(data.tier && data.tier !== 'basic' && !data.error);
   } catch {
     return false;

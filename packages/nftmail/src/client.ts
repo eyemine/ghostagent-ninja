@@ -19,7 +19,7 @@ export interface EmailOptions {
 
 export interface AgentConfig {
   name: string;
-  tier: 'freemium' | 'professional' | 'vault';
+  tier: 'free' | 'professional' | 'vault';
   domain?: string; // defaults to nftmail.box
 }
 

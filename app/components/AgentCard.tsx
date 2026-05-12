@@ -8,7 +8,7 @@ import SwarmModeBadge from './SwarmModeBadge';
 
 type AgentTier = 'free' | 'pro';
 type Namespace = 'agent' | 'openclaw' | 'molt' | 'picoclaw' | 'vault' | 'nftmail';
-export type EvolveLevel = 'larva' | 'pupa' | 'imago' | 'ghost';
+export type EvolveLevel = 'basic' | 'lite' | 'premium' | 'ghost';
 export type PrivacyStatus = 'glassbox' | 'private' | 'hard-privacy';
 
 interface AgentCardProps {
@@ -85,9 +85,9 @@ function HeartbeatDot({ lastHeartbeat }: { lastHeartbeat?: number }) {
 }
 
 const EVOLVE_META: Record<EvolveLevel, { icon: string; label: string; color: string; bg: string }> = {
-  larva: { icon: '/collection-icons/larva.png',  label: 'Larva',  color: 'text-zinc-400',    bg: 'bg-zinc-500/10' },
-  pupa:  { icon: '/collection-icons/pupa.png',   label: 'Pupa',   color: 'text-amber-300',   bg: 'bg-amber-500/10' },
-  imago: { icon: '/collection-icons/imago.png',  label: 'Imago',  color: 'text-violet-300',  bg: 'bg-violet-500/10' },
+  basic: { icon: '/collection-icons/basic.png',  label: 'Basic',  color: 'text-zinc-400',    bg: 'bg-zinc-500/10' },
+  lite:  { icon: '/collection-icons/lite.png',   label: 'Lite',   color: 'text-amber-300',   bg: 'bg-amber-500/10' },
+  premium: { icon: '/collection-icons/premium.png',  label: 'Premium',  color: 'text-violet-300',  bg: 'bg-violet-500/10' },
   ghost: { icon: '/collection-icons/ghost.png',  label: 'Ghost',  color: 'text-fuchsia-300', bg: 'bg-fuchsia-500/10' },
 };
 

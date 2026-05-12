@@ -6,10 +6,10 @@
  *   molt-path:{agentName}  →  MoltPathRecord JSON
  *
  * Updated on:
- *   - evolve upgrade   (pupa → imago):  new MoltEvent, xdaiBurned += 14+24
- *   - evolve downgrade (imago → pupa):  new MoltEvent, xdaiBurned unchanged (no fee)
+ *   - evolve upgrade   (lite → premium):  new MoltEvent, xdaiBurned += 14+24
+ *   - evolve downgrade (premium → lite):  new MoltEvent, xdaiBurned unchanged (no fee)
  *   - chonk molt:                       new MoltEvent (type='identity'), lastMoltTimestamp updated
- *   - initial mint:                     record created with larva level
+ *   - initial mint:                     record created with basic level
  *
  * surge_reputation_score:
  *   Linear: 1 point per xDAI burned, capped at 1000.
@@ -78,15 +78,15 @@ export interface TrackResult {
 
 // xDAI costs per action for score calculation
 const XDAI_COSTS: Record<string, number> = {
-  'larva→pupa':   10,
-  'pupa→imago': 38,  // 14 + 24
+  'basic→lite':   10,
+  'lite→premium': 38,  // 14 + 24
   'chonk':       2,
 };
 
 // Bonus multipliers per event type
 const EVENT_MULTIPLIERS: Record<string, number> = {
-  'pupa→imago':  1.5,
-  'larva→pupa':    1.2,
+  'lite→premium':  1.5,
+  'basic→lite':    1.2,
   identity:      1.1,
   chonk:         1.1,
 };
@@ -196,7 +196,7 @@ async function repinBeacon(params: {
   }
 }
 
-// ─── Track evolve (pupa ↔ imago) ─────────────────────────────────────────────
+// ─── Track evolve (lite ↔ premium) ─────────────────────────────────────────────
 
 export async function trackEvolve(
   params: TrackEvolveParams,
@@ -280,7 +280,7 @@ export async function trackMolt(
   const now = Date.now();
 
   const existing = await getMoltPath(params.agentName);
-  const currentLevel = existing?.currentLevel ?? 'larva';
+  const currentLevel = existing?.currentLevel ?? 'basic';
 
   const event: MoltEvent = {
     fromLevel: currentLevel,

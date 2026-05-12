@@ -31,8 +31,8 @@ export interface EmailAliasMeta {
 }
 
 export interface MoltEvent {
-  fromLevel: string;           // e.g. "larva"
-  toLevel: string;             // e.g. "pupa"
+  fromLevel: string;           // e.g. "basic"
+  toLevel: string;             // e.g. "lite"
   xdaiBurned: number;          // fee paid
   txHash: string;
   timestamp: number;
@@ -41,7 +41,7 @@ export interface MoltEvent {
 }
 
 export interface MoltPath {
-  currentLevel: string;        // larva | pupa | imago | ghost
+  currentLevel: string;        // basic | lite | premium | ghost
   totalXdaiBurned: number;
   history: MoltEvent[];
   nextUnlock?: string;         // description of next tier
@@ -124,7 +124,7 @@ export function buildBeaconMetadata(params: BuildBeaconParams): BeaconMetadata {
     tbaAddress = null,
     storyIpDomain = null,
     ipDomains: ipDomainsParam = [],
-    currentLevel = 'larva',
+    currentLevel = 'basic',
     xdaiBurned = 0,
     moltHistory = [],
     aliases = [],
@@ -144,25 +144,25 @@ export function buildBeaconMetadata(params: BuildBeaconParams): BeaconMetadata {
 
   // Derive capabilities from current state
   const capabilities: string[] = ['receive'];
-  if (currentLevel !== 'larva') capabilities.push('send');
+  if (currentLevel !== 'basic') capabilities.push('send');
   if (safeAddress) capabilities.push('safe');
   if (ipDomains.length > 0) capabilities.push('story-ip');
-  if (currentLevel === 'imago' || currentLevel === 'ghost') capabilities.push('infinite-retention');
+  if (currentLevel === 'premium' || currentLevel === 'ghost') capabilities.push('infinite-retention');
   if (currentLevel === 'ghost') capabilities.push('governance');
 
   const primaryEmail = `${agentName}_@nftmail.box`;
 
   const levelDescriptions: Record<string, string> = {
-    larva: 'Free tier. 8-day history window. Inbox address permanent. Receive only.',
-    pupa:  '30-day inbox cycle. Send + receive. Gnosis Safe.',
-    imago: 'Infinite retention. Story .ip NFT. Marketplace badge.',
+    basic: 'Free tier. 8-day history window. Inbox address permanent. Receive only.',
+    lite:  '30-day inbox cycle. Send + receive. Gnosis Safe.',
+    premium: 'Infinite retention. Story .ip NFT. Marketplace badge.',
     ghost: 'Sovereign agent. Governance rights. IP revenue share.',
   };
 
   const nextUnlockMap: Record<string, string> = {
-    larva: 'Upgrade to Pupa: send capability + Gnosis Safe body (10 xDAI)',
-    pupa:  'Evolve to Imago: infinite retention + Story .ip NFT (14 + 24 xDAI/yr)',
-    imago: 'Ascend to Ghost: sovereign governance + IP revenue share',
+    basic: 'Upgrade to Lite: send capability + Gnosis Safe body (10 xDAI)',
+    lite:  'Evolve to Premium: infinite retention + Story .ip NFT (14 + 24 xDAI/yr)',
+    premium: 'Ascend to Ghost: sovereign governance + IP revenue share',
     ghost: 'Max level reached — sovereign agent',
   };
 
@@ -245,9 +245,9 @@ function generateSvgDataUri(
   alias?: EmailAliasMeta | null,
 ): string {
   const levelColors: Record<string, string> = {
-    larva: '#71717a',
-    pupa:  '#f59e0b',
-    imago: '#a78bfa',
+    basic: '#71717a',
+    lite:  '#f59e0b',
+    premium: '#a78bfa',
     ghost: '#e879f9',
   };
   const color = levelColors[level] ?? '#71717a';

@@ -2,7 +2,7 @@
 
 /**
  * NFTMail Upgrade CLI - npx nftmail-upgrade
- * Upgrade from freemium to paid tiers - inboxapi.ai has no upgrades
+ * Upgrade from free to paid tiers - inboxapi.ai has no upgrades
  */
 
 import { Command } from 'commander';
@@ -66,7 +66,7 @@ program
       console.log(chalk.cyan(`💾 Storage: ${agent.storageDays} days`));
 
       // Check if already upgraded
-      if (agent.tier !== 'freemium') {
+      if (agent.tier !== 'free') {
         console.log(chalk.yellow('\n⚠️  Agent is already on a paid tier'));
         
         const answer = await inquirer.prompt([

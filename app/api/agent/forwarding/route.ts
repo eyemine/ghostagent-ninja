@@ -1,4 +1,4 @@
-/// API endpoints for managing email forwarding for Imago level accounts
+/// API endpoints for managing email forwarding for Premium level accounts
 
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
         config: {
           enabled: enabled || false,
           targetEmail: targetEmail || '',
-          level: 'imago',
+          level: 'premium',
           filters: filters || {}
         }
       })

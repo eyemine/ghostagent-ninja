@@ -12,12 +12,12 @@
 | **AI Brain Addition** | GPT-4/Claude/Llama models | No AI | 🏆 **Autonomous intelligence** |
 | **Multi-channel Support** | Email + telegram + discord + nostr + farcaster + XMTP | Email only | 🏆 **6 channels vs 1** |
 | **Marketplace Integration** | Sellable agents (3x-14x ROI) | No marketplace | 🏆 **Investment potential** |
-| **Upgrade Path** | Freemium → Professional → Vault | No upgrades | 🏆 **Growth pathway** |
+| **Upgrade Path** | Free → Professional → Vault | No upgrades | 🏆 **Growth pathway** |
 | **Custom Domains** | Supported | Not supported | 🏆 **Brand control** |
 
 ## 💰 Pricing Psychology
 
-### Freemium Strategy
+### Free Strategy
 - **Hook**: Same 100 emails, 8 days as inboxapi.ai
 - **Difference**: Upgrade path to unlimited vs hard limit
 - **Psychology**: Start free, grow with us
@@ -79,7 +79,7 @@ import NFTMail from '@ghostagent/nftmail';
 
 ## 📈 Conversion Optimization
 
-### Freemium to Paid
+### Free to Paid
 - **Trigger 1**: 80 emails used (80% of limit)
 - **Trigger 2**: 7 days storage (1 day before expiry)
 - **Trigger 3**: Payment request received

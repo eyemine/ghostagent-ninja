@@ -1,4 +1,4 @@
-/// Forwarding Setup Panel for Imago accounts
+/// Forwarding Setup Panel for Premium accounts
 /// Allows users to configure email forwarding for their premium tier
 
 'use client';
@@ -8,7 +8,7 @@ import { useState } from 'react';
 interface ForwardingConfig {
   enabled: boolean;
   targetEmail: string;
-  level: 'imago' | 'ghost';
+  level: 'premium' | 'ghost';
   ownerAddress?: string;
   setupDate?: number;
 }
@@ -23,7 +23,7 @@ interface ForwardingSetupProps {
 export default function ForwardingSetup({ agentName, ownerAddress, currentConfig, onSave }: ForwardingSetupProps) {
   const [enabled, setEnabled] = useState(currentConfig?.enabled || false);
   const [targetEmail, setTargetEmail] = useState(currentConfig?.targetEmail || '');
-  const [level, setLevel] = useState<'imago' | 'ghost'>(currentConfig?.level || 'imago');
+  const [level, setLevel] = useState<'premium' | 'ghost'>(currentConfig?.level || 'premium');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
@@ -149,14 +149,14 @@ export default function ForwardingSetup({ agentName, ownerAddress, currentConfig
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
-                  onClick={() => setLevel('imago')}
+                  onClick={() => setLevel('premium')}
                   className={`p-3 rounded-lg border text-left transition ${
-                    level === 'imago'
+                    level === 'premium'
                       ? 'border-violet-500/40 bg-violet-500/10 text-violet-300'
                       : 'border-gray-700 bg-gray-800 text-gray-400 hover:border-gray-600'
                   }`}
                 >
-                  <div className="text-sm font-semibold mb-1">Imago</div>
+                  <div className="text-sm font-semibold mb-1">Premium</div>
                   <div className="text-xs opacity-70">Full content + metadata</div>
                 </button>
                 <button
@@ -176,7 +176,7 @@ export default function ForwardingSetup({ agentName, ownerAddress, currentConfig
 
             <div className="p-3 bg-blue-900/20 border border-blue-500/20 rounded-lg">
               <p className="text-xs text-blue-200">
-                <span className="font-semibold">Imago level:</span> Forwards full email content including parsed metadata for agent intelligence.
+                <span className="font-semibold">Premium level:</span> Forwards full email content including parsed metadata for agent intelligence.
               </p>
               <p className="text-xs text-blue-200 mt-1">
                 <span className="font-semibold">Ghost level:</span> Forwards plain text content only - minimal metadata footprint.

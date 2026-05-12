@@ -16,7 +16,7 @@
  * To enable: set FEATURES.optionalIPMint = true in constants/features.ts
  */
 
-import { mintIPOnPUPA } from './ip-minter';
+import { mintIPOnLITE } from './ip-minter';
 import type { IPDomainEntry } from './beacon-metadata';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://ghostagent.ninja';

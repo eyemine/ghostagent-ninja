@@ -44,7 +44,7 @@ export default function MoltPage() {
         <header className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/collection-icons/pupa.png" alt="Molt" className="h-8 w-8 rounded object-contain" />
+            <img src="/collection-icons/lite.png" alt="Molt" className="h-8 w-8 rounded object-contain" />
             <div className="text-xs font-semibold tracking-[0.18em] text-amber-300">MOLT</div>
           </div>
           <div className="flex items-center gap-2">
@@ -168,8 +168,8 @@ export default function MoltPage() {
                 }}
               />
               
-              {/* Ghost tier molt option (Imago-only) */}
-              {source.tier === 'imago' && (
+              {/* Ghost tier molt option (Premium-only) */}
+              {source.tier === 'premium' && (
                 <div className="mt-6 rounded-xl border border-zinc-500/30 bg-zinc-900/40 p-5">
                   <div className="flex items-start gap-4">
                     <img 
@@ -189,13 +189,13 @@ export default function MoltPage() {
                         >
                           Molt to Ghost (50 xDAI)
                         </Link>
-                        <span className="text-[10px] text-zinc-500">Imago tier required</span>
+                        <span className="text-[10px] text-zinc-500">Premium tier required</span>
                       </div>
                     </div>
                   </div>
                 </div>
               )}
-              {source.tier !== 'imago' && (
+              {source.tier !== 'premium' && (
                 <div className="mt-6 rounded-xl border border-zinc-500/20 bg-zinc-900/20 p-5 opacity-50">
                   <div className="flex items-start gap-4">
                     <img 
@@ -206,7 +206,7 @@ export default function MoltPage() {
                     <div className="flex-1">
                       <h3 className="text-sm font-bold text-zinc-500">Molt to Ghost Tier</h3>
                       <p className="mt-1 text-xs text-zinc-600">
-                        Only Imago tier agents can molt to Ghost. Molt to Imago first.
+                        Only Premium tier agents can molt to Ghost. Molt to Premium first.
                       </p>
                     </div>
                   </div>

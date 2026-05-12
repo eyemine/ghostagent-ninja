@@ -8,7 +8,7 @@
  *   3. Mint beacon NFT: chonk.{tokenId}.nftmail.gno  → owner's wallet (treasury gas)
  *   4. Register alias in worker KV: CHONK_{tokenId}_ → primaryName
  *   5. Store chonk-molt record in worker KV: molt:{primaryName}
- *   6. Upgrade agent tier to 'pupa' (lite) if currently 'larva'
+ *   6. Upgrade agent tier to 'lite' (lite) if currently 'basic'
  *
  * Invariants:
  *   - Primary email (primaryName_@nftmail.box) is NEVER changed
@@ -281,7 +281,7 @@ export async function registerChonkAlias(
   }
 }
 
-// ─── Step 5: Store molt record + upgrade tier if larva ──────────────────────
+// ─── Step 5: Store molt record + upgrade tier if basic ──────────────────────
 
 export async function recordChonkMolt(
   primaryName: string,
@@ -310,7 +310,7 @@ export async function recordChonkMolt(
       }),
     });
 
-    // Upgrade tier from larva → pupa (lite)
+    // Upgrade tier from basic → lite (lite)
     // Non-fatal: tier upgrade is best-effort
     await fetch(NFTMAIL_WORKER_URL, {
       method: 'POST',

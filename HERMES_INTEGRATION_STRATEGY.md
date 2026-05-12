@@ -49,7 +49,7 @@ GhostAgent Brain Stack:
 ```typescript
 interface GenomeMetadata {
   agentName: string;
-  tier: 'larva' | 'pupa' | 'imago' | 'ghost';
+  tier: 'basic' | 'lite' | 'premium' | 'ghost';
   characterFileUrl: string;
   mcpServers: MCPServer[];
 }
@@ -154,11 +154,11 @@ const PRESET_IDENTITIES = [
   { id: 'agent', label: 'Agent', tld: 'agent.gno', ... },
   { id: 'openclaw', label: 'OpenClaw', tld: 'openclaw.gno', ... },
   { id: 'vault', label: 'Vault', tld: 'vault.gno', ... },
-  { id: 'imago', label: 'Imago', tld: '', ... },
+  { id: 'premium', label: 'Premium', tld: '', ... },
   { id: 'hermes', label: 'Hermes (Stateful Brain)', tld: '', 
     description: 'Migrate to self-improving Hermes architecture',
     cost: 20, // xDAI
-    requiresTier: 'pupa',
+    requiresTier: 'lite',
   },
 ];
 ```
@@ -218,8 +218,8 @@ Response:
 
 ### Migration Pricing
 - **OpenClaw → Hermes**: 20 xDAI (one-time)
-- **Fresh Hermes install**: 10 xDAI (Pupa tier required)
-- **Hermes → Ghost**: 50 xDAI (Imago tier required)
+- **Fresh Hermes install**: 10 xDAI (Lite tier required)
+- **Hermes → Ghost**: 50 xDAI (Premium tier required)
 
 ### Operational Costs
 - **Hermes Cloud (Cloudflare Worker)**: $0.15/1M requests (same as current)

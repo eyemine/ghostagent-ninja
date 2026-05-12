@@ -8,7 +8,7 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://ghostagent.ninja';
 const TREASURY = '0xeD0B0694953158dd54D0c36D320b391f44cd67f3';
 const BASE_USDC_CAIP19 = 'eip155:8453/erc20:0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
 
-type AccountTier = 'basic' | 'lite' | 'professional' | 'freemium';
+type AccountTier = 'basic' | 'lite' | 'premium' | 'free';
 
 const TIER_META: Record<AccountTier, {
   label: string;
@@ -23,7 +23,7 @@ const TIER_META: Record<AccountTier, {
   ctaUrl: string;
 }> = {
   basic: {
-    label: 'LARVA',
+    label: 'BASIC',
     emoji: '🪲',
     color: 'text-green-400',
     border: 'border-green-800',
@@ -38,15 +38,15 @@ const TIER_META: Record<AccountTier, {
     upsell: (
       <div className="space-y-2 text-xs text-gray-500">
         <p className="text-gray-400 font-semibold text-xs mb-1">Upgrade your agent</p>
-        <p><span className="text-yellow-400 font-semibold">PUPA</span> — Mint a BYO NFT → 30-day history, 50 sends, Gnosis Safe ownership</p>
-        <p><span className="text-purple-400 font-semibold">IMAGO</span> — Gold POW or Agent Normie → unlimited retention, 200 sends, multisig Safe</p>
+        <p><span className="text-yellow-400 font-semibold">LITE</span> — Mint a BYO NFT → 30-day history, 50 sends, Gnosis Safe ownership</p>
+        <p><span className="text-purple-400 font-semibold">PREMIUM</span> — Gold POW or Agent Normie → unlimited retention, 200 sends, multisig Safe</p>
       </div>
     ),
     cta: 'Upgrade at nftmail.box →',
     ctaUrl: 'https://nftmail.box',
   },
-  freemium: {
-    label: 'FREEMIUM',
+  free: {
+    label: 'FREE',
     emoji: '⏱',
     color: 'text-orange-400',
     border: 'border-orange-800',
@@ -61,15 +61,15 @@ const TIER_META: Record<AccountTier, {
     upsell: (
       <div className="space-y-2 text-xs text-gray-500">
         <p className="text-gray-400 font-semibold text-xs mb-1">Upgrade before expiry</p>
-        <p><span className="text-yellow-400 font-semibold">PUPA</span> — Mint a BYO NFT → permanent inbox, 30-day history, 50 sends</p>
-        <p><span className="text-purple-400 font-semibold">IMAGO</span> — Gold POW or Agent Normie → unlimited everything</p>
+        <p><span className="text-yellow-400 font-semibold">LITE</span> — Mint a BYO NFT → permanent inbox, 30-day history, 50 sends</p>
+        <p><span className="text-purple-400 font-semibold">PREMIUM</span> — Gold POW or Agent Normie → unlimited everything</p>
       </div>
     ),
     cta: 'Upgrade at nftmail.box →',
     ctaUrl: 'https://nftmail.box',
   },
   lite: {
-    label: 'PUPA',
+    label: 'LITE',
     emoji: '🫘',
     color: 'text-yellow-400',
     border: 'border-yellow-800',
@@ -83,15 +83,15 @@ const TIER_META: Record<AccountTier, {
     ],
     upsell: (
       <div className="space-y-2 text-xs text-gray-500">
-        <p className="text-gray-400 font-semibold text-xs mb-1">Reach IMAGO</p>
-        <p><span className="text-purple-400 font-semibold">IMAGO</span> — Gold POW NFT or Agent Normie → unlimited retention, 200 sends, multisig modules, on-chain attestations</p>
+        <p className="text-gray-400 font-semibold text-xs mb-1">Reach PREMIUM</p>
+        <p><span className="text-purple-400 font-semibold">PREMIUM</span> — Gold POW NFT or Agent Normie → unlimited retention, 200 sends, multisig modules, on-chain attestations</p>
       </div>
     ),
-    cta: 'Explore IMAGO at nftmail.box →',
+    cta: 'Explore PREMIUM at nftmail.box →',
     ctaUrl: 'https://nftmail.box',
   },
-  professional: {
-    label: 'IMAGO',
+  premium: {
+    label: 'PREMIUM',
     emoji: '👻',
     color: 'text-purple-400',
     border: 'border-purple-800',
@@ -254,9 +254,9 @@ export default function MiniApp() {
     setUpgradeLog(prev => [...prev, msg]);
   }
 
-  const TIER_FEES_USDC: Record<AccountTier, number> = { basic: 10, freemium: 10, lite: 14, professional: 2 };
+  const TIER_FEES_USDC: Record<AccountTier, number> = { basic: 10, free: 10, lite: 14, premium: 2 };
   const upgradeFee = TIER_FEES_USDC[accountTier] ?? 10;
-  const upgradeTierTarget: string = accountTier === 'basic' || accountTier === 'freemium' ? 'lite' : accountTier === 'lite' ? 'professional' : '';
+  const upgradeTierTarget: string = accountTier === 'basic' || accountTier === 'free' ? 'lite' : accountTier === 'lite' ? 'premium' : '';
 
   async function handlePayAndUpgrade() {
     if (!fid || !agentName || upgrading) return;
@@ -346,7 +346,7 @@ export default function MiniApp() {
               onClick={() => setStep('naming')}
               className="w-full bg-green-500 hover:bg-green-400 text-black font-bold py-3 rounded-lg transition-colors"
             >
-              Claim LARVA Agent →
+              Claim BASIC Agent →
             </button>
             <p className="text-gray-600 text-xs text-center">Free forever · 8-day inbox history · Upgrade anytime</p>
           </div>
@@ -430,7 +430,7 @@ export default function MiniApp() {
               Open Dashboard →
             </button>
             <button onClick={openUpgrade} className="w-full bg-gray-900 border border-gray-700 hover:border-green-400 text-white py-3 rounded-lg text-sm transition-colors">
-              Upgrade to PUPA →
+              Upgrade to LITE →
             </button>
           </div>
         </div>

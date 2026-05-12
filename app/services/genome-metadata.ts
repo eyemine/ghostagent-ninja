@@ -63,7 +63,7 @@ export const SLD_VISUAL: Record<SldKey, SldVisual> = {
     imageCid:     'bafkreic7ec6elxd7b425wpsovvgkumidkqsxmgj5ffnhp6icznagaqlgti',
     emoji: '🥚',
     label: 'PicoClaw',
-    tagline: 'Larva agent — zero-cost entry',
+    tagline: 'Basic agent — zero-cost entry',
   },
   'vault': {
     primaryColor: '#6ee7b7',

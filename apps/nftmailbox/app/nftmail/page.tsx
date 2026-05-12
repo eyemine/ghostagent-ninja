@@ -18,7 +18,7 @@ const TIER_EURE: Record<string, number> = { lite: 10, pro: 22 };
 function UpgradeTierPanel({ label, defaultTier }: { label: string; defaultTier: string }) {
   const { user } = usePrivy();
   const [selectedTier, setSelectedTier] = useState<'lite' | 'pro'>(defaultTier === 'pro' || defaultTier === 'premium' ? 'pro' : 'lite');
-  const stageName = selectedTier === 'pro' ? 'Imago' : 'Pupa';
+  const stageName = selectedTier === 'pro' ? 'Premium' : 'Lite';
   const [txHash, setTxHash] = useState('');
   const [upgrading, setUpgrading] = useState(false);
   const [result, setResult] = useState<any>(null);
@@ -66,7 +66,7 @@ function UpgradeTierPanel({ label, defaultTier }: { label: string; defaultTier: 
         <div className="h-12 w-12 rounded-full bg-emerald-500/20 flex items-center justify-center">
           <svg className="h-6 w-6 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12" /></svg>
         </div>
-        <p className="text-lg font-semibold text-white">{result.newTier === 'premium' || result.newTier === 'pro' ? 'Imago' : result.newTier === 'lite' ? 'Pupa' : result.newTier === 'ghost' ? 'Agent' : result.newTier?.toUpperCase()} activated</p>
+        <p className="text-lg font-semibold text-white">{result.newTier === 'premium' || result.newTier === 'pro' ? 'Premium' : result.newTier === 'lite' ? 'Lite' : result.newTier === 'ghost' ? 'Agent' : result.newTier?.toUpperCase()} activated</p>
         <p className="text-sm text-[var(--muted)] text-center">{result.message}</p>
         {result.safe && (
           <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-4 py-2 text-center">
@@ -89,10 +89,10 @@ function UpgradeTierPanel({ label, defaultTier }: { label: string; defaultTier: 
       <div className="flex items-center gap-2 rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3">
         <div className="h-2 w-2 rounded-full bg-amber-400 animate-pulse" />
         <div>
-          <p className="text-sm font-semibold text-white">You are a Larva.</p>
+          <p className="text-sm font-semibold text-white">You are a Basic.</p>
           <p className="text-[11px] text-[var(--muted)]">{label}@nftmail.box · Your shell is temporary (8-day history). Cycle to next stage of metamorphosis.</p>
         </div>
-        <span className="ml-auto rounded-full px-2 py-0.5 text-[9px] font-semibold ring-1 bg-amber-500/10 text-amber-300 ring-amber-500/20 whitespace-nowrap">LARVA</span>
+        <span className="ml-auto rounded-full px-2 py-0.5 text-[9px] font-semibold ring-1 bg-amber-500/10 text-amber-300 ring-amber-500/20 whitespace-nowrap">BASIC</span>
       </div>
 
       {/* Tier selection cards */}
@@ -103,7 +103,7 @@ function UpgradeTierPanel({ label, defaultTier }: { label: string; defaultTier: 
         >
           <div className="flex items-center justify-between mb-2">
             <div>
-              <p className="text-sm font-semibold text-white">Cycle to Pupa</p>
+              <p className="text-sm font-semibold text-white">Cycle to Lite</p>
               <p className="text-[10px] text-[var(--muted)]">Lite tier</p>
             </div>
             <span className="text-lg font-bold text-amber-300">10 xDAI</span>
@@ -121,13 +121,13 @@ function UpgradeTierPanel({ label, defaultTier }: { label: string; defaultTier: 
         >
           <div className="flex items-center justify-between mb-2">
             <div>
-              <p className="text-sm font-semibold text-white">Emerge as Imago</p>
+              <p className="text-sm font-semibold text-white">Emerge as Premium</p>
               <p className="text-[10px] text-[var(--muted)]">PRO tier · <span className="text-violet-300">SOVEREIGN</span></p>
             </div>
             <span className="text-lg font-bold text-violet-300">24 xDAI<span className="text-[11px] font-normal text-[var(--muted)]">/yr</span></span>
           </div>
           <ul className="space-y-1 text-[11px] text-[var(--muted)]">
-            <li className="flex items-center gap-1.5"><span className="text-emerald-400">✓</span> Everything in Pupa</li>
+            <li className="flex items-center gap-1.5"><span className="text-emerald-400">✓</span> Everything in Lite</li>
             <li className="flex items-center gap-1.5"><span className="text-emerald-400">✓</span> Infinite retention — no 8-day history window</li>
             <li className="flex items-center gap-1.5"><span className="text-emerald-400">✓</span> Encrypted KV storage — you own your keys</li>
             <li className="flex items-center gap-1.5"><span className="text-emerald-400">✓</span> Enter GhostAgent molting stream</li>
@@ -260,7 +260,7 @@ function UpgradeTierPanel({ label, defaultTier }: { label: string; defaultTier: 
               <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
               Verifying payment on-chain...
             </span>
-          ) : `Verify & ${selectedTier === 'pro' ? 'Emerge as Imago' : 'Cycle to Pupa'} →`}
+          ) : `Verify & ${selectedTier === 'pro' ? 'Emerge as Premium' : 'Cycle to Lite'} →`}
         </button>
         <p className="text-center text-[10px] text-[var(--muted)]">Payment verified on-chain — no trust required</p>
       </div>
@@ -297,7 +297,7 @@ export default function NftmailPage() {
           </header>
 
           <section className="text-center">
-            <h1 className="text-3xl font-bold tracking-tight">You are a <span className="text-amber-300">Larva</span>.</h1>
+            <h1 className="text-3xl font-bold tracking-tight">You are a <span className="text-amber-300">Basic</span>.</h1>
             <p className="mx-auto mt-2 max-w-lg text-sm text-[var(--muted)]">
               Your shell is temporary (8-day history). Cycle to next stage of metamorphosis.
             </p>
@@ -306,7 +306,7 @@ export default function NftmailPage() {
           {/* Tier ladder overview */}
           <div className="rounded-xl border border-[var(--border)] bg-black/20 px-5 py-4">
             <div className="flex items-center gap-0 text-[10px] font-semibold text-[var(--muted)] overflow-x-auto">
-              {['LARVA — free', 'PUPA — 10 xDAI', 'IMAGO — 24/yr', 'AGENT — sovereign'].map((t, i) => (
+              {['BASIC — free', 'LITE — 10 xDAI', 'PREMIUM — 24/yr', 'AGENT — sovereign'].map((t, i) => (
                 <div key={t} className="flex items-center gap-0">
                   <span className={`px-3 py-1 rounded-full whitespace-nowrap ${
                     (i === 1 && upgradeTier === 'lite') || (i === 2 && (upgradeTier === 'pro' || upgradeTier === 'premium'))
@@ -361,7 +361,7 @@ export default function NftmailPage() {
         <section className="text-center">
           <h1 className="text-4xl font-bold tracking-tight">nftmail.box</h1>
           <p className="mx-auto mt-3 max-w-lg text-sm text-[var(--muted)]">
-            Mint a self-contained email identity on Gnosis. You are born a Larva. Don't let your identity decay into the void.
+            Mint a self-contained email identity on Gnosis. You are born a Basic. Don't let your identity decay into the void.
           </p>
         </section>
 
@@ -432,7 +432,7 @@ export default function NftmailPage() {
                 <h2 className="text-lg font-semibold text-white">Mint NFTmail</h2>
                 <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-300 ring-1 ring-emerald-500/20">FREE</span>
               </div>
-              <p className="mt-1 ml-8 text-xs text-[var(--muted)]">Mint [name1]-[name2].nftmail.gno → get [name1]-[name2]@nftmail.box. Free — you are born a Larva. 8-day history, receive only. Cycle to Pupa for a 30-day window.</p>
+              <p className="mt-1 ml-8 text-xs text-[var(--muted)]">Mint [name1]-[name2].nftmail.gno → get [name1]-[name2]@nftmail.box. Free — you are born a Basic. 8-day history, receive only. Cycle to Lite for a 30-day window.</p>
             </div>
             <div className="ml-8">
               {tier !== 'none' ? (
@@ -466,16 +466,16 @@ export default function NftmailPage() {
                 >
                   {tier === 'pro' ? '✓' : '2'}
                 </div>
-                <h2 className="text-lg font-semibold text-white">Evolve to Imago</h2>
+                <h2 className="text-lg font-semibold text-white">Evolve to Premium</h2>
                 <span className="rounded-full bg-violet-500/10 px-2 py-0.5 text-[10px] font-semibold text-violet-300 ring-1 ring-violet-500/20">OPTIONAL</span>
               </div>
-              <p className="mt-1 ml-8 text-xs text-[var(--muted)]">Pupa deploys a Mirror Body (Gnosis Safe) + enables sending. Imago anchors your inbox permanently — no 8-day decay.</p>
+              <p className="mt-1 ml-8 text-xs text-[var(--muted)]">Lite deploys a Mirror Body (Gnosis Safe) + enables sending. Premium anchors your inbox permanently — no 8-day decay.</p>
             </div>
             <div className="ml-8">
               {tier === 'pro' ? (
                 <div className="flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/8 px-4 py-3">
                   <div className="h-2 w-2 rounded-full bg-emerald-400" />
-                  <span className="text-sm text-emerald-300">Imago activated — sovereign identity</span>
+                  <span className="text-sm text-emerald-300">Premium activated — sovereign identity</span>
                 </div>
               ) : (
                 <UpgradeTierPanel label={mintedName} defaultTier="pro" />
@@ -493,7 +493,7 @@ export default function NftmailPage() {
                   <path d="M2 17l10 5 10-5" />
                   <path d="M2 12l10 5 10-5" />
                 </svg>
-                <h2 className="text-lg font-semibold text-white">Molt from Pupa to an Agent</h2>
+                <h2 className="text-lg font-semibold text-white">Molt from Lite to an Agent</h2>
               </div>
               <p className="mt-1 ml-7 text-xs text-[var(--muted)]">
                 Your identity can evolve into a full GhostAgent — same Mirror Body, same email, plus a Brain module for autonomous on-chain execution.
@@ -506,7 +506,7 @@ export default function NftmailPage() {
                 rel="noopener noreferrer"
                 className="group inline-flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/8 px-5 py-3 text-sm font-semibold text-amber-200 transition-all hover:bg-amber-500/15 hover:shadow-[0_0_24px_rgba(245,158,11,0.1)]"
               >
-                Molt from Pupa to an Agent on GhostAgent.ninja
+                Molt from Lite to an Agent on GhostAgent.ninja
                 <svg className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M5 12h14" />
                   <path d="m12 5 7 7-7 7" />
@@ -598,7 +598,7 @@ function MintNFTMailWithCallback({ onMinted, initialName }: { onMinted: (name: s
                 disabled={!isValid}
                 className="w-full rounded-lg bg-[rgba(0,163,255,0.12)] px-4 py-2 text-xs font-semibold text-[rgb(160,220,255)] transition hover:bg-[rgba(0,163,255,0.2)] disabled:opacity-40"
               >
-                Confirm → Evolve to Imago
+                Confirm → Evolve to Premium
               </button>
             </div>
           )}

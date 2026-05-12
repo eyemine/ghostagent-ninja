@@ -8,9 +8,9 @@
  *
  * States:
  *   loading  — fetching level record
- *   imago    — eligible: show 200 xDAI CTA + feature list
+ *   premium    — eligible: show 200 xDAI CTA + feature list
  *   ghost    — already Ghost: show soulbound badge, Arweave status, tunnel endpoint
- *   other    — not yet eligible (larva/pupa): show gating message
+ *   other    — not yet eligible (basic/lite): show gating message
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -103,11 +103,11 @@ export function GhostTierPanel({ agentName, tld, walletAddress, safeAddress, onU
     }
   }
 
-  const ghostAction = EVOLVE_ACTIONS['imago'];
-  const currentLevel = record?.level ?? 'larva';
+  const ghostAction = EVOLVE_ACTIONS['premium'];
+  const currentLevel = record?.level ?? 'basic';
   const isGhost  = currentLevel === 'ghost';
-  const isImago  = currentLevel === 'imago';
-  const eligible = isGhost || isImago;
+  const isPremium  = currentLevel === 'premium';
+  const eligible = isGhost || isPremium;
 
   // ─────────────────────────────────────────────────────────────────────────────
   return (
@@ -138,16 +138,16 @@ export function GhostTierPanel({ agentName, tld, walletAddress, safeAddress, onU
       {!loading && !eligible && (
         <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-5 space-y-2">
           <div className="text-xs font-semibold text-amber-300">
-            Imago tier required
+            Premium tier required
           </div>
           <p className="text-[11px] text-[var(--muted)] leading-relaxed">
-            Ghost is a one-time upgrade from Imago (200 xDAI, lifetime).
+            Ghost is a one-time upgrade from Premium (200 xDAI, lifetime).
             Your agent is currently <span className={`font-semibold ${LEVEL_META[currentLevel].color}`}>{LEVEL_META[currentLevel].label}</span>.
-            {currentLevel === 'pupa' && ' Molt to Imago first, then return here.'}
-            {currentLevel === 'larva' && ' Mint your agent name first, then molt to Pupa → Imago.'}
+            {currentLevel === 'lite' && ' Molt to Premium first, then return here.'}
+            {currentLevel === 'basic' && ' Mint your agent name first, then molt to Lite → Premium.'}
           </p>
           <div className="flex items-center gap-1 mt-1">
-            {(['larva', 'pupa', 'imago'] as EvolveLevel[]).map((lvl, i, arr) => (
+            {(['basic', 'lite', 'premium'] as EvolveLevel[]).map((lvl, i, arr) => (
               <span key={lvl} className="flex items-center gap-1 text-[10px]">
                 <span className={lvl === currentLevel ? LEVEL_META[lvl].color + ' font-bold' : 'text-zinc-600'}>
                   {LEVEL_META[lvl].label}
@@ -267,8 +267,8 @@ export function GhostTierPanel({ agentName, tld, walletAddress, safeAddress, onU
         </div>
       )}
 
-      {/* ── Imago: upgrade CTA ── */}
-      {!loading && isImago && !statusMsg && ghostAction && (
+      {/* ── Premium: upgrade CTA ── */}
+      {!loading && isPremium && !statusMsg && ghostAction && (
         <div className="space-y-4">
 
           {/* Price callout */}

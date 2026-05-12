@@ -122,7 +122,7 @@ interface AgentGraph {
     id: string;              // Agent name
     label: string;
     type: 'agent' | 'safe' | 'mcp' | 'ip-asset';
-    tier: 'larva' | 'pupa' | 'imago' | 'ghost';
+    tier: 'basic' | 'lite' | 'premium' | 'ghost';
     riskScore: number;       // 0-100
     metadata: {
       tld: string;

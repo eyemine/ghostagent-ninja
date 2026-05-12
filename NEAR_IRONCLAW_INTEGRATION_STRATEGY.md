@@ -268,7 +268,7 @@ interface NearGenomeMetadata extends HermesGenomeMetadata {
 
 ### Path 1: OpenClaw → Vault (Transparent Governance)
 ```
-Start:    treasury.openclaw.gno (Pupa, multi-channel brain)
+Start:    treasury.openclaw.gno (Lite, multi-channel brain)
 Upgrade:  Add HITL + DailyBudget modules
 Terminal: treasury.vault.gno (locked, immutable)
 Cost:     14 xDAI molt
@@ -277,7 +277,7 @@ Privacy:  Low (all actions public)
 
 ### Path 2: Hermes → Ghost (Sovereign, Portable)
 ```
-Start:    builder.agent.gno (Pupa, Hermes brain)
+Start:    builder.agent.gno (Lite, Hermes brain)
 Upgrade:  Agent creates 10+ skills autonomously
 Terminal: Ghost tier (local execution, sovereign)
 Cost:     20 xDAI (Hermes) + 50 xDAI (Ghost) = 70 xDAI
@@ -286,7 +286,7 @@ Privacy:  Medium (local execution, IPFS storage)
 
 ### Path 3: IronClaw → Ghost (Confidential, Multi-Chain)
 ```
-Start:    sovereign.agent.gno (Pupa, IronClaw TEE brain)
+Start:    sovereign.agent.gno (Lite, IronClaw TEE brain)
 Upgrade:  Enable NEAR Chain Signatures for Gnosis Safe
           Enable auto-refill (xDAI → NEAR credits)
 Terminal: Ghost tier (TEE execution, cross-chain control)
@@ -296,7 +296,7 @@ Privacy:  High (hardware-encrypted TEE)
 
 ### Path 4: Hybrid (OpenClaw + IronClaw → Vault)
 ```
-Start:    dao.openclaw.gno (Pupa, multi-channel brain)
+Start:    dao.openclaw.gno (Lite, multi-channel brain)
 Upgrade:  Migrate brain to IronClaw TEE (30 xDAI)
           → Keeps openclaw.gno identity (transparent)
           → Adds TEE privacy (prompts/keys encrypted)

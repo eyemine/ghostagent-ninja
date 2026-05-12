@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Missing name or tld' }, { status: 400 });
   }
   if (tld === PICOCLAW_TLD) {
-    return NextResponse.json({ enabled: false, locked: true, reason: 'PICOCLAW tier — upgrade to PUPA' });
+    return NextResponse.json({ enabled: false, locked: true, reason: 'PICOCLAW tier — upgrade to LITE' });
   }
   try {
     const res = await fetch(WORKER_URL, {
@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
 
     if (tld === PICOCLAW_TLD) {
       return NextResponse.json(
-        { error: 'PICOCLAW tier cannot enable XMTP — upgrade to PUPA first' },
+        { error: 'PICOCLAW tier cannot enable XMTP — upgrade to LITE first' },
         { status: 403 }
       );
     }

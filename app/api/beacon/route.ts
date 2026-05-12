@@ -89,7 +89,7 @@ export async function POST(req: NextRequest) {
       safeAddress:   body.safeAddress   ?? null,
       tbaAddress:    body.tbaAddress    ?? null,
       storyIpDomain: body.storyIpDomain ?? null,
-      currentLevel:  body.currentLevel  ?? 'larva',
+      currentLevel:  body.currentLevel  ?? 'basic',
       xdaiBurned:    body.xdaiBurned    ?? 0,
       moltHistory:   body.moltHistory   ?? [],
       aliases:       body.aliases       ?? [],

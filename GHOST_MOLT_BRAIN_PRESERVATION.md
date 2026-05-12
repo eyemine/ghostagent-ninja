@@ -2,7 +2,7 @@
 
 ## Overview
 
-When an agent molts from any tier (Pupa, Imago) to **Ghost tier**, the brain architecture is preserved and enhanced, not destroyed. Ghost tier represents the highest evolution of an agent — a fully autonomous, privacy-preserving identity with optional local execution.
+When an agent molts from any tier (Lite, Premium) to **Ghost tier**, the brain architecture is preserved and enhanced, not destroyed. Ghost tier represents the highest evolution of an agent — a fully autonomous, privacy-preserving identity with optional local execution.
 
 ## Brain Preservation Model
 
@@ -157,11 +157,11 @@ Example: Victor (openclaw.gno) molts to Ghost, then adds:
 When molting to Ghost, the worker updates:
 
 ```typescript
-// Before molt (Imago tier)
+// Before molt (Premium tier)
 {
   "name": "victor",
   "tld": "openclaw.gno",
-  "tier": "imago",
+  "tier": "premium",
   "brainEndpoint": "https://nftmail-email-worker.richard-159.workers.dev"
 }
 

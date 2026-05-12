@@ -553,20 +553,20 @@ export default function InboxPage() {
               <span className="text-lg font-medium text-white">{name}@nftmail.box</span>
             </div>
             <p className="text-center text-sm text-[var(--muted)] max-w-md">
-                Your <strong className="text-white">{name}@nftmail.box</strong> is permanent — free tier messages clear after 8 days. Upcycle to <strong className="text-amber-300">Pupa ($10)</strong> for 30-day retention, sending, and a <strong className="text-white">Gnosis Safe body</strong>.
+                Your <strong className="text-white">{name}@nftmail.box</strong> is permanent — free tier messages clear after 8 days. Upcycle to <strong className="text-amber-300">Lite ($10)</strong> for 30-day retention, sending, and a <strong className="text-white">Gnosis Safe body</strong>.
             </p>
             <div className="flex flex-col gap-3 w-full max-w-xs">
               <Link
                 href={`/nftmail?upgrade=lite&label=${name}`}
                 className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-6 py-3 text-sm font-semibold text-amber-300 transition hover:bg-amber-500/20 text-center"
               >
-                Upcycle to Pupa — $10
+                Upcycle to Lite — $10
               </Link>
               <Link
                 href={`/nftmail?upgrade=premium&label=${name}`}
                 className="rounded-lg border border-violet-500/30 bg-violet-500/10 px-6 py-2.5 text-sm font-semibold text-violet-300 transition hover:bg-violet-500/20 text-center"
               >
-                Go Imago — $24
+                Go Premium — $24
               </Link>
             </div>
           </div>
@@ -942,10 +942,10 @@ export default function InboxPage() {
   const decayPct = (expiresAt && tierDecayMs && (accountTier === 'lite' || accountTier === 'basic')) 
     ? Math.min(100, Math.max(0, Math.round((1 - (expiresAt - Date.now()) / tierDecayMs) * 100)))
     : null;
-  const isImago = accountTier === 'premium' || accountTier === 'ghost';
-  const showLarvaWarning = accountTier === 'basic' && daysLeft !== null && daysLeft <= 7;
+  const isPremium = accountTier === 'premium' || accountTier === 'ghost';
+  const showBasicWarning = accountTier === 'basic' && daysLeft !== null && daysLeft <= 7;
 
-  const acctTierLabel = accountTier === 'ghost' ? 'AGENT' : accountTier === 'premium' ? 'IMAGO' : accountTier === 'lite' ? 'PUPA' : 'LARVA';
+  const acctTierLabel = accountTier === 'ghost' ? 'AGENT' : accountTier === 'premium' ? 'PREMIUM' : accountTier === 'lite' ? 'LITE' : 'BASIC';
   const acctTierColor = accountTier === 'ghost'
     ? 'text-violet-300 bg-violet-500/10 ring-violet-500/20'
     : accountTier === 'premium'
@@ -958,7 +958,7 @@ export default function InboxPage() {
   // - Human stream: always private from public (blurred unless owner)
   // - Molt.gno agent (glassbox): exposed by default, owner can toggle
   // - Other agents: private by default, owner can toggle
-  // - hard-privacy (IMAGO): always blurred from public regardless
+  // - hard-privacy (PREMIUM): always blurred from public regardless
   const isMoltAgent = isAgent && agentTld === 'molt.gno';
   const effectivePrivacyTier: 'exposed' | 'private' | 'hard-privacy' = !isAgent
     ? (privacyTier === 'hard-privacy' ? 'hard-privacy' : 'private')  // humans always private
@@ -1035,8 +1035,8 @@ export default function InboxPage() {
           )}
           </div>
 
-          {/* Safe body address + decay bar + Larva warning */}
-          {(safeAddress || decayPct !== null || showLarvaWarning || isImago) && (
+          {/* Safe body address + decay bar + Basic warning */}
+          {(safeAddress || decayPct !== null || showBasicWarning || isPremium) && (
             <div className="flex flex-col gap-2 px-1">
               {safeAddress && (
                 <div className="flex items-center gap-2">
@@ -1052,12 +1052,12 @@ export default function InboxPage() {
                   </a>
                 </div>
               )}
-              {isImago && (
+              {isPremium && (
                 <div className="flex items-center gap-1.5">
                   <span className="text-[9px] text-cyan-300/80">✦ Sovereign — Persistent History</span>
                 </div>
               )}
-              {decayPct !== null && !isImago && daysLeft !== null && (
+              {decayPct !== null && !isPremium && daysLeft !== null && (
                 <div className="flex items-center gap-2">
                   <div className="h-1.5 w-24 rounded-full bg-white/5 overflow-hidden">
                     <div
@@ -1074,9 +1074,9 @@ export default function InboxPage() {
                   >renew</Link>
                 </div>
               )}
-              {showLarvaWarning && (
+              {showBasicWarning && (
                 <div className="flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/8 px-3 py-1.5">
-                  <span className="text-[10px] text-amber-300">⚠ Your history window ends in {daysLeft}d. Cycle to Pupa to extend to 30 days and deploy your Mirror Body.</span>
+                  <span className="text-[10px] text-amber-300">⚠ Your history window ends in {daysLeft}d. Cycle to Lite to extend to 30 days and deploy your Mirror Body.</span>
                   <Link href={`/nftmail?upgrade=lite&label=${name}`} className="ml-auto flex-shrink-0 text-[9px] font-semibold text-amber-300 hover:underline">Upcycle →</Link>
                 </div>
               )}
@@ -1133,7 +1133,7 @@ export default function InboxPage() {
                 className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2.5 text-center text-[11px] font-semibold text-amber-300 transition hover:bg-amber-500/20"
               >
                 <span className="block text-sm font-bold">10 xDAI</span>
-                Upcycle to Pupa
+                Upcycle to Lite
               </Link>
             </div>
             {daysLeft !== null && daysLeft <= 7 && (
@@ -1202,7 +1202,7 @@ export default function InboxPage() {
               </span>
             </div>
             <span className="text-[9px] text-[var(--muted)]">
-              {isImago ? '✦ Sovereign — Persistent History' : `Messages auto-delete after ${tierDecayDays ?? 8} days`}
+              {isPremium ? '✦ Sovereign — Persistent History' : `Messages auto-delete after ${tierDecayDays ?? 8} days`}
             </span>
           </div>
         )}
@@ -1262,7 +1262,7 @@ export default function InboxPage() {
                         <span className="text-[10px] text-[var(--muted)]">{msg.receivedTime ? formatTimeAgo(msg.receivedTime) : ''}</span>
                         {msg.frozen ? (
                           <span className="text-[8px] text-cyan-300/70">❄️ hardened</span>
-                        ) : isImago ? (
+                        ) : isPremium ? (
                           <span className="text-[8px] text-cyan-300/50">✦ sovereign</span>
                         ) : (
                           <div className="flex items-center gap-1.5">
@@ -1550,13 +1550,13 @@ export default function InboxPage() {
           </div>
         )}
 
-        {/* ── Evolve CTA — only shown for basic (Larva) tier ── */}
+        {/* ── Evolve CTA — only shown for basic (Basic) tier ── */}
         {accountTier === 'basic' && (
           <div className="mt-auto rounded-xl border border-amber-500/20 bg-amber-500/5 px-5 py-4">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <p className="text-xs font-medium text-white">Cycle from Larva to Pupa to Imago</p>
-                <p className="mt-0.5 text-[10px] text-[var(--muted)]">Paid-tier Pupa or Imago mailbox, send emails, attachments, +retention, deploy mirror body</p>
+                <p className="text-xs font-medium text-white">Cycle from Basic to Lite to Premium</p>
+                <p className="mt-0.5 text-[10px] text-[var(--muted)]">Paid-tier Lite or Premium mailbox, send emails, attachments, +retention, deploy mirror body</p>
               </div>
               <Link
                 href={`/nftmail?upgrade=pro&label=${encodeURIComponent(agentName)}`}

@@ -45,7 +45,7 @@ async function logAudit(domain: string, result: IPMintResult, webhookSecret: str
 // ─── Main export — matches user's interface ───────────────────────────────────
 
 /**
- * Mints a Story Protocol .ip asset on Larva→Pupa evolution.
+ * Mints a Story Protocol .ip asset on Basic→Lite evolution.
  *
  * @param domain     Full GNS domain, e.g. 'agent.gno' | 'nftmail.gno'
  * @param safeAddress Gnosis Safe address — .ip NFT stored here, transfers on molt automatically
@@ -53,7 +53,7 @@ async function logAudit(domain: string, result: IPMintResult, webhookSecret: str
  * @param agentName   Bare agent name, e.g. 'ghostagent'
  * @param webhookSecret Internal secret for KV writes
  */
-export async function mintIPOnPUPA(
+export async function mintIPOnLITE(
   domain: string,
   safeAddress: string,
   tbaAddress: string,
@@ -139,10 +139,10 @@ export const mintIPAsset = async (params: {
   ownerWallet: string; safeAddress?: string;
   fromLevel: string; toLevel: string; webhookSecret: string;
 }): Promise<{ success: boolean; ipType: string; fullDomain?: string; ipAccount?: string; tokenId?: string; txHash?: string; error?: string; skipped?: boolean }> => {
-  if (params.fromLevel !== 'larva' || params.toLevel !== 'pupa') {
+  if (params.fromLevel !== 'basic' || params.toLevel !== 'lite') {
     return { success: true, skipped: true, ipType: getIPType(params.tld) };
   }
-  const r = await mintIPOnPUPA(params.tld, params.safeAddress ?? params.ownerWallet, params.tbaAddress, params.agentName, params.webhookSecret);
+  const r = await mintIPOnLITE(params.tld, params.safeAddress ?? params.ownerWallet, params.tbaAddress, params.agentName, params.webhookSecret);
   return {
     success: !r.error,
     ipType: r.ipType,

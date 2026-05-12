@@ -286,7 +286,7 @@ Content-Type: application/json
           <h3 className={H3_CLASSES}>Namespace tiers</h3>
           <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
             {[
-              { sld: 'picoclaw.gno', label: 'Larva — free entry',        color: 'text-amber-300' },
+              { sld: 'picoclaw.gno', label: 'Basic — free entry',        color: 'text-amber-300' },
               { sld: 'openclaw.gno', label: 'Full agent, glassbox',       color: 'text-cyan-300' },
               { sld: 'molt.gno',     label: 'Transition (30d decay)',      color: 'text-fuchsia-300' },
               { sld: 'vault.gno',    label: 'Pro, persistent, private',    color: 'text-emerald-300' },
@@ -320,8 +320,8 @@ Content-Type: application/json
 
 const nftmail = new NFTMail();
 
-// Create freemium agent
-const agent = await nftmail.createAgent('my-agent', 'freemium');
+// Create free agent
+const agent = await nftmail.createAgent('my-agent', 'free');
 
 // Send email with optional payment
 await nftmail.sendEmail(
@@ -336,7 +336,7 @@ await nftmail.sendEmail(
           <div className="space-y-2">
             <div className="rounded-lg border border-[var(--border)] bg-black/20 px-3 py-2">
               <div className="text-[10px] font-semibold text-cyan-300">npx nftmail-setup</div>
-              <div className="text-[10px] text-[var(--muted)]">Create freemium agent with 100 emails, 8-day storage</div>
+              <div className="text-[10px] text-[var(--muted)]">Create free agent with 100 emails, 8-day storage</div>
             </div>
             <div className="rounded-lg border border-[var(--border)] bg-black/20 px-3 py-2">
               <div className="text-[10px] font-semibold text-cyan-300">npx nftmail-upgrade</div>
@@ -355,7 +355,7 @@ await nftmail.sendEmail(
           <h3 className={H3_CLASSES}>Pricing Tiers</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
             <div className="rounded-lg border border-[var(--border)] bg-black/20 px-3 py-2">
-              <div className="text-[10px] font-semibold text-emerald-300">FREEMIUM</div>
+              <div className="text-[10px] font-semibold text-emerald-300">FREE</div>
               <div className="text-[10px] text-[var(--muted)]">100 emails, 8-day TTL, NPX inbox only</div>
             </div>
             <div className="rounded-lg border border-[var(--border)] bg-black/20 px-3 py-2">

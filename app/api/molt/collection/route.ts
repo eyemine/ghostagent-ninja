@@ -13,7 +13,7 @@ import { workerTierToLevel } from '../../../services/evolve-level';
 import { WORKER_URL } from '../../../utils/config';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://ghostagent.ninja';
-const MOLT_PERMITTED_TIERS = new Set(['pupa', 'imago', 'ghost']);
+const MOLT_PERMITTED_TIERS = new Set(['lite', 'premium', 'ghost']);
 
 export async function POST(req: NextRequest) {
   const webhookSecret = process.env.NFTMAIL_WEBHOOK_SECRET;
@@ -53,9 +53,9 @@ export async function POST(req: NextRequest) {
         const agentLevel = workerTierToLevel(tierData?.tier ?? tierData?.raw ? JSON.parse(tierData.raw ?? '{}').tier : undefined);
         if (!MOLT_PERMITTED_TIERS.has(agentLevel)) {
           return NextResponse.json({
-            error: 'Molt requires Pupa tier or above — evolve your agent first. Larva tier and free picoclaw accounts cannot molt.',
+            error: 'Molt requires Lite tier or above — evolve your agent first. Basic tier and free picoclaw accounts cannot molt.',
             currentTier: tierData?.tier ?? 'basic',
-            requiredTier: 'pupa',
+            requiredTier: 'lite',
             upgradeUrl: '/nftmail?upgrade=1',
           }, { status: 402 });
         }

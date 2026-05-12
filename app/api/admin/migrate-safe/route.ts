@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
             action: 'setAcctTier',
             localPart: agentName,
             tld: 'agent.gno',
-            tier: 'pupa',
+            tier: 'lite',
             safe: safeAddress,
           }),
         });

@@ -95,7 +95,7 @@ export default function EvolveModal({
 
       if (!res.ok) throw new Error(data.error ?? 'Request failed');
 
-      const newLevel = data.level ?? (action === 'upgrade' ? 'imago' : 'pupa');
+      const newLevel = data.level ?? (action === 'upgrade' ? 'premium' : 'lite');
       setRecord(prev => prev ? {
         ...prev,
         level: newLevel,
@@ -108,7 +108,7 @@ export default function EvolveModal({
       } : null);
 
       if (data.storyIp?.fullDomain) setStoryIp(data.storyIp.fullDomain);
-      setStatusMsg(data.message ?? `${action === 'upgrade' ? 'Molted to Imago' : 'Returned to Pupa'} ✓`);
+      setStatusMsg(data.message ?? `${action === 'upgrade' ? 'Molted to Premium' : 'Returned to Lite'} ✓`);
       setConfirmDowngrade(false);
       onLevelChange?.(newLevel);
     } catch (err: any) {
@@ -119,18 +119,18 @@ export default function EvolveModal({
   }
 
   // $HOST staking thresholds for tier upgrades
-  const IMAGO_HOST_REQ = 1000;   // 1,000 $HOST to unlock Imago-equivalent
+  const PREMIUM_HOST_REQ = 1000;   // 1,000 $HOST to unlock Premium-equivalent
   const GHOST_HOST_REQ = 5000;   // 5,000 $HOST to unlock Ghost-equivalent
-  const imagoHostNeeded = Math.max(0, IMAGO_HOST_REQ - stakedHost);
+  const premiumHostNeeded = Math.max(0, PREMIUM_HOST_REQ - stakedHost);
   const ghostHostNeeded = Math.max(0, GHOST_HOST_REQ - stakedHost);
 
-  async function stakeForUpgrade(targetTier: 'imago' | 'ghost') {
+  async function stakeForUpgrade(targetTier: 'premium' | 'ghost') {
     if (stakeBusy || busy) return;
     setStakeBusy(true);
     setStakeMsg(null);
     setErrorMsg(null);
 
-    const needed = targetTier === 'ghost' ? ghostHostNeeded : imagoHostNeeded;
+    const needed = targetTier === 'ghost' ? ghostHostNeeded : premiumHostNeeded;
     if (needed <= 0) {
       // Already staked enough — just trigger the upgrade
       await executeAction('upgrade');
@@ -172,7 +172,7 @@ export default function EvolveModal({
     }
   }
 
-  const currentLevel = record?.level ?? 'larva';
+  const currentLevel = record?.level ?? 'basic';
   const upgradeAction = EVOLVE_ACTIONS[currentLevel];
   const downgradeAction = DOWNGRADE_ACTIONS[currentLevel];
   const action = upgradeAction; // primary CTA is always upgrade
@@ -216,7 +216,7 @@ export default function EvolveModal({
                   <p className="mt-1 text-[11px] text-[var(--muted)] leading-relaxed">{meta.description}</p>
                 </div>
                 <div className="shrink-0 text-3xl select-none">
-                  {currentLevel === 'larva' ? '🐛' : currentLevel === 'pupa' ? '🐛' : currentLevel === 'imago' ? '🦋' : '👻'}
+                  {currentLevel === 'basic' ? '🐛' : currentLevel === 'lite' ? '🐛' : currentLevel === 'premium' ? '🦋' : '👻'}
                 </div>
               </div>
 
@@ -242,7 +242,7 @@ export default function EvolveModal({
             {action && !statusMsg && (
               <>
                 {/* Upgrade path */}
-                {action.to === 'imago' && targetMeta && (
+                {action.to === 'premium' && targetMeta && (
                   <div className="mb-4 rounded-xl border border-[var(--border)] bg-white/[0.02] p-4 space-y-3">
                     <div className="flex items-center justify-between">
                       <span className={`text-base font-bold ${targetMeta.color}`}>
@@ -290,7 +290,7 @@ export default function EvolveModal({
                           Molting…
                         </span>
                       ) : (
-                        `Molt to Imago +${action.oneOffXdai} xDAI`
+                        `Molt to Premium +${action.oneOffXdai} xDAI`
                       )}
                     </button>
 
@@ -302,7 +302,7 @@ export default function EvolveModal({
                     </div>
                     <button
                       disabled={stakeBusy || busy}
-                      onClick={() => stakeForUpgrade('imago')}
+                      onClick={() => stakeForUpgrade('premium')}
                       className="w-full rounded-xl border border-[rgba(176,128,92,0.3)] bg-[rgba(176,128,92,0.08)] py-3 text-sm font-bold text-[#b0805c] transition hover:bg-[rgba(176,128,92,0.15)] disabled:opacity-50"
                     >
                       {stakeBusy ? (
@@ -310,8 +310,8 @@ export default function EvolveModal({
                           <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v4m0 12v4m-7.07-3.93 2.83-2.83m8.48-8.48 2.83-2.83M2 12h4m12 0h4M4.93 4.93l2.83 2.83m8.48 8.48 2.83 2.83" /></svg>
                           Staking…
                         </span>
-                      ) : imagoHostNeeded > 0 ? (
-                        `Stake ${fmtHost(imagoHostNeeded)} to Molt`
+                      ) : premiumHostNeeded > 0 ? (
+                        `Stake ${fmtHost(premiumHostNeeded)} to Molt`
                       ) : (
                         'Molt via $HOST stake ✓'
                       )}
@@ -319,7 +319,7 @@ export default function EvolveModal({
                     {stakedHost > 0 && (
                       <div className="text-center text-[9px] text-[var(--muted)]">
                         Currently staked: <span className={`font-semibold ${tierColor(stakeTier)}`}>{fmtHost(stakedHost)}</span>
-                        {imagoHostNeeded > 0 && ` · need ${fmtHost(imagoHostNeeded)} more`}
+                        {premiumHostNeeded > 0 && ` · need ${fmtHost(premiumHostNeeded)} more`}
                       </div>
                     )}
 
@@ -357,7 +357,7 @@ export default function EvolveModal({
                     )}
 
                     <p className="text-center text-[9px] text-[var(--muted)]">
-                      Zero lock-in · drop back to Pupa any time · email preserved
+                      Zero lock-in · drop back to Lite any time · email preserved
                     </p>
                   </div>
                 )}
@@ -377,7 +377,7 @@ export default function EvolveModal({
                     </div>
 
                     <div className="rounded-lg border border-fuchsia-500/15 bg-black/20 px-3 py-2 text-[10px] text-fuchsia-200/70 leading-relaxed">
-                      This is a one-way fork. Ghost agents become <strong className="text-fuchsia-300">Soulbound</strong> — your identity is sealed to you, not transferable, not sellable. You cannot return to Imago.
+                      This is a one-way fork. Ghost agents become <strong className="text-fuchsia-300">Soulbound</strong> — your identity is sealed to you, not transferable, not sellable. You cannot return to Premium.
                     </div>
 
                     <div className="space-y-1.5">
@@ -438,8 +438,8 @@ export default function EvolveModal({
                   </div>
                 )}
 
-                {/* Imago → Pupa downgrade path */}
-                {downgradeAction && downgradeAction.to === 'pupa' && (
+                {/* Premium → Lite downgrade path */}
+                {downgradeAction && downgradeAction.to === 'lite' && (
                   <div className="mb-4 rounded-xl border border-[var(--border)] bg-white/[0.02] p-4 space-y-3">
                     {!confirmDowngrade ? (
                       <>
@@ -466,7 +466,7 @@ export default function EvolveModal({
                           onClick={() => setConfirmDowngrade(true)}
                           className="w-full rounded-xl border border-zinc-500/30 bg-zinc-500/10 py-2.5 text-xs font-semibold text-zinc-300 transition hover:bg-zinc-500/20"
                         >
-                          Drop back to Pupa
+                          Drop back to Lite
                         </button>
                       </>
                     ) : (
@@ -573,8 +573,8 @@ export default function EvolveModal({
               </div>
             )}
 
-            {/* No upgrade path (larva tier — must mint first) */}
-            {!action && currentLevel === 'larva' && (
+            {/* No upgrade path (basic tier — must mint first) */}
+            {!action && currentLevel === 'basic' && (
               <div className="mb-4 rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-xs text-amber-300">
                 Mint your .nftmail.gno or .agent.gno name first, then return here to molt.
               </div>
@@ -603,7 +603,7 @@ export default function EvolveModal({
 
         {/* Level ladder */}
         <div className="mt-2 flex items-center justify-center gap-1 text-[9px] text-[var(--muted)]">
-          {(['larva', 'pupa', 'imago', 'ghost'] as EvolveLevel[]).map((lvl, i, arr) => (
+          {(['basic', 'lite', 'premium', 'ghost'] as EvolveLevel[]).map((lvl, i, arr) => (
             <span key={lvl} className="flex items-center gap-1">
               <span className={lvl === currentLevel ? LEVEL_META[lvl].color + ' font-bold' : ''}>
                 {LEVEL_META[lvl].label}

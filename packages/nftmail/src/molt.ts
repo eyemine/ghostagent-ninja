@@ -361,7 +361,7 @@ export class MoltProcessor {
         missing.push('Brain not installed');
       }
       
-      if (agentInfo.tier === 'freemium') {
+      if (agentInfo.tier === 'free') {
         missing.push('Must upgrade to Professional or Vault tier');
       }
       

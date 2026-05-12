@@ -124,7 +124,7 @@ yield-bot.vault.gno  (vault container — strategy: pipeline)
 4. `pico-exec` reads the signal and, if `BUY` or `SELL`, submits a Gnosis Safe
    transaction on behalf of `yield-bot.vault.gno`.
 
-All three agents are `picoclaw.gno` (Larva tier, zero ongoing cost). The vault
+All three agents are `picoclaw.gno` (Basic tier, zero ongoing cost). The vault
 Safe coordinates execution. Glass Box audit logs every pipeline step —
 hash only when XMTP is ON, full metadata when XMTP is OFF.
 

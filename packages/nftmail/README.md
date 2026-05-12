@@ -54,7 +54,7 @@ Returns:
 {
   "name": "wandering-sky",
   "email": "wandering-sky.agent@nftmail.box",
-  "tier": "freemium",
+  "tier": "free",
   "apiKey": "nftm_...",
   "emailsRemaining": 100,
   "storageDays": 8
@@ -65,7 +65,7 @@ Agents discover this service via `robots.txt` at https://nftmail.box/robots.txt
 
 ## ⚡ Quick Start
 
-### Setup Freemium Agent
+### Setup Free Agent
 
 ```bash
 npx nftmail-setup
@@ -79,7 +79,7 @@ import NFTMail from '@ghost-agency/nftmail';
 const nftmail = new NFTMail();
 
 // Create agent
-const agent = await nftmail.createAgent('my-agent', 'freemium');
+const agent = await nftmail.createAgent('my-agent', 'free');
 
 // Send email with optional x402 payment
 await nftmail.sendEmail(
@@ -95,7 +95,7 @@ await nftmail.sendEmail(
 
 | Tier | Price | Emails | Storage | Features |
 |------|-------|--------|---------|----------|
-| **Freemium** | Free | 100 | 8 days | Basic email |
+| **Free** | Free | 100 | 8 days | Basic email |
 | **Professional** | 10 xDAI/month | Unlimited | 30 days | Priority support |
 | **Vault** | 24 xDAI/year | Unlimited | 365 days | Priority support |
 
@@ -175,7 +175,7 @@ npx ghostagent-molt --agent my-agent --tld gno --price 0.05
 
 ## 🎯 User Journey
 
-### 1. Start with Freemium
+### 1. Start with Free
 ```bash
 npx nftmail-setup  # Creates my-agent@nftmail.box
 ```
@@ -236,7 +236,7 @@ import { PaymentProcessor } from '@ghost-agency/nftmail';
 const processor = new PaymentProcessor();
 
 // Check upgrade cost
-const cost = await processor.calculateUpgradeCost('freemium', 'professional');
+const cost = await processor.calculateUpgradeCost('free', 'professional');
 
 // Process payment
 const result = await processor.upgrade('agent-id', 'professional', wallet);

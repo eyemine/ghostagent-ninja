@@ -1,7 +1,7 @@
 /// API Route: Farcaster Snap Server
 /// POST /api/farcaster-snap
 ///
-/// Farcaster Snap state machine for FID → LARVA provisioning.
+/// Farcaster Snap state machine for FID → BASIC provisioning.
 /// Uses the Snap JSON protocol (not Open Graph meta tags).
 ///
 /// Snap Protocol: Returns JSON with UI declarations, supports effects.
@@ -114,8 +114,8 @@ export async function POST(req: NextRequest) {
       case 'entry': {
         // Snap 1: Welcome → Name selection
         return snapResponse({
-          image: generateSnapImage('GhostAgent LARVA', 'FID-powered agent · No wallet required'),
-          title: 'Claim Your LARVA Agent',
+          image: generateSnapImage('GhostAgent BASIC', 'FID-powered agent · No wallet required'),
+          title: 'Claim Your BASIC Agent',
           description: 'Create an email-enabled AI agent tied to your Farcaster ID. Free forever, 8-day inbox history.',
           buttons: [
             { label: `Use Default (fid-${fid})`, action: 'post' },
@@ -172,8 +172,8 @@ export async function POST(req: NextRequest) {
         else if (buttonIndex === 1) {
           // Back button - return to name
           return snapResponse({
-            image: generateSnapImage('Claim Your LARVA Agent', 'FID-powered agent · No wallet required'),
-            title: 'Claim Your LARVA Agent',
+            image: generateSnapImage('Claim Your BASIC Agent', 'FID-powered agent · No wallet required'),
+            title: 'Claim Your BASIC Agent',
             description: 'Create an email-enabled AI agent tied to your Farcaster ID.',
             buttons: [
               { label: `Use Default (fid-${fid})`, action: 'post' },
@@ -233,12 +233,12 @@ export async function POST(req: NextRequest) {
 
         // Success snap with fireworks!
         return snapResponse({
-          image: generateSnapImage('LARVA Agent Claimed!', 'Free forever · 8-day inbox history'),
+          image: generateSnapImage('BASIC Agent Claimed!', 'Free forever · 8-day inbox history'),
           title: 'Agent Created!',
           description: `${provisionData.agentName}@nftmail.box is ready. Your emails are encrypted and secure.`,
           buttons: [
             { label: 'View Agent', action: 'link', target: `${APP_URL}/agent/${provisionData.agentName}` },
-            { label: 'Upgrade to PUPA →', action: 'link', target: `${APP_URL}/byo-molt?agent=${provisionData.agentName}` },
+            { label: 'Upgrade to LITE →', action: 'link', target: `${APP_URL}/byo-molt?agent=${provisionData.agentName}` },
           ],
           state: { step: 'success', fid, agentName: provisionData.agentName, farcasterVisibility },
           effects: ['fireworks', 'confetti'], // Double celebration!
@@ -250,8 +250,8 @@ export async function POST(req: NextRequest) {
       default: {
         // Reset to entry
         return snapResponse({
-          image: generateSnapImage('GhostAgent LARVA', 'FID-powered agent · No wallet required'),
-          title: 'GhostAgent LARVA',
+          image: generateSnapImage('GhostAgent BASIC', 'FID-powered agent · No wallet required'),
+          title: 'GhostAgent BASIC',
           description: 'Create an email-enabled AI agent tied to your Farcaster ID.',
           buttons: [{ label: 'Claim Agent', action: 'post' }],
           state: { step: 'entry' },
@@ -274,7 +274,7 @@ export async function POST(req: NextRequest) {
 // GET handler — Frame fallback for discovery (Warpcast previews)
 // Snap protocol is beta; Frame meta tags ensure it renders everywhere
 export async function GET(req: NextRequest) {
-  const image = generateSnapImage('GhostAgent LARVA', 'FID-powered agent · No wallet required');
+  const image = generateSnapImage('GhostAgent BASIC', 'FID-powered agent · No wallet required');
   const postUrl = `${APP_URL}/api/farcaster-snap`;
 
   // Check if client wants JSON (Snap) or HTML (Frame)
@@ -285,7 +285,7 @@ export async function GET(req: NextRequest) {
     // Return Snap JSON for beta clients
     return snapResponse({
       image,
-      title: 'GhostAgent LARVA',
+      title: 'GhostAgent BASIC',
       description: 'Create an email-enabled AI agent tied to your Farcaster ID. 8-day free trial.',
       buttons: [{ label: 'Claim Agent', action: 'post' }],
       state: { step: 'entry' },
@@ -296,18 +296,18 @@ export async function GET(req: NextRequest) {
   const html = `<!DOCTYPE html>
 <html>
 <head>
-  <title>GhostAgent LARVA</title>
+  <title>GhostAgent BASIC</title>
   <meta property="fc:frame" content="vNext" />
   <meta property="fc:frame:image" content="${image}" />
   <meta property="fc:frame:button:1" content="Claim Agent" />
   <meta property="fc:frame:button:1:action" content="post" />
   <meta property="fc:frame:post_url" content="${postUrl}" />
-  <meta property="og:title" content="GhostAgent LARVA" />
+  <meta property="og:title" content="GhostAgent BASIC" />
   <meta property="og:description" content="FID-powered agent · No wallet required · 8-day trial" />
   <meta property="og:image" content="${image}" />
 </head>
 <body>
-  <h1>GhostAgent LARVA</h1>
+  <h1>GhostAgent BASIC</h1>
   <p>Claim your FID-powered AI agent at ghostagent.ninja</p>
 </body>
 </html>`;

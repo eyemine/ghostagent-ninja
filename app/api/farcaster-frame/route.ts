@@ -1,8 +1,8 @@
 /// API Route: Farcaster Frame Server
 /// POST /api/farcaster-frame
 ///
-/// Farcaster Frame state machine for FID → LARVA provisioning:
-///   Frame 1: Entry → "Claim LARVA Agent" button
+/// Farcaster Frame state machine for FID → BASIC provisioning:
+///   Frame 1: Entry → "Claim BASIC Agent" button
 ///   Frame 2: Name selection → text input for custom name (optional)
 ///   Frame 3: Confirm → provision agent via worker
 ///   Frame 4: Success → show agent details + upgrade CTA
@@ -90,8 +90,8 @@ function frameResponse(params: {
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width" />
-  <title>GhostAgent LARVA</title>
-  <meta property="og:title" content="GhostAgent LARVA" />
+  <title>GhostAgent BASIC</title>
+  <meta property="og:title" content="GhostAgent BASIC" />
   <meta property="og:description" content="FID-powered agent provisioning" />
   <meta property="og:image" content="${image}" />
   <meta property="og:type" content="website" />
@@ -175,7 +175,7 @@ export async function POST(req: NextRequest) {
           ),
           buttons: [
             { label: '← Back', action: 'post' },
-            { label: '✓ Claim LARVA Agent', action: 'post' },
+            { label: '✓ Claim BASIC Agent', action: 'post' },
           ],
           state: { step: 'confirm', fid, preferredName, agentName },
         });
@@ -236,7 +236,7 @@ export async function POST(req: NextRequest) {
             ),
             buttons: [
               { label: '← Back', action: 'post' },
-              { label: '✓ Claim LARVA Agent', action: 'post' },
+              { label: '✓ Claim BASIC Agent', action: 'post' },
             ],
             state: { step: 'confirm', fid, preferredName, agentName },
           });
@@ -294,12 +294,12 @@ export async function POST(req: NextRequest) {
 
         return frameResponse({
           image: generateFrameImage(
-            'LARVA Agent Claimed!',
+            'BASIC Agent Claimed!',
             `Expires: ${expiresDate}`
           ),
           buttons: [
             { label: 'View Agent', action: 'post_redirect', target: `${APP_URL}/agent/${provisionData.agentName}` },
-            { label: 'Upgrade to PUPA →', action: 'post_redirect', target: `${APP_URL}/byo-molt?agent=${provisionData.agentName}` },
+            { label: 'Upgrade to LITE →', action: 'post_redirect', target: `${APP_URL}/byo-molt?agent=${provisionData.agentName}` },
           ],
           state: { step: 'success', fid, agentName: provisionData.agentName },
         });
@@ -310,7 +310,7 @@ export async function POST(req: NextRequest) {
       default: {
         // Reset to entry
         return frameResponse({
-          image: generateFrameImage('GhostAgent LARVA', 'FID-powered agent provisioning'),
+          image: generateFrameImage('GhostAgent BASIC', 'FID-powered agent provisioning'),
           buttons: [{ label: 'Claim Agent', action: 'post' }],
           state: { step: 'entry' },
         });
@@ -330,7 +330,7 @@ export async function POST(req: NextRequest) {
 // GET handler — Initial frame load (Frame preview)
 export async function GET(req: NextRequest) {
   return frameResponse({
-    image: generateFrameImage('GhostAgent LARVA', 'FID-powered agent provisioning\nNo wallet required'),
+    image: generateFrameImage('GhostAgent BASIC', 'FID-powered agent provisioning\nNo wallet required'),
     buttons: [{ label: 'Claim Agent', action: 'post' }],
     state: { step: 'entry' },
   });

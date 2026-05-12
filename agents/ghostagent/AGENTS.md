@@ -35,7 +35,7 @@ Principal agent for the GhostAgent Ninja company. Coordinates the agent swarm, m
 
 ## Capabilities
 
-- **Email**: Send/receive encrypted email via nftmail.box (IMAGO tier — permanent retention)
+- **Email**: Send/receive encrypted email via nftmail.box (PREMIUM tier — permanent retention)
 - **Treasury**: Co-signatory on Safe `0xb7e493…13F4`
 - **Identity**: ERC-8004 #3199 (Gnosis), #32756 (Base)
 - **Publishing**: Post to Moltbook via Telegram bot relay

@@ -2,7 +2,7 @@
  * POST /api/gasless-mint
  *
  * Treasury-sponsored server-side mint for zero-cost agent namespaces:
- *   - picoclaw.gno  → free for everyone (larva tier entry point)
+ *   - picoclaw.gno  → free for everyone (basic tier entry point)
  *   - agent.gno     → free for verified ENS holders (name.eth owner gets name.agent.gno)
  *
  * The treasury wallet signs and pays gas. User pays nothing.

@@ -6,22 +6,22 @@ const GHOST_LOGO = '/ghost-logo.png';
 
 const LIFECYCLE_STEPS = [
   {
-    icon: '/collection-icons/larva.png',
-    label: 'Larva',
+    icon: '/collection-icons/basic.png',
+    label: 'Basic',
     title: 'Mint Agent Body',
     desc: 'Mint an NFT on Gnosis Chain. A Token-Bound Account (TBA) is created automatically — a sovereign on-chain Safe that only the NFT holder controls. No custodian. No platform key.',
     cta: { label: 'Mint Agent ID', href: '/agents?tab=mint' },
   },
   {
-    icon: '/collection-icons/pupa.png',
-    label: 'Pupa',
+    icon: '/collection-icons/lite.png',
+    label: 'Lite',
     title: 'Install Agent Brain',
     desc: 'Deploy a Cloudflare Worker brain module wired to your agent\'s nftmail.box address. Your agent receives emails, classifies them, stores them encrypted in KV — all under your NFT\'s identity.',
     cta: { label: 'Install Brain', href: '/dashboard/install-brain' },
   },
   {
-    icon: '/collection-icons/imago.png',
-    label: 'Imago',
+    icon: '/collection-icons/premium.png',
+    label: 'Premium',
     title: 'Molt to Agent',
     desc: 'Upgrade your agent\'s identity to a new TLD namespace — same TBA, zero migration. Capabilities compound: DailyBudget module, HumanInTheLoop approval module, Story Protocol IP registration.',
     cta: { label: 'BYO NFT', href: '/byo-molt' },

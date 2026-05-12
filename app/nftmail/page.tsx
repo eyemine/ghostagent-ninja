@@ -110,7 +110,7 @@ function AgentLandingPage({ onClaim }: { onClaim: () => void }) {
  * Full features available at nftmail.box:
  * - Identity card with full ERC-8004 details
  * - Stealth alias management
- * - Imago tier upgrade (persistent storage, calendar + tasks)
+ * - Premium tier upgrade (persistent storage, calendar + tasks)
  * - Molt to full GhostAgent
  * 
  * This version keeps the codebase minimal for agents who just need
@@ -191,7 +191,7 @@ export default function NftmailPage() {
             </div>
             <div className="ml-8 space-y-3">
               <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-[10px] text-amber-300/80">
-                Mint {'{name}'}.nftmail.gno → get {'{name}'}_@nftmail.box. 2 xDAI — born a Pupa. 30-day history, send 10 emails via API. Molt to Imago for aliases, persistent history and unlimited send.
+                Mint {'{name}'}.nftmail.gno → get {'{name}'}_@nftmail.box. 2 xDAI — born a Lite. 30-day history, send 10 emails via API. Molt to Premium for aliases, persistent history and unlimited send.
               </div>
               {tier !== 'none' ? (
                 <div className="flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/8 px-4 py-3">
@@ -281,7 +281,7 @@ export default function NftmailPage() {
               {tier === 'premium' ? (
                 <div className="flex items-center gap-2 rounded-xl border border-violet-500/30 bg-violet-500/8 px-4 py-3">
                   <div className="h-2 w-2 rounded-full bg-violet-400" />
-                  <span className="text-sm text-violet-300">Imago tier activated</span>
+                  <span className="text-sm text-violet-300">Premium tier activated</span>
                 </div>
               ) : (
                 <div className="space-y-3">

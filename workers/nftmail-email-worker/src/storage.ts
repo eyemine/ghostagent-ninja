@@ -106,7 +106,7 @@ export interface AgentStatus {
   forwarding?: {
     enabled: boolean;
     targetEmail: string;
-    level: 'imago' | 'ghost';
+    level: 'premium' | 'ghost';
   };
   nextScheduled?: number;
   metadata?: Record<string, any>;
@@ -322,7 +322,7 @@ export class MailStorageAdapter {
       console.error('Failed to parse email for Glassbox:', error);
     }
 
-    // Imago Forwarding: Forward email for Imago level accounts
+    // Premium Forwarding: Forward email for Premium level accounts
     // SECURITY: Verify NFT ownership before forwarding to prevent unauthorized access
     try {
       // Get current forwarding configuration
@@ -356,14 +356,14 @@ export class MailStorageAdapter {
             // Ownership verified - proceed with forwarding
             const forwarded = await forwardEmail(this.config, agentName, email, parsedData);
             if (forwarded) {
-              console.log(`Email forwarded for Imago agent: ${agentName}`);
+              console.log(`Email forwarded for Premium agent: ${agentName}`);
             }
           }
         }
       }
     } catch (error) {
       // Non-fatal - forwarding should never break email delivery
-      console.error('Failed to forward email for Imago agent:', error);
+      console.error('Failed to forward email for Premium agent:', error);
     }
 
     // Track active inbox usage for analytics

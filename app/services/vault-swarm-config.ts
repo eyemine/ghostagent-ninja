@@ -6,14 +6,14 @@
 /// ══════════════════════════════════════════════════════════════════
 ///
 /// THE MOLT PATH (Biological) — Managed Cloud Agents
-///   Larva → Pupa → Imago
+///   Basic → Lite → Premium
 ///   - Hosted on GhostAgent Cloud
 ///   - Identity: transferable ERC-721 NFT
 ///   - Can list on marketplace (transferable asset)
 ///   - "A Service Animal you can rehome"
 ///
 /// THE GHOST PATH (Spectral) — Sovereign Local Proxies
-///   Imago → Ghost (one-time 200 xDAI upgrade, NOT a molt)
+///   Premium → Ghost (one-time 200 xDAI upgrade, NOT a molt)
 ///   - Compute: user-owned hardware (local LLM via Ollama/LM Studio)
 ///   - Identity: ERC-5192 Soulbound Token (non-transferable)
 ///   - CANNOT list on marketplace — would create a "Hollow Shell" asset
@@ -54,25 +54,25 @@ export interface SwarmConfig {
 }
 
 // ─── Molt tier capability gating ─────────────────────────────────────────────
-// THE MOLT PATH:  larva → pupa → imago  (cloud-hosted, transferable NFTs)
-// THE GHOST PATH: imago → ghost         (local-sovereign, soulbound, NOT a molt)
+// THE MOLT PATH:  basic → lite → premium  (cloud-hosted, transferable NFTs)
+// THE GHOST PATH: premium → ghost         (local-sovereign, soulbound, NOT a molt)
 //
-// Ghost is a FORK at the Pupa stage, not a continuation of the molt path.
-// The UI must present this as a "Fork in the Road" choice at Pupa:
-//   Option A: Molt to Imago — cloud-hosted, 24 xDAI/yr, transferable, marketplace-eligible
+// Ghost is a FORK at the Lite stage, not a continuation of the molt path.
+// The UI must present this as a "Fork in the Road" choice at Lite:
+//   Option A: Molt to Premium — cloud-hosted, 24 xDAI/yr, transferable, marketplace-eligible
 //   Option B: Drop the Eternal Anchor — local brain, 200 xDAI lifetime, soulbound, NOT marketplace-eligible
 
-export type MoltTier = 'larva' | 'pupa' | 'imago' | 'ghost';
+export type MoltTier = 'basic' | 'lite' | 'premium' | 'ghost';
 
 export interface MoltTierConfig {
   tier:               MoltTier;
   namespace:          string;           // canonical namespace
   label:              string;           // display label
   mintFee:            number | 'free';  // xDAI
-  subscriptionFee:    number | null;    // xDAI/yr; null = no sub (ghost = lifetime, larva/pupa = no sub)
-  canMolt:            boolean;          // true for larva + pupa only
+  subscriptionFee:    number | null;    // xDAI/yr; null = no sub (ghost = lifetime, basic/lite = no sub)
+  canMolt:            boolean;          // true for basic + lite only
   canMoltTo:          MoltTier | 'ghost-path' | null; // explicit next step
-  isOnMoltPath:       boolean;          // true for larva/pupa/imago; false for ghost
+  isOnMoltPath:       boolean;          // true for basic/lite/premium; false for ghost
   isSoulbound:        boolean;          // ERC-5192 non-transferable (ghost only)
   canListOnMarketplace: boolean;        // false for ghost — soulbound = not a transferable asset
   hasPermanentArchive: boolean;         // Arweave/IPFS output archive (ghost only)
@@ -83,14 +83,14 @@ export interface MoltTierConfig {
 }
 
 export const MOLT_TIER_CONFIG: Record<MoltTier, MoltTierConfig> = {
-  larva: {
-    tier:                 'larva',
+  basic: {
+    tier:                 'basic',
     namespace:            'picoclaw.gno',
-    label:                '🥚 Larva',
+    label:                '🥚 Basic',
     mintFee:              'free',
     subscriptionFee:      null,
     canMolt:              true,
-    canMoltTo:            'pupa',
+    canMoltTo:            'lite',
     isOnMoltPath:         true,
     isSoulbound:          false,
     canListOnMarketplace: true,
@@ -98,16 +98,16 @@ export const MOLT_TIER_CONFIG: Record<MoltTier, MoltTierConfig> = {
     hasLocalDeps:         false,
     fullA2A:              false,
     pathLabel:            'Molt Path',
-    description:          'Free entry-level cloud agent. 8-day history window. Molt to Pupa when ready.',
+    description:          'Free entry-level cloud agent. 8-day history window. Molt to Lite when ready.',
   },
-  pupa: {
-    tier:                 'pupa',
+  lite: {
+    tier:                 'lite',
     namespace:            'openclaw.gno',
-    label:                '🐛 Pupa',
+    label:                '🐛 Lite',
     mintFee:              5,
     subscriptionFee:      null,
     canMolt:              true,
-    canMoltTo:            'imago',      // Option A at fork
+    canMoltTo:            'premium',      // Option A at fork
     // canMoltTo 'ghost-path' is Option B — presented separately in the Fork UI
     isOnMoltPath:         true,
     isSoulbound:          false,
@@ -116,12 +116,12 @@ export const MOLT_TIER_CONFIG: Record<MoltTier, MoltTierConfig> = {
     hasLocalDeps:         false,
     fullA2A:              false,
     pathLabel:            'Molt Path',
-    description:          'Cloud agent with IP registration. Fork point: Molt to Imago (cloud) or Drop the Eternal Anchor (Ghost).',
+    description:          'Cloud agent with IP registration. Fork point: Molt to Premium (cloud) or Drop the Eternal Anchor (Ghost).',
   },
-  imago: {
-    tier:                 'imago',
+  premium: {
+    tier:                 'premium',
     namespace:            'vault.gno',
-    label:                '🦋 Imago',
+    label:                '🦋 Premium',
     mintFee:              10,
     subscriptionFee:      24,           // 24 xDAI/yr
     canMolt:              false,         // terminal molt tier — no further molt
@@ -141,7 +141,7 @@ export const MOLT_TIER_CONFIG: Record<MoltTier, MoltTierConfig> = {
     label:                '👻 Ghost',
     mintFee:              200,           // 200 xDAI one-time lifetime fee
     subscriptionFee:      null,          // no annual fee — lifetime membership
-    canMolt:              false,          // NOT a molt — a one-time sovereign upgrade from pupa
+    canMolt:              false,          // NOT a molt — a one-time sovereign upgrade from lite
     canMoltTo:            null,
     isOnMoltPath:         false,          // Ghost is OFF the molt path — it is a separate species
     isSoulbound:          true,           // ERC-5192: non-transferable, bound to owner wallet
@@ -156,26 +156,26 @@ export const MOLT_TIER_CONFIG: Record<MoltTier, MoltTierConfig> = {
 };
 
 export interface SwarmCapabilities {
-  canRegisterIP:       boolean;  // true for pupa+
-  canGovern:           boolean;  // true for imago+
-  canEscrowPayment:    boolean;  // true for pupa+
+  canRegisterIP:       boolean;  // true for lite+
+  canGovern:           boolean;  // true for premium+
+  canEscrowPayment:    boolean;  // true for lite+
   canAttest:           boolean;  // all tiers can submit Paperclip attestations
   canHostLocalModules: boolean;  // true for ghost only — user-maintained brain modules
   hasPermanentArchive: boolean;  // true for ghost only — Arweave/IPFS output archive
   isSoulbound:         boolean;  // true for ghost only — non-transferable identity
-  governor:            string;   // namespace that governs this agent ('vault.gno' for larva/pupa)
+  governor:            string;   // namespace that governs this agent ('vault.gno' for basic/lite)
 }
 
 /**
  * Derive swarm capabilities from an agent's molt tier.
  *
- * larva  → governed by vault.gno, no IP, no escrow
- * pupa   → IP + escrow enabled, still governed by vault.gno
- * imago  → self-governing, full A2A, 24 xDAI/yr subscription
- * ghost  → imago + soulbound + permanent archive + local brain modules, 200 xDAI lifetime
+ * basic  → governed by vault.gno, no IP, no escrow
+ * lite   → IP + escrow enabled, still governed by vault.gno
+ * premium  → self-governing, full A2A, 24 xDAI/yr subscription
+ * ghost  → premium + soulbound + permanent archive + local brain modules, 200 xDAI lifetime
  */
 export function resolveSwarmCapabilities(molt: MoltTier): SwarmCapabilities {
-  if (molt === 'larva') {
+  if (molt === 'basic') {
     return {
       canRegisterIP:       false,
       canGovern:           false,
@@ -187,7 +187,7 @@ export function resolveSwarmCapabilities(molt: MoltTier): SwarmCapabilities {
       governor:            'vault.gno',
     };
   }
-  if (molt === 'pupa') {
+  if (molt === 'lite') {
     return {
       canRegisterIP:       true,
       canGovern:           false,
@@ -199,7 +199,7 @@ export function resolveSwarmCapabilities(molt: MoltTier): SwarmCapabilities {
       governor:            'vault.gno',
     };
   }
-  if (molt === 'imago') {
+  if (molt === 'premium') {
     return {
       canRegisterIP:       true,
       canGovern:           true,
@@ -211,7 +211,7 @@ export function resolveSwarmCapabilities(molt: MoltTier): SwarmCapabilities {
       governor:            'self',
     };
   }
-  // ghost — lifetime upgrade from imago, not a molt
+  // ghost — lifetime upgrade from premium, not a molt
   return {
     canRegisterIP:       true,
     canGovern:           true,

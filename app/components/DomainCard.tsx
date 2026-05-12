@@ -1,7 +1,7 @@
 'use client';
 
 export type Privacy = 'glassbox' | 'private';
-export type EvolvePath = 'larva-only' | string;
+export type EvolvePath = 'basic-only' | string;
 
 export interface Domain {
   id: string;
@@ -55,7 +55,7 @@ export function DomainCard({ domain, onMint }: DomainCardProps) {
               </span>
             ) : (
               <span className="inline-flex items-center rounded-full bg-zinc-500/10 px-2 py-0.5 text-[9px] font-medium text-zinc-500 ring-1 ring-zinc-500/20">
-                Larva-only
+                Basic-only
               </span>
             )}
           </div>

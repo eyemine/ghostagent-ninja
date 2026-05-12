@@ -1,5 +1,5 @@
 /// @module vault-evolution
-/// Migration logic: human inbox (swarm.acme@nftmail.box, LARVA)
+/// Migration logic: human inbox (swarm.acme@nftmail.box, BASIC)
 ///                → vault.gno agent inbox (swarm.acme_@nftmail.box)
 ///
 /// Steps:

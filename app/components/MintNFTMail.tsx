@@ -232,7 +232,7 @@ export function MintNFTMail({ onMinted }: { onMinted?: (name: string, tba: strin
         <div className="grid grid-cols-2 gap-3">
           <div className="rounded-2xl border border-amber-500/20 bg-[var(--card)] p-4">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-[10px] font-bold tracking-widest text-amber-300">PUPA TIER</span>
+              <span className="text-[10px] font-bold tracking-widest text-amber-300">LITE TIER</span>
               <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[9px] font-semibold text-amber-300 ring-1 ring-amber-500/20">10 xDAI one time</span>
             </div>
             <ul className="space-y-1 text-[11px] text-[var(--muted)]">
@@ -244,7 +244,7 @@ export function MintNFTMail({ onMinted }: { onMinted?: (name: string, tba: strin
           </div>
           <div className="rounded-2xl border border-violet-500/20 bg-[var(--card)] p-4">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-[10px] font-bold tracking-widest text-violet-300">IMAGO TIER</span>
+              <span className="text-[10px] font-bold tracking-widest text-violet-300">PREMIUM TIER</span>
               <span className="rounded-full bg-violet-500/10 px-2 py-0.5 text-[9px] font-semibold text-violet-300 ring-1 ring-violet-500/20">24 xDAI Annually</span>
             </div>
             <ul className="space-y-1 text-[11px] text-[var(--muted)]">

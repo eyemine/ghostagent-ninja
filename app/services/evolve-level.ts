@@ -1,19 +1,19 @@
 /**
  * @module evolve-level
- * Pupa ↔ Imago level scanner and transition logic.
+ * Lite ↔ Premium level scanner and transition logic.
  *
  * Level terminology:
- *   Larva → basic   (8-day history window, receive only, identity permanent)
- *   Pupa  → lite    (30-day message retention, send + Safe body)
- *   Imago → premium (1yr renewable, infinite message retention, Story .ip asset, marketplace badge)
+ *   Basic → basic   (8-day history window, receive only, identity permanent)
+ *   Lite  → lite    (30-day message retention, send + Safe body)
+ *   Premium → premium (1yr renewable, infinite message retention, Story .ip asset, marketplace badge)
  *   Ghost → ghost   (sovereign, governance, IP revenue share)
  *
  * Upgrade pricing:
- *   Pupa  → Imago : +14 xDAI one-off + 24 xDAI/yr subscription
- *   Imago → Pupa  : cancel subscription (drop-back, zero fee, data preserved)
+ *   Lite  → Premium : +14 xDAI one-off + 24 xDAI/yr subscription
+ *   Premium → Lite  : cancel subscription (drop-back, zero fee, data preserved)
  */
 
-export type EvolveLevel = 'larva' | 'pupa' | 'imago' | 'ghost';
+export type EvolveLevel = 'basic' | 'lite' | 'premium' | 'ghost';
 
 export interface LevelRecord {
   level: EvolveLevel;
@@ -52,24 +52,24 @@ export const LEVEL_META: Record<EvolveLevel, {
   workerTier: 'basic' | 'lite' | 'premium' | 'ghost';
   description: string;
 }> = {
-  larva: {
-    label: 'Larva',
+  basic: {
+    label: 'Basic',
     color: 'text-zinc-400',
     bgColor: 'bg-zinc-500/10',
     ringColor: 'ring-zinc-500/20',
     workerTier: 'basic',
     description: 'Free tier. 8-day history window. Inbox address is permanent. Receive only. No Safe, no send.'
   },
-  pupa: {
-    label: 'Pupa',
+  lite: {
+    label: 'Lite',
     color: 'text-amber-300',
     bgColor: 'bg-amber-500/10',
     ringColor: 'ring-amber-500/25',
     workerTier: 'lite',
     description: '30-day message retention. Send + receive. Gnosis Safe body. No IP asset. Inbox address is permanent.'
   },
-  imago: {
-    label: 'Imago',
+  premium: {
+    label: 'Premium',
     color: 'text-violet-300',
     bgColor: 'bg-violet-500/10',
     ringColor: 'ring-violet-500/25',
@@ -89,22 +89,22 @@ export const LEVEL_META: Record<EvolveLevel, {
 // ─── Upgrade / downgrade paths ───────────────────────────────────────────────
 
 export const EVOLVE_ACTIONS: Partial<Record<EvolveLevel, EvolveAction>> = {
-  pupa: {
-    from: 'pupa',
-    to: 'imago',
-    label: 'Molt to Imago',
+  lite: {
+    from: 'lite',
+    to: 'premium',
+    label: 'Molt to Premium',
     oneOffXdai: 14,
     annualXdai: 24,
     unlocks: [
       'Messages kept forever (no message clearing)',
       'Story Protocol .ip NFT asset',
-      'Marketplace "Imago" badge',
+      'Marketplace "Premium" badge',
       '1-yr renewable subscription',
     ],
     canDowngrade: false,
   },
-  imago: {
-    from: 'imago',
+  premium: {
+    from: 'premium',
     to: 'ghost',
     label: 'Become Ghost',
     oneOffXdai: 200,
@@ -123,10 +123,10 @@ export const EVOLVE_ACTIONS: Partial<Record<EvolveLevel, EvolveAction>> = {
 
 /** Separate downgrade actions — keyed outside EVOLVE_ACTIONS to avoid collision */
 export const DOWNGRADE_ACTIONS: Partial<Record<EvolveLevel, EvolveAction>> = {
-  imago: {
-    from: 'imago',
-    to: 'pupa',
-    label: 'Drop back to Pupa',
+  premium: {
+    from: 'premium',
+    to: 'lite',
+    label: 'Drop back to Lite',
     oneOffXdai: 0,
     annualXdai: 0,
     unlocks: [],
@@ -140,9 +140,9 @@ export const DOWNGRADE_ACTIONS: Partial<Record<EvolveLevel, EvolveAction>> = {
 export function workerTierToLevel(tier: string | undefined | null): EvolveLevel {
   switch (tier) {
     case 'ghost':   return 'ghost';
-    case 'premium': return 'imago';
-    case 'lite':    return 'pupa';
-    default:        return 'larva';
+    case 'premium': return 'premium';
+    case 'lite':    return 'lite';
+    default:        return 'basic';
   }
 }
 
@@ -174,7 +174,7 @@ export function parseLevelRecord(raw: string | null): LevelRecord {
     retention: isPremium ? 'infinite' : isLite ? '30-day' : '8-day',
     sendEnabled: workerTier !== 'basic',
     ipAssetDomain: data.story_ip ? `${data.story_ip}.creation.ip` : null,
-    marketplaceBadge: isPremium && !isGhost ? 'Imago' : isLite ? 'Pupa' : null,
+    marketplaceBadge: isPremium && !isGhost ? 'Premium' : isLite ? 'Lite' : null,
     isSoulbound: isGhost,
     arweaveArchive: isGhost
       ? { enabled: true, txId: data.arweave_tx_id ?? undefined, archivedAt: data.arweave_archived_at ?? undefined }
@@ -193,7 +193,7 @@ export function describeTransition(from: EvolveLevel, to: EvolveLevel): {
 } {
   const preserves = ['Email address', 'Gnosis Safe', 'Message history', 'Agent name'];
 
-  if (to === 'imago') {
+  if (to === 'premium') {
     return {
       preserves,
       gains: ['Infinite retention', 'Story .ip NFT', 'Marketplace badge', '1-yr subscription'],
@@ -201,7 +201,7 @@ export function describeTransition(from: EvolveLevel, to: EvolveLevel): {
     };
   }
 
-  if (to === 'pupa') {
+  if (to === 'lite') {
     return {
       preserves,
       gains: [],

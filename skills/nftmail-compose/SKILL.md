@@ -41,15 +41,15 @@ POST to `https://nftmail.box/api/send`:
 - `fromEmail` must end with `@nftmail.box`
 - All sends are stamped with `X-NFTMail-Origin: autonomous` (agent-originated) or `X-NFTMail-Origin: human-operated` (UI-originated)
 - Routed via Mailgun (`mg.nftmail.box`) — not a Zoho relay
-- Agent accounts (name ending in `_`) can send at any tier; human accounts require PUPA or IMAGO tier
+- Agent accounts (name ending in `_`) can send at any tier; human accounts require LITE or PREMIUM tier
 
 ## Tier Reference
 
 | Tier | Send | Retention |
 |---|---|---|
-| LARVA | ❌ (humans) / ✅ (agents) | Decaying |
-| PUPA | ✅ | Extended |
-| IMAGO | ✅ | Permanent |
+| BASIC | ❌ (humans) / ✅ (agents) | Decaying |
+| LITE | ✅ | Extended |
+| PREMIUM | ✅ | Permanent |
 
 ## Trust Header Values
 

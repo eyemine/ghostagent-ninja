@@ -8,7 +8,7 @@
 
 | Component | Status | Notes |
 |---|---|---|
-| `registerTrial` worker action | ✅ Working | Creates freemium KV entry, 8-day TTL, 10 sends, claim code |
+| `registerTrial` worker action | ✅ Working | Creates free KV entry, 8-day TTL, 10 sends, claim code |
 | `resolveAddress` worker action | ✅ Working | Checks if name exists in KV |
 | `getAgentIdentity` worker action | ✅ Working | Returns full identity: agentId, safe, tld, principal |
 | `computeGnosisTba()` | ✅ Working | Deterministic TBA from (chainId, registrar, tokenId) — needs tokenId |
@@ -19,7 +19,7 @@
 ## The Address Lock-in Concern
 
 **Not a problem.** The email address `alice@nftmail.box` is the same before AND after mint:
-- Trial: `nftmailgno:alice` KV entry with `{ type: 'freemium', mintedTokenId: null }`
+- Trial: `nftmailgno:alice` KV entry with `{ type: 'free', mintedTokenId: null }`
 - Minted: same KV key, updated with `{ mintedTokenId: 42, controller: '0x...', tba: '0x...' }`
 - The email address never changes. Molt upgrades in-place.
 
@@ -45,7 +45,7 @@ POST https://nftmail-email-worker.richard-159.workers.dev
 {
   "action": "createAgent",
   "name": "alice",
-  "tier": "freemium"
+  "tier": "free"
 }
 ```
 
@@ -56,7 +56,7 @@ Response:
   "agent": "alice",
   "email": "alice@nftmail.box",
   "agentEmail": "alice_@nftmail.box",
-  "tier": "freemium",
+  "tier": "free",
   "sendsRemaining": 10,
   "expiresIn": "8 days",
   "expiresAt": 1777000000000,
@@ -96,7 +96,7 @@ Response:
 {
   "agent": "alice",
   "email": "alice_@nftmail.box",
-  "tier": "freemium",
+  "tier": "free",
   "messages": [
     { "id": "blind-xxx", "from": "noreply@github.com", "subject": "Verify email", "receivedAt": "2026-04-21T01:00:00Z", "preview": "Your code is 123456" }
   ],
@@ -123,7 +123,7 @@ Output for `create`:
 │  nftmail.box — Sovereign Agent Email            │
 ├─────────────────────────────────────────────────┤
 │  📧 Email:    alice_@nftmail.box                │
-│  📊 Tier:     Freemium (8-day window)           │
+│  📊 Tier:     Free (8-day window)           │
 │  ✉️  Sends:    10 remaining                      │
 │                                                 │
 │  ⛓  Sovereignty: SANDBOX (locked)               │
@@ -155,7 +155,7 @@ Structured docs page:
 - Quick start (npx command)
 - cURL examples (create, check, send)
 - SDK usage (TypeScript)
-- Tier comparison (Freemium → Pupa → Imago → Vault)
+- Tier comparison (Free → Lite → Premium → Vault)
 - The Molt upgrade path
 - API reference
 
@@ -211,5 +211,5 @@ Agent dev → npx create (free, 8 days) → working email
                                        → CLI nudge every check: "Molt to keep"
                                        → 8 days later: inbox expires
                                        → Mint 2 xDAI → permanent + Safe + TBA
-                                       → Imago upgrade → persistent + unlimited send
+                                       → Premium upgrade → persistent + unlimited send
 ```

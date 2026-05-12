@@ -21,8 +21,8 @@ export const EURE_CONTRACT = '0xcB444e90D8198415266c6a2724b7900fb12FC56E'.toLowe
 
 // Tier prices in xDAI (18 decimals)
 export const TIER_PRICES_XDAI: Record<string, bigint> = {
-  lite: parseEther('10'),   // Pupa — 10 xDAI
-  premium: parseEther('24'), // Imago — 24 xDAI/yr
+  lite: parseEther('10'),   // Lite — 10 xDAI
+  premium: parseEther('24'), // Premium — 24 xDAI/yr
   pro: parseEther('24'),
   ghost: parseEther('24'),
   agent: parseEther('12'),  // GhostAgent.ninja mint

@@ -36,7 +36,7 @@ export async function POST(request: Request) {
     // Free tier email: [name]_@nftmail.box is already routed by CF worker → KV inbox
     const email = `${agentName}_@nftmail.box`;
 
-    // ── Basic email routing (larva tier) ───────────────────────────────────────
+    // ── Basic email routing (basic tier) ───────────────────────────────────────
     // Sets up nftmailgno KV so email works at basic tier (10 sends, 8-day history)
     fetch(WORKER_URL, {
       method:  'POST',
@@ -52,7 +52,7 @@ export async function POST(request: Request) {
       }),
     }).catch(() => { /* non-fatal */ });
 
-    // Note: ERC-8004 registration (agent brain) happens at PUPA molt upgrade
+    // Note: ERC-8004 registration (agent brain) happens at LITE molt upgrade
 
     return NextResponse.json({
       success: true,

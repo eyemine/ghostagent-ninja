@@ -19,7 +19,7 @@ Key features already live in production:
 - Beacon metadata pinned to IPFS (Lighthouse) — NFT-compatible JSON
 - Handshake certificates, authorship declarations, IP transfer agreements — all pinned to IPFS
 - Story Protocol IP registration with aiMetadata pointing to IPFS CIDs
-- Molt evolution path (larva → pupa → imago → ghost tier system)
+- Molt evolution path (basic → lite → premium → ghost tier system)
 - Gasless minting for picoclaw.gno, agent.gno (ENS holders), coupon system
 
 **Production URLs**:

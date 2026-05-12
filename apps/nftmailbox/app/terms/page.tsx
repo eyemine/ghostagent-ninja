@@ -31,7 +31,7 @@ export default function TermsPage() {
           <section>
             <h2 className="mb-3 text-base font-semibold text-white">1. About This Service</h2>
             <p>
-              NFTMail.box (&quot;the Service&quot;) is operated by GhostAgent / Imago Labs (&quot;we&quot;, &quot;us&quot;).
+              NFTMail.box (&quot;the Service&quot;) is operated by GhostAgent / Premium Labs (&quot;we&quot;, &quot;us&quot;).
               The Service provides sovereign email identities anchored to on-chain assets (ENS names, NFTs) and
               Gnosis-chain subnames. By using the Service, you agree to these Terms.
             </p>
@@ -58,8 +58,8 @@ export default function TermsPage() {
           <section>
             <h2 className="mb-3 text-base font-semibold text-white">4. Fees &amp; Payments</h2>
             <ul className="space-y-2 list-disc list-inside">
-              <li>Free (Larva) tier: no payment required. Inbox decays after 8 days of inactivity.</li>
-              <li>Paid tiers (Pupa / Imago) require an on-chain payment in xDAI or EURe to our treasury Safe.</li>
+              <li>Free (Basic) tier: no payment required. Inbox decays after 8 days of inactivity.</li>
+              <li>Paid tiers (Lite / Premium) require an on-chain payment in xDAI or EURe to our treasury Safe.</li>
               <li>All payments are <strong className="text-white">non-refundable</strong> once verified on-chain.</li>
               <li>Tier activations are recorded on the Glass Box Audit trail and are permanent.</li>
             </ul>
@@ -99,7 +99,7 @@ export default function TermsPage() {
           <section>
             <h2 className="mb-3 text-base font-semibold text-white">8. Intellectual Property</h2>
             <p>
-              The NFTMail.box software, brand, and UI are © GhostAgent / Imago Labs. The on-chain contracts
+              The NFTMail.box software, brand, and UI are © GhostAgent / Premium Labs. The on-chain contracts
               are open source under MIT. Your email content remains yours — we claim no rights to it.
             </p>
           </section>
@@ -116,7 +116,7 @@ export default function TermsPage() {
           <section>
             <h2 className="mb-3 text-base font-semibold text-white">10. Limitation of Liability</h2>
             <p>
-              To the maximum extent permitted by law, GhostAgent / Imago Labs shall not be liable for any
+              To the maximum extent permitted by law, GhostAgent / Premium Labs shall not be liable for any
               indirect, incidental, special, or consequential damages arising from use of the Service,
               including loss of data, loss of funds, or loss of access to on-chain assets.
             </p>

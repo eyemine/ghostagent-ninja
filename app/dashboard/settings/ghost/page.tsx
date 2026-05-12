@@ -117,7 +117,7 @@ export default function GhostSettingsPage() {
               <span className="ml-auto text-[9px] text-zinc-500">cloud · transferable</span>
             </div>
             <p className="text-[10px] text-[var(--muted)] leading-relaxed">
-              Larva → Pupa → Imago. Cloud-hosted. Renewable subscription. Can be sold on marketplace.
+              Basic → Lite → Premium. Cloud-hosted. Renewable subscription. Can be sold on marketplace.
               Identity is an ERC-721 NFT — a transferable digital asset.
             </p>
           </div>
@@ -128,7 +128,7 @@ export default function GhostSettingsPage() {
               <span className="ml-auto text-[9px] text-zinc-500">local · soulbound</span>
             </div>
             <p className="text-[10px] text-[var(--muted)] leading-relaxed">
-              Imago → Ghost. Fork at the Imago stage. Local compute. 200 xDAI lifetime.
+              Premium → Ghost. Fork at the Premium stage. Local compute. 200 xDAI lifetime.
               Soulbound — cannot be transferred, listed, or sold. Your agent becomes you.
             </p>
           </div>

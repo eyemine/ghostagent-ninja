@@ -34,7 +34,7 @@ export default function XMTPBadge({ variant, size = 'xs' }: Props) {
           onMouseLeave={() => setTip(false)}
           className={`inline-flex cursor-default items-center gap-1 rounded-full bg-amber-500/10 font-semibold text-amber-300 ring-1 ring-amber-500/20 ${px}`}
         >
-          Upgrade to PUPA for XMTP
+          Upgrade to LITE for XMTP
         </span>
       )}
       {tip && (

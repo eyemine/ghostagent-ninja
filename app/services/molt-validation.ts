@@ -5,14 +5,14 @@
  * Checks:
  *   1. Source agent exists and has on-chain owner
  *   2. Caller wallet matches on-chain owner
- *   3. Agent is at least PUPA tier (lite) — free picoclaw Larva cannot molt
+ *   3. Agent is at least LITE tier (lite) — free picoclaw Basic cannot molt
  *   4. Source agent is not vault.gno (terminal — cannot molt out)
  *   5. Target name is available (not already registered in KV)
  *
  * Tier gate:
- *   Larva (basic/picoclaw free tier) → BLOCKED — must evolve to Pupa first
- *   Pupa (lite)     → permitted — can molt to any namespace including vault.gno
- *   Imago (premium) → permitted
+ *   Basic (basic/picoclaw free tier) → BLOCKED — must evolve to Lite first
+ *   Lite (lite)     → permitted — can molt to any namespace including vault.gno
+ *   Premium (premium) → permitted
  *   Ghost           → permitted
  *
  * Note: vault.gno is NOT blocked as a molt target — it is the natural
@@ -23,7 +23,7 @@ import { workerTierToLevel } from './evolve-level';
 import { WORKER_URL } from '../utils/config';
 
 // Worker tiers that are permitted to molt
-const MOLT_PERMITTED_TIERS = new Set(['pupa', 'imago', 'ghost']);
+const MOLT_PERMITTED_TIERS = new Set(['lite', 'premium', 'ghost']);
 
 const APP_URL =
   process.env.NEXT_PUBLIC_APP_URL || 'https://ghostagent.ninja';
@@ -186,18 +186,18 @@ export async function validateMolt(
 
   // Use beacon ownership if:
   // 1. Not in KV but owns beacon NFT directly, OR
-  // 2. In KV but at invalid tier (basic/larva) and owns beacon NFT
+  // 2. In KV but at invalid tier (basic/basic) and owns beacon NFT
   const resolvedTier = resolved?.accountTier || resolved?.tier;
   const resolvedLevel = workerTierToLevel(resolvedTier);
   const needsBeaconFallback = !resolved || (!MOLT_PERMITTED_TIERS.has(resolvedLevel) && beaconOwned);
 
   if (needsBeaconFallback && beaconOwned) {
-    // Allow molt for direct beacon owners - set tier to pupa to bypass restriction
+    // Allow molt for direct beacon owners - set tier to lite to bypass restriction
     const sourceAgent = {
       name: agentName,
       tld: beaconOwned.namespace,
-      tier: 'pupa', // Set to pupa so tier check passes
-      level: 'pupa',
+      tier: 'lite', // Set to lite so tier check passes
+      level: 'lite',
       onChainOwner: callerWallet,
       originNft: `${agentName}.${beaconOwned.namespace}`,
       tbaAddress: null,
@@ -235,7 +235,7 @@ export async function validateMolt(
     errors.push('vault.gno is a terminal identity — cannot molt out. Your agent has reached its final form.');
   }
 
-  // 4. Tier gate — free Larva (picoclaw) cannot molt (unless they own beacon directly)
+  // 4. Tier gate — free Basic (picoclaw) cannot molt (unless they own beacon directly)
   const agentLevel = workerTierToLevel(resolved.accountTier);
   const walletOwnsBeacon = beaconOwned && beaconOwned.namespace === resolved.tld;
   const isOwner = resolved.onChainOwner?.toLowerCase() === callerWallet.toLowerCase();
@@ -243,8 +243,8 @@ export async function validateMolt(
   // Bypass tier restriction if wallet is owner AND owns the beacon NFT
   if (!MOLT_PERMITTED_TIERS.has(agentLevel) && !(isOwner && walletOwnsBeacon)) {
     errors.push(
-      'Molting requires Pupa tier or above. ' +
-      'Free picoclaw (Larva) accounts cannot molt — evolve to Pupa first (2 xDAI).',
+      'Molting requires Lite tier or above. ' +
+      'Free picoclaw (Basic) accounts cannot molt — evolve to Lite first (2 xDAI).',
     );
   }
 
@@ -268,9 +268,9 @@ export async function validateMolt(
     warnings.push('Target identity is the same as the source agent name');
   }
 
-  // 8. Info: Imago gets Story IP badge on molt
-  if (agentLevel === 'imago') {
-    warnings.push('Imago tier — Story IP asset will be updated to reflect new identity after molt.');
+  // 8. Info: Premium gets Story IP badge on molt
+  if (agentLevel === 'premium') {
+    warnings.push('Premium tier — Story IP asset will be updated to reflect new identity after molt.');
   }
 
   const sourceAgent = {

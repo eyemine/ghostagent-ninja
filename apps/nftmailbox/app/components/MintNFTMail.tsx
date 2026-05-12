@@ -305,7 +305,7 @@ export function MintNFTMail({ initialName }: { initialName?: string } = {}) {
     else await doWalletMint(cardBLabel, cardBEmail, setStepB, setResultB);
   }, [authenticated, wallets, mintMode, cardBLabel, cardBEmail, doGaslessMint, doWalletMint]);
 
-  const HINT = 'Free – 8-day inbox, receive only. Evolve to Pupa or Imago to Molt.';
+  const HINT = 'Free – 8-day inbox, receive only. Evolve to Lite or Premium to Molt.';
 
   // ── Claim button (sovereign path — no NFT minted) ──
   const ClaimButton = ({ email }: { email: string }) => {

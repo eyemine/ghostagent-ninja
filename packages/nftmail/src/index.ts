@@ -23,7 +23,7 @@ export default class NFTMail {
   /**
    * Create email agent - superior to inboxapi.ai's basic setup
    */
-  async createAgent(name: string, tier: 'freemium' | 'professional' | 'vault' = 'freemium') {
+  async createAgent(name: string, tier: 'free' | 'professional' | 'vault' = 'free') {
     return this.client.createAgent({ name, tier });
   }
 
@@ -75,12 +75,12 @@ export default class NFTMail {
 // Competitive advantages over inboxapi.ai
 export const ADVANTAGES = {
   EMAIL_LIMITS: {
-    freemium: '100 emails (vs inboxapi.ai: 100)',
+    free: '100 emails (vs inboxapi.ai: 100)',
     professional: 'Unlimited (vs inboxapi.ai: 100)',
     vault: 'Unlimited (vs inboxapi.ai: 100)'
   },
   STORAGE: {
-    freemium: '8 days (vs inboxapi.ai: 8 days)',
+    free: '8 days (vs inboxapi.ai: 8 days)',
     professional: '30 days (vs inboxapi.ai: 8 days)',
     vault: '365 days (vs inboxapi.ai: 8 days)'
   },

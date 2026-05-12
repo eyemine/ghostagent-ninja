@@ -102,6 +102,8 @@ interface AgentIdentity {
   email?: string;
   identityNft?: { name: string; tokenId: number; owner: string; tld: string };
   safe?: string;
+  tbaAddress?: string | null;
+  byoTba?: { tbaAddress: string; sourceChainId: number; nftType: string; tokenId: string } | null;
   erc8004?: {
     gnosis?: { agentId: number; agentURI?: string; chainId?: number };
     base?: { agentId: number; chainId?: number };
@@ -109,6 +111,17 @@ interface AgentIdentity {
   };
   links?: { profile?: string; agentCard?: string };
 }
+
+const CHAIN_LABEL: Record<number, string> = {
+  1:    'Ethereum',
+  8453: 'Base',
+  84532:'Base Sepolia',
+};
+const CHAIN_EXPLORER: Record<number, string> = {
+  1:    'https://etherscan.io/address/',
+  8453: 'https://basescan.org/address/',
+  84532:'https://sepolia.basescan.org/address/',
+};
 
 interface HITLState {
   threshold: string;
@@ -334,6 +347,27 @@ export default function AgentDetailPage() {
                 )}
               </div>
             )}
+            {/* Source-chain TBA — the ERC-6551 that owns the Safe */}
+            {identity?.byoTba && (() => {
+              const chainLabel = CHAIN_LABEL[identity.byoTba.sourceChainId] ?? `Chain ${identity.byoTba.sourceChainId}`;
+              const explorerBase = CHAIN_EXPLORER[identity.byoTba.sourceChainId];
+              const explorerUrl = explorerBase ? `${explorerBase}${identity.byoTba.tbaAddress}` : null;
+              return (
+                <div className="flex items-center justify-between gap-4 text-[11px]">
+                  <span className="text-[var(--muted)] shrink-0">{chainLabel} TBA</span>
+                  {explorerUrl ? (
+                    <a href={explorerUrl} target="_blank" rel="noopener noreferrer"
+                      className="font-mono text-[#b0805c] hover:underline truncate max-w-[160px]" title={identity.byoTba.tbaAddress}>
+                      {identity.byoTba.tbaAddress.slice(0,8)}…{identity.byoTba.tbaAddress.slice(-6)} ↗
+                    </a>
+                  ) : (
+                    <span className="font-mono text-zinc-300 truncate max-w-[160px]" title={identity.byoTba.tbaAddress}>
+                      {identity.byoTba.tbaAddress.slice(0,8)}…{identity.byoTba.tbaAddress.slice(-6)}
+                    </span>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         </div>
 

@@ -17,7 +17,7 @@ import { mintOptionalIP } from '../../services/optional-ip-minter';
 import { FEATURES } from '../../constants/features';
 import { WORKER_URL } from '../../utils/config';
 
-const MOLT_PERMITTED_TIERS = new Set(['pupa', 'imago', 'ghost']);
+const MOLT_PERMITTED_TIERS = new Set(['lite', 'premium', 'ghost']);
 
 
 const WEBHOOK_SECRET = process.env.NFTMAIL_WEBHOOK_SECRET || '';
@@ -103,13 +103,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Ownership verification failed — wallet does not own this agent' }, { status: 403 });
     }
 
-    // 1b. Tier gate — Larva cannot molt
+    // 1b. Tier gate — Basic cannot molt
     const agentLevel = workerTierToLevel(resolved.accountTier);
     if (!MOLT_PERMITTED_TIERS.has(agentLevel)) {
       return NextResponse.json({
-        error: 'Molt requires Pupa tier or above. Evolve your agent first — Larva tier is receive-only and free (picoclaw) accounts cannot molt.',
+        error: 'Molt requires Lite tier or above. Evolve your agent first — Basic tier is receive-only and free (picoclaw) accounts cannot molt.',
         currentTier: resolved.accountTier ?? 'basic',
-        requiredTier: 'pupa',
+        requiredTier: 'lite',
         upgradeUrl: '/nftmail?upgrade=1',
       }, { status: 402 });
     }

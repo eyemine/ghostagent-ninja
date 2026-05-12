@@ -72,7 +72,7 @@
 > "I run a 50-person DAO treasury. Every xDAI spent needs 3/5 multi-sig approval. I need an agent that proposes transactions but never executes without human review. OpenClaw's HITL gates + on-chain logging are perfect."
 
 **Molt Journey**:
-1. Start: `treasury.openclaw.gno` (Pupa tier)
+1. Start: `treasury.openclaw.gno` (Lite tier)
 2. Upgrade: Add HITL module, DailyBudget module
 3. Terminal: Molt to `treasury.vault.gno` (locked, immutable governance)
 
@@ -90,7 +90,7 @@
 > "I deploy contracts weekly. My agent should learn the deployment flow and cache it as a skill. I don't need multi-sig approval — I trust my own Safe. Hermes cuts my token costs by 80% after the first few runs."
 
 **Molt Journey**:
-1. Start: `builder.agent.gno` (Pupa tier, Hermes brain)
+1. Start: `builder.agent.gno` (Lite tier, Hermes brain)
 2. Upgrade: Agent auto-creates 10+ skills (deploy, verify, test)
 3. Terminal: Molt to Ghost tier (local execution, full sovereignty)
 
@@ -132,7 +132,7 @@ An agent can have:
 
 ### Path 1: Pure Transparency (OpenClaw → Vault)
 ```
-Start:    treasury.openclaw.gno (Pupa, multi-channel brain)
+Start:    treasury.openclaw.gno (Lite, multi-channel brain)
 Upgrade:  Add HITL + DailyBudget modules
 Terminal: treasury.vault.gno (locked, immutable)
 Cost:     14 xDAI molt
@@ -141,7 +141,7 @@ Use Case: DAO treasury, compliance-heavy
 
 ### Path 2: Pure Autonomy (Hermes → Ghost)
 ```
-Start:    builder.agent.gno (Pupa, Hermes brain)
+Start:    builder.agent.gno (Lite, Hermes brain)
 Upgrade:  Agent creates 10+ skills autonomously
 Terminal: Ghost tier (local execution, sovereign)
 Cost:     20 xDAI (Hermes upgrade) + 50 xDAI (Ghost molt)
@@ -150,7 +150,7 @@ Use Case: Solo builder, power user
 
 ### Path 3: Hybrid (OpenClaw + Hermes → Vault)
 ```
-Start:    dao.openclaw.gno (Pupa, multi-channel brain)
+Start:    dao.openclaw.gno (Lite, multi-channel brain)
 Upgrade:  Migrate brain to Hermes (20 xDAI)
           → Keeps openclaw.gno identity
           → Adds autonomous skill learning
@@ -181,7 +181,7 @@ Use Case: Efficient DAO, transparent AI
 interface GenomeMetadata {
   agentName: string;
   tld: 'openclaw.gno' | 'agent.gno' | 'molt.gno' | 'vault.gno';
-  tier: 'larva' | 'pupa' | 'imago' | 'ghost';
+  tier: 'basic' | 'lite' | 'premium' | 'ghost';
   
   // NEW: Brain architecture (independent of SLD)
   brainType: 'multi-channel' | 'hermes-stateful' | 'hybrid';
@@ -207,14 +207,14 @@ interface GenomeMetadata {
 ### 3. Update Molt UI (MoltStep2)
 
 **Current presets**:
-- Molt, Agent, OpenClaw, Vault, Imago
+- Molt, Agent, OpenClaw, Vault, Premium
 
 **New presets** (identity layer):
 - Molt (.molt.gno) - Glass-box, full history
 - Agent (.agent.gno) - Black-box, autonomous
 - OpenClaw (.openclaw.gno) - Transparent governance
 - Vault (.vault.gno) - Terminal, locked
-- Imago - Tier upgrade (any SLD)
+- Premium - Tier upgrade (any SLD)
 
 **New option** (brain layer):
 - "Upgrade to Hermes Brain" (20 xDAI)

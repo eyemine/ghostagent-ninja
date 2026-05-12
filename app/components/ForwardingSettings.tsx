@@ -1,4 +1,4 @@
-/// Forwarding Settings component for Imago level accounts
+/// Forwarding Settings component for Premium level accounts
 /// Allows users to configure email forwarding with filters
 
 'use client';
@@ -8,7 +8,7 @@ import { useState, useEffect } from 'react';
 interface ForwardingConfig {
   enabled: boolean;
   targetEmail: string;
-  level: 'imago' | 'ghost';
+  level: 'premium' | 'ghost';
   filters?: {
     sendOtpOnly?: boolean;
     excludeNewsletters?: boolean;
@@ -157,7 +157,7 @@ export default function ForwardingSettings({ agentName, agentTier }: ForwardingS
   }
 
   // Check if forwarding is available for this tier
-  if (agentTier !== 'imago' && agentTier !== 'ghost') {
+  if (agentTier !== 'premium' && agentTier !== 'ghost') {
     return (
       <div className="p-8 text-center">
         <div className="text-yellow-400 mb-4">
@@ -165,12 +165,12 @@ export default function ForwardingSettings({ agentName, agentTier }: ForwardingS
             <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
           </svg>
         </div>
-        <h3 className="text-lg font-semibold text-white mb-2">Imago Feature</h3>
+        <h3 className="text-lg font-semibold text-white mb-2">Premium Feature</h3>
         <p className="text-gray-400 mb-4">
-          Email forwarding is available for Imago and Ghost level agents.
+          Email forwarding is available for Premium and Ghost level agents.
         </p>
         <p className="text-sm text-gray-500">
-          Upgrade to Imago to enable email forwarding to your personal inbox.
+          Upgrade to Premium to enable email forwarding to your personal inbox.
         </p>
       </div>
     );

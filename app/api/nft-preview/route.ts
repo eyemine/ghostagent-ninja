@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({
         name:     data.name || `ATOM #${tokenId}`,
         imageUrl,
-      }, { headers: { 'Cache-Control': 'public, max-age=86400' } });
+      }, { headers: { 'Cache-Control': 'no-store, must-revalidate' } });
     } catch {
       return NextResponse.json({ name: `ATOM #${tokenId}`, imageUrl: null });
     }

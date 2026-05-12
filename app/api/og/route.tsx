@@ -80,7 +80,7 @@ export async function GET(req: NextRequest) {
             color: '#666',
           }}
         >
-          ghostagent.ninja · LARVA Agent
+          ghostagent.ninja · BASIC Agent
         </div>
       </div>
     ),

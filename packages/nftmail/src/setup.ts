@@ -2,7 +2,7 @@
 
 /**
  * NFTMail Setup CLI - npx nftmail-setup
- * Creates freemium email agent - superior to inboxapi.ai setup
+ * Creates free email agent - superior to inboxapi.ai setup
  */
 
 import { Command } from 'commander';
@@ -44,8 +44,8 @@ program
           message: 'Choose your tier:',
           choices: [
             {
-              name: '🆓 Freemium - 100 emails, 8-day storage (vs inboxapi.ai: 100 emails, 8 days)',
-              value: 'freemium'
+              name: '🆓 Free - 100 emails, 8-day storage (vs inboxapi.ai: 100 emails, 8 days)',
+              value: 'free'
             },
             {
               name: '💼 Professional - 10 xDAI/month unlimited, 30-day storage',
@@ -56,7 +56,7 @@ program
               value: 'vault'
             }
           ],
-          default: 'freemium'
+          default: 'free'
         },
         {
           type: 'confirm',
@@ -115,7 +115,7 @@ program
       }
 
       // Show upgrade triggers
-      if (answers.tier === 'freemium') {
+      if (answers.tier === 'free') {
         console.log(chalk.yellow('\n🔄 Upgrade Triggers:'));
         console.log(chalk.gray('• At 80 emails used'));
         console.log(chalk.gray('• At 8 days storage limit'));

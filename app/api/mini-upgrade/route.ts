@@ -11,8 +11,8 @@ const TREASURY = '0xed0b0694953158dd54d0c36d320b391f44cd67f3';
 // ERC-20 Transfer topic: Transfer(address,address,uint256)
 const TRANSFER_TOPIC = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
 
-// Fees in USDC (6 decimals): basic/freemium → lite = $10, lite → professional = $14
-const TIER_FEES_USDC: Record<string, number> = { basic: 10, freemium: 10, lite: 14 };
+// Fees in USDC (6 decimals): basic/free → lite = $10, lite → professional = $14
+const TIER_FEES_USDC: Record<string, number> = { basic: 10, free: 10, lite: 14 };
 
 async function verifyUsdcPayment(
   txHash: string,
@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
   }
 
-  const newTier = currentTier === 'basic' || currentTier === 'freemium' ? 'lite' : currentTier === 'lite' ? 'professional' : null;
+  const newTier = currentTier === 'basic' || currentTier === 'free' ? 'lite' : currentTier === 'lite' ? 'professional' : null;
   if (!newTier) return NextResponse.json({ error: 'Already at max tier' }, { status: 400 });
 
   const expectedFee = TIER_FEES_USDC[currentTier] ?? 10;

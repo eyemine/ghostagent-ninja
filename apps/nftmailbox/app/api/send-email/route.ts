@@ -8,7 +8,7 @@
 /// Send strategy:
 ///   - All tiers (lite, premium, ghost): Mailgun API, From: label@nftmail.box
 ///     True per-address sending — no relay, no ghostagent@nftmail.box in the envelope.
-///   - Imago (Zoho provisioned seat): send via Zoho directly (calendar/webmail users).
+///   - Premium (Zoho provisioned seat): send via Zoho directly (calendar/webmail users).
 ///     Detected by zoho-seat KV flag set during upgrade provisioning.
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -133,7 +133,7 @@ export async function POST(req: NextRequest) {
     const htmlBody = markdownToHtml(mailBody);
     const textBody = mailBody;
 
-    // ── Imago path: dedicated Zoho seat (opt-in, calendar/webmail users) ────
+    // ── Premium path: dedicated Zoho seat (opt-in, calendar/webmail users) ────
     const hasZohoSeat = (resolved.zohoSeat as boolean | undefined) ?? false;
     if (hasZohoSeat) {
       const zohoOrgId = process.env.ZOHO_ORG_ID;

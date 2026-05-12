@@ -13,8 +13,8 @@ const codeBlocks = {
 
 const nftmail = new NFTMail();
 
-// Create freemium agent
-const agent = await nftmail.createAgent('my-agent', 'freemium');
+// Create free agent
+const agent = await nftmail.createAgent('my-agent', 'free');
 
 // Send email with optional payment
 await nftmail.sendEmail(
@@ -159,7 +159,7 @@ export default function SDKPage() {
             )}
             {activeTab === 'setup' && (
               <div className="mt-4 text-xs text-[var(--muted)]">
-                <p>⚡ Creates freemium agent with 100 emails, 8-day storage</p>
+                <p>⚡ Creates free agent with 100 emails, 8-day storage</p>
               </div>
             )}
             {activeTab === 'basic' && (
@@ -195,7 +195,7 @@ export default function SDKPage() {
                   1
                 </div>
                 <div>
-                  <div className="font-semibold text-white">Start with Freemium</div>
+                  <div className="font-semibold text-white">Start with Free</div>
                   <div className="text-[var(--muted)] text-xs">npx nftmail-setup → Creates my-agent@nftmail.box</div>
                 </div>
               </div>
@@ -236,7 +236,7 @@ export default function SDKPage() {
             <h2 className="text-lg font-semibold text-white mb-4">💰 Pricing & Tiers</h2>
             <div className="grid md:grid-cols-3 gap-4 text-sm">
               <div className="border border-[var(--border)] rounded-lg p-4">
-                <div className="font-semibold text-white mb-2">🆓 Freemium</div>
+                <div className="font-semibold text-white mb-2">🆓 Free</div>
                 <div className="text-green-400 font-bold mb-2">Free</div>
                 <div className="text-[var(--muted)] space-y-1">
                   <div>• 100 emails</div>

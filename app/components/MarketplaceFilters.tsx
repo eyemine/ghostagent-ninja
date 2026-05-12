@@ -1,7 +1,7 @@
 'use client';
 
 export type DomainFilter  = 'all' | 'agent.gno' | 'openclaw.gno' | 'molt.gno' | 'picoclaw.gno' | 'vault.gno' | 'nftmail.gno';
-export type LevelFilter   = 'all' | 'larva' | 'pupa' | 'imago' | 'ghost';
+export type LevelFilter   = 'all' | 'basic' | 'lite' | 'premium' | 'ghost';
 export type PrivacyFilter = 'all' | 'glassbox' | 'private';
 export type TypeFilter    = 'all' | 'service' | 'body' | 'bundle';
 export type CatFilter     = 'all' | 'data' | 'defi' | 'social' | 'content';
@@ -49,9 +49,9 @@ const DOMAIN_TABS: { value: DomainFilter; label: string; color: string }[] = [
 
 const LEVEL_TABS: { value: LevelFilter; label: string; icon: string }[] = [
   { value: 'all',   label: 'Any level', icon: '' },
-  { value: 'larva', label: 'Larva', icon: '/molt-icons/larva.png' },
-  { value: 'pupa',  label: 'Pupa',  icon: '/molt-icons/pupa.png' },
-  { value: 'imago', label: 'Imago', icon: '/molt-icons/imago.png' },
+  { value: 'basic', label: 'Basic', icon: '/molt-icons/basic.png' },
+  { value: 'lite',  label: 'Lite',  icon: '/molt-icons/lite.png' },
+  { value: 'premium', label: 'Premium', icon: '/molt-icons/premium.png' },
   { value: 'ghost', label: 'Ghost', icon: '/molt-icons/ghost.png' },
 ];
 
