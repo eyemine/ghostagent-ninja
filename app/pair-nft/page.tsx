@@ -580,7 +580,7 @@ export default function OgNftMoltPage() {
       addLog(moltTarget === 'existing-agent' ? 'Updating agent identity overlay…' : 'Minting beacon NFT…');
       addLog('Registering alias email…');
       addLog('Recording molt + upgrading agent tier…');
-      addLog('✓ BYO NFT Molt Complete');
+      addLog('✓ Pair NFT Complete');
       setResult(data as MoltResult); setStep('done');
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -602,9 +602,9 @@ export default function OgNftMoltPage() {
       {/* Header — marketplace-style */}
       <div className="flex items-center gap-3">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={ICONS.byo} alt="BYO NFT Molt" className="h-28 w-28 shrink-0 rounded-xl border border-fuchsia-500/40 object-contain" />
+        <img src={ICONS.byo} alt="Pair your NFT" className="h-28 w-28 shrink-0 rounded-xl border border-fuchsia-500/40 object-contain" />
         <div>
-          <h1 className="pl-1 text-2xl font-bold text-[#f2eee4]">BYO NFT Molt</h1>
+          <h1 className="pl-1 text-2xl font-bold text-[#f2eee4]">Pair your NFT</h1>
           <p className="mt-1 pl-1 text-sm text-[var(--muted)]">Use an NFT you already own — ENS, Chonk, or Verified Collection — as the governing key to your GhostAgent Safe</p>
         </div>
       </div>
@@ -612,7 +612,7 @@ export default function OgNftMoltPage() {
       <div>
         <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 px-4 py-3 text-xs text-[var(--muted)]">
           <p className="text-[#f2eee4] font-semibold mb-1">Your NFT is the key</p>
-          <p>Your existing NFT becomes the <span className="text-violet-300 font-semibold">keystone</span> — it governs the agent&apos;s Safe via its Token-Bound Account (TBA). Transfer the NFT and the agent transfers with it. No migration, no re-provisioning. The Safe holds feature beacons; your NFT holds the power.</p>
+          <p>Your existing NFT becomes the <span className="text-violet-300 font-semibold">key</span> — it governs the agent&apos;s NFTmail.box and Safe via its Tokenbound Account (TBA). Transfer the NFT and the agent transfers with it. No migration, no re-provisioning. The Safe holds feature beacons; your NFT holds the power.</p>
         </div>
         <div className="mt-3 rounded-xl border border-[rgba(176,128,92,0.2)] bg-black/20 px-4 py-3 space-y-1 text-xs text-[var(--muted)]">
           <p className="text-[#f2eee4] font-semibold">What happens</p>
@@ -953,7 +953,7 @@ export default function OgNftMoltPage() {
                 <button onClick={handleMolt}
                   className="w-full rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 py-2.5 text-sm font-bold text-white transition hover:opacity-90 flex items-center justify-center gap-2">
                   <span className="text-base">🦋</span>
-                  Execute BYO NFT Molt (free)
+                  Pair NFT (free)
                 </button>
               )}
             </div>

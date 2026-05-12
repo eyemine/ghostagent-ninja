@@ -6,7 +6,7 @@ import { useState } from 'react';
 
 const NAV = [
   { href: '/dashboard', label: 'Dashboard' },
-  { href: '/byo-molt', label: 'Pair My NFT' },
+  { href: '/pair-nft', label: 'Pair My NFT' },
   { href: '/agents?tab=mint', label: 'Mint Agent ID' },
   { href: '/dashboard/marketplace', label: 'Marketplace' },
   { href: '/host', label: '$HOST' },
