@@ -42,7 +42,8 @@ const MOONCAT_CONTRACT = '0xc3f733ca98e0dad0386979eb96fb1722a1a05e69';
 const TREASURY = '0xeD0B0694953158dd54D0c36D320b391f44cd67f3';
 const USDC_BASE = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
 const USDC_ETH  = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48';
-const BYO_FEE_USDC = 10; // $10 USDC flat
+const PRO_FEE_USDC = 10;     // $10 USDC for Pro tier
+const PREMIUM_FEE_USDC = 24; // $24 USDC for Premium tier
 
 const CI = '/collection-icons';
 
@@ -300,6 +301,7 @@ export default function OgNftMoltPage() {
   const [userAgents, setUserAgents]       = useState<AgentRegistryEntry[]>([]);
   const [moltTarget, setMoltTarget]       = useState<MoltTarget>('new-agent');
   const [selectedAgent, setSelectedAgent]   = useState<string>(preselectedAgent ?? '');
+  const [selectedTier, setSelectedTier] = useState<'pro' | 'premium'>('pro');
 
   // Tier and fee state
   const [currentTier, setCurrentTier] = useState<keyof typeof TIER_FEES>('basic');
@@ -518,6 +520,8 @@ export default function OgNftMoltPage() {
       const walletClient = createWalletClient({ chain, transport: custom(provider as Parameters<typeof custom>[0]) });
       const [account] = await walletClient.requestAddresses();
 
+      const feeUsdc = selectedTier === 'premium' ? PREMIUM_FEE_USDC : PRO_FEE_USDC;
+
       // Ensure wallet is on the correct chain before sending
       try {
         await walletClient.switchChain({ id: chain.id });
@@ -535,7 +539,7 @@ export default function OgNftMoltPage() {
       }
 
       // ERC-20 transfer using viem's writeContract with proper configuration
-      const amount = parseUnits(String(BYO_FEE_USDC), 6);
+      const amount = parseUnits(String(feeUsdc), 6);
       const txHash = await walletClient.writeContract({
         account,
         address: usdcAddress as `0x${string}`,
@@ -559,8 +563,9 @@ export default function OgNftMoltPage() {
 
   async function executeMolt(txHash: string) {
     setStep('molting'); setError(null); setLogs([]);
+    const feeUsdc = selectedTier === 'premium' ? PREMIUM_FEE_USDC : PRO_FEE_USDC;
     addLog(`Verifying ${nftPreview?.name ?? 'NFT'} ownership on-chain…`);
-    addLog(txHash ? `Verifying ${BYO_FEE_USDC} USDC payment on ${paymentChainForNftType(nftType) === 'base' ? 'Base' : 'Ethereum'}…` : 'Coupon applied — fee waived');
+    addLog(txHash ? `Verifying ${feeUsdc} USDC payment on ${paymentChainForNftType(nftType) === 'base' ? 'Base' : 'Ethereum'}…` : 'Coupon applied — fee waived');
     try {
       const res = await fetch(`/api/byo-molt-v2?t=${Date.now()}`, {
         method: 'POST',
@@ -636,7 +641,7 @@ export default function OgNftMoltPage() {
         </div>
         <div className="mt-3 flex items-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2">
           <svg className="h-3.5 w-3.5 shrink-0 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-          <p className="text-[10px] text-amber-300">Fee: <strong>{BYO_FEE_USDC} USDC</strong> on {paymentChainForNftType(nftType) === 'base' ? 'Base' : 'Ethereum'} · send to <span className="font-mono">{TREASURY.slice(0,10)}…</span></p>
+          <p className="text-[10px] text-amber-300">Fee: <strong>{selectedTier === 'premium' ? PREMIUM_FEE_USDC : PRO_FEE_USDC} USDC</strong> on {paymentChainForNftType(nftType) === 'base' ? 'Base' : 'Ethereum'} · send to <span className="font-mono">{TREASURY.slice(0,10)}…</span></p>
         </div>
       </div>
 
@@ -719,7 +724,6 @@ export default function OgNftMoltPage() {
                   {NFT_TYPE_META[nftType].prefill || 'N/A'}
                 </div>
               )}
-              <p className="mt-1 text-[10px] text-[var(--muted)]">BYO NFT mints to <span className="font-semibold text-fuchsia-300">agent.gno</span> (new body) or <span className="font-semibold text-fuchsia-300">molt.gno</span> (overlay). For openclaw.gno / vault.gno use the dashboard Molt action.</p>
             </div>
             {nftType === 'ens' ? (
               tokenId && (
@@ -791,36 +795,64 @@ export default function OgNftMoltPage() {
             </button>
           )}
 
-          {/* Agent selection step */}
+          {/* Tier selection step */}
           {step === 'select-agent' && ownershipVerified && nftPreview && (
             <div className="space-y-4">
-              <div className="text-center">
-                <h3 className="text-sm font-semibold text-[#f2eee4]">Choose target for this NFT</h3>
-                <p className="text-xs text-[var(--muted)] mt-1">Create a new agent</p>
-              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* PRO Panel */}
+                <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/5 p-4 space-y-4">
+                  <div className="text-center">
+                    <div className="inline-flex items-center justify-center rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-bold text-emerald-300 mb-2">PRO</div>
+                    <p className="text-sm font-semibold text-[#f2eee4]">[name].nftmail.gno</p>
+                    <p className="text-lg font-bold text-emerald-300 mt-1">$10 USD</p>
+                    <p className="text-[10px] text-[var(--muted)]">Permanent NFT-governed email address</p>
+                  </div>
+                  <ul className="space-y-1 text-[11px] text-[var(--muted)]">
+                    <li className="flex items-start gap-2"><span className="text-emerald-400">✓</span> Unlimited inbox storage</li>
+                    <li className="flex items-start gap-2"><span className="text-emerald-400">✓</span> Send 100 emails/day</li>
+                    <li className="flex items-start gap-2"><span className="text-emerald-400">✓</span> Gnosis Safe multi-sig</li>
+                    <li className="flex items-start gap-2"><span className="text-emerald-400">✓</span> Agent autonomies (HITL, Budget)</li>
+                    <li className="flex items-start gap-2"><span className="text-emerald-400">✓</span> On-chain identity verification</li>
+                    <li className="flex items-start gap-2"><span className="text-emerald-400">✓</span> Attach an agent &quot;brain&quot;</li>
+                    <li className="flex items-start gap-2"><span className="text-emerald-400">✓</span> BYO NFT molt</li>
+                    <li className="flex items-start gap-2"><span className="text-emerald-400">✓</span> Tradeable NFT</li>
+                    <li className="flex items-start gap-2"><span className="text-emerald-400">✓</span> 30-day history window</li>
+                  </ul>
+                  <button
+                    onClick={() => { setMoltTarget('new-agent'); setSelectedTier('pro'); setStep('confirm'); }}
+                    className="w-full rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 py-3 text-sm font-bold text-white transition hover:opacity-90"
+                  >
+                    Pay $USDC 10 to Pair NFT Pro
+                  </button>
+                </div>
 
-              {/* Option 1: Molt a new agent body */}
-              <button
-                onClick={() => setMoltTarget('new-agent')}
-                className={`flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition ${
-                  moltTarget === 'new-agent'
-                    ? 'border-fuchsia-500/50 bg-fuchsia-500/10'
-                    : 'border-[var(--border)] bg-black/20 hover:bg-black/30'
-                }`}
-              >
-                <div className="shrink-0">
-                  <input
-                    type="radio"
-                    checked={moltTarget === 'new-agent'}
-                    onChange={() => setMoltTarget('new-agent')}
-                    className="h-4 w-4 accent-fuchsia-500"
-                  />
+                {/* PREMIUM Panel */}
+                <div className="rounded-xl border border-violet-500/40 bg-violet-500/5 p-4 space-y-4">
+                  <div className="text-center">
+                    <div className="inline-flex items-center justify-center rounded-full bg-violet-500/20 px-3 py-1 text-xs font-bold text-violet-300 mb-2">PREMIUM</div>
+                    <p className="text-sm font-semibold text-[#f2eee4]">[name].nftmail.gno</p>
+                    <p className="text-lg font-bold text-violet-300 mt-1">$24 USD annual</p>
+                    <p className="text-[10px] text-[var(--muted)]">(or reverts to PRO)</p>
+                    <p className="text-[10px] text-[var(--muted)] mt-1">Sovereign email with Safe treasury</p>
+                  </div>
+                  <ul className="space-y-1 text-[11px] text-[var(--muted)]">
+                    <li className="flex items-start gap-2"><span className="text-violet-400">✓</span> Everything in PRO</li>
+                    <li className="flex items-start gap-2"><span className="text-violet-400">✓</span> Auto-forwarding</li>
+                    <li className="flex items-start gap-2"><span className="text-violet-400">✓</span> Disposable email</li>
+                    <li className="flex items-start gap-2"><span className="text-violet-400">✓</span> ghostmail.box alias</li>
+                    <li className="flex items-start gap-2"><span className="text-violet-400">✓</span> Send and receive attachments</li>
+                    <li className="flex items-start gap-2"><span className="text-violet-400">✓</span> Persistent history</li>
+                    <li className="flex items-start gap-2"><span className="text-violet-400">✓</span> Attach an agent &quot;brain&quot;</li>
+                    <li className="flex items-start gap-2"><span className="text-violet-400">✓</span> Transferable with governance</li>
+                  </ul>
+                  <button
+                    onClick={() => { setMoltTarget('new-agent'); setSelectedTier('premium'); setStep('confirm'); }}
+                    className="w-full rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 py-3 text-sm font-bold text-white transition hover:opacity-90"
+                  >
+                    Pay $USDC 24 to Pair NFT Premium
+                  </button>
                 </div>
-                <div className="flex-1">
-                  <div className="text-sm font-semibold text-fuchsia-300">Molt a New Agent Body</div>
-                  <div className="text-[10px] text-[var(--muted)]">Mint a paired beacon NFT and build a new GhostAgent</div>
-                </div>
-              </button>
+              </div>
             </div>
           )}
 
@@ -918,14 +950,14 @@ export default function OgNftMoltPage() {
                   {!couponValid && (
                     <div className="space-y-2">
                       <div className="text-[10px] font-semibold tracking-wider text-[var(--muted)]">
-                        PAY {BYO_FEE_USDC} USDC · {paymentChainForNftType(nftType) === 'base' ? 'Base' : 'Ethereum'}
+                        PAY {selectedTier === 'premium' ? PREMIUM_FEE_USDC : PRO_FEE_USDC} USDC · {selectedTier === 'premium' ? 'Premium' : 'Pro'} Tier · {paymentChainForNftType(nftType) === 'base' ? 'Base' : 'Ethereum'}
                       </div>
                       <button onClick={handlePayWithWallet} disabled={paying}
-                        className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 py-3 text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-40">
+                        className={`flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-40 ${selectedTier === 'premium' ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600' : 'bg-gradient-to-r from-emerald-600 to-teal-600'}`}>
                         {paying ? (
                           <><svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Awaiting wallet…</>
                         ) : (
-                          <>Pay $USDC {BYO_FEE_USDC} to Pair</>
+                          <>Pay $USDC {selectedTier === 'premium' ? PREMIUM_FEE_USDC : PRO_FEE_USDC} to Pair {selectedTier === 'premium' ? 'Premium' : 'Pro'}</>
                         )}
                       </button>
                       <div className="flex items-center gap-2 text-[10px] text-[var(--muted)]">
@@ -935,13 +967,13 @@ export default function OgNftMoltPage() {
                       </div>
                       <MercuryoButton
                         walletAddress={ownerWallet || TREASURY}
-                        defaultAmount={BYO_FEE_USDC + 2}
+                        defaultAmount={(selectedTier === 'premium' ? PREMIUM_FEE_USDC : PRO_FEE_USDC) + 2}
                         currency="USDC"
                         network={paymentChainForNftType(nftType) === 'base' ? 'BASE' : 'ETHEREUM'}
-                        label={`💳 Buy USDC with Card (~$${BYO_FEE_USDC + 2} USD)`}
+                        label={`💳 Buy USDC with Card (~$${(selectedTier === 'premium' ? PREMIUM_FEE_USDC : PRO_FEE_USDC) + 2} USD)`}
                       />
                       <p className="text-[9px] text-[var(--muted)] text-center">
-                        Wallet payment sends {BYO_FEE_USDC} USDC on {paymentChainForNftType(nftType) === 'base' ? 'Base' : 'Ethereum'} to{' '}
+                        Wallet payment sends {selectedTier === 'premium' ? PREMIUM_FEE_USDC : PRO_FEE_USDC} USDC on {paymentChainForNftType(nftType) === 'base' ? 'Base' : 'Ethereum'} to{' '}
                         <span className="font-mono text-amber-300/60">{TREASURY.slice(0,10)}…</span>
                       </p>
                     </div>
