@@ -2,9 +2,12 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { sdk } from '@farcaster/miniapp-sdk';
+import { useAccount, useConnect, useSendTransaction, useWaitForTransactionReceipt } from 'wagmi';
+import { parseEther } from 'viem';
 
 const WORKER_URL = process.env.NEXT_PUBLIC_WORKER_URL || 'https://nftmail-email-worker.richard-159.workers.dev';
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://ghostagent.ninja';
+const GNOSIS_TREASURY = '0xeD0B0694953158dd54D0c36D320b391f44cd67f3';
 
 type AccountTier = 'basic' | 'lite' | 'professional' | 'freemium';
 
@@ -162,7 +165,7 @@ function TierBadge({ tier, onClick }: { tier: AccountTier; onClick: () => void }
   );
 }
 
-type Step = 'loading' | 'entry' | 'naming' | 'provisioning' | 'success' | 'already' | 'error';
+type Step = 'loading' | 'entry' | 'naming' | 'provisioning' | 'success' | 'already' | 'upgrade' | 'upgrading' | 'upgraded' | 'error';
 
 interface ProvisionResult {
   status: string;
@@ -183,6 +186,12 @@ export default function MiniApp() {
   const [error, setError] = useState('');
   const [showAbout, setShowAbout] = useState(false);
   const [accountTier, setAccountTier] = useState<AccountTier>('basic');
+  const [upgradeLog, setUpgradeLog] = useState<string[]>([]);
+
+  const { address, isConnected } = useAccount();
+  const { connect, connectors } = useConnect();
+  const { sendTransaction, data: txHash, isPending: txPending, error: txError } = useSendTransaction();
+  const { isSuccess: txConfirmed, isLoading: txConfirming } = useWaitForTransactionReceipt({ hash: txHash });
 
   useEffect(() => {
     const init = async () => {
@@ -244,9 +253,53 @@ export default function MiniApp() {
     sdk.actions.openUrl(`${APP_URL}/dashboard`);
   }, []);
 
-  const openUpgrade = useCallback(() => {
-    sdk.actions.openUrl(`${APP_URL}/byo-molt?agent=${agentName}`);
-  }, [agentName]);
+  const openUpgrade = useCallback(() => setStep('upgrade'), []);
+
+  function addUpgradeLog(msg: string) {
+    setUpgradeLog(prev => [...prev, msg]);
+  }
+
+  const TIER_FEES: Record<AccountTier, number> = { basic: 10, freemium: 10, lite: 14, professional: 2 };
+  const upgradeFee = TIER_FEES[accountTier] ?? 10;
+  const upgradeTierTarget: string = accountTier === 'basic' || accountTier === 'freemium' ? 'lite' : accountTier === 'lite' ? 'professional' : '';
+
+  async function handleLinkAndUpgrade(confirmedTxHash: string) {
+    if (!fid || !agentName || !address) return;
+    setStep('upgrading');
+    setUpgradeLog([]);
+    try {
+      addUpgradeLog('Verifying payment…');
+      addUpgradeLog('Linking wallet & upgrading tier…');
+      const res = await fetch('/api/mini-upgrade', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fid,
+          agentName,
+          walletAddress: address,
+          txHash: confirmedTxHash,
+          currentTier: accountTier,
+        }),
+      });
+      const data = await res.json() as { status?: string; newTier?: string; error?: string };
+      if (data.status !== 'upgraded') throw new Error(data.error || 'Upgrade failed');
+      addUpgradeLog(`✓ Wallet linked: ${address.slice(0, 8)}…`);
+      addUpgradeLog(`✓ Tier upgraded to ${(data.newTier ?? upgradeTierTarget).toUpperCase()}`);
+      const newTier = (data.newTier ?? upgradeTierTarget) as AccountTier;
+      setAccountTier(newTier in TIER_META ? newTier as AccountTier : 'lite');
+      setStep('upgraded');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Upgrade failed');
+      setStep('error');
+    }
+  }
+
+  useEffect(() => {
+    if (txConfirmed && txHash && step === 'upgrade') {
+      handleLinkAndUpgrade(txHash);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [txConfirmed, txHash]);
 
   if (step === 'loading') {
     return (
@@ -395,6 +448,106 @@ export default function MiniApp() {
               Upgrade Tier →
             </button>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (step === 'upgrade') {
+    const nextTierMeta = upgradeTierTarget ? TIER_META[upgradeTierTarget as AccountTier] : null;
+    return (
+      <div className="relative min-h-screen bg-black flex flex-col items-center justify-center px-6 py-8">
+        {showAbout && <TierAboutModal tier={accountTier} onClose={() => setShowAbout(false)} />}
+        <TierBadge tier={accountTier} onClick={() => setShowAbout(true)} />
+        <div className="w-full max-w-sm">
+          <div className="text-center mb-6">
+            <div className="text-4xl mb-3">⬆️</div>
+            <h2 className="text-white font-bold text-xl mb-1">Upgrade Tier</h2>
+            <p className="text-gray-400 text-sm">
+              {TIER_META[accountTier].label} → {nextTierMeta ? <span className={nextTierMeta.color}>{nextTierMeta.label}</span> : '—'}
+            </p>
+          </div>
+
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 mb-5 space-y-2 text-xs text-gray-400">
+            <div className="flex justify-between"><span>Fee</span><span className="text-white font-bold">{upgradeFee} xDAI</span></div>
+            <div className="flex justify-between"><span>Network</span><span className="text-white">Gnosis Chain</span></div>
+            <div className="flex justify-between"><span>Account</span><span className="text-white font-mono">{agentName}@nftmail.box</span></div>
+            {nextTierMeta && nextTierMeta.features.map(([k, v]) => (
+              <div key={k} className="flex justify-between border-t border-gray-800 pt-2 first:border-0 first:pt-0">
+                <span>{k}</span><span className={nextTierMeta.color}>{v}</span>
+              </div>
+            ))}
+          </div>
+
+          {txError && (
+            <p className="text-red-400 text-xs mb-3 text-center">{txError.message.slice(0, 80)}</p>
+          )}
+
+          {!isConnected ? (
+            <button
+              onClick={() => connect({ connector: connectors[0] })}
+              className="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-3 rounded-lg transition-colors mb-3"
+            >
+              Connect Farcaster Wallet
+            </button>
+          ) : (
+            <>
+              <p className="text-gray-600 text-xs text-center mb-3 font-mono">{address?.slice(0, 10)}…{address?.slice(-6)} connected</p>
+              <button
+                disabled={txPending || txConfirming || !upgradeTierTarget}
+                onClick={() => sendTransaction({
+                  to: GNOSIS_TREASURY as `0x${string}`,
+                  value: parseEther(String(upgradeFee)),
+                  chainId: 100,
+                })}
+                className="w-full bg-yellow-500 hover:bg-yellow-400 disabled:opacity-50 text-black font-bold py-3 rounded-lg transition-colors mb-3"
+              >
+                {txPending ? 'Confirm in wallet…' : txConfirming ? 'Waiting for confirmation…' : `Pay ${upgradeFee} xDAI & Upgrade`}
+              </button>
+            </>
+          )}
+
+          <button onClick={() => setStep('already')} className="w-full text-gray-600 text-sm py-2">
+            ← Back
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (step === 'upgrading') {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-center w-full max-w-sm px-6">
+          <div className="w-12 h-12 border-2 border-yellow-400 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-yellow-400 font-mono text-sm mb-4">Upgrading agent…</p>
+          <div className="text-left space-y-1">
+            {upgradeLog.map((l, i) => (
+              <p key={i} className="text-gray-400 font-mono text-xs">{l}</p>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (step === 'upgraded') {
+    const meta = TIER_META[accountTier];
+    return (
+      <div className="relative min-h-screen bg-black flex flex-col items-center justify-center px-6 py-8">
+        {showAbout && <TierAboutModal tier={accountTier} onClose={() => setShowAbout(false)} />}
+        <TierBadge tier={accountTier} onClick={() => setShowAbout(true)} />
+        <div className="w-full max-w-sm text-center">
+          <div className="text-5xl mb-3">{meta.emoji}</div>
+          <h2 className="text-white font-bold text-2xl mb-2">{meta.label} Unlocked!</h2>
+          <div className={`bg-gray-900 border ${meta.border} rounded-lg p-4 my-6`}>
+            <p className={`${meta.color} font-mono text-sm font-bold`}>{agentName}@nftmail.box</p>
+            <p className="text-gray-500 text-xs mt-1">{meta.features[0][1]} inbox history · {meta.features[1][1]} sends</p>
+          </div>
+          <p className="text-gray-400 text-xs mb-6">Your wallet is now the controller of this agent. Manage it at ghostagent.ninja.</p>
+          <button onClick={openDashboard} className="w-full bg-green-500 hover:bg-green-400 text-black font-bold py-3 rounded-lg transition-colors">
+            Open Dashboard →
+          </button>
         </div>
       </div>
     );

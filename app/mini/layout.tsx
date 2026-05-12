@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { MiniAppProviders } from './providers';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://ghostagent.ninja';
 
@@ -27,5 +28,5 @@ export const metadata: Metadata = {
 };
 
 export default function MiniLayout({ children }: { children: React.ReactNode }) {
-  return <>{children}</>;
+  return <MiniAppProviders>{children}</MiniAppProviders>;
 }
