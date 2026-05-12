@@ -16,7 +16,7 @@ const PRESET_IDENTITIES = [
   { id: 'agent', label: 'Agent', tld: 'agent.gno', description: 'Black-box autonomous agent', image: SLD_IMAGES['agent.gno'] },
   { id: 'openclaw', label: 'OpenClaw', tld: 'openclaw.gno', description: 'Transparent governance agent', image: SLD_IMAGES['openclaw.gno'] },
   { id: 'vault', label: 'Vault', tld: 'vault.gno', description: 'Terminal Safe-locked identity', image: SLD_IMAGES['vault.gno'] },
-  { id: 'premium', label: 'Premium', tld: '', description: 'Lite → Premium tier upgrade (any SLD)', icon: '🦋' },
+  { id: 'premium', label: 'Premium', tld: '', description: 'Pro → Premium tier upgrade (any SLD)', icon: '🦋' },
 ];
 
 export interface TargetIdentity {

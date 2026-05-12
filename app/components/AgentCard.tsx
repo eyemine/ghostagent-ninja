@@ -86,7 +86,7 @@ function HeartbeatDot({ lastHeartbeat }: { lastHeartbeat?: number }) {
 
 const EVOLVE_META: Record<EvolveLevel, { icon: string; label: string; color: string; bg: string }> = {
   basic: { icon: '/collection-icons/basic.png',  label: 'Basic',  color: 'text-zinc-400',    bg: 'bg-zinc-500/10' },
-  lite:  { icon: '/collection-icons/lite.png',   label: 'Lite',   color: 'text-amber-300',   bg: 'bg-amber-500/10' },
+  lite:  { icon: '/collection-icons/lite.png',   label: 'Pro',   color: 'text-amber-300',   bg: 'bg-amber-500/10' },
   premium: { icon: '/collection-icons/premium.png',  label: 'Premium',  color: 'text-violet-300',  bg: 'bg-violet-500/10' },
   ghost: { icon: '/collection-icons/ghost.png',  label: 'Ghost',  color: 'text-fuchsia-300', bg: 'bg-fuchsia-500/10' },
 };

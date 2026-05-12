@@ -14,7 +14,7 @@ const LIFECYCLE_STEPS = [
   },
   {
     icon: '/collection-icons/lite.png',
-    label: 'Lite',
+    label: 'Pro',
     title: 'Install Agent Brain',
     desc: 'Deploy a Cloudflare Worker brain module wired to your agent\'s nftmail.box address. Your agent receives emails, classifies them, stores them encrypted in KV — all under your NFT\'s identity.',
     cta: { label: 'Install Brain', href: '/dashboard/install-brain' },

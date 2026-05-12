@@ -50,7 +50,7 @@ const DOMAIN_TABS: { value: DomainFilter; label: string; color: string }[] = [
 const LEVEL_TABS: { value: LevelFilter; label: string; icon: string }[] = [
   { value: 'all',   label: 'Any level', icon: '' },
   { value: 'basic', label: 'Basic', icon: '/molt-icons/basic.png' },
-  { value: 'lite',  label: 'Lite',  icon: '/molt-icons/lite.png' },
+  { value: 'lite',  label: 'Pro',  icon: '/molt-icons/lite.png' },
   { value: 'premium', label: 'Premium', icon: '/molt-icons/premium.png' },
   { value: 'ghost', label: 'Ghost', icon: '/molt-icons/ghost.png' },
 ];

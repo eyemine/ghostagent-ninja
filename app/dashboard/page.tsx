@@ -195,8 +195,8 @@ function AgentCard({ agent, onSelect, selected }: { agent: DemoAgent; onSelect: 
             {agent.tier === 'pro' ? (
               <span className="inline-flex items-center gap-1 rounded-full bg-violet-500/15 px-2 py-0.5 text-[9px] font-bold text-violet-300 ring-1 ring-violet-500/30">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/collection-icons/lite.png" alt="Lite" className="h-3 w-3 object-contain" />
-                LITE
+                <img src="/collection-icons/lite.png" alt="Pro" className="h-3 w-3 object-contain" />
+                PRO
               </span>
             ) : (
               <span className="inline-flex items-center gap-1 rounded-full bg-zinc-500/15 px-2 py-0.5 text-[9px] font-medium text-zinc-400 ring-1 ring-zinc-500/20">
@@ -237,7 +237,7 @@ function AgentCard({ agent, onSelect, selected }: { agent: DemoAgent; onSelect: 
       {agent.tier === 'free' && (
         <div className="mt-4 flex items-start gap-2 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2">
           <svg className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-          <span className="text-[10px] text-amber-300/80">Free tier — 8-day history window. Molt to Lite for persistent storage + IP protection.</span>
+          <span className="text-[10px] text-amber-300/80">Free tier — 8-day history window. Molt to Pro for persistent storage + IP protection.</span>
         </div>
       )}
       {selected && (

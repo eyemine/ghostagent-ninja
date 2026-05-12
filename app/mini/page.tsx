@@ -38,7 +38,7 @@ const TIER_META: Record<AccountTier, {
     upsell: (
       <div className="space-y-2 text-xs text-gray-500">
         <p className="text-gray-400 font-semibold text-xs mb-1">Upgrade your agent</p>
-        <p><span className="text-yellow-400 font-semibold">LITE</span> — Mint a BYO NFT → 30-day history, 50 sends, Gnosis Safe ownership</p>
+        <p><span className="text-yellow-400 font-semibold">PRO</span> — Mint a BYO NFT → 30-day history, 50 sends, Gnosis Safe ownership</p>
         <p><span className="text-purple-400 font-semibold">PREMIUM</span> — Gold POW or Agent Normie → unlimited retention, 200 sends, multisig Safe</p>
       </div>
     ),
@@ -61,7 +61,7 @@ const TIER_META: Record<AccountTier, {
     upsell: (
       <div className="space-y-2 text-xs text-gray-500">
         <p className="text-gray-400 font-semibold text-xs mb-1">Upgrade before expiry</p>
-        <p><span className="text-yellow-400 font-semibold">LITE</span> — Mint a BYO NFT → permanent inbox, 30-day history, 50 sends</p>
+        <p><span className="text-yellow-400 font-semibold">PRO</span> — Mint a BYO NFT → permanent inbox, 30-day history, 50 sends</p>
         <p><span className="text-purple-400 font-semibold">PREMIUM</span> — Gold POW or Agent Normie → unlimited everything</p>
       </div>
     ),
@@ -69,7 +69,7 @@ const TIER_META: Record<AccountTier, {
     ctaUrl: 'https://nftmail.box',
   },
   lite: {
-    label: 'LITE',
+    label: 'PRO',
     emoji: '🫘',
     color: 'text-yellow-400',
     border: 'border-yellow-800',
@@ -430,7 +430,7 @@ export default function MiniApp() {
               Open Dashboard →
             </button>
             <button onClick={openUpgrade} className="w-full bg-gray-900 border border-gray-700 hover:border-green-400 text-white py-3 rounded-lg text-sm transition-colors">
-              Upgrade to LITE →
+              Upgrade to PRO →
             </button>
           </div>
         </div>

@@ -35,7 +35,7 @@ const AGENT_ROUTES: RouteGroup[] = [
     title: 'Molt & Evolution',
     description: 'Agent lifecycle and namespace upgrades',
     routes: [
-      { path: '/evolve', label: 'Evolve', desc: 'Upgrade agent tier (Basic → Lite → Premium → Ghost)' },
+      { path: '/evolve', label: 'Evolve', desc: 'Upgrade agent tier (Basic → Pro → Premium → Ghost)' },
       { path: '/api/evolve/status', label: 'Evolve Status', desc: 'Check current molt level', method: 'GET' },
       { path: '/byo-molt', label: 'BYO NFT Molt', desc: 'Overlay existing NFTs as agent identity' },
       { path: '/api/byo-molt', label: 'BYO Molt API', desc: 'Create molt from owned NFT', method: 'POST' },

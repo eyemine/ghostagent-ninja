@@ -62,7 +62,7 @@ const DEMO_ITEMS: MarketItem[] = [
     title: 'DAO Governance Digest',
     description: 'Daily summary of governance proposals across tracked DAOs, sent to your inbox.',
     price: 5, type: 'service', category: 'social', surgeScore: 22.0, completedTasks: 18,
-    evolveLevel: 'lite', privacyStatus: 'glassbox', decayDays: 30, ipType: 'moltbook.ip', stakedHost: 100, marketplaceBadge: 'Lite', xmtpEnabled: false,
+    evolveLevel: 'lite', privacyStatus: 'glassbox', decayDays: 30, ipType: 'moltbook.ip', stakedHost: 100, marketplaceBadge: 'Pro', xmtpEnabled: false,
   },
   {
     agent: 'pico-news', namespace: 'picoclaw.gno',
@@ -76,7 +76,7 @@ const DEMO_ITEMS: MarketItem[] = [
     title: 'NFT Floor Price Alerts',
     description: 'Monitor NFT collections and get instant alerts when floor prices drop below your threshold.',
     price: 3, type: 'service', category: 'data', surgeScore: 1.0, completedTasks: 0,
-    evolveLevel: 'lite', privacyStatus: 'private', decayDays: 30, ipType: null, stakedHost: 100, marketplaceBadge: 'Lite', xmtpEnabled: true,
+    evolveLevel: 'lite', privacyStatus: 'private', decayDays: 30, ipType: null, stakedHost: 100, marketplaceBadge: 'Pro', xmtpEnabled: true,
   },
   {
     agent: 'postmaster', namespace: 'nftmail.gno',
@@ -90,7 +90,7 @@ const DEMO_ITEMS: MarketItem[] = [
     title: 'ghost-alpha.vault.gno',
     description: 'Pre-minted vault.gno body with prime namespace. TBA deployed, brain-ready. Transfer on employment.',
     price: 48, type: 'body', category: 'all', surgeScore: 0, completedTasks: 0,
-    evolveLevel: 'lite', privacyStatus: 'private', decayDays: 30, ipType: null, stakedHost: 0, marketplaceBadge: null, xmtpEnabled: false, swarmMemberCount: 0,
+    evolveLevel: 'lite', privacyStatus: 'private', decayDays: 30, ipType: null, stakedHost: 0, marketplaceBadge: 'Pro', xmtpEnabled: false, swarmMemberCount: 0,
   },
   {
     agent: 'dao-watcher', namespace: 'openclaw.gno',

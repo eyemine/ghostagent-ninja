@@ -5,13 +5,13 @@ import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 
 const NAV = [
-  { href: '/about', label: 'About' },
   { href: '/dashboard', label: 'Dashboard' },
-  { href: '/dashboard/marketplace', label: 'Marketplace' },
+  { href: '/byo-molt', label: 'Pair NFT' },
   { href: '/agents?tab=mint', label: 'Mint Agent ID' },
-  { href: '/byo-molt', label: 'BYO NFT' },
+  { href: '/dashboard/marketplace', label: 'Marketplace' },
   { href: '/host', label: '$HOST' },
   { href: '/docs', label: 'Docs' },
+  { href: '/about', label: 'About' },
 ];
 
 export function AppNav() {

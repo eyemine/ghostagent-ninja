@@ -356,15 +356,15 @@ await nftmail.sendEmail(
           <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
             <div className="rounded-lg border border-[var(--border)] bg-black/20 px-3 py-2">
               <div className="text-[10px] font-semibold text-emerald-300">FREE</div>
-              <div className="text-[10px] text-[var(--muted)]">100 emails, 8-day TTL, NPX inbox only</div>
+              <div className="text-[10px] text-[var(--muted)]">Send 10 emails, 8-day TTL, NPX inbox only</div>
             </div>
             <div className="rounded-lg border border-[var(--border)] bg-black/20 px-3 py-2">
-              <div className="text-[10px] font-semibold text-cyan-300">PROFESSIONAL</div>
-              <div className="text-[10px] text-[var(--muted)]">10 xDAI one-time, unlimited emails, 30-day storage</div>
+              <div className="text-[10px] font-semibold text-cyan-300">PRO</div>
+              <div className="text-[10px] text-[var(--muted)]">10 USDC one-time, unlimited emails, 30-day storage</div>
             </div>
             <div className="rounded-lg border border-[var(--border)] bg-black/20 px-3 py-2">
-              <div className="text-[10px] font-semibold text-violet-300">VAULT</div>
-              <div className="text-[10px] text-[var(--muted)]">24 xDAI one-time, unlimited emails, 365-day storage</div>
+              <div className="text-[10px] font-semibold text-violet-300">PREMIUM</div>
+              <div className="text-[10px] text-[var(--muted)]">24 USDC one-time, unlimited emails, 365-day storage</div>
             </div>
           </div>
 

@@ -17,7 +17,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 
-const MERCURYO_WIDGET_URL = 'https://exchange.mercuryo.io';
+const MERCURYO_WIDGET_URL = 'https://widget.mercuryo.io';
 
 export interface MercuryoWidgetProps {
   walletAddress: string;
@@ -65,7 +65,7 @@ export function MercuryoWidget({
 
   useEffect(() => {
     function handleMessage(e: MessageEvent) {
-      if (!e.origin.includes('mercuryo.io')) return;
+      if (!e.origin.includes('widget.mercuryo.io')) return;
       try {
         const { type, data } = e.data ?? {};
         if (type === 'mercuryo-transaction' && data?.status === 'paid') {

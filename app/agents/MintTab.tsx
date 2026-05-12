@@ -217,6 +217,11 @@ export default function MintTab() {
       const res = await fetch(`/api/check-name?name=${encodeURIComponent(agentName)}&tld=${encodeURIComponent(ns.domain)}${walletParam}`);
       const data: CheckResult = await res.json();
       setCheckResult(data);
+      // Handle non-ok responses (400/500) that return error instead of available field
+      if (!res.ok || data.available === undefined) {
+        setCheckStatus('error');
+        return;
+      }
       if (!data.available && data.reason === 'invalid') setCheckStatus('invalid');
       else if (!data.available) setCheckStatus('taken');
       else if (data.ensClash) setCheckStatus('ens-clash');
