@@ -518,26 +518,36 @@ export default function OgNftMoltPage() {
       const walletClient = createWalletClient({ chain, transport: custom(provider as Parameters<typeof custom>[0]) });
       const [account] = await walletClient.requestAddresses();
 
-      // Switch to the correct chain if needed - wait for completion
+      // Ensure wallet is on the correct chain before sending
       try {
         await walletClient.switchChain({ id: chain.id });
-        // Small delay to ensure wallet has processed the switch
-        await new Promise(r => setTimeout(r, 500));
-      } catch {
-        // Some wallets auto-switch; proceed optimistically
+        // Wait for chain switch to propagate
+        await new Promise(r => setTimeout(r, 800));
+      } catch (switchErr: any) {
+        // If switch fails, user may already be on correct chain or wallet doesn't support programmatic switching
+        console.log('Chain switch result:', switchErr?.message || 'proceeded');
       }
 
-      // ERC-20 transfer: transfer(address to, uint256 amount)
-      // Use raw transaction to avoid ABI encoding issues
-      const amount = parseUnits(String(BYO_FEE_USDC), 6);
-      const data = `0xa9059cbb${TREASURY.slice(2).padStart(64, '0')}${amount.toString(16).padStart(64, '0')}` as `0x${string}`;
+      // Verify chain before proceeding
+      const chainId = await walletClient.getChainId();
+      if (chainId !== chain.id) {
+        throw new Error(`Please switch your wallet to ${chain.name} (Chain ID: ${chain.id}) before proceeding`);
+      }
 
-      const txHash = await walletClient.sendTransaction({
+      // ERC-20 transfer using viem's writeContract with proper configuration
+      const amount = parseUnits(String(BYO_FEE_USDC), 6);
+      const txHash = await walletClient.writeContract({
         account,
-        to: usdcAddress as `0x${string}`,
-        data,
-        chain,
-        gas: 100000n, // Explicit gas limit for ERC-20 transfer (~65k + buffer)
+        address: usdcAddress as `0x${string}`,
+        abi: [{
+          name: 'transfer',
+          type: 'function',
+          inputs: [{ name: 'to', type: 'address' }, { name: 'amount', type: 'uint256' }],
+          outputs: [{ name: '', type: 'bool' }],
+          stateMutability: 'nonpayable',
+        }],
+        functionName: 'transfer',
+        args: [TREASURY as `0x${string}`, amount],
       });
       setPaymentTxHash(txHash);
       await executeMolt(txHash);
