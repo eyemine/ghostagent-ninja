@@ -483,6 +483,13 @@ interface WhitelistedCollection {
 
 const WHITELISTED_COLLECTIONS: WhitelistedCollection[] = [
   {
+    assignedName: '0g',
+    chainId: 16600, // 0G Newton Testnet
+    contractAddress: '0x0000000000000000000000000000000000000000', // TODO: Update with actual 0G NFT contract
+    rpcUrl: 'https://evmrpc-testnet.0g.ai/',
+    displayName: '0G NFT',
+  },
+  {
     assignedName: 'chonk',
     chainId: 8453,
     contractAddress: '0x07152bfde079b5319e5308C43fB1DBc9C76CB4f9',
