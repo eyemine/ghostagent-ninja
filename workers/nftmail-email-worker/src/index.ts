@@ -485,7 +485,7 @@ const WHITELISTED_COLLECTIONS: WhitelistedCollection[] = [
   {
     assignedName: '0g',
     chainId: 16600, // 0G Newton Testnet
-    contractAddress: '0x0000000000000000000000000000000000000000', // TODO: Update with actual 0G NFT contract
+    contractAddress: '0x8378054ffFac40f795dbA039156535eb953b3356', // GhostAgentStorageLog
     rpcUrl: 'https://evmrpc-testnet.0g.ai/',
     displayName: '0G NFT',
   },
