@@ -5462,6 +5462,8 @@ Your \`.cast\` address carries over automatically — nothing is lost.
         if (email.action === 'sendOutbound') {
           const agentName: string = ((email as any).agentName || '').toLowerCase().trim();
           const to: string = ((email as any).to || '').trim();
+          const cc: string | string[] | undefined = (email as any).cc;
+          const bcc: string | string[] | undefined = (email as any).bcc;
           const subject: string = ((email as any).subject || '').trim();
           const body: string = ((email as any).body || '').trim();
           if (!agentName || !to || !subject || !body) {
@@ -5527,6 +5529,17 @@ Your \`.cast\` address carries over automatically — nothing is lost.
           const form = new URLSearchParams();
           form.append('from', `${agentName} <${fromEmail}>`);
           form.append('to', to);
+          
+          // Add CC/BCC if provided
+          if (cc) {
+            const ccList = Array.isArray(cc) ? cc : [cc];
+            ccList.filter(c => c.trim()).forEach(c => form.append('cc', c.trim()));
+          }
+          if (bcc) {
+            const bccList = Array.isArray(bcc) ? bcc : [bcc];
+            bccList.filter(b => b.trim()).forEach(b => form.append('bcc', b.trim()));
+          }
+          
           form.append('subject', subject);
           form.append('text', body);
           form.append('h:Reply-To', fromEmail);
