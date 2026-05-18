@@ -3,7 +3,7 @@
   publish = ".next"
 
 [context.production]
-  environment = { NETLIFY_SITE_ID = "1d43da05-ccb8-48f0-95e0-ddfd4df97552" }
+  environment = { NETLIFY_SITE_ID = "1d43da05-ccb8-48f0-95e0-ddfd4df97552", SECRETS_SCAN_OMIT_KEYS = "NEXT_PUBLIC_HITL_FACTORY_ADDRESS,NEXT_PUBLIC_GHOST_REGISTRY,NEXT_PUBLIC_MOLT_REGISTRAR", SECRETS_SCAN_OMIT_PATHS = ".env.example,README.md,PROGRESS.md,env.example" }
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
