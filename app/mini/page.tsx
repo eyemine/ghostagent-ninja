@@ -8,7 +8,7 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://ghostagent.ninja';
 const TREASURY = '0xeD0B0694953158dd54D0c36D320b391f44cd67f3';
 const BASE_USDC_CAIP19 = 'eip155:8453/erc20:0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
 
-type AccountTier = 'basic' | 'lite' | 'premium' | 'free';
+type AccountTier = 'free' | 'pro' | 'premium';
 
 const TIER_META: Record<AccountTier, {
   label: string;
@@ -22,9 +22,9 @@ const TIER_META: Record<AccountTier, {
   cta: string;
   ctaUrl: string;
 }> = {
-  basic: {
-    label: 'BASIC',
-    emoji: '🪲',
+  free: {
+    label: 'FREE',
+    emoji: '👻',
     color: 'text-green-400',
     border: 'border-green-800',
     hoverBorder: 'hover:border-green-400',
@@ -33,80 +33,57 @@ const TIER_META: Record<AccountTier, {
       ['Inbox history', '8 days'],
       ['Outbound sends', '10'],
       ['Account expiry', 'Never'],
-      ['Identity', 'ERC-8004 permanent'],
+      ['Identity', 'Farcaster FID'],
     ],
     upsell: (
       <div className="space-y-2 text-xs text-gray-500">
-        <p className="text-gray-400 font-semibold text-xs mb-1">Upgrade your agent</p>
-        <p><span className="text-yellow-400 font-semibold">PRO</span> — Mint a BYO NFT → 30-day history, 50 sends, Gnosis Safe ownership</p>
-        <p><span className="text-purple-400 font-semibold">PREMIUM</span> — Gold POW or Agent Normie → unlimited retention, 200 sends, multisig Safe</p>
+        <p className="text-gray-400 font-semibold text-xs mb-1">Upgrade your inbox</p>
+        <p><span className="text-yellow-400 font-semibold">PRO $10</span> — 30-day history, 50 sends, Base NFT credential</p>
+        <p><span className="text-purple-400 font-semibold">PREMIUM $24</span> — Unlimited retention, 200 sends, full agent stack</p>
       </div>
     ),
-    cta: 'Upgrade at nftmail.box →',
-    ctaUrl: 'https://nftmail.box',
+    cta: 'Upgrade to Pro — 10 USDC →',
+    ctaUrl: '',
   },
-  free: {
-    label: 'FREE',
-    emoji: '⏱',
-    color: 'text-orange-400',
-    border: 'border-orange-800',
-    hoverBorder: 'hover:border-orange-400',
-    description: 'Trial inbox for API and SDK use. Expires after 30 days.',
-    features: [
-      ['Inbox history', '8 days'],
-      ['Outbound sends', '10'],
-      ['Account expiry', '30 days'],
-      ['Identity', 'ERC-8004 permanent'],
-    ],
-    upsell: (
-      <div className="space-y-2 text-xs text-gray-500">
-        <p className="text-gray-400 font-semibold text-xs mb-1">Upgrade before expiry</p>
-        <p><span className="text-yellow-400 font-semibold">PRO</span> — Mint a BYO NFT → permanent inbox, 30-day history, 50 sends</p>
-        <p><span className="text-purple-400 font-semibold">PREMIUM</span> — Gold POW or Agent Normie → unlimited everything</p>
-      </div>
-    ),
-    cta: 'Upgrade at nftmail.box →',
-    ctaUrl: 'https://nftmail.box',
-  },
-  lite: {
+  pro: {
     label: 'PRO',
-    emoji: '🫘',
+    emoji: '⚡',
     color: 'text-yellow-400',
     border: 'border-yellow-800',
     hoverBorder: 'hover:border-yellow-400',
-    description: 'Permanent inbox. Your NFT is the key — as long as you hold it, it\'s yours.',
+    description: 'Permanent inbox backed by a Base NFT beacon. Pay once, yours forever.',
     features: [
       ['Inbox history', '30 days'],
       ['Outbound sends', '50'],
       ['Account expiry', 'Never'],
-      ['Gnosis Safe', 'On-chain controller'],
+      ['Beacon NFT', 'Base — odd tokenId'],
     ],
     upsell: (
       <div className="space-y-2 text-xs text-gray-500">
-        <p className="text-gray-400 font-semibold text-xs mb-1">Reach PREMIUM</p>
-        <p><span className="text-purple-400 font-semibold">PREMIUM</span> — Gold POW NFT or Agent Normie → unlimited retention, 200 sends, multisig modules, on-chain attestations</p>
+        <p className="text-gray-400 font-semibold text-xs mb-1">Upgrade to Premium</p>
+        <p><span className="text-purple-400 font-semibold">PREMIUM $14</span> — Unlimited retention, 200 sends, agent modules, on-chain attestations</p>
       </div>
     ),
-    cta: 'Explore PREMIUM at nftmail.box →',
-    ctaUrl: 'https://nftmail.box',
+    cta: 'Upgrade to Premium — 14 USDC →',
+    ctaUrl: '',
   },
   premium: {
     label: 'PREMIUM',
-    emoji: '👻',
+    emoji: '�',
     color: 'text-purple-400',
     border: 'border-purple-800',
     hoverBorder: 'hover:border-purple-400',
-    description: 'Sovereign agent. Your Gnosis Safe is the controller. Trait-gated, on-chain identity.',
+    description: 'Sovereign agent inbox. Unlimited retention, full agent stack at ghostagent.ninja.',
     features: [
       ['Inbox history', 'Unlimited'],
       ['Outbound sends', '200'],
-      ['Gnosis Safe', 'Multisig controller'],
-      ['Attestations', 'On-chain, ERC-8004'],
+      ['Beacon NFT', 'Base — even tokenId'],
+      ['Agent stack', 'ghostagent.ninja'],
     ],
     upsell: (
       <div className="space-y-2 text-xs text-gray-500">
         <p className="text-gray-400 font-semibold text-xs mb-1">You have the full stack</p>
-        <p>Manage modules, aliases, agent pipelines, and A2A commerce at <span className="text-white">ghostagent.ninja</span></p>
+        <p>Manage agent pipelines, modules, and A2A commerce at <span className="text-white">ghostagent.ninja</span></p>
       </div>
     ),
     cta: 'Open ghostagent.ninja →',
@@ -184,7 +161,7 @@ export default function MiniApp() {
   const [expiresAt, setExpiresAt] = useState<number | null>(null);
   const [error, setError] = useState('');
   const [showAbout, setShowAbout] = useState(false);
-  const [accountTier, setAccountTier] = useState<AccountTier>('basic');
+  const [accountTier, setAccountTier] = useState<AccountTier>('free');
   const [upgradeLog, setUpgradeLog] = useState<string[]>([]);
   const [upgrading, setUpgrading] = useState(false);
 
@@ -223,7 +200,7 @@ export default function MiniApp() {
       if (data.status === 'already_provisioned' && data.agentName) {
         setAgentName(data.agentName);
         const t = (data.tier as AccountTier | undefined);
-        setAccountTier(t && t in TIER_META ? t : 'basic');
+        setAccountTier(t && t in TIER_META ? t : 'free');
         setStep('already');
         return;
       }
@@ -232,7 +209,7 @@ export default function MiniApp() {
         setHumanEmail(data.humanEmail || `${data.agentName}@nftmail.box`);
         setExpiresAt(data.expiresAt || null);
         const t = (data.tier as AccountTier | undefined);
-        setAccountTier(t && t in TIER_META ? t : 'basic');
+        setAccountTier(t && t in TIER_META ? t : 'free');
         setStep('success');
         return;
       }
@@ -250,13 +227,34 @@ export default function MiniApp() {
 
   const openUpgrade = useCallback(() => setStep('upgrade'), []);
 
+  // Refresh tier from worker (call when entering 'already' state or after upgrade)
+  const refreshTier = useCallback(async () => {
+    if (!fid || !agentName) return;
+    try {
+      const res = await fetch(WORKER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'getAgentProfile', label: agentName }),
+      });
+      const data = await res.json() as { tier?: string };
+      if (data?.tier) {
+        const t = data.tier as AccountTier;
+        if (t in TIER_META) {
+          setAccountTier(t);
+        }
+      }
+    } catch {
+      // Silent fail — keep existing tier
+    }
+  }, [fid, agentName]);
+
   function addUpgradeLog(msg: string) {
     setUpgradeLog(prev => [...prev, msg]);
   }
 
-  const TIER_FEES_USDC: Record<AccountTier, number> = { basic: 10, free: 10, lite: 14, premium: 2 };
+  const TIER_FEES_USDC: Record<AccountTier, number> = { free: 10, pro: 14, premium: 0 };
   const upgradeFee = TIER_FEES_USDC[accountTier] ?? 10;
-  const upgradeTierTarget: string = accountTier === 'basic' || accountTier === 'free' ? 'lite' : accountTier === 'lite' ? 'premium' : '';
+  const upgradeTierTarget: string = accountTier === 'free' ? 'pro' : accountTier === 'pro' ? 'premium' : '';
 
   async function handlePayAndUpgrade() {
     if (!fid || !agentName || upgrading) return;
@@ -298,7 +296,7 @@ export default function MiniApp() {
       if (data.status !== 'upgraded') throw new Error(data.error || 'Upgrade failed');
       addUpgradeLog(`✓ Tier upgraded to ${(data.newTier ?? upgradeTierTarget).toUpperCase()}`);
       const newTier = (data.newTier ?? upgradeTierTarget) as AccountTier;
-      setAccountTier(newTier in TIER_META ? newTier as AccountTier : 'lite');
+      setAccountTier(newTier in TIER_META ? newTier as AccountTier : 'pro');
       setStep('upgraded');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Upgrade failed');
@@ -346,7 +344,7 @@ export default function MiniApp() {
               onClick={() => setStep('naming')}
               className="w-full bg-green-500 hover:bg-green-400 text-black font-bold py-3 rounded-lg transition-colors"
             >
-              Claim BASIC Agent →
+              Claim Free Agent →
             </button>
             <p className="text-gray-600 text-xs text-center">Free forever · 8-day inbox history · Upgrade anytime</p>
           </div>
@@ -439,6 +437,11 @@ export default function MiniApp() {
   }
 
   if (step === 'already') {
+    // Refresh tier when showing already state
+    useEffect(() => {
+      refreshTier();
+    }, [refreshTier]);
+
     return (
       <div className="relative min-h-screen bg-black flex flex-col items-center justify-center px-6 py-8">
         {showAbout && <TierAboutModal tier={accountTier} onClose={() => setShowAbout(false)} />}
@@ -452,7 +455,7 @@ export default function MiniApp() {
               Open Dashboard →
             </button>
             <button onClick={openUpgrade} className="w-full bg-gray-900 border border-gray-700 text-white py-3 rounded-lg text-sm">
-              Upgrade Tier →
+              {accountTier === 'free' ? 'Upgrade to PRO →' : accountTier === 'pro' ? 'Upgrade to Premium →' : 'View Benefits →'}
             </button>
           </div>
         </div>
