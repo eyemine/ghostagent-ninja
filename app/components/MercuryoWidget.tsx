@@ -163,21 +163,25 @@ export function MercuryoButton({
     setOpen(false);
   }
 
-  // If widget not configured, open in new tab
+  // If widget not configured, show disabled button with tooltip
   if (!isConfigured) {
     return (
-      <a
-        href={directUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={
-          className ??
-          'flex w-full items-center justify-center gap-2 rounded-xl border border-sky-500/30 bg-sky-500/10 py-3 text-sm font-semibold text-sky-200 transition hover:bg-sky-500/20'
-        }
-      >
-        <span>💳</span>
-        {label}
-      </a>
+      <div className="relative group">
+        <button
+          type="button"
+          disabled
+          className={
+            className ??
+            'flex w-full items-center justify-center gap-2 rounded-xl border border-sky-500/30 bg-sky-500/5 py-3 text-sm font-semibold text-sky-200/50 transition cursor-not-allowed'
+          }
+        >
+          <span>💳</span>
+          Card payments unavailable
+        </button>
+        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-black border border-sky-500/30 rounded-lg text-[10px] text-sky-200 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
+          Card payments require Mercuryo widget configuration
+        </div>
+      </div>
     );
   }
 

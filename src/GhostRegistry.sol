@@ -38,6 +38,9 @@ contract GhostRegistry is ERC721, Ownable {
     // BYO NFT governor mapping: external NFT contract -> tokenId -> Safe address
     mapping(address => mapping(uint256 => address)) public byoGovernorOf;
 
+    // Authorised factory contracts (e.g. PairNFTFactory) that can call registerByoGovernor
+    mapping(address => bool) public authorisedFactory;
+
     event Registered(
         uint256 indexed tokenId,
         string name,
@@ -190,6 +193,11 @@ contract GhostRegistry is ERC721, Ownable {
         bool swapped = _trySwapOwner(safe, _SAFE_SENTINEL_OWNERS, owners[0], newTba);
         require(swapped, "Safe owner swap failed");
 
+        // Transfer agent.gno NFT into the Safe — it becomes the tier beacon.
+        // Odd tokenId = Pro, Even tokenId = Premium (parity encodes tier).
+        // The BYO NFT (in user's wallet) is now the sole key to the agent.
+        _transfer(msg.sender, safe, tokenId);
+
         emit Molted(tokenId, oldTba, newTba, safe);
     }
 
@@ -239,6 +247,11 @@ contract GhostRegistry is ERC721, Ownable {
         );
     }
 
+    /// @notice Authorise or revoke a factory contract
+    function setAuthorisedFactory(address factory, bool authorised) external onlyOwner {
+        authorisedFactory[factory] = authorised;
+    }
+
     /// @notice Register external BYO NFT as governor of a Safe
     /// @dev Maps BYO NFT (contract, tokenId) -> Safe address
     /// @dev BYO NFT owner controls the Safe (principal-agent relationship)
@@ -249,7 +262,8 @@ contract GhostRegistry is ERC721, Ownable {
         address byoContract,
         uint256 byoTokenId,
         address safe
-    ) external onlyOwner {
+    ) external {
+        require(msg.sender == owner() || authorisedFactory[msg.sender], "Not authorised");
         require(byoContract != address(0), "Invalid BYO contract");
         require(byoTokenId > 0, "Invalid BYO token ID");
         require(safe != address(0), "Invalid Safe");

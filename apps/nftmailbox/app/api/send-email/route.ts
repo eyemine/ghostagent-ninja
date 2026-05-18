@@ -21,6 +21,8 @@ const MAILGUN_DOMAIN = process.env.MAILGUN_DOMAIN || 'mg.nftmail.box';
 async function sendViaMailgun(params: {
   from: string;
   to: string;
+  cc?: string;
+  bcc?: string;
   subject: string;
   html: string;
   text: string;
@@ -31,6 +33,8 @@ async function sendViaMailgun(params: {
   const form = new URLSearchParams();
   form.set('from', params.from);
   form.set('to', params.to);
+  if (params.cc) form.set('cc', params.cc);
+  if (params.bcc) form.set('bcc', params.bcc);
   form.set('subject', params.subject);
   form.set('html', params.html);
   form.set('text', params.text);
@@ -82,12 +86,14 @@ export async function POST(req: NextRequest) {
       label?: string;
       ownerWallet?: string;
       to?: string;
+      cc?: string;
+      bcc?: string;
       subject?: string;
       body?: string;
       replyToMessageId?: string;
     };
 
-    const { label, ownerWallet, to, subject } = body;
+    const { label, ownerWallet, to, cc, bcc, subject } = body;
     const mailBody = body.body || '';
 
     if (!label || typeof label !== 'string') {
@@ -184,10 +190,36 @@ export async function POST(req: NextRequest) {
     const { messageId } = await sendViaMailgun({
       from: `${label} <${fromEmail}>`,
       to,
+      cc: cc || undefined,
+      bcc: bcc || undefined,
       subject: subject || '(no subject)',
       html: htmlBody,
       text: textBody,
     });
+
+    // ── Store sent copy in worker KV (non-fatal) ──────────────────────────────
+    try {
+      await fetch(WORKER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'storeSentMessage',
+          localPart: label,
+          message: {
+            messageId,
+            from: fromEmail,
+            to,
+            cc: cc || null,
+            bcc: bcc || null,
+            subject: subject || '(no subject)',
+            body: mailBody,
+            sentAt: Date.now(),
+          },
+        }),
+      });
+    } catch {
+      // non-fatal
+    }
 
     return NextResponse.json({
       success: true,

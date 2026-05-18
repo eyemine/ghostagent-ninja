@@ -141,6 +141,13 @@ function TierBadge({ tier, onClick }: { tier: AccountTier; onClick: () => void }
   );
 }
 
+function normaliseTierStr(raw: string | undefined): AccountTier {
+  const t = (raw ?? '').toLowerCase();
+  if (t === 'premium' || t === 'ghost' || t === 'imago') return 'premium';
+  if (t === 'pro' || t === 'lite' || t === 'pupa') return 'pro';
+  return 'free';
+}
+
 type Step = 'loading' | 'entry' | 'naming' | 'provisioning' | 'success' | 'already' | 'upgrade' | 'upgrading' | 'upgraded' | 'error';
 
 interface ProvisionResult {
@@ -199,8 +206,7 @@ export default function MiniApp() {
       const data: ProvisionResult = await res.json();
       if (data.status === 'already_provisioned' && data.agentName) {
         setAgentName(data.agentName);
-        const t = (data.tier as AccountTier | undefined);
-        setAccountTier(t && t in TIER_META ? t : 'free');
+        setAccountTier(normaliseTierStr(data.tier));
         setStep('already');
         return;
       }
@@ -208,8 +214,7 @@ export default function MiniApp() {
         setAgentName(data.agentName);
         setHumanEmail(data.humanEmail || `${data.agentName}@nftmail.box`);
         setExpiresAt(data.expiresAt || null);
-        const t = (data.tier as AccountTier | undefined);
-        setAccountTier(t && t in TIER_META ? t : 'free');
+        setAccountTier(normaliseTierStr(data.tier));
         setStep('success');
         return;
       }
@@ -234,14 +239,16 @@ export default function MiniApp() {
       const res = await fetch(WORKER_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'getAgentProfile', label: agentName }),
+        body: JSON.stringify({ action: 'getAgentProfile', agentName }),
       });
-      const data = await res.json() as { tier?: string };
-      if (data?.tier) {
-        const t = data.tier as AccountTier;
-        if (t in TIER_META) {
-          setAccountTier(t);
-        }
+      const data = await res.json() as { profile?: { tier?: string }; tier?: string };
+      const raw = data?.profile?.tier ?? data?.tier ?? '';
+      const normalised: AccountTier =
+        raw === 'premium' || raw === 'ghost' || raw === 'imago' ? 'premium' :
+        raw === 'pro' || raw === 'lite' || raw === 'pupa' ? 'pro' :
+        raw === 'free' || raw === 'basic' || raw === 'larva' ? 'free' : '';
+      if (normalised && normalised in TIER_META) {
+        setAccountTier(normalised);
       }
     } catch {
       // Silent fail — keep existing tier

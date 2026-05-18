@@ -556,7 +556,6 @@ export default function OgNftMoltPage() {
         functionName: 'transfer',
         args: [TREASURY as `0x${string}`, amount],
         chain,
-        gas: 100000n, // Explicit gas limit to prevent MetaMask over-estimation bug
       });
       setPaymentTxHash(txHash);
       await executeMolt(txHash);

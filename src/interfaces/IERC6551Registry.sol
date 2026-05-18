@@ -9,4 +9,12 @@ interface IERC6551Registry {
         address tokenContract,
         uint256 tokenId
     ) external returns (address);
+
+    function account(
+        address implementation,
+        bytes32 salt,
+        uint256 chainId,
+        address tokenContract,
+        uint256 tokenId
+    ) external view returns (address);
 }

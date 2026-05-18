@@ -1821,6 +1821,34 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
           return corsify(result, request);
         }
 
+        // ── Sentbox: store a sent message copy in KV ──────────────────────────────
+        if (email.action === 'storeSentMessage') {
+          const localPart = ((email as any).localPart || '').toLowerCase().trim();
+          const msg = (email as any).message;
+          if (!localPart || !msg) {
+            return corsify(Response.json({ error: 'Missing localPart or message' }, { status: 400 }), request);
+          }
+          const key = `sent:${localPart}`;
+          const existing = await env.INBOX_KV.get(key);
+          const list: unknown[] = existing ? JSON.parse(existing) : [];
+          list.unshift({ ...msg, storedAt: Date.now() });
+          const trimmed = list.slice(0, 200);
+          await env.INBOX_KV.put(key, JSON.stringify(trimmed));
+          return corsify(Response.json({ status: 'stored', count: trimmed.length }), request);
+        }
+
+        // ── Sentbox: retrieve sent messages from KV ──────────────────────────────
+        if (email.action === 'getSentMessages') {
+          const localPart = ((email as any).localPart || '').toLowerCase().trim();
+          if (!localPart) {
+            return corsify(Response.json({ error: 'Missing localPart' }, { status: 400 }), request);
+          }
+          const key = `sent:${localPart}`;
+          const raw = await env.INBOX_KV.get(key);
+          const messages: unknown[] = raw ? JSON.parse(raw) : [];
+          return corsify(Response.json({ localPart, messages, count: messages.length }), request);
+        }
+
         // ── 0G Storage: archive agent state to decentralised permanent store ──────
         // Reads D1 (agents + emails + memory), bundles to JSON, POSTs to Next.js
         // archiver which uploads to 0G. Stores rootHash back in D1.
