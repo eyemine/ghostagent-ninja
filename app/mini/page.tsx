@@ -242,12 +242,9 @@ export default function MiniApp() {
         body: JSON.stringify({ action: 'getAgentProfile', agentName }),
       });
       const data = await res.json() as { profile?: { tier?: string }; tier?: string };
-      const raw = data?.profile?.tier ?? data?.tier ?? '';
-      const normalised: AccountTier =
-        raw === 'premium' || raw === 'ghost' || raw === 'imago' ? 'premium' :
-        raw === 'pro' || raw === 'lite' || raw === 'pupa' ? 'pro' :
-        raw === 'free' || raw === 'basic' || raw === 'larva' ? 'free' : '';
-      if (normalised && normalised in TIER_META) {
+      const raw = data?.profile?.tier ?? data?.tier;
+      const normalised = normaliseTierStr(raw);
+      if (normalised in TIER_META) {
         setAccountTier(normalised);
       }
     } catch {
