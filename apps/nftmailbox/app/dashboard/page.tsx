@@ -97,6 +97,10 @@ export default function DashboardPage() {
   const [sending, setSending] = useState(false);
   const [sendResult, setSendResult] = useState<string | null>(null);
 
+  // Domain selection state
+  const [availableDomains, setAvailableDomains] = useState<string[]>([]);
+  const [selectedFromDomain, setSelectedFromDomain] = useState<string>('nftmail.box');
+
   // Sentbox state
   const [sentMessages, setSentMessages] = useState<SentMessage[]>([]);
   const [loadingSent, setLoadingSent] = useState(false);
@@ -205,10 +209,28 @@ export default function DashboardPage() {
     }
   }, [authenticated, preferredWallet?.address, resolveNames]);
 
+  // Extract unique domains from user's names for domain selection
+  useEffect(() => {
+    if (names.length > 0) {
+      const domains = [...new Set(names.map(n => {
+        const parts = n.email.split('@');
+        return parts.length === 2 ? parts[1] : 'nftmail.box';
+      }))];
+      setAvailableDomains(domains);
+      // Set default domain from selected name if available
+      if (selectedName) {
+        const selectedDomain = selectedName.email.split('@')[1] || 'nftmail.box';
+        setSelectedFromDomain(selectedDomain);
+      }
+    }
+  }, [names, selectedName]);
+
   useEffect(() => {
     if (selectedName) {
       fetchInbox();
       setSelectedMessage(null);
+      setSentMessages([]);
+      setSelectedSent(null);
     }
   }, [selectedName, fetchInbox]);
 
@@ -239,13 +261,16 @@ export default function DashboardPage() {
     setSendResult(null);
     // Support comma-separated recipients (multisend)
     const recipients = composeTo.split(',').map(s => s.trim()).filter(Boolean);
+    // Use selected domain for from address (or default to selected name's domain)
+    const fromLabel = selectedName.label;
     try {
       for (const recipient of recipients) {
         const res = await fetch('/api/send-email', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            label: selectedName.email.replace('@nftmail.box', ''),
+            label: fromLabel,
+            domain: selectedFromDomain,
             ownerWallet: preferredWallet.address,
             to: recipient,
             cc: composeCc || undefined,
@@ -769,7 +794,24 @@ export default function DashboardPage() {
                 <div className={`rounded-xl border border-[var(--border)] bg-[var(--card)] p-5 space-y-3 ${!canSend ? 'opacity-50 pointer-events-none' : ''}`}>
                   <div>
                     <label className="text-[10px] font-semibold tracking-wider text-[var(--muted)]">FROM</label>
-                    <div className="mt-1 rounded-lg border border-[var(--border)] bg-black/20 px-3 py-2 text-sm text-emerald-300">{selectedName?.email}</div>
+                    <div className="mt-1 flex rounded-lg border border-[var(--border)] bg-black/20 overflow-hidden">
+                      <div className="flex-1 px-3 py-2 text-sm text-emerald-300">{selectedName?.label}</div>
+                      <div className="border-l border-[var(--border)] bg-black/10">
+                        {availableDomains.length > 1 ? (
+                          <select
+                            value={selectedFromDomain}
+                            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedFromDomain(e.target.value)}
+                            className="h-full bg-transparent px-3 py-2 text-sm text-emerald-300 outline-none cursor-pointer"
+                          >
+                            {availableDomains.map(domain => (
+                              <option key={domain} value={domain} className="bg-black text-white">@{domain}</option>
+                            ))}
+                          </select>
+                        ) : (
+                          <span className="flex items-center h-full px-3 text-sm text-emerald-300/70">@{selectedFromDomain}</span>
+                        )}
+                      </div>
+                    </div>
                   </div>
                   <div>
                     <div className="flex items-center justify-between">

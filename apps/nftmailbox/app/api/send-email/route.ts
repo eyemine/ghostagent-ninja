@@ -84,6 +84,7 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json() as {
       label?: string;
+      domain?: string;
       ownerWallet?: string;
       to?: string;
       cc?: string;
@@ -93,8 +94,9 @@ export async function POST(req: NextRequest) {
       replyToMessageId?: string;
     };
 
-    const { label, ownerWallet, to, cc, bcc, subject } = body;
+    const { label, domain, ownerWallet, to, cc, bcc, subject } = body;
     const mailBody = body.body || '';
+    const fromDomain = domain || 'nftmail.box';
 
     if (!label || typeof label !== 'string') {
       return NextResponse.json({ error: 'Missing label' }, { status: 400 });
@@ -135,7 +137,7 @@ export async function POST(req: NextRequest) {
       }, { status: 402 });
     }
 
-    const fromEmail = `${label}@nftmail.box`;
+    const fromEmail = `${label}@${fromDomain}`;
     const htmlBody = markdownToHtml(mailBody);
     const textBody = mailBody;
 

@@ -1,7 +1,7 @@
 [build]
   command = "npm run build"
   publish = ".next"
-  environment = { SECRETS_SCAN_OMIT_KEYS = "NEXT_PUBLIC_ALCHEMY_API_KEY" }
+  environment = { SECRETS_SCAN_OMIT_KEYS = "NEXT_PUBLIC_ALCHEMY_API_KEY,NEXT_PUBLIC_HITL_FACTORY_ADDRESS" }
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
