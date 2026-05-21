@@ -745,7 +745,13 @@ export default function DashboardPage() {
                         <div className="flex items-center gap-1 border-b border-[var(--border)] bg-black/10 px-3 py-1.5">
                           <button onClick={() => { setComposeTo(selectedSent.to); setComposeSubject(`Re: ${selectedSent.subject}`); setTab('compose'); }} className="rounded p-1.5 text-[var(--muted)] transition hover:text-white" title="Reply"><svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 17 4 12 9 7" /><path d="M20 18v-2a4 4 0 00-4-4H4" /></svg></button>
                         </div>
-                        <div className="flex-1 overflow-y-auto px-5 py-4"><p className="text-xs text-[var(--muted)]">Message body stored in Mailgun. Click to view full content.</p></div>
+                        <div className="flex-1 overflow-y-auto px-5 py-4">
+                          {selectedSent.body ? (
+                            <div className="text-sm text-white prose prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: selectedSent.body }} />
+                          ) : (
+                            <p className="text-xs text-[var(--muted)] italic">—</p>
+                          )}
+                        </div>
                       </>
                     ) : (
                       <div className="flex flex-col flex-1 items-center justify-center gap-2 text-center py-12 px-6">
