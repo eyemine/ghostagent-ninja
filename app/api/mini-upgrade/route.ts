@@ -136,7 +136,7 @@ export async function POST(req: NextRequest) {
   const linkRes = await fetch(WORKER_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'linkWallet', fid, agentName, walletAddress }),
+    body: JSON.stringify({ action: 'linkWallet', fid, name: agentName, walletAddress }),
   });
   const linkData = await linkRes.json() as { status?: string; error?: string };
   if (linkData.status !== 'linked') {
@@ -147,7 +147,7 @@ export async function POST(req: NextRequest) {
   const upgradeRes = await fetch(WORKER_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'upgradeTier', label: agentName, newTier, secret: WEBHOOK_SECRET }),
+    body: JSON.stringify({ action: 'upgradeTier', name: agentName, tier: newTier, walletAddress: payment.fromWallet, secret: WEBHOOK_SECRET }),
   });
   const upgradeData = await upgradeRes.json() as { status?: string; newTier?: string; error?: string };
   if (upgradeData.status !== 'upgraded') {
