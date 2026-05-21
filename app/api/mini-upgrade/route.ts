@@ -14,8 +14,8 @@ const TRANSFER_TOPIC = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a
 // Beacon NFT contract on Base (deploy NFTmailBeacon.sol, then set this env var)
 const NFTMAIL_BEACON_BASE = process.env.NFTMAIL_BEACON_CONTRACT ?? '';
 
-// Fees: free/basic → pro = $10,  pro → premium = $14 (upgrade delta)
-const TIER_FEES_USDC: Record<string, number> = { basic: 10, free: 10, pro: 14 };
+// Fees: free/basic → professional (Pro) = $10,  pro/premium → vault (Premium/Imago) = $14
+const TIER_FEES_USDC: Record<string, number> = { basic: 10, free: 10, pro: 10, premium: 14 };
 
 async function verifyPayment(
   txHash: string,
@@ -120,8 +120,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
   }
 
-  const newTier = (currentTier === 'basic' || currentTier === 'free') ? 'pro'
-    : currentTier === 'pro' ? 'premium'
+  const newTier = (currentTier === 'basic' || currentTier === 'free' || currentTier === 'pro') ? 'professional'
+    : currentTier === 'premium' ? 'vault'
     : null;
   if (!newTier) return NextResponse.json({ error: 'Already at max tier' }, { status: 400 });
 
@@ -164,7 +164,7 @@ export async function POST(req: NextRequest) {
       const account = privateKeyToAccount(process.env.TREASURY_PRIVATE_KEY as `0x${string}`);
       const walletClient = createWalletClient({ chain: base, transport: http(), account });
       const publicClient = createPublicClient({ chain: base, transport: http() });
-      const mintFn = newTier === 'premium' ? 'mintPremium' : 'mintPro';
+      const mintFn = newTier === 'vault' ? 'mintPremium' : 'mintPro';
       const beaconAbi = [{
         name: mintFn,
         type: 'function' as const,
