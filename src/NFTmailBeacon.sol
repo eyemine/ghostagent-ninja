@@ -92,7 +92,7 @@ contract NFTmailBeacon is ERC721, AccessControl {
         string memory json = string(abi.encodePacked(
             '{"name":"NFTmail ', tier, ' #', tokenId.toString(), '",',
             '"description":"Tier beacon for nftmail.box Farcaster mini-app. ',
-                'Odd tokenId = Pro ($10), Even tokenId = Premium ($24).",
+                'Odd tokenId = Pro, Even tokenId = Premium.",',
             '"image":"data:image/svg+xml;base64,', Base64.encode(bytes(svg)), '",',
             '"attributes":[',
                 '{"trait_type":"Tier","value":"', tier, '"},',
