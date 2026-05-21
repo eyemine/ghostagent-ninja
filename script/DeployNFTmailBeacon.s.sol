@@ -18,7 +18,11 @@ import { NFTmailBeacon } from "../src/NFTmailBeacon.sol";
 ///     --etherscan-api-key $BASESCAN_API_KEY
 contract DeployNFTmailBeacon is Script {
     function run() external returns (address beacon) {
-        uint256 deployerKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
+        // Support both DEPLOYER_PRIVATE_KEY and PRIVATE_KEY for flexibility
+        uint256 deployerKey = vm.envOr("DEPLOYER_PRIVATE_KEY", uint256(0));
+        if (deployerKey == 0) {
+            deployerKey = vm.envUint("PRIVATE_KEY");
+        }
         address treasury    = vm.envAddress("TREASURY_ADDRESS");
         address admin       = vm.envAddress("ADMIN_ADDRESS");
 
