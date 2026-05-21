@@ -59,15 +59,6 @@ interface InboxMessage {
 type Tab = 'inbox' | 'sentbox' | 'compose' | 'killswitch';
 type ViewMode = 'text' | 'html' | 'headers' | 'source';
 
-interface SentMessage {
-  messageId: string;
-  from: string;
-  to: string;
-  subject: string;
-  sentAt: number;
-  status: string;
-}
-
 const WORKER_URL = 'https://nftmail-email-worker.richard-159.workers.dev';
 
 export default function DashboardPage() {
@@ -87,24 +78,24 @@ export default function DashboardPage() {
   const [viewMode, setViewMode] = useState<ViewMode>('text');
   const [readIds, setReadIds] = useState<Set<string>>(new Set());
 
+  // Sentbox state
+  const [sentMessages, setSentMessages] = useState<any[]>([]);
+  const [loadingSent, setLoadingSent] = useState(false);
+  const [selectedSent, setSelectedSent] = useState<any | null>(null);
+
   // Compose state
   const [composeTo, setComposeTo] = useState('');
   const [composeCc, setComposeCc] = useState('');
   const [composeBcc, setComposeBcc] = useState('');
+  const [showCcBcc, setShowCcBcc] = useState(false);
   const [composeSubject, setComposeSubject] = useState('');
   const [composeBody, setComposeBody] = useState('');
-  const [showCcBcc, setShowCcBcc] = useState(false);
   const [sending, setSending] = useState(false);
   const [sendResult, setSendResult] = useState<string | null>(null);
 
   // Domain selection state
   const [availableDomains, setAvailableDomains] = useState<string[]>([]);
   const [selectedFromDomain, setSelectedFromDomain] = useState<string>('nftmail.box');
-
-  // Sentbox state
-  const [sentMessages, setSentMessages] = useState<SentMessage[]>([]);
-  const [loadingSent, setLoadingSent] = useState(false);
-  const [selectedSent, setSelectedSent] = useState<SentMessage | null>(null);
 
   // Kill-switch state
   const [burning, setBurning] = useState(false);
@@ -229,42 +220,44 @@ export default function DashboardPage() {
     if (selectedName) {
       fetchInbox();
       setSelectedMessage(null);
+      // Clear sentbox when switching accounts
       setSentMessages([]);
       setSelectedSent(null);
     }
   }, [selectedName, fetchInbox]);
 
-  // Fetch sentbox
+  // Fetch sentbox from Mailgun Events API
   const fetchSentbox = useCallback(async () => {
     if (!selectedName) return;
     setLoadingSent(true);
     try {
       const label = selectedName.email.replace('@nftmail.box', '');
       const res = await fetch(`/api/sentbox?label=${encodeURIComponent(label)}`);
-      const data = await res.json() as { messages?: SentMessage[]; error?: string };
+      const data = await res.json() as { error?: string; messages?: any[] };
+      if (!res.ok) throw new Error(data.error || 'Failed to fetch sentbox');
       setSentMessages(data.messages || []);
     } catch {
-      setSentMessages([]);
+      // Silent — sentbox is non-critical
     } finally {
       setLoadingSent(false);
     }
   }, [selectedName]);
 
   useEffect(() => {
-    if (tab === 'sentbox' && selectedName) fetchSentbox();
-  }, [tab, selectedName, fetchSentbox]);
+    if (selectedName && tab === 'sentbox') {
+      fetchSentbox();
+    }
+  }, [selectedName, tab, fetchSentbox]);
 
   // Send email — uses /api/send-email with ownerWallet auth + CC/BCC + multisend
   const handleSend = async () => {
     if (!selectedName || !composeTo || !preferredWallet) return;
     setSending(true);
     setSendResult(null);
-    // Support comma-separated recipients (multisend)
-    const recipients = composeTo.split(',').map(s => s.trim()).filter(Boolean);
-    // Use selected domain for from address (or default to selected name's domain)
+    const recipients = composeTo.split(',').map(r => r.trim()).filter(Boolean);
     const fromLabel = selectedName.label;
-    try {
-      for (const recipient of recipients) {
+    for (const recipient of recipients) {
+      try {
         const res = await fetch('/api/send-email', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -279,22 +272,22 @@ export default function DashboardPage() {
             body: composeBody,
           }),
         });
-        const data = await res.json() as { error?: string };
+        const data = await res.json() as { error?: string; success?: boolean };
         if (!res.ok) throw new Error(data.error || 'Failed to send');
+      } catch (err: any) {
+        setSendResult(err?.message || 'Send failed');
+        setSending(false);
+        return;
       }
-      const toList = recipients.length > 1 ? `${recipients.length} recipients` : recipients[0];
-      setSendResult(`✓ Sent to ${toList}`);
-      setComposeTo('');
-      setComposeCc('');
-      setComposeBcc('');
-      setComposeSubject('');
-      setComposeBody('');
-      setShowCcBcc(false);
-    } catch (err: any) {
-      setSendResult(err?.message || 'Send failed');
-    } finally {
-      setSending(false);
     }
+    setSendResult(`Sent to ${composeTo}`);
+    setComposeTo('');
+    setComposeCc('');
+    setComposeBcc('');
+    setShowCcBcc(false);
+    setComposeSubject('');
+    setComposeBody('');
+    setSending(false);
   };
 
   // Sovereign Kill-Switch: burn all encrypted history
@@ -380,6 +373,9 @@ export default function DashboardPage() {
             <span style={{ fontFamily: "'Ayuthaya', serif", color: '#d8d4cf' }} className="text-base tracking-wide">nftmail.box</span>
           </Link>
           <div className="flex items-center gap-3">
+            {authenticated && selectedName && (
+              <a href={`/inbox/${encodeURIComponent(selectedName.email.replace('@nftmail.box', ''))}`} target="_blank" rel="noopener noreferrer" className="rounded-lg border border-[rgba(0,163,255,0.25)] bg-[rgba(0,163,255,0.06)] px-3 py-1.5 text-[10px] font-semibold text-[rgb(160,220,255)] transition hover:bg-[rgba(0,163,255,0.14)]">View Public Inbox ↗</a>
+            )}
             {authenticated && preferredWallet && (
               <span className="text-xs text-[var(--muted)]">{preferredWallet.address.slice(0, 6)}...{preferredWallet.address.slice(-4)}</span>
             )}
@@ -455,17 +451,6 @@ export default function DashboardPage() {
                   {isPremium ? 'PREMIUM' : isPro ? 'PRO' : 'FREE'}
                 </span>
               )}
-              {selectedName && (
-                <a
-                  href={`/inbox/${encodeURIComponent(selectedName.email.replace('@nftmail.box', ''))}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1 rounded-lg border border-[rgba(0,163,255,0.25)] bg-[rgba(0,163,255,0.06)] px-2.5 py-1 text-[10px] text-[rgb(160,220,255)] transition hover:bg-[rgba(0,163,255,0.14)] whitespace-nowrap"
-                >
-                  <svg className="h-2.5 w-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6" /><polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" /></svg>
-                  View Public Inbox
-                </a>
-              )}
             </div>
 
             {/* Privacy toggle — agent accounts only */}
@@ -484,26 +469,26 @@ export default function DashboardPage() {
             <div className="flex gap-1 rounded-lg border border-[var(--border)] bg-black/20 p-1">
               <button
                 onClick={() => setTab('inbox')}
-                className={`flex-1 rounded-md px-3 py-2 text-xs font-semibold transition ${tab === 'inbox' ? 'bg-[rgba(0,163,255,0.12)] text-[rgb(160,220,255)]' : 'text-[var(--muted)] hover:text-white/60'}`}
+                className={`flex-1 rounded-md px-4 py-2 text-xs font-semibold transition ${tab === 'inbox' ? 'bg-[rgba(0,163,255,0.12)] text-[rgb(160,220,255)]' : 'text-[var(--muted)] hover:text-white/60'}`}
               >
                 Inbox{messages.length > 0 ? ` (${messages.length})` : ''}
               </button>
               <button
-                onClick={() => { setTab('sentbox'); }}
-                className={`flex-1 rounded-md px-3 py-2 text-xs font-semibold transition ${tab === 'sentbox' ? 'bg-emerald-500/12 text-emerald-300' : 'text-[var(--muted)] hover:text-white/60'}`}
+                onClick={() => setTab('sentbox')}
+                className={`flex-1 rounded-md px-4 py-2 text-xs font-semibold transition ${tab === 'sentbox' ? 'bg-amber-500/12 text-amber-300' : 'text-[var(--muted)] hover:text-white/60'}`}
               >
                 Sent{sentMessages.length > 0 ? ` (${sentMessages.length})` : ''}
               </button>
               <button
                 onClick={() => canSend && setTab('compose')}
                 title={!canSend ? 'Upgrade to PRO to unlock sending' : undefined}
-                className={`flex-1 rounded-md px-3 py-2 text-xs font-semibold transition ${tab === 'compose' ? 'bg-violet-500/12 text-violet-300' : canSend ? 'text-[var(--muted)] hover:text-white/60' : 'cursor-not-allowed opacity-40 text-[var(--muted)]'}`}
+                className={`flex-1 rounded-md px-4 py-2 text-xs font-semibold transition ${tab === 'compose' ? 'bg-violet-500/12 text-violet-300' : canSend ? 'text-[var(--muted)] hover:text-white/60' : 'cursor-not-allowed opacity-40 text-[var(--muted)]'}`}
               >
                 Compose <span className={`ml-1 rounded-full px-1.5 py-0.5 text-[9px] ring-1 ${isPremium ? 'bg-violet-500/10 text-violet-300 ring-violet-500/20' : 'bg-zinc-500/10 text-zinc-400 ring-zinc-500/20'}`}>{isPremium ? 'PREMIUM' : 'PRO+'}</span>
               </button>
               <button
                 onClick={() => setTab('killswitch')}
-                className={`flex-1 rounded-md px-3 py-2 text-xs font-semibold transition ${tab === 'killswitch' ? 'bg-red-500/12 text-red-300' : 'text-[var(--muted)] hover:text-white/60'}`}
+                className={`flex-1 rounded-md px-4 py-2 text-xs font-semibold transition ${tab === 'killswitch' ? 'bg-red-500/12 text-red-300' : 'text-[var(--muted)] hover:text-white/60'}`}
               >
                 Burn
               </button>
@@ -624,7 +609,7 @@ export default function DashboardPage() {
                             {/* Reply */}
                             <button
                               disabled={!canSend}
-                              title={!canSend ? 'LITE+ required to reply' : 'Reply'}
+                              title={!canSend ? 'PRO+ required to reply' : 'Reply'}
                               onClick={() => { if (!canSend) return; setComposeTo(selectedMessage.fromAddress || selectedMessage.sender); setComposeSubject(`Re: ${selectedMessage.subject}`); setTab('compose'); }}
                               className="rounded p-1.5 text-[var(--muted)] transition hover:text-white disabled:opacity-30"
                             >
@@ -633,7 +618,7 @@ export default function DashboardPage() {
                             {/* Forward */}
                             <button
                               disabled={!canSend}
-                              title={!canSend ? 'LITE+ required to forward' : 'Forward'}
+                              title={!canSend ? 'PRO+ required to forward' : 'Forward'}
                               onClick={() => { if (!canSend) return; setComposeSubject(`Fwd: ${selectedMessage.subject}`); setComposeBody(`\n\n-------- Forwarded Message --------\nFrom: ${selectedMessage.sender}\nSubject: ${selectedMessage.subject}\n\n${selectedMessage.body || selectedMessage.summary}`); setTab('compose'); }}
                               className="rounded p-1.5 text-[var(--muted)] transition hover:text-white disabled:opacity-30"
                             >
@@ -723,26 +708,24 @@ export default function DashboardPage() {
                     {loadingSent ? 'Loading...' : 'Refresh'}
                   </button>
                 </div>
-                <div className="flex" style={{ minHeight: '320px' }}>
+                <div className="flex" style={{ minHeight: '460px' }}>
                   <div className={`flex flex-col border-r border-[var(--border)] ${selectedSent ? 'hidden md:flex md:w-2/5' : 'flex w-full md:w-2/5'}`}>
-                    {loadingSent ? (
-                      <div className="flex flex-1 items-center justify-center py-12">
-                        <div className="flex items-center gap-3"><div className="h-4 w-4 animate-spin rounded-full border-2 border-[rgba(0,163,255,0.4)] border-t-transparent" /><span className="text-sm text-[var(--muted)]">Loading...</span></div>
-                      </div>
+                    {loadingSent && sentMessages.length === 0 ? (
+                      <div className="flex flex-1 items-center justify-center py-12"><div className="flex items-center gap-3"><div className="h-4 w-4 animate-spin rounded-full border-2 border-[rgba(0,163,255,0.4)] border-t-transparent" /><span className="text-sm text-[var(--muted)]">Loading sent messages...</span></div></div>
                     ) : sentMessages.length === 0 ? (
                       <div className="flex flex-col flex-1 items-center justify-center py-12 gap-3">
                         <svg className="h-10 w-10 text-[var(--muted)] opacity-30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></svg>
-                        <p className="text-sm text-[var(--muted)]">No sent messages</p>
+                        <p className="text-sm text-[var(--muted)]">No sent messages found</p>
+                        <p className="text-[10px] text-[var(--muted)]">Messages sent via this address will appear here</p>
                       </div>
                     ) : (
                       <div className="divide-y divide-[var(--border)] overflow-y-auto" style={{ maxHeight: '560px' }}>
-                        {sentMessages.map((msg) => (
-                          <button key={msg.messageId} onClick={() => setSelectedSent(msg)}
-                            className={`w-full text-left px-4 py-3 transition hover:bg-white/5 ${selectedSent?.messageId === msg.messageId ? 'bg-[rgba(0,163,255,0.08)] border-l-2 border-[rgb(0,163,255)]' : 'border-l-2 border-transparent'}`}>
+                        {sentMessages.map((msg: any) => (
+                          <button key={msg.id} onClick={() => setSelectedSent(msg)} className={`w-full text-left px-4 py-3 transition hover:bg-white/5 ${selectedSent?.id === msg.id ? 'bg-amber-500/8 border-l-2 border-amber-500' : 'border-l-2 border-transparent'}`}>
                             <div className="flex-1 min-w-0">
-                              <p className="truncate text-xs font-medium text-white">{msg.subject}</p>
+                              <p className="truncate text-xs font-medium text-white">{msg.subject || '(no subject)'}</p>
                               <p className="truncate text-[10px] text-[var(--muted)] mt-0.5">To: {msg.to}</p>
-                              <span className="text-[9px] text-[var(--muted)]">{formatTimeAgo(String(msg.sentAt))}</span>
+                              <p className="text-[9px] text-[var(--muted)] mt-1">{new Date(msg.timestamp * 1000).toLocaleDateString()}</p>
                             </div>
                           </button>
                         ))}
@@ -752,26 +735,22 @@ export default function DashboardPage() {
                   <div className={`flex-1 flex flex-col ${selectedSent ? 'flex' : 'hidden md:flex'}`}>
                     {selectedSent ? (
                       <>
-                        <button onClick={() => setSelectedSent(null)} className="flex items-center gap-1.5 border-b border-[var(--border)] px-4 py-2 text-[10px] text-[var(--muted)] hover:text-white transition md:hidden">← Back</button>
+                        <button onClick={() => setSelectedSent(null)} className="flex items-center gap-1.5 border-b border-[var(--border)] px-4 py-2 text-[10px] text-[var(--muted)] hover:text-white transition md:hidden">← Back to list</button>
                         <div className="border-b border-[var(--border)] bg-black/20 px-5 py-4 space-y-1">
-                          <p className="text-sm font-semibold text-white">{selectedSent.subject}</p>
-                          <p className="text-[11px] text-[var(--muted)]"><span className="text-zinc-500 w-10 inline-block">From</span> {selectedSent.from}</p>
+                          <p className="text-sm font-semibold text-white">{selectedSent.subject || '(no subject)'}</p>
+                          <p className="text-[11px] text-[var(--muted)]"><span className="text-zinc-500 w-10 inline-block">From</span> {selectedName?.email}</p>
                           <p className="text-[11px] text-[var(--muted)]"><span className="text-zinc-500 w-10 inline-block">To</span> {selectedSent.to}</p>
-                          <p className="text-[11px] text-[var(--muted)]"><span className="text-zinc-500 w-10 inline-block">Date</span> {formatTimeAgo(String(selectedSent.sentAt))}</p>
-                          <p className="text-[11px] text-[var(--muted)]"><span className="text-zinc-500 w-10 inline-block">Status</span> <span className="text-emerald-400">{selectedSent.status}</span></p>
+                          <p className="text-[11px] text-[var(--muted)]"><span className="text-zinc-500 w-10 inline-block">Date</span> {new Date(selectedSent.timestamp * 1000).toLocaleString()}</p>
                         </div>
-                        <div className="px-5 py-4">
-                          <p className="text-xs text-[var(--muted)]">Message body not stored — sent via Mailgun.</p>
-                          <button onClick={() => { setComposeTo(selectedSent.to); setComposeSubject(`Re: ${selectedSent.subject}`); setTab('compose'); }} className="mt-3 flex items-center gap-1.5 rounded-lg border border-violet-500/30 bg-violet-500/8 px-3 py-1.5 text-[10px] font-semibold text-violet-300 transition hover:bg-violet-500/16">
-                            <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 17 4 12 9 7" /><path d="M20 18v-2a4 4 0 00-4-4H4" /></svg>
-                            Reply
-                          </button>
+                        <div className="flex items-center gap-1 border-b border-[var(--border)] bg-black/10 px-3 py-1.5">
+                          <button onClick={() => { setComposeTo(selectedSent.to); setComposeSubject(`Re: ${selectedSent.subject}`); setTab('compose'); }} className="rounded p-1.5 text-[var(--muted)] transition hover:text-white" title="Reply"><svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 17 4 12 9 7" /><path d="M20 18v-2a4 4 0 00-4-4H4" /></svg></button>
                         </div>
+                        <div className="flex-1 overflow-y-auto px-5 py-4"><p className="text-xs text-[var(--muted)]">Message body stored in Mailgun. Click to view full content.</p></div>
                       </>
                     ) : (
                       <div className="flex flex-col flex-1 items-center justify-center gap-2 text-center py-12 px-6">
-                        <svg className="h-8 w-8 text-[var(--muted)] opacity-20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></svg>
-                        <p className="text-sm text-[var(--muted)]">Select a sent message</p>
+                        <svg className="h-8 w-8 text-[var(--muted)] opacity-20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></svg>
+                        <p className="text-sm text-[var(--muted)]">Select a sent message to view details</p>
                       </div>
                     )}
                   </div>
@@ -791,7 +770,7 @@ export default function DashboardPage() {
                     <p className="mt-2 text-xs text-[var(--muted)]">Molt your inbox on the <Link href="/nftmail" className="text-violet-300 hover:underline">mint page</Link> to unlock sending.</p>
                   </div>
                 )}
-                <div className={`rounded-xl border border-[var(--border)] bg-[var(--card)] p-5 space-y-3 ${!canSend ? 'opacity-50 pointer-events-none' : ''}`}>
+                <div className={`rounded-xl border border-[var(--border)] bg-[var(--card)] p-5 space-y-4 ${!canSend ? 'opacity-50 pointer-events-none' : ''}`}>
                   <div>
                     <label className="text-[10px] font-semibold tracking-wider text-[var(--muted)]">FROM</label>
                     <div className="mt-1 flex rounded-lg border border-[var(--border)] bg-black/20 overflow-hidden">
@@ -815,22 +794,20 @@ export default function DashboardPage() {
                   </div>
                   <div>
                     <div className="flex items-center justify-between">
-                      <label className="text-[10px] font-semibold tracking-wider text-[var(--muted)]">TO <span className="font-normal opacity-60">(comma-separate for multiple)</span></label>
-                      <button onClick={() => setShowCcBcc(v => !v)} className="text-[10px] text-[rgba(0,163,255,0.6)] hover:text-[rgb(160,220,255)] transition">
-                        {showCcBcc ? 'Hide CC/BCC' : 'Show CC / BCC'}
-                      </button>
+                      <label className="text-[10px] font-semibold tracking-wider text-[var(--muted)]">TO</label>
+                      <button onClick={() => setShowCcBcc(v => !v)} className="text-[10px] text-[var(--muted)] hover:text-white transition">{showCcBcc ? 'Hide CC/BCC' : 'CC/BCC'}</button>
                     </div>
-                    <input type="text" value={composeTo} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setComposeTo(e.target.value)} placeholder="recipient@example.com, another@example.com" className="mt-1 w-full rounded-lg border border-[var(--border)] bg-black/40 px-3 py-2 text-sm text-white placeholder-zinc-600 outline-none transition focus:border-[rgba(0,163,255,0.5)]" />
+                    <input type="email" value={composeTo} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setComposeTo(e.target.value)} placeholder="recipient@example.com (comma-separated for multiple)" className="mt-1 w-full rounded-lg border border-[var(--border)] bg-black/40 px-3 py-2 text-sm text-white placeholder-zinc-600 outline-none transition focus:border-[rgba(0,163,255,0.5)]" />
                   </div>
                   {showCcBcc && (
                     <>
                       <div>
                         <label className="text-[10px] font-semibold tracking-wider text-[var(--muted)]">CC</label>
-                        <input type="text" value={composeCc} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setComposeCc(e.target.value)} placeholder="cc@example.com" className="mt-1 w-full rounded-lg border border-[var(--border)] bg-black/40 px-3 py-2 text-sm text-white placeholder-zinc-600 outline-none transition focus:border-[rgba(0,163,255,0.5)]" />
+                        <input type="email" value={composeCc} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setComposeCc(e.target.value)} placeholder="cc@example.com" className="mt-1 w-full rounded-lg border border-[var(--border)] bg-black/40 px-3 py-2 text-sm text-white placeholder-zinc-600 outline-none transition focus:border-[rgba(0,163,255,0.5)]" />
                       </div>
                       <div>
                         <label className="text-[10px] font-semibold tracking-wider text-[var(--muted)]">BCC</label>
-                        <input type="text" value={composeBcc} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setComposeBcc(e.target.value)} placeholder="bcc@example.com" className="mt-1 w-full rounded-lg border border-[var(--border)] bg-black/40 px-3 py-2 text-sm text-white placeholder-zinc-600 outline-none transition focus:border-[rgba(0,163,255,0.5)]" />
+                        <input type="email" value={composeBcc} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setComposeBcc(e.target.value)} placeholder="bcc@example.com" className="mt-1 w-full rounded-lg border border-[var(--border)] bg-black/40 px-3 py-2 text-sm text-white placeholder-zinc-600 outline-none transition focus:border-[rgba(0,163,255,0.5)]" />
                       </div>
                     </>
                   )}
@@ -839,14 +816,14 @@ export default function DashboardPage() {
                     <input type="text" value={composeSubject} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setComposeSubject(e.target.value)} placeholder="Subject" className="mt-1 w-full rounded-lg border border-[var(--border)] bg-black/40 px-3 py-2 text-sm text-white placeholder-zinc-600 outline-none transition focus:border-[rgba(0,163,255,0.5)]" />
                   </div>
                   <div>
-                    <label className="text-[10px] font-semibold tracking-wider text-[var(--muted)]">MESSAGE <span className="font-normal opacity-60">(Markdown supported)</span></label>
-                    <textarea value={composeBody} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setComposeBody(e.target.value)} placeholder="Write your message... **bold**, *italic*, `code`" rows={8} className="mt-1 w-full resize-none rounded-lg border border-[var(--border)] bg-black/40 px-3 py-2 text-sm text-white placeholder-zinc-600 outline-none transition focus:border-[rgba(0,163,255,0.5)]" />
+                    <label className="text-[10px] font-semibold tracking-wider text-[var(--muted)]">MESSAGE</label>
+                    <textarea value={composeBody} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setComposeBody(e.target.value)} placeholder="Write your message..." rows={8} className="mt-1 w-full resize-none rounded-lg border border-[var(--border)] bg-black/40 px-3 py-2 text-sm text-white placeholder-zinc-600 outline-none transition focus:border-[rgba(0,163,255,0.5)]" />
                   </div>
-                  <div className="flex items-center justify-between pt-1">
+                  <div className="flex items-center justify-between">
                     <p className="text-[10px] text-[var(--muted)]">Attachments coming soon</p>
                     <button onClick={handleSend} disabled={sending || !composeTo} className="rounded-lg border border-violet-500/35 bg-violet-500/8 px-5 py-2 text-xs font-semibold text-violet-300 transition hover:bg-violet-500/16 disabled:cursor-not-allowed disabled:opacity-40">{sending ? 'Sending...' : 'Send'}</button>
                   </div>
-                  {sendResult && <p className={`text-xs ${sendResult.startsWith('✓') ? 'text-emerald-400' : 'text-red-400'}`}>{sendResult}</p>}
+                  {sendResult && <p className={`text-xs ${sendResult.startsWith('Sent') ? 'text-emerald-400' : 'text-red-400'}`}>{sendResult}</p>}
                 </div>
               </div>
             )}
