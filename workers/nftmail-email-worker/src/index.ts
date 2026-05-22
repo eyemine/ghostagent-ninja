@@ -5040,7 +5040,7 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
             registered_at: Date.now(),
           });
           const tierRetention = accountTier === 'professional' ? 'never' : accountTier === 'lite' ? '30-day' : '8-day';
-          const tierSends = accountTier === 'professional' ? 200 : accountTier === 'lite' ? 50 : 10;
+          const tierSends = accountTier === 'professional' ? 'unlimited' : accountTier === 'lite' ? 100 : 10;
           const tierEntry = JSON.stringify({
             tier: accountTier,
             expires_at: expiresAt,
