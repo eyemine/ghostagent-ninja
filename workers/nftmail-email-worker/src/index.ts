@@ -4915,11 +4915,12 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
           
           const trial = JSON.parse(trialData);
           
-          // Can only upgrade free inboxes
-          if (trial.type !== 'free' && trial.type !== 'trial') {
-            return corsify(Response.json({ 
+          // Can only upgrade free/basic/trial inboxes
+          const currentType = trial.type || 'basic'; // Default to basic if type is missing (legacy entries)
+          if (currentType !== 'free' && currentType !== 'trial' && currentType !== 'basic') {
+            return corsify(Response.json({
               error: 'Can only upgrade free inboxes',
-              currentType: trial.type 
+              currentType: trial.type
             }, { status: 403 }), request);
           }
           
@@ -5179,6 +5180,7 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
 
           const kvEntry = JSON.stringify({
             controller: `fid:${fid}`, // FID is the principal until wallet linked
+            type: 'basic', // BASIC tier — same as 'free' for upgrade purposes
             origin_nft: null, // No NFT for BASIC
             legacy_identity: null,
             minted_tokenId: null,
@@ -5336,7 +5338,7 @@ Your \`.cast\` address carries over automatically — nothing is lost.
             agentEmail,
             fid,
             tier: 'basic',
-            expiresAt,
+            expiresAt: null,
             walletLinked: false,
             upgradePath: '/byo-molt',
             eciesPublicKey,
