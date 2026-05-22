@@ -76,6 +76,22 @@ export default function RootLayout({
                   });
                 }
               } catch(e) {}
+              // Suppress non-fatal Spindl/Privy analytics errors that crash the app
+              // when ad blockers or CORS block their telemetry endpoints
+              window.addEventListener('unhandledrejection', function(e) {
+                var msg = e && e.reason && (e.reason.message || String(e.reason));
+                if (msg && (msg.indexOf('spindl') !== -1 || msg.indexOf('CORS') !== -1 || msg.indexOf('ERR_BLOCKED_BY_CLIENT') !== -1)) {
+                  e.preventDefault();
+                  return;
+                }
+              });
+              window.addEventListener('error', function(e) {
+                var src = e && e.filename && e.filename.toString();
+                if (src && src.indexOf('spindl') !== -1) {
+                  e.preventDefault();
+                  return;
+                }
+              });
             `,
           }}
         />

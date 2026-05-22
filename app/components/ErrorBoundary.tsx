@@ -17,12 +17,32 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
     this.state = { hasError: false, error: null };
   }
 
+  static isAnalyticsError(error: Error): boolean {
+    const msg = error?.message ?? '';
+    const stack = error?.stack ?? '';
+    return (
+      msg.includes('spindl') ||
+      msg.includes('CORS') ||
+      msg.includes('ERR_BLOCKED_BY_CLIENT') ||
+      stack.includes('spindl') ||
+      stack.includes('spindl.link') ||
+      stack.includes('api.spindl.xyz') ||
+      // Privy bundles Spindl — its chunk crashes when Spindl is blocked by ad blockers
+      (msg.includes("Cannot read properties of null") && stack.includes('3723-'))
+    );
+  }
+
   static getDerivedStateFromError(error: Error) {
+    if (ErrorBoundary.isAnalyticsError(error)) {
+      return { hasError: false, error: null };
+    }
     return { hasError: true, error };
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('[ErrorBoundary]', error, errorInfo);
+    if (!ErrorBoundary.isAnalyticsError(error)) {
+      console.error('[ErrorBoundary]', error, errorInfo);
+    }
   }
 
   render() {
