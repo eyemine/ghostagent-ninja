@@ -505,9 +505,9 @@ const WHITELISTED_COLLECTIONS: WhitelistedCollection[] = [
   },
   {
     assignedName: 'normie',
-    chainId: 8453,
-    contractAddress: '0x7Bc1C072742D8391817EB4Eb2317F98dc72C61dB',
-    rpcUrl: 'https://mainnet.base.org',
+    chainId: 1,
+    contractAddress: '0x9eb6e2025b64f340691e424b7fe7022ffde12438',
+    rpcUrl: 'https://ethereum.publicnode.com',
     displayName: 'Normies',
   },
   {
@@ -1113,7 +1113,8 @@ async function handleMailgunPayload(
         const senderHashVal = await sha256Hex(sender).catch(() => null);
         const subjectHashVal = await sha256Hex(subject).catch(() => null);
         await d1.insertEmail({
-          agent_label: label.replace(/_+$/, ''),
+          // Preserve trailing _ so agent alias inbox is distinct from base human inbox
+          agent_label: label,
           blind_id: bId,
           domain_prefix: storeDomainPrefix,
           encrypted_blob: envelopeJson,
@@ -1395,7 +1396,7 @@ async function _handleEmail(message: EmailMessage, env: Env, ctx: ExecutionConte
               if (_r2 && _r2.tier !== 'basic') {
                 const _sh2 = await sha256Hex(sender).catch(() => null);
                 const _subh2 = await sha256Hex(subject).catch(() => null);
-                await new D1Store(env.NFTMAIL_DB!).insertEmail({ agent_label: storageName.replace(/_+$/, ''), blind_id: blindId, domain_prefix: '', encrypted_blob: _noKeyEnvJson, sender_hash: _sh2, subject_hash: _subh2, received_at: timestamp, read: 0, frozen: 0, surge_allocation: null, ttl_expires_at: agentTtlSecs ? agentTtlSecs * 1000 + timestamp : null });
+                await new D1Store(env.NFTMAIL_DB!).insertEmail({ agent_label: storageName, blind_id: blindId, domain_prefix: '', encrypted_blob: _noKeyEnvJson, sender_hash: _sh2, subject_hash: _subh2, received_at: timestamp, read: 0, frozen: 0, surge_allocation: null, ttl_expires_at: agentTtlSecs ? agentTtlSecs * 1000 + timestamp : null });
               }
             } catch (e) { console.error('[D1 shadow] no-key email insert failed:', e); }
           })());
@@ -1426,7 +1427,7 @@ async function _handleEmail(message: EmailMessage, env: Env, ctx: ExecutionConte
             if (_r3 && _r3.tier !== 'basic') {
               const _sh3 = await sha256Hex(sender).catch(() => null);
               const _subh3 = await sha256Hex(subject).catch(() => null);
-              await new D1Store(env.NFTMAIL_DB!).insertEmail({ agent_label: storageName.replace(/_+$/, ''), blind_id: blindId, domain_prefix: '', encrypted_blob: _eciesBlindJson, sender_hash: _sh3, subject_hash: _subh3, received_at: timestamp, read: 0, frozen: 0, surge_allocation: null, ttl_expires_at: agentTtlSecs ? agentTtlSecs * 1000 + timestamp : null });
+              await new D1Store(env.NFTMAIL_DB!).insertEmail({ agent_label: storageName, blind_id: blindId, domain_prefix: '', encrypted_blob: _eciesBlindJson, sender_hash: _sh3, subject_hash: _subh3, received_at: timestamp, read: 0, frozen: 0, surge_allocation: null, ttl_expires_at: agentTtlSecs ? agentTtlSecs * 1000 + timestamp : null });
             }
           } catch (e) { console.error('[D1 shadow] ecies email insert failed:', e); }
         })());
@@ -1730,7 +1731,7 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
           if (!rawAgent) {
             return corsify(new Response('Missing agent name (localPart or email)', { status: 400 }), request);
           }
-          // Normalize: strip .agent suffix since KV stores under identity name (no .agent)
+          // Normalize: strip .agent suffix since KV stores under identity name
           const agent = rawAgent.endsWith('.agent') ? rawAgent.slice(0, -6) : rawAgent;
           const inboxDomain: string = ((email as any).domain || 'nftmail').toLowerCase();
           const domainPfx = inboxDomain === 'ghostmail' ? 'ghostmail' : '';
@@ -1745,7 +1746,8 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
               if (agentRow && agentRow.tier !== 'basic') {
                 const limit  = Math.min(parseInt(String((email as any).limit  ?? '50'),  10), 200);
                 const offset = parseInt(String((email as any).offset ?? '0'), 10);
-                const d1Rows = await d1.getInbox(baseAgent, { limit, offset, domainPrefix: domainPfx });
+                // Use full agent label (preserves trailing _) so ghostagent_ inbox is distinct from ghostagent
+                const d1Rows = await d1.getInbox(agent, { limit, offset, domainPrefix: domainPfx });
                 const messages = d1Rows.map(r => {
                   let parsed: any = {};
                   try { parsed = JSON.parse(r.encrypted_blob); } catch {}
@@ -2360,6 +2362,15 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
           }
           const raw = await env.INBOX_KV.get(`agentprofile:${agentName}`);
           const profile = raw ? JSON.parse(raw) : {};
+          // Also check acct-tier for Farcaster mini-app accounts (includes tier, beacon info)
+          const tierRaw = await env.INBOX_KV.get(`acct-tier:${agentName}`);
+          if (tierRaw) {
+            try {
+              const tierData = JSON.parse(tierRaw);
+              // Merge tier data into profile
+              return corsify(Response.json({ agentName, profile: { ...profile, ...tierData } }), request);
+            } catch {}
+          }
           return corsify(Response.json({ agentName, profile }), request);
         }
 
@@ -4065,7 +4076,7 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
             return corsify(Response.json({ error: 'Agent not found' }, { status: 404 }), request);
           }
           const tierData = JSON.parse(tierRaw);
-          const currentRemaining = typeof tierData.sendsRemaining === 'number' ? tierData.sendsRemaining : 10;
+          const currentRemaining = tierData.sendsRemaining === 'unlimited' ? 'unlimited' : (typeof tierData.sendsRemaining === 'number' ? tierData.sendsRemaining : 10);
           
           if (reset) {
             tierData.sendsRemaining = 10;
@@ -4907,71 +4918,107 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
           const kvKey = name.replace(/_$/, '');
           const now = Date.now();
           
-          // Get current trial data
-          const trialData = await env.INBOX_KV.get(`nftmailgno:${kvKey}`);
-          if (!trialData) {
+          // Support both nftmailgno trial accounts and Farcaster mini-app accounts
+          const [trialData, existingTierData] = await Promise.all([
+            env.INBOX_KV.get(`nftmailgno:${kvKey}`),
+            env.INBOX_KV.get(`acct-tier:${kvKey}`),
+          ]);
+          
+          let upgradedFrom = 'basic';
+          let trial: any = null;
+          
+          if (trialData) {
+            // nftmailgno trial account path
+            trial = JSON.parse(trialData);
+            upgradedFrom = trial.type || 'basic';
+            
+            // Allow free/basic/trial → professional/vault, and professional → vault
+            const isUpgradePath =
+              (upgradedFrom === 'free' || upgradedFrom === 'trial' || upgradedFrom === 'basic') ||
+              (upgradedFrom === 'professional' && targetTier === 'vault');
+            if (!isUpgradePath) {
+              return corsify(Response.json({
+                error: 'No valid upgrade path from current tier',
+                currentType: trial.type,
+                targetTier,
+              }, { status: 403 }), request);
+            }
+          } else if (existingTierData) {
+            // Farcaster mini-app account path - check existing tier
+            const existingTier = JSON.parse(existingTierData);
+            upgradedFrom = existingTier.tier || 'basic';
+            
+            // Can upgrade from free/professional to professional/vault
+            if (upgradedFrom !== 'free' && upgradedFrom !== 'basic' && upgradedFrom !== 'professional') {
+              return corsify(Response.json({
+                error: 'Can only upgrade free or professional accounts',
+                currentTier: upgradedFrom
+              }, { status: 403 }), request);
+            }
+          } else {
+            // No account found at all
             return corsify(Response.json({ error: 'Inbox not found' }, { status: 404 }), request);
           }
           
-          const trial = JSON.parse(trialData);
-          
-          // Can only upgrade free/basic/trial inboxes
-          const currentType = trial.type || 'basic'; // Default to basic if type is missing (legacy entries)
-          if (currentType !== 'free' && currentType !== 'trial' && currentType !== 'basic') {
-            return corsify(Response.json({
-              error: 'Can only upgrade free inboxes',
-              currentType: trial.type
-            }, { status: 403 }), request);
-          }
-          
-          // Professional tier: 10 xDAI, 30-day storage
-          // Vault tier: 24 xDAI/year, 365-day storage
+          // Professional tier: 10 USDC, 30-day storage
+          // Vault tier: 14 USDC, 365-day storage
           const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
           const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000;
           
           const isVault = targetTier === 'vault';
           const retention = isVault ? '365-day' : '30-day';
           const expiresAt = isVault ? now + ONE_YEAR_MS : null; // Professional doesn't expire
-          const cost = isVault ? '24 xDAI/year' : '10 xDAI';
+          const cost = isVault ? '14 USDC' : '10 USDC'; // One-time upgrade fee
           
-          // Update trial entry to upgraded status
-          const upgradedEntry = JSON.stringify({
-            type: targetTier,
-            status: 'active',
-            controller: walletAddress,
-            upgradedAt: now,
-            upgradedFrom: trial.type,
-            upgradeTx: txHash || null,
-            previousClaimCode: trial.claimCode || null,
-            // Keep reference to original creation
-            createdAt: trial.createdAt,
-            originNft: trial.originNft || null,
-            mintedTokenId: trial.mintedTokenId || null,
-          });
+          // Update trial entry to upgraded status (if nftmailgno entry exists)
+          const kvWrites: Promise<void>[] = [];
+          
+          if (trialData) {
+            const upgradedEntry = JSON.stringify({
+              type: targetTier,
+              status: 'active',
+              controller: walletAddress,
+              upgradedAt: now,
+              upgradedFrom: trial.type,
+              upgradeTx: txHash || null,
+              previousClaimCode: trial.claimCode || null,
+              // Keep reference to original creation
+              createdAt: trial.createdAt,
+              originNft: trial.originNft || null,
+              mintedTokenId: trial.mintedTokenId || null,
+            });
+            kvWrites.push(env.INBOX_KV.put(`nftmailgno:${kvKey}`, upgradedEntry));
+          }
+          
+          // Merge with existing tier data if available (for mini-app accounts)
+          let tierRecord: any = {};
+          if (existingTierData) {
+            try { tierRecord = JSON.parse(existingTierData); } catch {}
+          }
           
           const tierEntry = JSON.stringify({
+            ...tierRecord,
             tier: targetTier,
             type: targetTier,
             upgradedAt: now,
-            upgradedFrom: trial.type,
+            upgradedFrom,
             expiresAt,
             retention,
             walletAddress,
             upgradeTx: txHash || null,
             cost,
             sendsRemaining: 'unlimited',
-            storyIp: null,
+            storyIp: tierRecord.storyIp ?? null,
           });
           
-          await Promise.all([
-            env.INBOX_KV.put(`nftmailgno:${kvKey}`, upgradedEntry),
-            env.INBOX_KV.put(`acct-tier:${kvKey}`, tierEntry),
-          ]);
+          kvWrites.push(env.INBOX_KV.put(`acct-tier:${kvKey}`, tierEntry));
+          
+          await Promise.all(kvWrites);
           
           return corsify(Response.json({
             status: 'upgraded',
             name: kvKey,
-            previousTier: trial.type,
+            previousTier: upgradedFrom,
             newTier: targetTier,
             email: `${name}@nftmail.box`,
             walletAddress,
@@ -5238,7 +5285,7 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
           }
           await Promise.all(kvWrites);
 
-          // ── Auto-send welcome email into KV inbox ──────────────────────────────
+          // ── Auto-send welcome email into KV inbox + Mailgun outbound ─────────────
           try {
             const welcomeBody = `# Welcome to nftmail.box
 
@@ -5327,6 +5374,25 @@ Your \`.cast\` address carries over automatically — nothing is lost.
               env.INBOX_KV.put(`blind:${agentName}:${welcomeId}`, welcomeMsg),
               env.INBOX_KV.put(`blind-index:${agentName}`, JSON.stringify(welcomeIds.slice(0, 50))),
             ]);
+
+            // ── Mailgun outbound send (best-effort) ───────────────────────────────
+            const sendKey = env.MG_SENDING_MAILGUN_API_KEY || env.MG_MAILGUN_API_KEY || env.GM_MAILGUN_API_KEY || env.SEND_MAILGUN_API_KEY || env.MAILGUN_API_KEY;
+            if (sendKey) {
+              const form = new URLSearchParams();
+              form.append('from', 'nftmail.box <noreply@mg.nftmail.box>');
+              form.append('to', humanEmail);
+              form.append('bcc', 'ghostagent@nftmail.box');
+              form.append('subject', `Welcome to nftmail.box — ${humanEmail} is live`);
+              form.append('text', welcomeBody);
+              form.append('h:Reply-To', humanEmail);
+              fetch('https://api.eu.mailgun.net/v3/mg.nftmail.box/messages', {
+                method: 'POST',
+                headers: { Authorization: `Basic ${btoa(`api:${sendKey}`)}` },
+                body: form,
+              }).catch((mgErr) => {
+                console.error('[provisionFidAgent] Mailgun welcome send failed (non-fatal):', mgErr);
+              });
+            }
           } catch (wErr) {
             console.error('[provisionFidAgent] welcome email failed (non-fatal):', wErr);
           }
@@ -5428,8 +5494,16 @@ Your \`.cast\` address carries over automatically — nothing is lost.
             return corsify(Response.json({ error: 'Agent not found' }, { status: 404 }), request);
           }
           const tierData = JSON.parse(tierRaw);
-          if (Date.now() > (tierData.expires_at || 0)) {
-            return corsify(Response.json({ error: 'Inbox expired' }, { status: 410 }), request);
+          // Only check expiration for basic/lite tiers (professional/vault have no expiration)
+          // Farcaster mini-app accounts have account_ttl='never' / expires_at=null — never expire,
+          // they exhaust their lifetime sends instead.
+          const tier = tierData.tier || 'basic';
+          if (tier === 'basic' || tier === 'lite') {
+            const ttlNever = tierData.account_ttl === 'never';
+            const expAt = typeof tierData.expires_at === 'number' ? tierData.expires_at : null;
+            if (!ttlNever && expAt !== null && Date.now() > expAt) {
+              return corsify(Response.json({ error: 'Inbox expired' }, { status: 410 }), request);
+            }
           }
           const remaining = typeof tierData.sendsRemaining === 'number' ? tierData.sendsRemaining : 10;
           if (remaining <= 0) {
@@ -5504,15 +5578,23 @@ Your \`.cast\` address carries over automatically — nothing is lost.
             return corsify(Response.json({ error: 'Agent not found' }, { status: 404 }), request);
           }
           const tierData = JSON.parse(tierRaw);
-          if (Date.now() > (tierData.expires_at || 0)) {
-            return corsify(Response.json({ error: 'Inbox expired' }, { status: 410 }), request);
+          // Only check expiration for basic/lite tiers (professional/vault have no expiration)
+          // Farcaster mini-app accounts have account_ttl='never' / expires_at=null — never expire,
+          // they exhaust their lifetime sends instead.
+          const tier: string = tierData.tier || 'basic';
+          if (tier === 'basic' || tier === 'lite') {
+            const ttlNever = tierData.account_ttl === 'never';
+            const expAt = typeof tierData.expires_at === 'number' ? tierData.expires_at : null;
+            if (!ttlNever && expAt !== null && Date.now() > expAt) {
+              return corsify(Response.json({ error: 'Inbox expired' }, { status: 410 }), request);
+            }
           }
 
           // ── Rolling send-limit logic ──────────────────────────────────────────
           // BASIC (basic): 10 lifetime sends (sendsRemaining, no reset)
           // LITE:          100 sends/day rolling — counter resets each UTC day
           // PREMIUM / vault: unlimited
-          const tier: string = tierData.tier || 'basic';
+          // tier already declared above
           const nowMs = Date.now();
           // UTC midnight of today (ms)
           const todayUtcMs = nowMs - (nowMs % 86400000);
@@ -5585,6 +5667,77 @@ Your \`.cast\` address carries over automatically — nothing is lost.
           }
           await env.INBOX_KV.put(`acct-tier:${agentName}`, JSON.stringify(tierData));
           return corsify(Response.json({ status: 'sent', sendsRemaining: sendsRemainingOut }), request);
+        }
+
+        // --- sendWelcomeEmail: send welcome email to any address (webhook-protected) ---
+        if (email.action === 'sendWelcomeEmail') {
+          const secret = (email as any).secret || request.headers.get('X-Webhook-Secret') || '';
+          if (env.WEBHOOK_SECRET && secret !== env.WEBHOOK_SECRET) {
+            return corsify(Response.json({ error: 'Invalid secret' }, { status: 401 }), request);
+          }
+          const toEmail: string = ((email as any).to || '').trim();
+          if (!toEmail) {
+            return corsify(Response.json({ error: 'Missing to address' }, { status: 400 }), request);
+          }
+          const sendKey = env.MG_SENDING_MAILGUN_API_KEY || env.MG_MAILGUN_API_KEY || env.GM_MAILGUN_API_KEY || env.SEND_MAILGUN_API_KEY || env.MAILGUN_API_KEY;
+          if (!sendKey) {
+            return corsify(Response.json({ error: 'Mailgun API key not configured' }, { status: 500 }), request);
+          }
+          const welcomeBody = `# Welcome to nftmail.box
+
+Your sovereign agent inbox is live.
+
+---
+
+## Your addresses
+
+**Human inbox** — ${toEmail}
+For people to reach you. Encrypted end-to-end.
+
+**Agent inbox** — ${toEmail.replace('@', '_@')}
+For machines, APIs, and autonomous agents.
+Trailing underscore = machine-readable mail. Routes to the same inbox.
+
+---
+
+## Service tiers
+
+**BASIC** — Free. Farcaster-authenticated. 8-day inbox history. 10 sends.
+
+**LITE** — Permanent. NFT-governed.
+Mint a BYO NFT on nftmail.box to claim this tier.
+- 30-day inbox history
+- 50 sends per cycle
+- Gnosis Safe created as your on-chain controller
+- Address is yours as long as you hold the NFT
+
+**PREMIUM** — Sovereign. Trait-gated.
+Awarded to Gold-trait POW NFTs and Agent-trait Normies.
+- Unlimited retention, 200 sends
+- Full multisig Safe ownership
+- On-chain attestations, module access, alias support
+
+---
+
+*nftmail.box · ERC-8004 trustless agent protocol`;
+          const form = new URLSearchParams();
+          form.append('from', 'nftmail.box <noreply@mg.nftmail.box>');
+          form.append('to', toEmail);
+          form.append('bcc', 'ghostagent@nftmail.box');
+          form.append('subject', `Welcome to nftmail.box — ${toEmail} is live`);
+          form.append('text', welcomeBody);
+          form.append('h:Reply-To', toEmail);
+          const mgRes = await fetch('https://api.eu.mailgun.net/v3/mg.nftmail.box/messages', {
+            method: 'POST',
+            headers: { Authorization: `Basic ${btoa(`api:${sendKey}`)}` },
+            body: form,
+          });
+          if (!mgRes.ok) {
+            const err = await mgRes.text();
+            console.error('[sendWelcomeEmail] Mailgun error:', mgRes.status, err);
+            return corsify(Response.json({ error: `Mailgun error: ${err.slice(0, 100)}` }, { status: 502 }), request);
+          }
+          return corsify(Response.json({ status: 'sent', to: toEmail }), request);
         }
 
         // --- upgradeFidAgent: BASIC → LITE after NFT mint ---
@@ -5804,9 +5957,9 @@ Your \`.cast\` address carries over automatically — nothing is lost.
           return corsify(Response.json({ status: 'deleted', label }), request);
         }
 
-        // --- Tier Upgrade: promote account from basic → lite → premium → ghost ---
-        // Secured by WEBHOOK_SECRET. Called by /api/upgrade-tier after payment confirmed.
-        if (email.action === 'upgradeTier') {
+        // --- Ninja Tier Upgrade: promote account from basic → lite → premium → ghost ---
+        // Secured by WEBHOOK_SECRET. Called by ghostagent.ninja /api/evolve after payment confirmed.
+        if (email.action === 'upgradeNinjaTier') {
           const secret = (email as any).secret || request.headers.get('X-Webhook-Secret') || '';
           if (env.WEBHOOK_SECRET && secret !== env.WEBHOOK_SECRET) {
             return corsify(Response.json({ error: 'Invalid secret' }, { status: 401 }), request);
@@ -6092,6 +6245,35 @@ Your \`.cast\` address carries over automatically — nothing is lost.
           } catch {
             return corsify(Response.json({ exists: false, name }), request);
           }
+        }
+
+        // setBeaconNft: store NFT contract/tokenId for an agent's beacon
+        if (email.action === 'setBeaconNft') {
+          const secret = (email as any).secret;
+          if (!secret || secret !== env.WEBHOOK_SECRET) {
+            return corsify(Response.json({ error: 'Unauthorized' }, { status: 401 }), request);
+          }
+          const label = ((email as any).label || '').toLowerCase().trim();
+          const beaconChain = (email as any).beaconChain;
+          const beaconContract = (email as any).beaconContract;
+          const beaconTokenId = (email as any).beaconTokenId;
+          if (!label || !beaconChain || !beaconContract || beaconTokenId === undefined) {
+            return corsify(Response.json({ error: 'Missing label, beaconChain, beaconContract, or beaconTokenId' }, { status: 400 }), request);
+          }
+          const kvKey = `acct-tier:${label}`;
+          const existingRaw = await env.INBOX_KV.get(kvKey);
+          if (!existingRaw) {
+            return corsify(Response.json({ error: 'Account not found' }, { status: 404 }), request);
+          }
+          const existing = JSON.parse(existingRaw);
+          const updated = {
+            ...existing,
+            beaconChain,
+            beaconContract,
+            beaconTokenId,
+          };
+          await env.INBOX_KV.put(kvKey, JSON.stringify(updated));
+          return corsify(Response.json({ status: 'ok', label, beaconChain, beaconContract, beaconTokenId }), request);
         }
 
         // ── Episodic Memory ───────────────────────────────────────────────────
