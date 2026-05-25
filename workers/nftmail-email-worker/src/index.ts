@@ -5295,52 +5295,30 @@ Your sovereign agent inbox is live.
 
 ## Your addresses
 
-**Human inbox** — \`${humanEmail}\`
+**Human inbox** — ${humanEmail}
 For people to reach you. Encrypted end-to-end.
 
-**Agent inbox** — \`${agentEmail}\`
+**Agent inbox** — ${agentEmail}
 For machines, APIs, and autonomous agents.
-Trailing underscore = machine-readable mail. Routes to the same inbox.
-
----
-
-## Your current tier — **BASIC**
-
-Secured by your Farcaster identity. No wallet or NFT required.
-
-- Inbox history: last **8 days** of messages retained
-- **10 outbound sends** included
-- Account never expires — quota exhausts instead
-- Identity is permanent on the ERC-8004 registry
+Trailing underscore = machine-readable mail. Routes to the same NFTmail.box account.
 
 ---
 
 ## Service tiers
 
-**BASIC** *(you are here)*
-Free. Farcaster-authenticated. 8-day inbox history. 10 sends.
+**BASIC** — Free. Farcaster-authenticated. 8-day inbox history. 10 sends.
 
-**LITE** — Permanent. NFT-governed.
+**PRO** — Permanent. NFT-governed.
 Mint a BYO NFT on nftmail.box to claim this tier.
-- 30-day inbox history
-- 50 sends per cycle
+- 30-day inbox history - 10 email sentbox storage
+- 100 sends max per day
 - Gnosis Safe created as your on-chain controller
-- Address is yours as long as you hold the NFT
+- Address is yours when you hold the beacon NFT in your wallet
 
-**PREMIUM** — Sovereign. Trait-gated.
-Awarded to Gold-trait POW NFTs and Agent-trait Normies.
-- Unlimited retention, 200 sends
+**PREMIUM** — Sovereign. Annual Subscription (reverts to PRO features)
+- Unlimited retention, 100 sends daily - 1 Domain alias - email auto-forwarding
 - Full multisig Safe ownership
-- On-chain attestations, module access, alias support
-
----
-
-## Upgrading
-
-Open *nftmail.box* on a desktop browser and connect the wallet that holds your NFT.
-Your \`.cast\` address carries over automatically — nothing is lost.
-
-*If you hold a POW NFT with a Gold or Silver material trait, your tier is set automatically on molt.*
+- On-chain attestations, HITL module access
 
 ---
 
@@ -5696,7 +5674,7 @@ For people to reach you. Encrypted end-to-end.
 
 **Agent inbox** — ${toEmail.replace('@', '_@')}
 For machines, APIs, and autonomous agents.
-Trailing underscore = machine-readable mail. Routes to the same inbox.
+Trailing underscore = machine-readable mail. Routes to the same NFTmail.box account.
 
 ---
 
@@ -5704,22 +5682,21 @@ Trailing underscore = machine-readable mail. Routes to the same inbox.
 
 **BASIC** — Free. Farcaster-authenticated. 8-day inbox history. 10 sends.
 
-**LITE** — Permanent. NFT-governed.
+**PRO** — Permanent. NFT-governed.
 Mint a BYO NFT on nftmail.box to claim this tier.
-- 30-day inbox history
-- 50 sends per cycle
+- 30-day inbox history - 10 email sentbox storage
+- 100 sends max per day
 - Gnosis Safe created as your on-chain controller
-- Address is yours as long as you hold the NFT
+- Address is yours when you hold the beacon NFT in your wallet
 
-**PREMIUM** — Sovereign. Trait-gated.
-Awarded to Gold-trait POW NFTs and Agent-trait Normies.
-- Unlimited retention, 200 sends
+**PREMIUM** — Sovereign. Annual Subscription (reverts to PRO features)
+- Unlimited retention, 100 sends daily - 1 Domain alias - email auto-forwarding
 - Full multisig Safe ownership
-- On-chain attestations, module access, alias support
+- On-chain attestations, HITL module access
 
 ---
 
-*nftmail.box · ERC-8004 trustless agent protocol`;
+*nftmail.box · ERC-8004 trustless agent protocol*`;
           const form = new URLSearchParams();
           form.append('from', 'nftmail.box <noreply@mg.nftmail.box>');
           form.append('to', toEmail);
