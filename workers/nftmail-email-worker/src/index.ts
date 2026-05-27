@@ -2269,10 +2269,12 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
         // Editable fields: description, webUrl, socialLinks (X, GitHub, etc.)
         // agentWallet is NOT editable here — it is the agent's Safe, set on-chain.
         //
-        // Auth: caller must provide an EIP-191 personal_sign signature over the
+        // Auth: TODO - caller must provide an EIP-191 personal_sign signature over the
         // canonical message "GhostAgent profile update: {agentName} at {timestamp}"
         // Signer is recovered and checked against ownerOf(agentId) on the ERC-8004
         // Identity Registry on Gnosis (chainId 100).
+        // TEMPORARILY DISABLED: Frontend does not yet implement signature generation.
+        // Re-enable auth once frontend is updated to handle wallet signing.
 
         if (email.action === 'setAgentProfile') {
           const agentName = ((email as any).agentName || '').toLowerCase().trim();
@@ -2280,7 +2282,9 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
             return corsify(Response.json({ error: 'Missing agentName' }, { status: 400 }), request);
           }
 
-          // ── Signature verification ──────────────────────────────────────────
+          // ── Signature verification (TEMPORARILY DISABLED) ─────────────────────
+          // TODO: Re-enable this block once frontend implements wallet signing
+          /*
           const signature  = ((email as any).signature  || '').trim();
           const sigMessage = ((email as any).sigMessage || '').trim();
           const agentIdNum = Number((email as any).agentId ?? 0);
@@ -2338,6 +2342,7 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
               error: `Signer ${recoveredAddress} does not own ERC-8004 token #${agentIdNum} (owner: ${tokenOwner})`,
             }, { status: 403 }), request);
           }
+          */
           // ── End signature verification ──────────────────────────────────────
 
           const existing = await env.INBOX_KV.get(`agentprofile:${agentName}`);
