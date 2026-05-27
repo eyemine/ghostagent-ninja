@@ -123,8 +123,8 @@ export async function POST(req: NextRequest) {
         body: JSON.stringify({
           action:   'upgradeTier',
           secret:   WEBHOOK_SECRET,
-          label:    `swarm.${name}_`,
-          newTier:  'lite',
+          name:     `swarm.${name}_`,
+          tier:     'lite',
           safe:     body.safeAddress,
           retention:'30-day',
         }),

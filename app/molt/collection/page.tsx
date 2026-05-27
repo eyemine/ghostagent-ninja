@@ -57,9 +57,9 @@ const COLLECTIONS = [
     id: 'normies',
     name: 'Normies',
     icon: '🙂',
-    chain: 'Base',
-    chainId: 8453,
-    description: 'Normies NFT collection on Base',
+    chain: 'Ethereum',
+    chainId: 1,
+    description: 'Normies NFT collection on Ethereum',
     aliasExample: 'NORMIE_1_@nftmail.box',
     accentFrom: 'from-green-500',
     accentTo: 'to-emerald-600',
@@ -131,7 +131,7 @@ export default function CollectionMoltPage() {
         chonk:   '0x07152bfde079b5319e5308C43fB1DBc9C76CB4f9',
         pownft:  '0x3B3ee1931Dc30C1957379FAc9aba94D1C48a5405',
         punks:   '0xb47e3cd837dDF8e4c57F05d70Ab865de6e193BBB',
-        normies: '0x7Bc1C072742D8391817EB4Eb2317F98dc72C61dB',
+        normies: '0x9eb6e2025b64f340691e424b7fe7022ffde12438',
       };
       const contract = contracts[selectedCollection.id];
 

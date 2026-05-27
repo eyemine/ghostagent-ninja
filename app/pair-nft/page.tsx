@@ -37,7 +37,8 @@ interface MoltResult {
 const CHONK_CONTRACT   = '0x07152bfde079b5319e5308C43fB1DBc9C76CB4f9';
 const ENS_CONTRACT     = '0x57f1887a8BF19b14fC0dF6Fd9B2acc9Af147eA85';
 const POWNFT_CONTRACT  = '0x9abb7bddc43fa67c76a62d8c016513827f59be1b';
-const NORMIE_BASE_CONTRACT = '0x7Bc1C072742D8391817EB4Eb2317F98dc72C61dB';
+// Normies live on Ethereum mainnet — single source of truth
+const NORMIE_CONTRACT = '0x9eb6e2025b64f340691e424b7fe7022ffde12438';
 const MOONCAT_CONTRACT = '0xc3f733ca98e0dad0386979eb96fb1722a1a05e69';
 const TREASURY = '0xeD0B0694953158dd54D0c36D320b391f44cd67f3';
 const USDC_BASE = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
@@ -87,8 +88,8 @@ const TIER_FEES = { basic: 10, lite: 14, premium: 2 } as const;
 // Payment chain per NFT type — pay on the chain where NFT lives for user consistency
 function paymentChainForNftType(type: NftType): 'base' | 'mainnet' {
   // Base NFTs: pay on Base (cheap ~$0.01)
-  if (type === 'chonk' || type === 'normie') return 'base';
-  // Ethereum NFTs: ENS, POWNFT, Mooncat, Other ERC-721
+  if (type === 'chonk') return 'base';
+  // Ethereum NFTs: ENS, POWNFT, Normies, Mooncat, Other ERC-721
   return 'mainnet';
 }
 
@@ -138,10 +139,10 @@ async function fetchPownftImage(tokenId: string): Promise<{ name: string; imageU
 async function fetchNormieImage(tokenId: string): Promise<{ name: string; imageUrl: string | null }> {
   try {
     const alchemyKey = process.env.NEXT_PUBLIC_ALCHEMY_API_KEY;
-    // Normies are on Base
-    const normieContract = '0x7Bc1C072742D8391817EB4Eb2317F98dc72C61dB';
+    // Normies are on Ethereum
+    const normieContract = '0x9eb6e2025b64f340691e424b7fe7022ffde12438';
     if (alchemyKey) {
-      const res = await fetch(`https://base-mainnet.g.alchemy.com/nft/v3/${alchemyKey}/getNFTMetadata?contractAddress=${normieContract}&tokenId=${tokenId}&refreshCache=false`);
+      const res = await fetch(`https://eth-mainnet.g.alchemy.com/nft/v3/${alchemyKey}/getNFTMetadata?contractAddress=${normieContract}&tokenId=${tokenId}&refreshCache=false`);
       if (res.ok) {
         const data = await res.json() as any;
         const isVideo = data?.image?.contentType?.startsWith('video/');
@@ -151,9 +152,9 @@ async function fetchNormieImage(tokenId: string): Promise<{ name: string; imageU
         return { name: data?.name || `Normie #${tokenId}`, imageUrl };
       }
     }
-    // Fallback: tokenURI on Base
+    // Fallback: tokenURI on Ethereum
     const tokenIdHex = BigInt(tokenId).toString(16).padStart(64, '0');
-    const rpcRes = await fetch('https://mainnet.base.org', {
+    const rpcRes = await fetch('https://eth-mainnet.g.alchemy.com/v2/demo', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_call', params: [{ to: normieContract, data: '0xc87b56dd' + tokenIdHex }, 'latest'] }),
     });
@@ -422,7 +423,7 @@ export default function OgNftMoltPage() {
     if (nftType === 'ens') return ENS_CONTRACT;
     if (nftType === 'chonk') return CHONK_CONTRACT;
     if (nftType === 'pownft') return POWNFT_CONTRACT;
-    if (nftType === 'normie') return NORMIE_BASE_CONTRACT;
+    if (nftType === 'normie') return NORMIE_CONTRACT;
     if (nftType === 'mooncat') return MOONCAT_CONTRACT;
     return contractAddr;
   };
@@ -432,7 +433,7 @@ export default function OgNftMoltPage() {
       const col = VERIFIED_COLLECTIONS.find(c => c.slug === collectionName);
       return col?.rpc ?? 'https://cloudflare-eth.com';
     }
-    if (nftType === 'chonk' || nftType === 'normie') {
+    if (nftType === 'chonk') {
       return alchemyKey
         ? `https://base-mainnet.g.alchemy.com/v2/${alchemyKey}`
         : 'https://mainnet.base.org';
@@ -651,28 +652,28 @@ export default function OgNftMoltPage() {
 
       {/* Check + Select Agent + Confirm */}
       {(step === 'check' || step === 'select-agent' || step === 'confirm') && (
-        <div className="max-w-3xl mx-auto rounded-2xl border border-[rgba(176,128,92,0.35)] bg-[var(--card)] p-5 space-y-4">
+        <div className="w-full rounded-2xl border border-[rgba(176,128,92,0.35)] bg-[var(--card)] p-5 space-y-4">
           <p className="text-sm font-semibold text-[#f2eee4]">OG NFTs</p>
 
           {/* NFT type picker */}
           <div>
             <label className="block text-[10px] font-semibold tracking-wider text-[var(--muted)] mb-2">NFT COLLECTION</label>
-            <div className="grid grid-cols-6 gap-2">
+            <div className="grid grid-cols-6 gap-3">
               {([
                 {k:'ens'     as NftType, l:'ENS\nName',       img:ICONS.ens},
                 {k:'chonk'   as NftType, l:'CHONKS\nON BASE', img:ICONS.chonk},
                 {k:'pownft'  as NftType, l:'POWNFT\nON ETH',  img:ICONS.pownft},
-                {k:'normie'  as NftType, l:'NORMIES\nON BASE', img:ICONS.normie},
+                {k:'normie'  as NftType, l:'NORMIES\nON ETH', img:ICONS.normie},
                 {k:'mooncat' as NftType, l:'MOONCATS\nON ETH', img:ICONS.mooncat},
                 {k:'other'   as NftType, l:'OTHER\nERC-721',  img:ICONS.other},
               ]).map(opt => (
                 <button key={opt.k} onClick={() => { selectNftType(opt.k); setTokenId(''); }}
-                  className={`rounded-lg border p-2 font-semibold transition flex flex-col items-center justify-center gap-1.5 ${
+                  className={`rounded-lg border p-3 font-semibold transition flex flex-col items-center justify-center gap-2 ${
                     nftType === opt.k ? 'border-fuchsia-500/50 bg-fuchsia-500/10 text-fuchsia-300' : 'border-[rgba(176,128,92,0.2)] bg-black/20 text-[var(--muted)] hover:text-[#f2eee4]'
                   }`}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={opt.img} alt={opt.l} className="w-16 h-16 rounded object-contain flex-shrink-0" />
-                  <span className="whitespace-pre-line leading-tight text-[9px] text-center">{opt.l}</span>
+                  <img src={opt.img} alt={opt.l} className="w-24 h-24 rounded object-contain flex-shrink-0" />
+                  <span className="whitespace-pre-line leading-tight text-[10px] text-center">{opt.l}</span>
                 </button>
               ))}
             </div>

@@ -147,7 +147,7 @@ export async function POST(req: NextRequest) {
   const upgradeRes = await fetch(WORKER_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'upgradeTier', name: agentName, targetTier: newTier, walletAddress: payment.fromWallet, secret: WEBHOOK_SECRET }),
+    body: JSON.stringify({ action: 'upgradeTier', name: agentName, tier: newTier, walletAddress: payment.fromWallet, secret: WEBHOOK_SECRET }),
   });
   const upgradeData = await upgradeRes.json() as { status?: string; newTier?: string; error?: string };
   if (upgradeData.status !== 'upgraded') {

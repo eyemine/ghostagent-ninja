@@ -1,30 +1,45 @@
 /// @module cdr-vault
 /// Confidential Data Rails (CDR) vault service for ghostagent.ninja.
 ///
-/// Wraps `@piplabs/cdr-sdk` to provide:
-///   - `encryptToVault` — AES-encrypts a payload, stores ciphertext via a
-///     storage provider (Storacha/Filecoin), gates the AES key behind a
-///     Story Protocol CDR vault with a license-based read condition.
-///   - `decryptFromVault` — verifies caller holds the gating credential
-///     (license token / NFT), collects threshold partial decryptions from
-///     Story validators, recombines, and decrypts the payload locally.
-///   - `getDkgState` — read-only diagnostics for DKG params + fees.
+/// Wraps `@piplabs/cdr-sdk` (Story Aeneid / mainnet) with two flows validated
+/// against the live testnet (see `cdr-spike/` and `docs/cdr-spike-notes.md`):
 ///
-/// Architectural role: this is **Layer 3** of the three-layer confidential
-/// IP stack (Attestation → Story IP asset → CDR vault). It is invoked by
-/// `ip-minter.ts` when a caller passes a `cdrPayload` to `/api/gasless-ip-mint`,
-/// and by `app/confidential/*` routes when a license-holder requests access.
+///   1. **Owner-only** — small secret, EOA-gated read.
+///      Use case: private agent memory, deployer-only configs.
+///      Pattern: `OwnerWriteCondition` + EOA read condition (no contract).
 ///
-/// Status: SCAFFOLD. SDK call sites are stubbed pending sandbox spike
-/// validation (see `cdr-spike/` for the validation harness, and
-/// `docs/cdr-spike-notes.md` for findings).
+///   2. **License-gated** — Story IP license token gates the read.
+///      Use case: PureBPM stems, paywalled creative IP.
+///      Pattern: `OwnerWriteCondition` + `LicenseReadCondition` with
+///      `(licenseTokenContract, ipId)` ABI-encoded as `readConditionData`,
+///      and the consumer's `licenseTokenId` ABI-encoded as `accessAuxData`.
 ///
-/// To activate:
-///   1. `npm i @piplabs/cdr-sdk` in this workspace
-///   2. Replace `STUB` blocks with real SDK calls
-///   3. Add `CDR_*` env vars to `env.example`
+/// Layer in the confidential IP stack:
+///   Layer 1 — Paperclip attestation (legal evidence, on-chain hash)
+///   Layer 2 — Story IP asset (provenance, royalty terms)
+///   Layer 3 — CDR vault (cryptographic enforcement) ← this module
+///
+/// Operator-relay model: writes are signed by `CDR_OPERATOR_PRIVATE_KEY`
+/// (same Safe-treasury pattern as `gasless-ip-mint.ts`). Reads can be done by
+/// any wallet that satisfies the read condition.
 
-import type { Hex } from 'viem';
+import {
+  createPublicClient,
+  createWalletClient,
+  encodeAbiParameters,
+  http,
+  toHex,
+  type Hex,
+  type PublicClient,
+  type WalletClient,
+} from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import {
+  CDRClient,
+  initWasm,
+  uuidToLabel,
+  type StorageProvider,
+} from '@piplabs/cdr-sdk';
 
 // ─── Network configuration ───────────────────────────────────────────────────
 
@@ -46,87 +61,56 @@ export const CDR_API_URL =
     ? 'https://api.story.foundation'
     : 'http://172.192.41.96:1317');
 
-/** System contract addresses — same on testnet and mainnet at time of writing. */
+/** System contract addresses (same on testnet + mainnet at time of writing). */
 export const CDR_CONTRACTS = {
   dkg: '0xcccccc0000000000000000000000000000000004' as const,
   cdr: '0xcccccc0000000000000000000000000000000005' as const,
 } as const;
 
-/** Pre-deployed sample condition contracts on Aeneid (for early testing).
- *  Production should use our own `CreationIPCondition.sol`. */
-export const CDR_SAMPLE_CONDITIONS_AENEID = {
-  write: '0x4C9bFC96d7092b590D497A191826C3dA2277c34B' as const,
-  read: '0xC0640AD4CF2CaA9914C8e5C44234359a9102f7a3' as const,
+/** Pre-deployed condition contracts on Aeneid. Reusable — gated by
+ *  `writeConditionData` / `readConditionData` rather than per-deployment. */
+export const CDR_CONDITIONS_AENEID = {
+  /** OwnerWriteCondition — `writeConditionData` = abi.encode(address owner). */
+  ownerWrite: '0x4C9bFC96d7092b590D497A191826C3dA2277c34B' as const,
+  /** LicenseReadCondition — `readConditionData` = abi.encode(address licenseToken, address ipId). */
+  licenseRead: '0xC0640AD4CF2CaA9914C8e5C44234359a9102f7a3' as const,
+  /** Aeneid LicenseToken ERC-721. */
+  licenseToken: '0xFe3838BFb30B34170F00030B52eA4893d8aAC6bC' as const,
+  /** Story RoyaltyModule (used by license mint to collect royalties). */
+  royaltyModule: '0xD2f60c40fEbccf6311f8B47c4f2Ec6b040400086' as const,
 } as const;
+
+export const CDR_CHAIN_ID = CDR_NETWORK === 'mainnet' ? 1514 : 1315;
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-/** Where the encrypted payload bytes live. CDR only stores the key — the
- *  ciphertext is off-chain. */
-export type CDRStorageBackend = 'storacha' | 'helia' | 'gateway' | 'synapse';
-
-export interface CDRConditionConfig {
-  /** Condition contract that gates writes (who can put new data in the vault). */
-  writeConditionAddr: Hex;
-  /** Condition contract that gates reads (who can decrypt). For
-   *  `.creation.ip` assets this will be our `CreationIPCondition` which
-   *  checks for a Story license token OR Chonk artist NFT ownership. */
-  readConditionAddr: Hex;
-  /** Per-vault data passed to the write condition (e.g. owner address bytes). */
-  writeConditionData?: Hex;
-  /** Per-vault data passed to the read condition (e.g. IP asset id). */
-  readConditionData?: Hex;
-  /** Aux data passed during access — typically `0x` for our use case. */
-  accessAuxData?: Hex;
-}
+/** Where the encrypted payload bytes live. CDR only stores the AES key — the
+ *  ciphertext is off-chain (or inline for small data keys). */
+export type CDRStorageBackend = 'inline' | 'storacha' | 'helia' | 'gateway' | 'synapse';
 
 export interface CDRVaultRef {
-  /** The on-chain UUID assigned by the CDR contract. */
-  uuid: bigint;
-  /** IPFS / Filecoin CID of the ciphertext (when storing files, not data keys). */
-  dataCid?: string;
-  /** Storage backend used. */
+  /** The on-chain UUID assigned by the CDR contract (uint32). */
+  uuid: number;
+  /** Storage backend used. `inline` means the secret is stored directly in the vault. */
   backend: CDRStorageBackend;
-  /** Chain ID this vault lives on (1315 = Aeneid). */
+  /** Storage-provider id (CID, path, etc.) of the off-chain ciphertext.
+   *  Only set when `backend !== 'inline'`. */
+  dataCid?: string;
+  /** Chain ID this vault lives on. */
   chainId: number;
-  /** Hex of the read condition contract — surfaced for UI. */
+  /** Read condition contract address — surfaced for UI / debugging. */
   readConditionAddr: Hex;
-  /** Hex of the corresponding Paperclip attestation (Layer 1), if linked. */
+  /** ABI-encoded read condition data (e.g. licenseToken+ipId for license-gated). */
+  readConditionData: Hex;
+  /** Optional Paperclip attestation hash to link Layer 1 ↔ Layer 3. */
   attestationHash?: Hex;
   /** Transaction hashes from allocate + write. */
   txHashes: {
     allocate?: Hex;
     write?: Hex;
   };
-  /** When the vault was created (unix ms). */
+  /** Unix ms when the vault was created. */
   createdAt: number;
-}
-
-export interface ConfidentialPayload {
-  /** The actual bytes to encrypt — audio master, training set, agent memory, etc. */
-  content: Uint8Array;
-  /** MIME type for downstream display (`audio/wav`, `application/json`, ...). */
-  contentType: string;
-  /** Human label for the vault (not encrypted, used in metadata only). */
-  label: string;
-}
-
-export interface EncryptToVaultParams {
-  payload: ConfidentialPayload;
-  conditions: CDRConditionConfig;
-  backend?: CDRStorageBackend; // default: 'storacha'
-  /** Whether the vault should be re-writable. Default: false (immutable). */
-  updatable?: boolean;
-  /** Optional PaperclipAttestation hash to link Layer 1 ↔ Layer 3. */
-  attestationHash?: Hex;
-}
-
-export interface DecryptFromVaultParams {
-  vault: CDRVaultRef;
-  /** secp256k1 private key bytes for the requester (ephemeral OK). */
-  recipientPrivKey: Uint8Array;
-  /** Timeout for collecting partial decryptions, ms. Default 120s. */
-  timeoutMs?: number;
 }
 
 export interface DkgState {
@@ -142,116 +126,306 @@ export interface DkgState {
   };
 }
 
+// ─── Singleton client (read-only) ────────────────────────────────────────────
+
+let _readClient: { client: CDRClient; publicClient: PublicClient } | null = null;
+let _wasmReady = false;
+
+async function ensureWasm(): Promise<void> {
+  if (_wasmReady) return;
+  await initWasm();
+  _wasmReady = true;
+}
+
+function getReadClient(): { client: CDRClient; publicClient: PublicClient } {
+  if (_readClient) return _readClient;
+  const publicClient = createPublicClient({ transport: http(CDR_RPC_URL) }) as PublicClient;
+  const client = new CDRClient({
+    network: CDR_NETWORK,
+    publicClient,
+    apiUrl: CDR_API_URL,
+  });
+  _readClient = { client, publicClient };
+  return _readClient;
+}
+
+function getOperatorClient(privateKey: Hex): {
+  client: CDRClient;
+  publicClient: PublicClient;
+  walletClient: WalletClient;
+  ownerAddress: Hex;
+} {
+  const account = privateKeyToAccount(privateKey);
+  const publicClient = createPublicClient({ transport: http(CDR_RPC_URL) }) as PublicClient;
+  const walletClient = createWalletClient({ account, transport: http(CDR_RPC_URL) });
+  const client = new CDRClient({
+    network: CDR_NETWORK,
+    publicClient,
+    walletClient,
+    apiUrl: CDR_API_URL,
+  });
+  return { client, publicClient, walletClient, ownerAddress: account.address };
+}
+
+function resolveOperatorKey(override?: Hex): Hex {
+  const key = (override ?? process.env.CDR_OPERATOR_PRIVATE_KEY ?? process.env.OPERATOR_PRIVATE_KEY) as Hex | undefined;
+  if (!key || !key.startsWith('0x') || key.length !== 66) {
+    throw new Error('cdr-vault: CDR_OPERATOR_PRIVATE_KEY (or OPERATOR_PRIVATE_KEY) is required for write/read txs');
+  }
+  return key;
+}
+
+// ─── Condition helpers ───────────────────────────────────────────────────────
+
+/** Owner-only conditions: only `owner` can write, only `owner` can read.
+ *  Read condition is the EOA itself (no contract) — CDR precompile gates by
+ *  exact caller. Use for private agent memory / deployer-only configs. */
+export function ownerOnlyConditions(owner: Hex) {
+  return {
+    writeConditionAddr: CDR_CONDITIONS_AENEID.ownerWrite,
+    writeConditionData: encodeAbiParameters([{ type: 'address' }], [owner]),
+    readConditionAddr: owner,
+    readConditionData: '0x' as Hex,
+    /** EOA reads need this — SDK preflight rejects EOAs since they don't
+     *  implement the condition contract interface, but the on-chain CDR
+     *  precompile accepts them. */
+    skipConditionValidation: true as const,
+  };
+}
+
+/** License-gated conditions: `owner` can write, anyone holding a valid Story
+ *  license token for `ipId` can read. Use for PureBPM stems, paywalled IP. */
+export function licenseGatedConditions(owner: Hex, ipId: Hex) {
+  return {
+    writeConditionAddr: CDR_CONDITIONS_AENEID.ownerWrite,
+    writeConditionData: encodeAbiParameters([{ type: 'address' }], [owner]),
+    readConditionAddr: CDR_CONDITIONS_AENEID.licenseRead,
+    readConditionData: encodeAbiParameters(
+      [{ type: 'address' }, { type: 'address' }],
+      [CDR_CONDITIONS_AENEID.licenseToken, ipId],
+    ),
+    skipConditionValidation: false as const,
+  };
+}
+
+/** Encode `accessAuxData` for a license-gated read.
+ *  The reader must own `licenseTokenId` of the LicenseToken contract. */
+export function licenseAccessAuxData(licenseTokenIds: bigint[]): Hex {
+  return encodeAbiParameters([{ type: 'uint256[]' }], [licenseTokenIds]);
+}
+
 // ─── Public API ──────────────────────────────────────────────────────────────
 
-/** Read-only diagnostic. Safe to call without a wallet. Use in health checks. */
+/** Read-only diagnostic. Safe to call without a wallet. Use in `/api/health`. */
 export async function getDkgState(): Promise<DkgState> {
-  // STUB — replaced after Spike 01 confirms SDK works in this env.
-  // Pseudocode:
-  //   const { createPublicClient, http } = await import('viem');
-  //   const { CDRClient } = await import('@piplabs/cdr-sdk');
-  //   const publicClient = createPublicClient({ transport: http(CDR_RPC_URL) });
-  //   const client = new CDRClient({ network: CDR_NETWORK, publicClient, apiUrl: CDR_API_URL });
-  //   const [threshold, operationalThreshold, globalPubKey, allocate, write, read] =
-  //     await Promise.all([
-  //       client.observer.getThreshold(),
-  //       client.observer.getOperationalThreshold(),
-  //       client.observer.getGlobalPubKey(),
-  //       client.observer.getAllocateFee(),
-  //       client.observer.getWriteFee(),
-  //       client.observer.getReadFee(),
-  //     ]);
-  //   return { network: CDR_NETWORK, apiUrl: CDR_API_URL, threshold, operationalThreshold, globalPubKey, fees: { allocate, write, read } };
-  throw new Error('cdr-vault.getDkgState: pending Spike 01 — install @piplabs/cdr-sdk first');
+  const { client } = getReadClient();
+  const [threshold, operationalThreshold, globalPubKey, allocate, write, read] = await Promise.all([
+    client.observer.getThreshold(),
+    client.observer.getOperationalThreshold(),
+    client.observer.getGlobalPubKey(),
+    client.observer.getAllocateFee(),
+    client.observer.getWriteFee(),
+    client.observer.getReadFee(),
+  ]);
+  return {
+    network: CDR_NETWORK,
+    apiUrl: CDR_API_URL,
+    threshold,
+    operationalThreshold: Number(operationalThreshold),
+    globalPubKey: toHex(globalPubKey),
+    fees: { allocate, write, read },
+  };
 }
 
-/** Encrypt a payload and store it in a CDR vault.
- *
- *  Flow:
- *    1. AES-encrypt `payload.content` with a fresh 32-byte data key
- *    2. Upload ciphertext to `backend` (Storacha by default)
- *    3. Allocate vault on Story L1 + threshold-encrypt the AES key against
- *       DKG global pub key + write to vault, all under `conditions`
- *    4. Return `CDRVaultRef` for downstream linking (IPA metadata,
- *       attestation manifest, audit log)
- *
- *  NOTE: requires `process.env.CDR_OPERATOR_PRIVATE_KEY` for the relay account
- *  that pays gas + writes the vault. This is the same Safe treasury pattern as
- *  `gasless-ip-mint` — the operator signs, the IPA ownership stays with the TBA.
- */
-export async function encryptToVault(
-  _params: EncryptToVaultParams,
+// ─── Encrypt: small data key, owner-only, inline ────────────────────────────
+
+export interface EncryptDataKeyParams {
+  /** The secret to encrypt — keep it small (< ~250 bytes after ABI overhead). */
+  dataKey: Uint8Array;
+  /** Override the operator private key (defaults to env). */
+  operatorPrivateKey?: Hex;
+  /** Whether the vault should be re-writable. Default: false. */
+  updatable?: boolean;
+  /** Optional Paperclip attestation hash to link Layer 1 ↔ Layer 3. */
+  attestationHash?: Hex;
+}
+
+/** Encrypt a small secret to an owner-gated CDR vault.
+ *  Only the operator wallet can write; only the operator wallet can read. */
+export async function encryptDataKeyOwnerOnly(
+  params: EncryptDataKeyParams,
 ): Promise<CDRVaultRef> {
-  // STUB — pending Spike 02 success.
-  // Implementation outline:
-  //   const dataKey = crypto.getRandomValues(new Uint8Array(32));
-  //   const ciphertext = await aesGcmEncrypt(params.payload.content, dataKey);
-  //   const { cid } = await uploadToStoracha(ciphertext); // or chosen backend
-  //   await initWasm();
-  //   const client = await buildOperatorClient();
-  //   const globalPubKey = await client.observer.getGlobalPubKey();
-  //   const { uuid, txHashes } = await client.uploader.uploadCDR({
-  //     dataKey,
-  //     globalPubKey,
-  //     updatable: params.updatable ?? false,
-  //     writeConditionAddr: params.conditions.writeConditionAddr,
-  //     readConditionAddr: params.conditions.readConditionAddr,
-  //     writeConditionData: params.conditions.writeConditionData ?? '0x',
-  //     readConditionData: params.conditions.readConditionData ?? '0x',
-  //     accessAuxData: params.conditions.accessAuxData ?? '0x',
-  //   });
-  //   return {
-  //     uuid,
-  //     dataCid: cid,
-  //     backend: params.backend ?? 'storacha',
-  //     chainId: CDR_NETWORK === 'mainnet' ? 1514 : 1315,
-  //     readConditionAddr: params.conditions.readConditionAddr,
-  //     attestationHash: params.attestationHash,
-  //     txHashes,
-  //     createdAt: Date.now(),
-  //   };
-  throw new Error('cdr-vault.encryptToVault: pending Spike 02 — install @piplabs/cdr-sdk first');
+  await ensureWasm();
+  const operatorKey = resolveOperatorKey(params.operatorPrivateKey);
+  const { client, ownerAddress } = getOperatorClient(operatorKey);
+
+  const conditions = ownerOnlyConditions(ownerAddress);
+  const globalPubKey = await client.observer.getGlobalPubKey();
+
+  const { uuid, txHash: allocateTx } = await client.uploader.allocate({
+    updatable: params.updatable ?? false,
+    writeConditionAddr: conditions.writeConditionAddr,
+    writeConditionData: conditions.writeConditionData,
+    readConditionAddr: conditions.readConditionAddr,
+    readConditionData: conditions.readConditionData,
+    skipConditionValidation: conditions.skipConditionValidation,
+  });
+
+  const ciphertext = await client.uploader.encryptDataKey({
+    dataKey: params.dataKey,
+    globalPubKey,
+    label: uuidToLabel(uuid),
+  });
+
+  const { txHash: writeTx } = await client.uploader.write({
+    uuid,
+    accessAuxData: '0x',
+    encryptedData: toHex(ciphertext.raw),
+  });
+
+  return {
+    uuid,
+    backend: 'inline',
+    chainId: CDR_CHAIN_ID,
+    readConditionAddr: conditions.readConditionAddr,
+    readConditionData: conditions.readConditionData,
+    attestationHash: params.attestationHash,
+    txHashes: { allocate: allocateTx as Hex, write: writeTx as Hex },
+    createdAt: Date.now(),
+  };
 }
 
-/** Access + decrypt a payload from a CDR vault.
- *
- *  The caller must already hold whatever credential `readConditionAddr`
- *  enforces (Story license token, Chonk NFT, custom). The SDK auto-collects
- *  partial decryptions from validators and recombines via TDH2.
- */
-export async function decryptFromVault(
-  _params: DecryptFromVaultParams,
-): Promise<{ content: Uint8Array; contentType: string }> {
-  // STUB — pending Spike 02 success.
-  // Implementation outline:
-  //   await initWasm();
-  //   const client = await buildReadClient(); // wallet not strictly required for read
-  //   const globalPubKey = await client.observer.getGlobalPubKey();
-  //   const threshold = await client.observer.getThreshold();
-  //   const requesterPubKey = toHex(secp256k1.getPublicKey(params.recipientPrivKey, false));
-  //   const { dataKey } = await client.consumer.accessCDR({
-  //     uuid: params.vault.uuid,
-  //     accessAuxData: '0x',
-  //     requesterPubKey,
-  //     recipientPrivKey: params.recipientPrivKey,
-  //     globalPubKey,
-  //     threshold,
-  //     timeoutMs: params.timeoutMs ?? 120_000,
-  //   });
-  //   const ciphertext = await fetchFromStorage(params.vault.backend, params.vault.dataCid!);
-  //   const plaintext = await aesGcmDecrypt(ciphertext, dataKey);
-  //   return { content: plaintext, contentType: 'application/octet-stream' };
-  throw new Error('cdr-vault.decryptFromVault: pending Spike 02 — install @piplabs/cdr-sdk first');
+// ─── Encrypt: file, license-gated, off-chain storage ────────────────────────
+
+export interface EncryptFileParams {
+  /** Raw file bytes — AES-encrypted locally before upload. */
+  content: Uint8Array;
+  /** Story IP asset id that gates the read. Holders of a license token for
+   *  this `ipId` will be able to decrypt. */
+  ipId: Hex;
+  /** Storage provider — Storacha / Synapse / Helia / custom. The SDK uses
+   *  duck typing: anything implementing `upload(bytes) -> id` and
+   *  `download(id) -> bytes` works. */
+  storageProvider: StorageProvider;
+  /** Tag used in the SDK's storage-provider metadata. */
+  backend: CDRStorageBackend;
+  /** Override the operator private key (defaults to env). */
+  operatorPrivateKey?: Hex;
+  /** Whether the vault should be re-writable. Default: false. */
+  updatable?: boolean;
+  /** Optional Paperclip attestation hash to link Layer 1 ↔ Layer 3. */
+  attestationHash?: Hex;
 }
 
-/** Compose IPA metadata block that links a Story `.creation.ip` asset
- *  to its CDR vault. Embedded in the `aiMetadata` field on Lighthouse and
- *  surfaced via `/api/agent-card/[name]`. */
+/** Encrypt a file payload such that anyone holding a Story license token for
+ *  `ipId` can decrypt it. The file is AES-encrypted locally; ciphertext lives
+ *  in `storageProvider`; the AES key + storage CID is gated by CDR. */
+export async function encryptFileLicenseGated(
+  params: EncryptFileParams,
+): Promise<CDRVaultRef> {
+  await ensureWasm();
+  const operatorKey = resolveOperatorKey(params.operatorPrivateKey);
+  const { client, ownerAddress } = getOperatorClient(operatorKey);
+
+  const conditions = licenseGatedConditions(ownerAddress, params.ipId);
+
+  // Use the high-level uploadFile flow: SDK handles AES encryption, off-chain
+  // upload, and on-chain CDR write of the (cid + AES key) tuple.
+  const result = await client.uploader.uploadFile({
+    content: params.content,
+    storageProvider: params.storageProvider,
+    updatable: params.updatable ?? false,
+    writeConditionAddr: conditions.writeConditionAddr,
+    writeConditionData: conditions.writeConditionData,
+    readConditionAddr: conditions.readConditionAddr,
+    readConditionData: conditions.readConditionData,
+    accessAuxData: '0x',
+  });
+
+  return {
+    uuid: result.uuid,
+    backend: params.backend,
+    dataCid: result.cid,
+    chainId: CDR_CHAIN_ID,
+    readConditionAddr: conditions.readConditionAddr,
+    readConditionData: conditions.readConditionData,
+    attestationHash: params.attestationHash,
+    txHashes: {
+      allocate: result.txHashes.allocate,
+      write: result.txHashes.write,
+    },
+    createdAt: Date.now(),
+  };
+}
+
+// ─── Decrypt ─────────────────────────────────────────────────────────────────
+
+export interface DecryptDataKeyParams {
+  vault: Pick<CDRVaultRef, 'uuid'>;
+  /** Override the reader private key (defaults to env). */
+  readerPrivateKey?: Hex;
+  /** Timeout for collecting partial decryptions, ms. Default 120s. */
+  timeoutMs?: number;
+}
+
+/** Decrypt a small data-key vault (owner-only, inline). The reader wallet must
+ *  match the EOA that was set as `readConditionAddr` at allocation time. */
+export async function decryptDataKey(params: DecryptDataKeyParams): Promise<Uint8Array> {
+  await ensureWasm();
+  const readerKey = resolveOperatorKey(params.readerPrivateKey);
+  const { client } = getOperatorClient(readerKey);
+
+  const { dataKey } = await client.consumer.accessCDR({
+    uuid: params.vault.uuid,
+    accessAuxData: '0x',
+    timeoutMs: params.timeoutMs ?? 120_000,
+  });
+  return dataKey;
+}
+
+export interface DecryptFileParams {
+  vault: Pick<CDRVaultRef, 'uuid'>;
+  /** License token id(s) the reader holds for the gating IP asset. */
+  licenseTokenIds: bigint[];
+  /** Storage provider — must be the same backend used at upload time. */
+  storageProvider: StorageProvider;
+  /** Override the reader private key (defaults to env). */
+  readerPrivateKey?: Hex;
+  /** Timeout for collecting partial decryptions, ms. Default 120s. */
+  timeoutMs?: number;
+}
+
+/** Decrypt a license-gated file vault. The reader must hold one of
+ *  `licenseTokenIds` for the IP asset that gated the vault. */
+export async function decryptFileLicenseGated(
+  params: DecryptFileParams,
+): Promise<{ content: Uint8Array; txHash?: Hex }> {
+  await ensureWasm();
+  const readerKey = resolveOperatorKey(params.readerPrivateKey);
+  const { client } = getOperatorClient(readerKey);
+
+  const accessAuxData = licenseAccessAuxData(params.licenseTokenIds);
+
+  const { content, txHash } = await client.consumer.downloadFile({
+    uuid: params.vault.uuid,
+    accessAuxData,
+    storageProvider: params.storageProvider,
+    timeoutMs: params.timeoutMs ?? 120_000,
+  });
+  return { content, txHash };
+}
+
+// ─── IPA metadata helper ─────────────────────────────────────────────────────
+
+/** Compose the IPA `confidential` block that links a Story IP asset to its
+ *  CDR vault. Embedded in the `aiMetadata` field on Lighthouse and surfaced
+ *  via `/api/agent-card/[name]`. */
 export function buildIpaConfidentialBlock(vault: CDRVaultRef) {
   return {
     confidential: {
       vaultUuid: vault.uuid.toString(),
       readConditionAddr: vault.readConditionAddr,
+      readConditionData: vault.readConditionData,
       dataCid: vault.dataCid ?? null,
       backend: vault.backend,
       chainId: vault.chainId,

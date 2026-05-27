@@ -316,7 +316,7 @@ export async function recordChonkMolt(
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        action: 'upgradeTier',
+        action: 'upgradeNinjaTier',
         secret: webhookSecret,
         label: primaryName,
         newTier: 'lite',

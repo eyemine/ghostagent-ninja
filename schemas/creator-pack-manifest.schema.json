@@ -1,0 +1,488 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ghostagent.ninja/schemas/creator-pack-manifest.schema.json",
+  "title": "Creator Pack Manifest",
+  "description": "Vertical-agnostic manifest declaring the contents and provenance of a CDR-encrypted Creator Pack for a Virtual Creator NFT under [name].creation.ip. Music is the hackathon showcase; visual, writing, and code are first-class. See docs/virtual-artist-nft.md.",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "creatorType",
+    "creator",
+    "contents"
+  ],
+  "additionalProperties": false,
+
+  "properties": {
+    "schemaVersion": {
+      "$ref": "#/$defs/semver",
+      "description": "Manifest schema version. Increment on breaking changes."
+    },
+
+    "creatorType": {
+      "type": "string",
+      "description": "The creator vertical. Enum is open-ended (any string accepted) but the four named values gate the `vertical` block validation.",
+      "examples": ["music", "visual", "writing", "code"]
+    },
+
+    "creator": {
+      "type": "object",
+      "description": "Identity of the creator and the bound Chonk (or other parent NFT).",
+      "required": ["chonkContract", "chonkChainId", "chonkId", "creatorWallet"],
+      "additionalProperties": false,
+      "properties": {
+        "chonkContract": {
+          "$ref": "#/$defs/ethAddress",
+          "description": "Address of the parent NFT contract on its native chain (Chonks on Base, etc.)."
+        },
+        "chonkChainId": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Chain ID of the parent NFT. Base mainnet = 8453."
+        },
+        "chonkId": {
+          "type": "string",
+          "pattern": "^[0-9]+$",
+          "description": "Token ID of the parent NFT as a decimal string (allows uint256 values)."
+        },
+        "creatorWallet": {
+          "$ref": "#/$defs/ethAddress",
+          "description": "EOA or Safe that authored the pack and signed the PaperclipAttestation."
+        },
+        "agentName": {
+          "type": "string",
+          "description": "Optional .creation.ip subdomain label (e.g. 'phosphor' for phosphor.creation.ip).",
+          "pattern": "^[a-z0-9][a-z0-9-]*$",
+          "minLength": 1,
+          "maxLength": 63
+        },
+        "displayName": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "Human-readable creator name."
+        },
+        "bio": {
+          "type": "string",
+          "maxLength": 2048,
+          "description": "Short bio. Public, surfaces on agent profile pages."
+        },
+        "links": {
+          "type": "array",
+          "description": "Public links (Farcaster, X, website, etc.).",
+          "items": {
+            "type": "object",
+            "required": ["label", "url"],
+            "additionalProperties": false,
+            "properties": {
+              "label": { "type": "string", "maxLength": 32 },
+              "url": { "type": "string", "format": "uri" }
+            }
+          }
+        }
+      }
+    },
+
+    "provenance": {
+      "type": "object",
+      "description": "Layer 1 attestation references (PaperclipAttestation on Gnosis). Optional at author time; populated at provision time.",
+      "additionalProperties": false,
+      "properties": {
+        "paperclipProofHash": {
+          "$ref": "#/$defs/bytes32",
+          "description": "keccak256 of the attestation bundle, as emitted by PaperclipModule.AttestationSubmitted."
+        },
+        "attestationCid": {
+          "$ref": "#/$defs/ipfsCid",
+          "description": "IPFS CID of the signed attestation manifest pinned to Lighthouse / Arweave."
+        },
+        "attestedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 timestamp of the attestation signature."
+        },
+        "signer": {
+          "$ref": "#/$defs/ethAddress",
+          "description": "Address that produced the attestation signature."
+        },
+        "signatureType": {
+          "type": "string",
+          "enum": ["EIP-712", "EIP-191"],
+          "default": "EIP-712"
+        },
+        "notaRef": {
+          "type": "string",
+          "description": "Optional notapaperclip.red slug for the verified attestation."
+        }
+      }
+    },
+
+    "ip": {
+      "type": "object",
+      "description": "Layer 2 Story Protocol references. Populated after registerIPAssetViaSafe runs.",
+      "additionalProperties": false,
+      "properties": {
+        "ipId": {
+          "$ref": "#/$defs/ethAddress",
+          "description": "Story Protocol IP Account address (the per-IP TBA)."
+        },
+        "chainId": {
+          "type": "integer",
+          "description": "Story L1 = 1514; Aeneid testnet = 1315."
+        },
+        "tokenContract": {
+          "$ref": "#/$defs/ethAddress",
+          "description": "Underlying NFT contract registered as the IP Asset. For BYO this is the Chonk contract on Base."
+        },
+        "tokenId": {
+          "type": "string",
+          "pattern": "^[0-9]+$",
+          "description": "Token ID of the underlying NFT, decimal string."
+        },
+        "fullDomain": {
+          "type": "string",
+          "description": "[label].creation.ip full domain on Story L1.",
+          "pattern": "^[a-z0-9][a-z0-9-]*\\.creation\\.ip$"
+        },
+        "licenseTermsId": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Story PIL licence terms ID applied to this IP."
+        },
+        "licenseTokenIds": {
+          "type": "array",
+          "description": "Outstanding licence token IDs minted from this IP that gate the CDR vault.",
+          "items": { "type": "string", "pattern": "^[0-9]+$" }
+        }
+      }
+    },
+
+    "cdr": {
+      "type": "object",
+      "description": "Layer 3 CDR vault references. Populated after encryptFileLicenseGated runs.",
+      "additionalProperties": false,
+      "properties": {
+        "vaultUuid": {
+          "type": "string",
+          "format": "uuid",
+          "description": "CDR vault UUID returned by the CDR SDK."
+        },
+        "dataCid": {
+          "$ref": "#/$defs/ipfsCid",
+          "description": "IPFS CID of the ciphertext blob."
+        },
+        "readCondition": {
+          "type": "string",
+          "enum": ["license-gated", "owner-only"],
+          "description": "Which CDR read-condition contract gates this vault."
+        },
+        "storageProvider": {
+          "type": "string",
+          "enum": ["lighthouse", "storacha", "supabase"],
+          "description": "Where the ciphertext is hosted."
+        },
+        "encryptedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+
+    "contents": {
+      "type": "object",
+      "description": "Inventory of files inside the encrypted Creator Pack ZIP.",
+      "required": ["items"],
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/contentItem" }
+        },
+        "totalBytes": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Sum of item sizes. Set by the provision route after upload."
+        },
+        "packSha256": {
+          "$ref": "#/$defs/sha256",
+          "description": "sha256 of the entire ZIP (pre-encryption)."
+        }
+      }
+    },
+
+    "vertical": {
+      "type": "object",
+      "description": "Vertical-specific metadata. Exactly one of music/visual/writing/code should be present, matching `creatorType`. Open-ended for future verticals.",
+      "additionalProperties": { "type": "object" },
+      "properties": {
+        "music":   { "$ref": "#/$defs/musicVertical" },
+        "visual":  { "$ref": "#/$defs/visualVertical" },
+        "writing": { "$ref": "#/$defs/writingVertical" },
+        "code":    { "$ref": "#/$defs/codeVertical" }
+      }
+    },
+
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string", "maxLength": 32 },
+          "maxItems": 16
+        },
+        "license": {
+          "type": "string",
+          "description": "Plain-language licence summary, e.g. 'Commercial Remix, 5% royalty'.",
+          "maxLength": 256
+        }
+      }
+    }
+  },
+
+  "allOf": [
+    {
+      "if": { "properties": { "creatorType": { "const": "music" } } },
+      "then": { "properties": { "vertical": { "required": ["music"] } } }
+    },
+    {
+      "if": { "properties": { "creatorType": { "const": "visual" } } },
+      "then": { "properties": { "vertical": { "required": ["visual"] } } }
+    },
+    {
+      "if": { "properties": { "creatorType": { "const": "writing" } } },
+      "then": { "properties": { "vertical": { "required": ["writing"] } } }
+    },
+    {
+      "if": { "properties": { "creatorType": { "const": "code" } } },
+      "then": { "properties": { "vertical": { "required": ["code"] } } }
+    }
+  ],
+
+  "$defs": {
+    "ethAddress": {
+      "type": "string",
+      "pattern": "^0x[a-fA-F0-9]{40}$",
+      "description": "EVM address, 0x-prefixed lowercase hex (case-insensitive accepted)."
+    },
+
+    "bytes32": {
+      "type": "string",
+      "pattern": "^0x[a-fA-F0-9]{64}$",
+      "description": "32-byte hex value, 0x-prefixed."
+    },
+
+    "sha256": {
+      "type": "string",
+      "pattern": "^(sha256:)?[a-f0-9]{64}$",
+      "description": "Lowercase hex sha256, optionally prefixed with 'sha256:'."
+    },
+
+    "ipfsCid": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 100,
+      "pattern": "^(Qm[1-9A-HJ-NP-Za-km-z]{44,}|b[a-z2-7]{58,}|bafy[a-z0-9]{50,})$",
+      "description": "IPFS CIDv0 (Qm…) or CIDv1 (b…). Lighthouse returns CIDv0 by default."
+    },
+
+    "semver": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[a-zA-Z0-9.-]+)?$"
+    },
+
+    "contentItem": {
+      "type": "object",
+      "required": ["path", "hash", "size", "role"],
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Path inside the ZIP, forward-slash separated.",
+          "pattern": "^[^/].*",
+          "maxLength": 512
+        },
+        "hash": { "$ref": "#/$defs/sha256" },
+        "size": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Bytes."
+        },
+        "mimeType": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "role": {
+          "type": "string",
+          "description": "Semantic role of the file within the pack.",
+          "examples": [
+            "stem", "lora", "style-prompt", "branding", "manifest",
+            "source-file", "brush", "palette", "reference",
+            "voice-corpus", "style-guide", "character-bible", "prompt-pattern",
+            "repo", "agent-system-prompt", "config-template"
+          ]
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 512
+        }
+      }
+    },
+
+    "loraReference": {
+      "type": "object",
+      "description": "Reference to a LoRA / fine-tuned adapter shipped in the pack.",
+      "required": ["path"],
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Path inside the pack ZIP (must also appear in contents.items)."
+        },
+        "baseModel": {
+          "type": "string",
+          "description": "Base model the LoRA is trained against (e.g. 'rvc-v2', 'flux-dev', 'sdxl-1.0').",
+          "maxLength": 128
+        },
+        "rank": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "LoRA rank (e.g. 16, 32, 64, 128)."
+        },
+        "format": {
+          "type": "string",
+          "enum": ["safetensors", "pt", "ckpt", "onnx", "gguf"],
+          "default": "safetensors"
+        },
+        "trainingNotes": {
+          "type": "string",
+          "maxLength": 1024
+        }
+      }
+    },
+
+    "musicVertical": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "genre": { "type": "string", "maxLength": 64 },
+        "bpm": { "type": "number", "minimum": 1, "maximum": 400 },
+        "key": {
+          "type": "string",
+          "pattern": "^[A-G][#b]?m?$",
+          "description": "Musical key, e.g. 'Am', 'C#', 'Bb'."
+        },
+        "durationSec": { "type": "number", "minimum": 0 },
+        "moods": {
+          "type": "array",
+          "items": { "type": "string", "maxLength": 32 },
+          "maxItems": 8
+        },
+        "stemCount": { "type": "integer", "minimum": 0 },
+        "vocalLora": { "$ref": "#/$defs/loraReference" },
+        "referenceTracks": {
+          "type": "array",
+          "items": { "type": "string", "maxLength": 256 },
+          "maxItems": 16
+        }
+      }
+    },
+
+    "visualVertical": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "medium": {
+          "type": "string",
+          "description": "e.g. 'illustration', 'animation', '3d', 'pixel-art'.",
+          "maxLength": 64
+        },
+        "styleLora": { "$ref": "#/$defs/loraReference" },
+        "palette": {
+          "type": "array",
+          "description": "Hex colour palette.",
+          "items": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+          "maxItems": 32
+        },
+        "dimensions": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "width":  { "type": "integer", "minimum": 1 },
+            "height": { "type": "integer", "minimum": 1 }
+          }
+        },
+        "softwareCompat": {
+          "type": "array",
+          "items": { "type": "string", "maxLength": 64 },
+          "description": "Software the source files target, e.g. ['photoshop', 'blender', 'procreate']."
+        },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string", "maxLength": 32 },
+          "maxItems": 32
+        }
+      }
+    },
+
+    "writingVertical": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "primaryLanguage": {
+          "type": "string",
+          "description": "BCP-47 language tag, e.g. 'en', 'en-AU', 'fr'.",
+          "maxLength": 16
+        },
+        "genres": {
+          "type": "array",
+          "items": { "type": "string", "maxLength": 32 },
+          "maxItems": 8
+        },
+        "voiceCharacteristics": {
+          "type": "string",
+          "maxLength": 1024,
+          "description": "Prose description of the writing voice."
+        },
+        "wordCountTotal": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total words across the voice corpus."
+        },
+        "styleLora": {
+          "$ref": "#/$defs/loraReference",
+          "description": "Optional LoRA fine-tuned for the writing voice (LLM adapter)."
+        }
+      }
+    },
+
+    "codeVertical": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "primaryLanguage": {
+          "type": "string",
+          "description": "Primary programming language, e.g. 'typescript', 'rust', 'solidity'.",
+          "maxLength": 32
+        },
+        "frameworks": {
+          "type": "array",
+          "items": { "type": "string", "maxLength": 64 },
+          "maxItems": 16
+        },
+        "agentCompatible": {
+          "type": "boolean",
+          "description": "Whether the pack includes prompts/configs usable directly by AI coding agents."
+        },
+        "repoCount": { "type": "integer", "minimum": 0 },
+        "linesOfCode": { "type": "integer", "minimum": 0 },
+        "licenses": {
+          "type": "array",
+          "items": { "type": "string", "maxLength": 64 },
+          "description": "SPDX identifiers of any embedded code (e.g. ['MIT', 'Apache-2.0'])."
+        }
+      }
+    }
+  }
+}

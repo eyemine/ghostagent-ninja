@@ -1,0 +1,132 @@
+{
+  "$schema": "https://ghostagent.ninja/schemas/creator-pack-manifest.schema.json",
+  "schemaVersion": "1.0.0",
+  "creatorType": "music",
+
+  "creator": {
+    "chonkContract": "0x0000000000000000000000000000000000000000",
+    "chonkChainId": 8453,
+    "chonkId": "1",
+    "creatorWallet": "0xb7e493e3d226f8fE722CC9916fF164B793af13F4",
+    "agentName": "chonk-001",
+    "displayName": "Chonk #001 — Virtual Artist",
+    "bio": "Lo-fi house producer with a sun-bleached vocal style. Sample-friendly, remix-encouraged.",
+    "links": [
+      { "label": "carbonlocks", "url": "https://chonks.carbonlocks.xyz/artist/1" },
+      { "label": "purebpm", "url": "https://www.purebpm.com" }
+    ]
+  },
+
+  "provenance": {
+    "paperclipProofHash": "0xabc1230000000000000000000000000000000000000000000000000000000000",
+    "attestationCid": "QmExampleAttestationCidPlaceholderForMusicVerticalDemo123456789",
+    "attestedAt": "2026-05-27T01:00:00Z",
+    "signer": "0xb7e493e3d226f8fE722CC9916fF164B793af13F4",
+    "signatureType": "EIP-712",
+    "notaRef": "virtual-creator/chonk-001"
+  },
+
+  "ip": {
+    "ipId": "0x77319B4031e6eF1250907aa00018B8B1c67a244b",
+    "chainId": 1514,
+    "tokenContract": "0x0000000000000000000000000000000000000000",
+    "tokenId": "1",
+    "fullDomain": "chonk-001.creation.ip",
+    "licenseTermsId": 1,
+    "licenseTokenIds": ["1"]
+  },
+
+  "cdr": {
+    "vaultUuid": "00000000-0000-4000-8000-000000000001",
+    "dataCid": "QmExampleEncryptedPackCidPlaceholderMusicVerticalDemo987654",
+    "readCondition": "license-gated",
+    "storageProvider": "lighthouse",
+    "encryptedAt": "2026-05-27T01:05:00Z"
+  },
+
+  "contents": {
+    "totalBytes": 247485312,
+    "packSha256": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+    "items": [
+      {
+        "path": "manifest.json",
+        "hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "size": 4096,
+        "mimeType": "application/json",
+        "role": "manifest"
+      },
+      {
+        "path": "stems/01_kick.wav",
+        "hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+        "size": 12582912,
+        "mimeType": "audio/wav",
+        "role": "stem",
+        "description": "Kick drum, 120 BPM, A minor"
+      },
+      {
+        "path": "stems/02_bass.wav",
+        "hash": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+        "size": 14680064,
+        "mimeType": "audio/wav",
+        "role": "stem"
+      },
+      {
+        "path": "stems/03_vocals_lead.wav",
+        "hash": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+        "size": 18874368,
+        "mimeType": "audio/wav",
+        "role": "stem"
+      },
+      {
+        "path": "lora/chonk-001-vocal.safetensors",
+        "hash": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+        "size": 167772160,
+        "mimeType": "application/octet-stream",
+        "role": "lora",
+        "description": "Vocal LoRA for RVC v2, rank 32, ~2000 training steps"
+      },
+      {
+        "path": "prompts/style_prompts.json",
+        "hash": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+        "size": 8192,
+        "mimeType": "application/json",
+        "role": "style-prompt"
+      },
+      {
+        "path": "branding/logo.svg",
+        "hash": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+        "size": 32768,
+        "mimeType": "image/svg+xml",
+        "role": "branding"
+      }
+    ]
+  },
+
+  "vertical": {
+    "music": {
+      "genre": "lo-fi house",
+      "bpm": 120,
+      "key": "Am",
+      "durationSec": 180,
+      "moods": ["chill", "summer", "introspective"],
+      "stemCount": 3,
+      "vocalLora": {
+        "path": "lora/chonk-001-vocal.safetensors",
+        "baseModel": "rvc-v2",
+        "rank": 32,
+        "format": "safetensors",
+        "trainingNotes": "Trained on ~30min of clean vocal stems. Best results at pitch -2 to +2 semitones from source."
+      },
+      "referenceTracks": [
+        "Mall Grab — Sunflower",
+        "Ross From Friends — Talk To Me You'll Understand"
+      ]
+    }
+  },
+
+  "metadata": {
+    "createdAt": "2026-05-27T00:30:00Z",
+    "tags": ["lo-fi", "house", "vocal-lora", "remix-friendly"],
+    "license": "Commercial Remix, 5% royalty to Chonk holder, attribution required"
+  }
+}

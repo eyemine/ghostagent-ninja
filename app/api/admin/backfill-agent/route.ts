@@ -130,8 +130,8 @@ export async function POST(req: NextRequest) {
             body: JSON.stringify({
               action: 'upgradeTier',
               secret: WEBHOOK_SECRET,
-              label: agentName,
-              newTier: 'lite',
+              name: agentName,
+              tier: 'lite',
               safe: safeAddress,
               storyIp: currentStoryIp ?? null,
               retention: '8-day',
@@ -279,8 +279,8 @@ export async function POST(req: NextRequest) {
               body: JSON.stringify({
                 action: 'upgradeTier',
                 secret: WEBHOOK_SECRET,
-                label: agentName,
-                newTier: 'lite',
+                name: agentName,
+                tier: 'lite',
                 safe: safeAddress,
                 storyIp: agentName,
                 retention: '8-day',

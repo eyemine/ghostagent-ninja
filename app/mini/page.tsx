@@ -33,8 +33,8 @@ const TIER_META: Record<NftmailTier, { label: string; emoji: string; color: stri
 };
 function normaliseTier(raw: string | undefined): NftmailTier {
   const t = (raw ?? '').toLowerCase();
-  if (t === 'premium' || t === 'imago') return 'premium';
-  if (t === 'pro' || t === 'pupa' || t === 'lite') return 'pro';
+  if (t === 'premium' || t === 'imago' || t === 'vault') return 'premium';
+  if (t === 'pro' || t === 'pupa' || t === 'lite' || t === 'professional') return 'pro';
   return 'free';
 }
 function TierBadge({ tier, onClick }: { tier: NftmailTier; onClick: () => void }) {

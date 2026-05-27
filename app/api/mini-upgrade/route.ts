@@ -125,6 +125,21 @@ export async function POST(req: NextRequest) {
     : null;
   if (!newTier) return NextResponse.json({ error: 'Already at max tier' }, { status: 400 });
 
+  // Check if account is already upgraded (skip payment if already PRO/PREMIUM)
+  const tierCheckRes = await fetch(WORKER_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'checkSendLimit', agentName }),
+  });
+  const tierCheck = await tierCheckRes.json() as { tier?: string };
+  if (tierCheck.tier === 'professional' || tierCheck.tier === 'vault') {
+    return NextResponse.json({ 
+      success: true, 
+      tier: tierCheck.tier, 
+      message: 'Account already upgraded' 
+    });
+  }
+
   const expectedFee = TIER_FEES_USDC[currentTier] ?? 10;
 
   // Verify payment (USDC or ETH) and derive the sender's wallet from the tx receipt
@@ -147,7 +162,7 @@ export async function POST(req: NextRequest) {
   const upgradeRes = await fetch(WORKER_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'upgradeTier', name: agentName, targetTier: newTier, walletAddress: payment.fromWallet, secret: WEBHOOK_SECRET }),
+    body: JSON.stringify({ action: 'upgradeTier', name: agentName, tier: newTier, walletAddress: payment.fromWallet }),
   });
   const upgradeData = await upgradeRes.json() as { status?: string; newTier?: string; error?: string };
   if (upgradeData.status !== 'upgraded') {

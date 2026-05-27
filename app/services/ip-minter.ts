@@ -100,8 +100,8 @@ export async function mintIPOnLITE(
       body: JSON.stringify({
         action: 'upgradeTier',
         secret: webhookSecret,
-        label: agentName,
-        newTier: 'lite',
+        name: agentName,
+        tier: 'lite',
         safe: safeAddress,
         storyIp: agentName,
         retention: '30-day',

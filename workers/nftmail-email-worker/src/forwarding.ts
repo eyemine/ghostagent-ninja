@@ -250,7 +250,9 @@ async function sendExternalEmail(
   const isGhostmailTarget = targetDomain === 'ghostmail.box' || targetDomain.endsWith('.ghostmail.box');
   
   // Use appropriate Mailgun domain and API key based on target
-  const mailgunDomain = isGhostmailTarget ? 'mg.ghostmail.box' : (env.MAILGUN_DOMAIN || 'mg.nftmail.box');
+  // NOTE: Mailgun sending domain for nftmail is `mg.nftmail.box` (subdomain).
+  // Hardcoded to avoid misconfigured env.MAILGUN_DOMAIN (which may be set to `nftmail.box` for routing).
+  const mailgunDomain = isGhostmailTarget ? 'mg.ghostmail.box' : 'mg.nftmail.box';
   const mailgunApiKey = isGhostmailTarget 
     ? env.GM_MAILGUN_API_KEY 
     : (env.MG_SENDING_MAILGUN_API_KEY || env.SEND_MAILGUN_API_KEY || env.MAILGUN_API_KEY);

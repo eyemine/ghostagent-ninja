@@ -160,3 +160,13 @@ Independently defined in 5 API routes.
 The codebase is **functional and production-deployable** with zero TS errors. The only structural risk is the 3,252-line worker file — a bug there takes down all agent services simultaneously. Everything else is cosmetic DRY cleanup best done in a post-hackathon refactor sprint.
 
 **Recommended action now:** None. Ship the hackathon. Schedule refactor sprint for April.
+
+---
+
+## Deprioritized Features
+
+### Farcaster Miniapp (`/mini`, `app/mini/*`)
+**Status:** On hold — development deferred
+**Decision:** May 2026 — miniapp deprioritized in favor of core agent protocol work
+**Files:** `app/mini/page.tsx`, `app/mini/images.ts`, `app/mini/layout.tsx`, `app/mini/providers.tsx`, `app/api/mini-upgrade/route.ts`
+**Note:** These files remain in the codebase but are not actively developed. No action required unless/until re-prioritized.

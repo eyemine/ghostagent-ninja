@@ -118,7 +118,7 @@ export async function POST(req: NextRequest) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        action: 'upgradeTier',
+        action: 'upgradeNinjaTier',
         secret: WEBHOOK_SECRET,
         label: name,
         newTier: newWorkerTier,
@@ -219,8 +219,8 @@ export async function POST(req: NextRequest) {
             body: JSON.stringify({
               action: 'upgradeTier',
               secret: WEBHOOK_SECRET,
-              label: name,
-              newTier: newWorkerTier,
+              name,
+              tier: newWorkerTier,
               safe: safeAddress ?? null,
               storyIp: name,
               retention: 'infinite',
