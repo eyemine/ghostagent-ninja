@@ -2357,7 +2357,7 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
           }
 
           await env.INBOX_KV.put(`agentprofile:${agentName}`, JSON.stringify(profile));
-          return corsify(Response.json({ status: 'updated', agentName, profile, verifiedOwner: recoveredAddress }), request);
+          return corsify(Response.json({ status: 'updated', agentName, profile, verifiedOwner: 'auth-disabled' }), request);
         }
 
         if (email.action === 'getAgentProfile') {
