@@ -152,6 +152,18 @@ const TABS = [
 ] as const;
 type TabId = typeof TABS[number]['id'];
 
+const AGENT_ACTIONS = [
+  { key: 'agent-profile', label: 'Agent Profile', href: (n: string) => `/dashboard/agent-profile?agent=${n}`, color: 'border-amber-500/30 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20' },
+  { key: 'molt',          label: 'Molt',          href: (n: string) => `/molt?agent=${n}`,                    color: 'border-fuchsia-500/30 bg-fuchsia-500/10 text-fuchsia-300 hover:bg-fuchsia-500/20' },
+  { key: 'ghost-tier',    label: 'Ghost Tier',    href: (n: string) => `/dashboard/settings/ghost?agent=${n}`,color: 'border-zinc-500/30 bg-zinc-500/10 text-zinc-300 hover:bg-zinc-500/20' },
+  { key: 'byo-nft',       label: 'Pair NFT',      href: (n: string) => `/chonk-molt?agent=${n}`,              color: 'border-violet-500/30 bg-violet-500/10 text-violet-300 hover:bg-violet-500/20' },
+  { key: 'swarm',         label: 'Swarm',         href: (n: string) => `/dashboard/swarm?agent=${n}`,         color: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20' },
+  { key: 'trade',         label: 'Trade Intent',  href: (n: string) => `/dashboard/trade?agent=${n}`,         color: 'border-violet-500/30 bg-violet-500/10 text-violet-300 hover:bg-violet-500/20' },
+  { key: 'hitl',          label: 'HITL Gates',    href: (n: string) => `/dashboard/hitl?agent=${n}`,          color: 'border-red-500/30 bg-red-500/10 text-red-300 hover:bg-red-500/20' },
+  { key: 'ip-portal',     label: 'IP Portal',     href: (n: string) => `/ip-portal?agent=${n}`,               color: 'border-[#7c4dff]/30 bg-[#7c4dff]/10 text-[#a78bfa] hover:bg-[#7c4dff]/20' },
+  { key: 'stake-host',   label: 'Stake $HOST',   href: (n: string) => `/host?agent=${n}`,                    color: 'border-[rgba(176,128,92,0.3)] bg-[rgba(176,128,92,0.08)] text-[#b0805c] hover:bg-[rgba(176,128,92,0.15)]' },
+];
+
 function shortAddr(a: string) { return `${a.slice(0,8)}…${a.slice(-6)}`; }
 
 export default function AgentDetailPage() {
@@ -540,23 +552,25 @@ export default function AgentDetailPage() {
       </div>
       )}
 
-      {/* Quick actions */}
-      <div className="flex flex-wrap gap-2">
-        {[
-          { label: '📬 Open Inbox',     href: '#inbox',   },
-          { label: '🏛️ IP Portal',      href: '/ip-portal' },
-          { label: '🔄 Molt',           href: '/molt' },
-          { label: '📡 ERC-8004',       href: '#erc8004' },
-          { label: '🏦 Safe Modules',   href: '#safe' },
-        ].map((a) => (
-          <Link
-            key={a.label}
-            href={a.href}
-            className="rounded-lg border border-[rgba(176,128,92,0.25)] bg-[var(--card)] px-3 py-1.5 text-[11px] font-medium text-[var(--muted)] transition hover:text-white hover:border-white/20"
-          >
-            {a.label}
-          </Link>
-        ))}
+      {/* ── Agent Action Bar ── */}
+      <div className="rounded-2xl border border-[rgba(176,128,92,0.25)] bg-[var(--card)] px-5 py-4">
+        <div className="mb-3 flex items-center gap-3">
+          <span className="text-[10px] font-semibold tracking-widest text-[var(--muted)]">ACTIONS FOR</span>
+          <span className="rounded-full bg-amber-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-amber-300 ring-1 ring-amber-500/20">
+            {name}
+          </span>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {AGENT_ACTIONS.map(action => (
+            <Link
+              key={action.key}
+              href={action.href(String(name))}
+              className={`rounded-lg border px-4 py-1.5 text-xs font-semibold transition ${action.color}`}
+            >
+              {action.label}
+            </Link>
+          ))}
+        </div>
       </div>
 
     </div>

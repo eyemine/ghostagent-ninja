@@ -126,14 +126,21 @@ export default function AgentProfilePage() {
           ),
         }),
       });
-      if (!res.ok) throw new Error('Save failed');
+      if (!res.ok) {
+        const errText = await res.text();
+        console.error('Worker error:', errText);
+        throw new Error(errText || 'Save failed');
+      }
+      const data = await res.json();
+      console.log('Worker response:', data);
       setSaved(true);
       // Reload live card to show merged result
       const cardRes = await fetch(`/api/agent-card?agent=${agent.name}`);
       if (cardRes.ok) setLiveCard(await cardRes.json());
       setTimeout(() => setSaved(false), 3000);
-    } catch {
-      setError('Failed to save. Try again.');
+    } catch (e) {
+      console.error('Save error:', e);
+      setError(`Failed to save: ${e instanceof Error ? e.message : 'Unknown error'}`);
     } finally {
       setSaving(false);
     }
