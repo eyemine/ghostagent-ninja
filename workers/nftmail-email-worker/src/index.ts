@@ -1502,6 +1502,7 @@ export async function _handlePublicAgent(agentName: string, env: Env, request: R
           safe: tierData.safe || null,
           upgradedAt: tierData.upgraded_at || null,
           expiresAt: tierData.expires_at || null,
+          profile: null,
         };
 
         // ERC-8004 identities (on-chain, public)
@@ -1539,6 +1540,16 @@ export async function _handlePublicAgent(agentName: string, env: Env, request: R
           response.email = '@nftmail.box';
         }
         // 'hidden' → email stays null
+
+        // Agent profile (user-edited description, webUrl, socialLinks)
+        const profileRaw = await env.INBOX_KV.get(`agentprofile:${agentName}`);
+        if (profileRaw) {
+          try {
+            response.profile = JSON.parse(profileRaw);
+          } catch (e) {
+            console.error('[public/api] profile parse failed:', e);
+          }
+        }
 
         // Reputation flags (read-only, safe to expose)
         if (env.NFTMAIL_DB) {
@@ -2105,7 +2116,7 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
             catch (e) { console.error('[D1 read] getAgentIdentity fallback to KV:', e); }
           }
 
-          const [tldRaw, gnosisRaw, baseRaw, baseSepoliaRaw, gnoOwnerRaw, acctTierRaw, tbaRaw] = await Promise.all([
+          const [tldRaw, gnosisRaw, baseRaw, baseSepoliaRaw, gnoOwnerRaw, acctTierRaw, tbaRaw, profileRaw] = await Promise.all([
             _d1Row ? Promise.resolve(_d1Row.tld) : env.INBOX_KV.get(`tld:${agentName}`),
             env.INBOX_KV.get(`erc8004:gnosis:${agentName}`),
             env.INBOX_KV.get(`erc8004:base:${agentName}`),
@@ -2113,6 +2124,7 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
             env.INBOX_KV.get(`nftmailgno:${agentName}`),
             _d1Row ? Promise.resolve(JSON.stringify({ tier: _d1Row.tier, safe: _d1Row.safe, story_ip: _d1Row.story_ip })) : env.INBOX_KV.get(`acct-tier:${agentName}`),
             env.INBOX_KV.get(`tba:${agentName}`),
+            env.INBOX_KV.get(`agentprofile:${agentName}`),
           ]);
 
           // Fetch explicit principal override (if set via setPrincipal action)
@@ -2159,6 +2171,7 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
           const gnosis      = gnosisRaw      ? JSON.parse(gnosisRaw)      : null;
           const base        = baseRaw         ? JSON.parse(baseRaw)         : null;
           const baseSepolia = baseSepoliaRaw  ? JSON.parse(baseSepoliaRaw)  : null;
+          const profile     = profileRaw     ? JSON.parse(profileRaw)     : null;
 
           // For BYO dot-format agents (e.g. atom.158) the GNS name is the beacon NFT
           // e.g. atom-158.agent.gno — NOT the constructed atom.158.agent.gno
@@ -2194,6 +2207,8 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
               ...(base        ? { base:        { agentId: base.agentId,        chainId: 8453,  agentURI: base.agentURI,        registeredAt: base.registeredAt   } } : {}),
               ...(baseSepolia ? { baseSepolia: { agentId: baseSepolia.agentId, chainId: 84532, agentURI: baseSepolia.agentURI, registeredAt: baseSepolia.registeredAt } } : {}),
             },
+            // User-edited profile (description, webUrl, socialLinks)
+            profile: profile ?? null,
             // Links
             links: {
               profile:    `https://ghostagent.ninja/agent/${agentName}`,
