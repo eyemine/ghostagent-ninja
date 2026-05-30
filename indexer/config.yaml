@@ -1,10 +1,8 @@
-# yaml-language-server: $schema=./node_modules/envio/evm.schema.json
 name: ghostagent-indexer
 description: >
   Real-time indexer for GhostAgent Protocol on Gnosis Chain.
   Indexes Safe creations, TBA deployments, ERC-6551 accounts,
   ERC-8004 registrations, and subname mints for instant agent lookups.
-ecosystem: evm
 
 chains:
   - id: 100  # Gnosis Chain mainnet
