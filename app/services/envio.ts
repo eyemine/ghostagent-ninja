@@ -17,7 +17,7 @@ async function gql<T>(query: string, variables: Record<string, unknown> = {}): P
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ query, variables }),
-      signal: AbortSignal.timeout(4000),
+      signal: AbortSignal.timeout(500),
     });
     if (!res.ok) return null;
     const json = await res.json() as { data?: T; errors?: unknown[] };
