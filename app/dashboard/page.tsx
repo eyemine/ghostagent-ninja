@@ -268,6 +268,7 @@ const AGENT_ACTIONS = [
   { key: 'hitl',          label: 'HITL Gates',    href: (n: string) => `/dashboard/hitl?agent=${n}`,          color: 'border-red-500/30 bg-red-500/10 text-red-300 hover:bg-red-500/20' },
   { key: 'ip-portal',     label: 'IP Portal',     href: (n: string) => `/ip-portal?agent=${n}`,               color: 'border-[#7c4dff]/30 bg-[#7c4dff]/10 text-[#a78bfa] hover:bg-[#7c4dff]/20' },
   { key: 'stake-host',   label: 'Stake $HOST',   href: (n: string) => `/host?agent=${n}`,                    color: 'border-[rgba(176,128,92,0.3)] bg-[rgba(176,128,92,0.08)] text-[#b0805c] hover:bg-[rgba(176,128,92,0.15)]' },
+  { key: 'erc8048',      label: 'Publish ERC-8048', href: (n: string) => `/dashboard/erc8048?agent=${n}`,    color: 'border-cyan-500/30 bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500/20' },
 ];
 
 const BODY_ACTIONS = [

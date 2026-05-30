@@ -21,6 +21,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { WORKER_URL } from '../../utils/config';
+import { getAgentBySafe } from '../../lib/envio';
 
 
 // ── ERC-6551 TBA derivation ───────────────────────────────────────────────────
@@ -259,6 +260,16 @@ export async function GET(req: NextRequest) {
     let tbaAddress: string | null = resolved.tba ?? null; // prefer KV-stored TBA
 
     if (resolved.exists) {
+      // Try Envio first for TBA lookup (indexed data, no RPC)
+      if (tbaAddress === null && resolved.safe) {
+        try {
+          const envioData = await getAgentBySafe(resolved.safe);
+          if (envioData?.ghostAgent?.tba) {
+            tbaAddress = envioData.ghostAgent.tba;
+          }
+        } catch { /* non-fatal, fall back to RPC */ }
+      }
+
       // mintedTokenId from KV; fall back to KNOWN_TOKEN_IDS for pre-seeded agents
       let mintedTokenId: number | null = resolved.mintedTokenId ?? null;
       if (mintedTokenId === null && KNOWN_TOKEN_IDS[name]) {
