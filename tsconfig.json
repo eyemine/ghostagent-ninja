@@ -47,6 +47,7 @@
     "src",
     "broadcast",
     "cache",
-    "out"
+    "out",
+    "indexer"
   ]
 }
