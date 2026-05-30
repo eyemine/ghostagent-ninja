@@ -21,7 +21,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { WORKER_URL } from '../../utils/config';
-import { getAgentBySafe } from '../../lib/envio';
+import { getAgentBySafe } from '../../services/envio';
 
 
 // ── ERC-6551 TBA derivation ───────────────────────────────────────────────────
