@@ -1,4 +1,6 @@
+specVersion: 0.0.5
 name: ghostagent-indexer
+version: 1.0.0
 description: >
   Real-time indexer for GhostAgent Protocol on Gnosis Chain.
   Indexes Safe creations, TBA deployments, ERC-6551 accounts,
