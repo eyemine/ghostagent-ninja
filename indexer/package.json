@@ -1,0 +1,13 @@
+{
+  "name": "ghostagent-indexer",
+  "version": "1.0.0",
+  "description": "Envio HyperIndex for GhostAgent Protocol — Gnosis Chain",
+  "scripts": {
+    "dev": "envio dev",
+    "codegen": "envio codegen",
+    "deploy": "envio deploy"
+  },
+  "dependencies": {
+    "envio": "latest"
+  }
+}

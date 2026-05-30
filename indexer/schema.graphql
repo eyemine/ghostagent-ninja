@@ -1,0 +1,86 @@
+"""
+GhostAgent Protocol — Envio HyperIndex schema
+Powers notapaperclip.red agent lookups at <10ms vs 2-5s RPC round-trips.
+"""
+
+# ── ERC-8004 on-chain registration ──────────────────────────────────────────
+
+type Erc8004Registration {
+  id: ID!                   # "{chainId}:{agentId}"
+  agentId: BigInt!
+  owner: String!
+  agentURI: String!
+  registeredAt: BigInt!     # block timestamp
+  blockNumber: BigInt!
+  txHash: String!
+}
+
+# ── Subname NFT (beacon NFT — .gno subname) ─────────────────────────────────
+
+type SubnameMint {
+  id: ID!                   # "{registrar}:{tokenId}"
+  registrar: String!        # "molt" | "openclaw" | "picoclaw"
+  registrarAddress: String!
+  parentNode: String!
+  labelhash: String!
+  subnode: String!
+  tokenId: BigInt!
+  owner: String!
+  tba: String               # set when TokenboundAccountCreated fires for same tokenId
+  mintedAt: BigInt!
+  blockNumber: BigInt!
+  txHash: String!
+}
+
+# ── GhostRegistry v2 agent (overlay / BYO molt) ─────────────────────────────
+
+type GhostAgent {
+  id: ID!                   # "{tokenId}"
+  tokenId: BigInt!
+  name: String!
+  owner: String!
+  tba: String!
+  safe: String!
+  principal: String!
+  registeredAt: BigInt!
+  blockNumber: BigInt!
+  txHash: String!
+  molts: [Molt!]! @derivedFrom(field: "agent")
+}
+
+type Molt {
+  id: ID!                   # "{tokenId}:{blockNumber}"
+  agent: GhostAgent!
+  oldTba: String!
+  newTba: String!
+  safe: String!
+  moltedAt: BigInt!
+  blockNumber: BigInt!
+  txHash: String!
+}
+
+# ── BYO NFT governor (Chonk / POW / ENS overlay) ────────────────────────────
+
+type ByoAgent {
+  id: ID!                   # "{byoContract}:{byoTokenId}"
+  byoContract: String!
+  byoTokenId: BigInt!
+  safe: String!
+  governor: String!
+  registeredAt: BigInt!
+  blockNumber: BigInt!
+  txHash: String!
+}
+
+# ── Safe lookup table (union of all Safe addresses seen) ────────────────────
+
+type SafeIndex {
+  id: ID!                   # Safe address (lowercase)
+  safeAddress: String!
+  # Sources this Safe was seen in (comma-separated for simple filtering)
+  sources: String!
+  # Most recent agent name or agentId associated
+  agentName: String
+  erc8004AgentId: BigInt
+  lastUpdated: BigInt!
+}
