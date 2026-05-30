@@ -8,6 +8,6 @@
     "deploy": "envio deploy"
   },
   "dependencies": {
-    "envio": "latest"
+    "envio": "^0.5.0"
   }
 }
