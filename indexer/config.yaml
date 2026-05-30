@@ -1,4 +1,3 @@
-# yaml-language-server: $schema=./node_modules/envio/evm.schema.json
 name: ghostagent-indexer
 description: >
   Real-time indexer for GhostAgent Protocol on Gnosis Chain.
