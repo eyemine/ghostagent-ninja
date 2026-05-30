@@ -1,13 +1,52 @@
 {
-  "name": "ghostagent-indexer",
-  "version": "1.0.0",
-  "description": "Envio HyperIndex for GhostAgent Protocol — Gnosis Chain",
+  "name": "ghostagent_ninja",
+  "version": "0.1.0",
+  "private": true,
   "scripts": {
-    "dev": "envio dev",
-    "codegen": "envio codegen",
-    "deploy": "envio deploy"
+    "dev": "next dev",
+    "prebuild": "node scripts/fetch-sld-images.mjs",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint"
   },
   "dependencies": {
-    "envio": "^3.0.0"
+    "@0glabs/0g-ts-sdk": "^0.3.3",
+    "@farcaster/hub-nodejs": "^0.15.10",
+    "@farcaster/miniapp-sdk": "^0.3.0",
+    "@farcaster/miniapp-wagmi-connector": "^2.0.0",
+    "@noble/curves": "^2.2.0",
+    "@noble/ed25519": "^3.0.0",
+    "@piplabs/cdr-sdk": "^0.2.1",
+    "@privy-io/react-auth": "1.55.0",
+    "@tanstack/react-query": "^5.100.10",
+    "@tokenbound/sdk": "^0.5.5",
+    "@x402/core": "^2.6.0",
+    "@x402/evm": "^2.6.0",
+    "@x402/fetch": "^2.6.0",
+    "ethers": "^6.13.1",
+    "framer-motion": "10.16.4",
+    "next": "14.0.4",
+    "react": "18.2.0",
+    "react-copy-to-clipboard": "^5.1.1",
+    "react-dom": "18.2.0",
+    "react-is": "^19.2.4",
+    "recharts": "^3.8.1",
+    "viem": "^2.48.11",
+    "wagmi": "^3.6.14",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@ardrive/turbo-sdk": "^1.41.0",
+    "@cloudflare/workers-types": "^4.20260217.0",
+    "@types/node": "20.11.16",
+    "@types/react": "18.2.51",
+    "@types/react-copy-to-clipboard": "^5.0.7",
+    "@types/react-dom": "18.2.18",
+    "autoprefixer": "10.4.17",
+    "eslint": "8.56.0",
+    "eslint-config-next": "14.0.4",
+    "postcss": "8.4.35",
+    "tailwindcss": "3.4.1",
+    "typescript": "^5.3.3"
   }
 }
