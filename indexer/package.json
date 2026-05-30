@@ -1,6 +1,5 @@
 {
   "name": "ghostagent-indexer",
-  "version": "1.0.0",
   "dependencies": {
     "envio": "^0.5.0"
   },
