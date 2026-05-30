@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
 import Link from 'next/link';
+import type { Abi } from 'viem';
 import {
   KNOWN_KEYS,
   REGISTRY_ABI,
@@ -79,7 +80,7 @@ export default function Erc8048Page() {
       const encoded = plan.entries.map(e => encodeStringValue(e.value));
 
       const calldata = encodeFunctionData({
-        abi: REGISTRY_ABI as unknown[],
+        abi: REGISTRY_ABI as unknown as Abi,
         functionName: 'setMetadataBatch',
         args: [plan.tokenId, keys, encoded],
       });
