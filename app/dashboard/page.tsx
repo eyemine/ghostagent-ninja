@@ -258,18 +258,20 @@ function AgentCard({ agent, onSelect, selected }: { agent: DemoAgent; onSelect: 
 
 const DEMO_RECEIPT_DATA = DEMO_RECEIPTS;
 
+type ActionHref = ((n: string) => string) | (() => string);
+
 const AGENT_ACTIONS = [
   { key: 'agent-profile', label: 'Agent Profile', href: (n: string) => `/dashboard/agent-profile?agent=${n}`, color: 'border-amber-500/30 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20' },
   { key: 'molt',          label: 'Molt',          href: (n: string) => `/molt?agent=${n}`,                    color: 'border-fuchsia-500/30 bg-fuchsia-500/10 text-fuchsia-300 hover:bg-fuchsia-500/20' },
   { key: 'ghost-tier',    label: 'Ghost Tier',    href: (n: string) => `/dashboard/settings/ghost?agent=${n}`,color: 'border-zinc-500/30 bg-zinc-500/10 text-zinc-300 hover:bg-zinc-500/20' },
-  { key: 'byo-nft',       label: 'Pair NFT',      href: (n: string) => `/chonk-molt?agent=${n}`,              color: 'border-violet-500/30 bg-violet-500/10 text-violet-300 hover:bg-violet-500/20' },
+  { key: 'byo-nft',       label: 'Pair NFT',      href: () => 'https://ghostagent.ninja/pair-nft',          color: 'border-violet-500/30 bg-violet-500/10 text-violet-300 hover:bg-violet-500/20' },
+  { key: 'erc8048',       label: 'ERC-8048',      href: (n: string) => `/dashboard/erc8048?agent=${n}`,        color: 'border-cyan-500/30 bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500/20' },
   { key: 'swarm',         label: 'Swarm',         href: (n: string) => `/dashboard/swarm?agent=${n}`,         color: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20' },
   { key: 'trade',         label: 'Trade Intent',  href: (n: string) => `/dashboard/trade?agent=${n}`,         color: 'border-violet-500/30 bg-violet-500/10 text-violet-300 hover:bg-violet-500/20' },
   { key: 'hitl',          label: 'HITL Gates',    href: (n: string) => `/dashboard/hitl?agent=${n}`,          color: 'border-red-500/30 bg-red-500/10 text-red-300 hover:bg-red-500/20' },
   { key: 'ip-portal',     label: 'IP Portal',     href: (n: string) => `/ip-portal?agent=${n}`,               color: 'border-[#7c4dff]/30 bg-[#7c4dff]/10 text-[#a78bfa] hover:bg-[#7c4dff]/20' },
   { key: 'stake-host',   label: 'Stake $HOST',   href: (n: string) => `/host?agent=${n}`,                    color: 'border-[rgba(176,128,92,0.3)] bg-[rgba(176,128,92,0.08)] text-[#b0805c] hover:bg-[rgba(176,128,92,0.15)]' },
-  { key: 'erc8048',      label: 'Publish ERC-8048', href: (n: string) => `/dashboard/erc8048?agent=${n}`,    color: 'border-cyan-500/30 bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500/20' },
-];
+] as Array<{ key: string; label: string; href: ActionHref; color: string }>;
 
 const BODY_ACTIONS = [
   { key: 'install-brain', label: 'Install Brain', href: (n: string) => `/dashboard/install-brain?body=${n}`, color: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20' },
@@ -498,12 +500,12 @@ export default function DashboardHome() {
           </span>
           <span className="text-[10px] text-zinc-600">select agent card to action</span>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex items-center gap-2 overflow-x-auto pb-1">
           {AGENT_ACTIONS.map(action => (
             <Link
               key={action.key}
-              href={action.href(selectedAgent)}
-              className={`rounded-lg border px-4 py-1.5 text-xs font-semibold transition ${action.color}`}
+              href={action.key === 'byo-nft' ? (action.href as () => string)() : (action.href as (n: string) => string)(selectedAgent)}
+              className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition shrink-0 ${action.color}`}
             >
               {action.label}
             </Link>
@@ -571,12 +573,12 @@ export default function DashboardHome() {
           </span>
           <span className="text-[10px] text-zinc-600">select body row to action</span>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex items-center gap-2 overflow-x-auto pb-1">
           {BODY_ACTIONS.map(action => (
             <Link
               key={action.key}
               href={action.href(selectedBody)}
-              className={`rounded-lg border px-4 py-1.5 text-xs font-semibold transition ${action.color}`}
+              className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition shrink-0 ${action.color}`}
             >
               {action.label}
             </Link>
@@ -643,12 +645,12 @@ export default function DashboardHome() {
           </span>
           <span className="text-[10px] text-zinc-600">select brain row to action</span>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex items-center gap-2 overflow-x-auto pb-1">
           {BRAIN_ACTIONS.map(action => (
             <Link
               key={action.key}
               href={action.href(selectedBrain)}
-              className={`rounded-lg border px-4 py-1.5 text-xs font-semibold transition ${action.color}`}
+              className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition shrink-0 ${action.color}`}
             >
               {action.label}
             </Link>
