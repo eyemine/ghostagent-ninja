@@ -1,16 +1,18 @@
 {
   "compilerOptions": {
-    "target": "ES2020",
-    "module": "ES2020",
-    "moduleResolution": "node",
-    "baseUrl": ".",
-    "paths": {
-      "generated": ["./generated/src/index.ts", "./generated/index.ts"],
-      "generated/*": ["./generated/src/*", "./generated/*"]
-    },
-    "strict": true,
     "esModuleInterop": true,
-    "skipLibCheck": true
-  },
-  "include": ["src/**/*", "envio-env.d.ts", ".envio/types.d.ts"]
+    "skipLibCheck": true,
+    "target": "es2022",
+    "allowJs": true,
+    "resolveJsonModule": true,
+    "moduleDetection": "force",
+    "isolatedModules": true,
+    "strict": true,
+    "noImplicitOverride": true,
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "noEmit": true,
+    "lib": ["es2022"],
+    "types": ["node"]
+  }
 }
