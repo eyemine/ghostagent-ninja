@@ -307,8 +307,12 @@ export default function DashboardHome() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'listAgents' }),
+      signal: AbortSignal.timeout(10000), // 10s timeout
     })
-      .then(r => r.json() as Promise<{ agents?: Array<{ name: string; tld: string | null }> }>)
+      .then(r => {
+        if (!r.ok) throw new Error(`Worker returned ${r.status}`);
+        return r.json() as Promise<{ agents?: Array<{ name: string; tld: string | null }> }>;
+      })
       .then(async (data) => {
         const allAgents = data.agents ?? [];
         // Fetch full identity for each agent to check ownership
@@ -319,6 +323,7 @@ export default function DashboardHome() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'getAgentIdentity', agentName: a.name }),
+                signal: AbortSignal.timeout(5000), // 5s timeout per agent
               });
               if (!idRes.ok) return null;
               const identity = await idRes.json() as {
