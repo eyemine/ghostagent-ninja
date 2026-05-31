@@ -11,14 +11,14 @@ chains:
       # ── ERC-8004 Identity Registry ──────────────────────────────────────────
       - name: IdentityRegistry
         address: "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432"
-        handler: src/EventHandlers.ts
+        handler: src/handlers/IdentityRegistry.ts
         events:
           - event: "AgentRegistered(uint256 indexed agentId, address indexed owner, string agentURI)"
 
       # ── GhostRegistry v2 (BYO governor mapping) ─────────────────────────────
       - name: GhostRegistry
         address: "0x194f200b2C624e27a14865292d1C50cF46211565"
-        handler: src/EventHandlers.ts
+        handler: src/handlers/GhostRegistry.ts
         events:
           - event: "Registered(uint256 indexed tokenId, string name, address indexed owner, address indexed tba, address safe)"
           - event: "Molted(uint256 indexed tokenId, address indexed oldTba, address indexed newTba, address safe)"
@@ -28,7 +28,7 @@ chains:
       # ── molt.gno Registrar ───────────────────────────────────────────────────
       - name: MoltRegistrar
         address: "0x4b54213c1e5826497ff39ba8c87a7b75d2bc3c50"
-        handler: src/EventHandlers.ts
+        handler: src/handlers/MoltRegistrar.ts
         events:
           - event: "SubnameMinted(bytes32 indexed parentNode, bytes32 indexed labelhash, bytes32 indexed subnode, uint256 tokenId, address owner)"
           - event: "TokenboundAccountCreated(address indexed account, address indexed tokenContract, uint256 indexed tokenId)"
@@ -36,7 +36,7 @@ chains:
       # ── openclaw.gno Registrar ───────────────────────────────────────────────
       - name: OpenClawRegistrar
         address: "0xbD8285A8455CCEC4bE671D9eE3924Ab1264fcbbe"
-        handler: src/EventHandlers.ts
+        handler: src/handlers/OpenClawRegistrar.ts
         events:
           - event: "SubnameMinted(bytes32 indexed parentNode, bytes32 indexed labelhash, bytes32 indexed subnode, uint256 tokenId, address owner)"
           - event: "TokenboundAccountCreated(address indexed account, address indexed tokenContract, uint256 indexed tokenId)"
@@ -44,7 +44,7 @@ chains:
       # ── picoclaw.gno Registrar ───────────────────────────────────────────────
       - name: PicoClawRegistrar
         address: "0xe5fd65562698f46ea9762bd38141535b1fd875b5"
-        handler: src/EventHandlers.ts
+        handler: src/handlers/PicoClawRegistrar.ts
         events:
           - event: "SubnameMinted(bytes32 indexed parentNode, bytes32 indexed labelhash, bytes32 indexed subnode, uint256 tokenId, address owner)"
           - event: "TokenboundAccountCreated(address indexed account, address indexed tokenContract, uint256 indexed tokenId)"
@@ -52,6 +52,6 @@ chains:
       # ── GhostAgentMetadataRegistry (ERC-8048 sidecar) ───────────────────────
       - name: MetadataRegistry
         address: "0x0106341056a8790f4b924c380ed5B81B2a062bCE"
-        handler: src/EventHandlers.ts
+        handler: src/handlers/MetadataRegistry.ts
         events:
           - event: "MetadataSet(uint256 indexed tokenId, string indexed key, bytes value)"

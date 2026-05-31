@@ -1,23 +1,5 @@
-import { IdentityRegistry, GhostRegistry, MetadataRegistry } from "generated";
+import { GhostRegistry } from "generated";
 
-// ── ERC-8004 Identity Registry ──────────────────────────────────────────
-IdentityRegistry.AgentRegistered.handler(async ({ event, context }) => {
-  const { agentId, owner, agentURI } = event.params;
-  const chainId = event.chainId;
-
-  const reg = {
-    id: `${chainId}:${agentId.toString()}`,
-    agentId,
-    owner: owner.toLowerCase(),
-    agentURI,
-    registeredAt: BigInt(event.block.timestamp),
-    blockNumber: BigInt(event.block.number),
-    txHash: event.transaction.hash,
-  };
-  context.Erc8004Registration.set(reg);
-});
-
-// ── GhostRegistry v2 (BYO governor mapping) ─────────────────────────────
 GhostRegistry.Registered.handler(async ({ event, context }) => {
   const { tokenId, name, owner, tba, safe } = event.params;
 
@@ -100,21 +82,5 @@ GhostRegistry.ByoGovernorSet.handler(async ({ event, context }) => {
     agentName: existing?.agentName ?? null,
     erc8004AgentId: existing?.erc8004AgentId ?? null,
     lastUpdated: BigInt(event.block.timestamp),
-  });
-});
-
-// ── GhostAgentMetadataRegistry (ERC-8048 sidecar) ───────────────────────
-MetadataRegistry.MetadataSet.handler(async ({ event, context }) => {
-  const { tokenId, key, value } = event.params;
-  const id = `${tokenId.toString()}:${key}`;
-
-  context.Metadata.set({
-    id,
-    tokenId,
-    key,
-    value,
-    setAt: BigInt(event.block.timestamp),
-    blockNumber: BigInt(event.block.number),
-    txHash: event.transaction.hash,
   });
 });
