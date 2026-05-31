@@ -2,11 +2,11 @@
   "compilerOptions": {
     "target": "ES2020",
     "module": "ES2020",
-    "moduleResolution": "bundler",
+    "moduleResolution": "node",
     "baseUrl": ".",
     "paths": {
-      "generated": ["./generated"],
-      "generated/*": ["./generated/*"]
+      "generated": ["./generated/src/index.ts", "./generated/index.ts"],
+      "generated/*": ["./generated/src/*", "./generated/*"]
     },
     "strict": true,
     "esModuleInterop": true,
