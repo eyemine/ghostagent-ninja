@@ -331,52 +331,40 @@ export default function DashboardHome() {
                 identityNft?: { owner?: string; tld?: string | null } | null;
                 principal?: string | null;
                 safe?: string | null;
-                tld?: string | null;
+                safeAddress?: string | null;
+                tbaAddress?: string | null;
                 accountTier?: string;
-                tier?: string;
               };
 
               const owner = identity.onChainOwner ?? identity.identityNft?.owner ?? null;
-              // For BYO agents: controller (minter EOA) owns the agent
-              const controller = (identity as Record<string, unknown>).principal as string | null ?? null;
-              const safe = (identity as Record<string, unknown>).safeAddress as string | null ?? null;
-              const candidates = [owner, controller, safe].filter(Boolean) as string[];
+              const controller = identity.principal ?? null;
+              const safeAddr = identity.safeAddress ?? identity.safe ?? null;
+              const candidates = [owner, controller, safeAddr].filter(Boolean) as string[];
               const isOwner = candidates.some(c => c.toLowerCase() === connectedWallet.toLowerCase());
               if (!isOwner) return null;
 
-              // Enrich with live lookup + agent card in parallel
-              const [lookupResult, cardResult] = await Promise.allSettled([
-                fetch(`/api/agent-lookup?q=${encodeURIComponent(a.name)}`, { signal: AbortSignal.timeout(12000) }),
-                fetch(`/api/agent-card?agent=${a.name}`, {
-                  headers: { 'Accept': 'application/json' },
-                  signal: AbortSignal.timeout(15000),
-                }),
-              ]);
-
-              let lookup: { tbaAddress?: string | null; safe?: string | null; accountTier?: string; tld?: string | null } | null = null;
-              if (lookupResult.status === 'fulfilled' && lookupResult.value.ok) {
-                try { lookup = await lookupResult.value.json(); } catch { /* non-fatal */ }
-              }
-
+              // Fetch agent card image — tier/TBA/TLD all come from getAgentIdentity now
               let imageUrl: string | undefined;
-              if (cardResult.status === 'fulfilled' && cardResult.value.ok) {
-                try {
-                  const card = await cardResult.value.json() as { image?: string };
+              try {
+                const cardRes = await fetch(`/api/agent-card?agent=${a.name}`, {
+                  headers: { 'Accept': 'application/json' },
+                  signal: AbortSignal.timeout(10000),
+                });
+                if (cardRes.ok) {
+                  const card = await cardRes.json() as { image?: string };
                   if (card.image) imageUrl = card.image;
-                } catch { /* non-fatal */ }
-              }
+                }
+              } catch { /* non-fatal */ }
 
-              const tierRaw = (lookup?.accountTier ?? identity.accountTier ?? identity.tier ?? 'basic').toLowerCase();
               // Normalize: 'lite' is legacy Pro branding
+              const tierRaw = (identity.accountTier ?? 'basic').toLowerCase();
               const tier: AgentTier = (tierRaw === 'free' || tierRaw === 'basic') ? 'free' : 'pro';
-              
-              const tbaAddr = (identity as Record<string, unknown>).tbaAddress as string | null ?? null;
-              const safeAddr = (identity as Record<string, unknown>).safeAddress as string | null ?? null;
+
               return {
                 name:        a.name,
-                namespace:   lookup?.tld ?? identity.tld ?? identity.identityNft?.tld ?? a.tld ?? 'nftmail.gno',
-                tba:         tbaAddr ?? lookup?.tbaAddress ?? safeAddr ?? lookup?.safe ?? identity.safe ?? connectedWallet,
-                safeAddress: safeAddr ?? lookup?.safe ?? identity.safe ?? undefined,
+                namespace:   identity.identityNft?.tld ?? a.tld ?? 'nftmail.gno',
+                tba:         identity.tbaAddress ?? safeAddr ?? identity.safe ?? connectedWallet,
+                safeAddress: safeAddr ?? undefined,
                 tier,
                 hostScore: 0,
                 inbox:     0,

@@ -2143,11 +2143,12 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
             } catch { if (!onChainOwner) onChainOwner = gnoOwnerRaw; }
           }
 
-          // Parse safe + storyIp — D1 takes precedence
+          // Parse safe + storyIp + accountTier — D1 takes precedence
           let safe: string | null = _d1Row?.safe ?? null;
           let storyIp: string | null = _d1Row?.story_ip ?? null;
+          let accountTier: string = _d1Row?.tier ?? 'basic';
           if (!_d1Row && acctTierRaw) {
-            try { const t = JSON.parse(acctTierRaw); safe = t.safe || null; storyIp = t.story_ip || null; } catch {}
+            try { const t = JSON.parse(acctTierRaw); safe = t.safe || null; storyIp = t.story_ip || null; accountTier = t.tier || 'basic'; } catch {}
           }
 
           // Parse TBA address (tba: key set by byo-molt or retrofit-tba)
@@ -2196,6 +2197,8 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
             // Safe (multisig treasury) — both field names for compatibility
             safe: safe ?? null,
             safeAddress: safe ?? null,
+            // Account tier (basic / lite / pro / ghost)
+            accountTier,
             // TBA (Gnosis-side mirror ERC-6551 token bound account — source chain controller of Safe)
             tbaAddress: tbaAddress ?? null,
             byoTba: byoTba ?? null,
