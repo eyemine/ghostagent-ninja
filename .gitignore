@@ -65,3 +65,7 @@ coverage/
 docs/*.md
 tsconfig.tsbuildinfo
 package-lock.json
+
+# Historical Envio scaffolding remnants at repo root (real indexer lives in indexer/)
+/config.yaml
+/schema.graphql
