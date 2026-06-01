@@ -19,6 +19,7 @@ async function tbaOwner(address: string): Promise<string | null> {
         jsonrpc: '2.0', id: 1, method: 'eth_call',
         params: [{ to: address, data: '0x8da5cb5b' }, 'latest'], // owner()
       }),
+      signal: AbortSignal.timeout(3000),
     });
     const data = await res.json() as { result?: string };
     if (!data.result || data.result.length < 66) return null;
@@ -70,6 +71,7 @@ async function buildLabelMap(contract: string): Promise<Map<number, string>> {
         // Filter to SubnameMinted topic only: keccak256("SubnameMinted(bytes32,bytes32,bytes32,uint256,address)")
         params: [{ address: contract, topics: ['0xe6468e1dbe999d7ba9f42b63f066848683db5dfec327d25e627f6da2a9d3980f'], fromBlock: 'earliest', toBlock: 'latest' }],
       }),
+      signal: AbortSignal.timeout(5000),
     });
     const logsData = await logsRes.json() as { result?: any[] };
     if (!logsData.result?.length) return labelMap;
@@ -82,6 +84,7 @@ async function buildLabelMap(contract: string): Promise<Map<number, string>> {
       fetch(GNOSIS_RPC, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_getTransactionByHash', params: [h] }),
+        signal: AbortSignal.timeout(3000),
       }).then(r => r.json() as Promise<{ result?: { input: string; hash: string } }>)
     ));
 
@@ -144,6 +147,7 @@ async function getTotalSupply(contract: string): Promise<number> {
         jsonrpc: '2.0', id: 1, method: 'eth_call',
         params: [{ to: contract, data: '0x18160ddd' }, 'latest'],
       }),
+      signal: AbortSignal.timeout(3000),
     });
     const data = await res.json() as { result?: string };
     if (!data.result || data.result === '0x') return 0;
@@ -160,6 +164,7 @@ async function isAgentRegistered(name: string): Promise<boolean> {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'getAcctTier', localPart: name, tld: '' }),
+      signal: AbortSignal.timeout(4000),
     });
     if (!res.ok) return false;
     const data = await res.json() as { tier?: string; error?: string };
@@ -177,6 +182,7 @@ async function getAgentMeta(name: string): Promise<{ safeAddress: string | null;
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'getAgentIdentity', agentName: name }),
+      signal: AbortSignal.timeout(4000),
     });
     if (!res.ok) return { safeAddress: null, tbaAddress: null, imageUrl: null };
     const data = await res.json() as Record<string, unknown>;
@@ -189,6 +195,7 @@ async function getAgentMeta(name: string): Promise<{ safeAddress: string | null;
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'kvGet', key: `byo-origin-image:${name}` }),
+        signal: AbortSignal.timeout(4000),
       });
       if (imgRes.ok) {
         const imgData = await imgRes.json() as { value?: string | null };
@@ -222,6 +229,7 @@ async function fetchNftsForContract(wallet: string, contract: string, namespace:
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_call',
             params: [{ to: contract, data: '0x6352211e' + tokenIdHex }, 'latest'] }),
+          signal: AbortSignal.timeout(3000),
         });
         const ownerData = await ownerRes.json() as { result?: string };
         if (!ownerData.result || ownerData.result.length < 66) return null;
@@ -262,12 +270,12 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    // Fetch on-chain beacon NFTs owned by the wallet
-    const onChainNfts: NftBody[] = [];
-    for (const [namespace, contract] of Object.entries(BEACON_CONTRACTS)) {
-      const nfts = await fetchNftsForContract(wallet, contract, namespace);
-      onChainNfts.push(...nfts);
-    }
+    // Fetch on-chain beacon NFTs owned by the wallet — all contracts in parallel
+    const contractEntries = Object.entries(BEACON_CONTRACTS);
+    const results = await Promise.allSettled(
+      contractEntries.map(([namespace, contract]) => fetchNftsForContract(wallet, contract, namespace))
+    );
+    const onChainNfts: NftBody[] = results.flatMap(r => r.status === 'fulfilled' ? r.value : []);
 
     // Partition: agents (ERC-8004 registered) vs bodies (NFTs without brain)
     const agents = onChainNfts.filter(n => n.isAgent);

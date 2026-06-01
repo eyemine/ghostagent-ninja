@@ -150,14 +150,21 @@ export async function GET(req: NextRequest) {
 
   // Process: BYO origin image (already fetched in parallel above)
   let originImageUrl: string | null = null;
+  let byoNftType: string | null = null;
   if (byoRes.status === 'fulfilled' && byoRes.value.ok) {
     try {
       const { value } = await byoRes.value.json() as { value?: string | null };
       if (value) {
-        const parsed = JSON.parse(value) as { imageUrl?: string };
+        const parsed = JSON.parse(value) as { imageUrl?: string; nftType?: string };
         if (parsed.imageUrl) originImageUrl = parsed.imageUrl;
+        if (parsed.nftType) byoNftType = parsed.nftType;
       }
     } catch { /* Non-fatal */ }
+  }
+
+  // ENS fallback: if nftType is 'ens' but no imageUrl stored, use ENS avatar API (no tokenId needed)
+  if (!originImageUrl && byoNftType === 'ens') {
+    originImageUrl = `https://metadata.ens.domains/mainnet/avatar/${agentName}.eth`;
   }
 
   // Hyphen-format fallback for BYO image (only if dot-format returned nothing)

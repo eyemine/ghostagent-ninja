@@ -356,7 +356,7 @@ export default function DashboardHome() {
                 }
               } catch { /* non-fatal */ }
 
-              // Normalize: 'lite' is legacy Pro branding
+              // Tier: 'basic' = free, 'lite'/'pro' = pro (lite is the stored value, pro is the display label), 'premium'/'ghost' = pro
               const tierRaw = (identity.accountTier ?? 'basic').toLowerCase();
               const tier: AgentTier = (tierRaw === 'free' || tierRaw === 'basic') ? 'free' : 'pro';
 
