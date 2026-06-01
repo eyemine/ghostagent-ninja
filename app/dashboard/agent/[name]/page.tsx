@@ -565,7 +565,7 @@ export default function AgentDetailPage() {
           {AGENT_ACTIONS.map(action => (
             <Link
               key={action.key}
-              href={typeof action.href === 'function' ? action.href(String(name)) : action.href()}
+              href={typeof action.href === 'function' ? action.href(String(name)) : action.href}
               className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition shrink-0 ${action.color}`}
             >
               {action.label}
