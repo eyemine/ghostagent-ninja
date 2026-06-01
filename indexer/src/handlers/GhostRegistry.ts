@@ -1,6 +1,6 @@
-import { GhostRegistry } from "generated";
+import { indexer } from "envio";
 
-GhostRegistry.Registered.handler(async ({ event, context }) => {
+indexer.onEvent({ contract: "GhostRegistry", event: "Registered" }, async ({ event, context }) => {
   const { tokenId, name, owner, tba, safe } = event.params;
 
   const agent = {
@@ -24,12 +24,12 @@ GhostRegistry.Registered.handler(async ({ event, context }) => {
     safeAddress: safeId,
     sources: existing ? `${existing.sources},ghostregistry` : "ghostregistry",
     agentName: name,
-    erc8004AgentId: existing?.erc8004AgentId ?? null,
+    erc8004AgentId: existing?.erc8004AgentId ?? undefined,
     lastUpdated: BigInt(event.block.timestamp),
   });
 });
 
-GhostRegistry.Molted.handler(async ({ event, context }) => {
+indexer.onEvent({ contract: "GhostRegistry", event: "Molted" }, async ({ event, context }) => {
   const { tokenId, oldTba, newTba, safe } = event.params;
 
   const molt = {
@@ -50,7 +50,7 @@ GhostRegistry.Molted.handler(async ({ event, context }) => {
   }
 });
 
-GhostRegistry.PrincipalSet.handler(async ({ event, context }) => {
+indexer.onEvent({ contract: "GhostRegistry", event: "PrincipalSet" }, async ({ event, context }) => {
   const { agentId, principal } = event.params;
   const existing = await context.GhostAgent.get(agentId.toString());
   if (existing) {
@@ -58,7 +58,7 @@ GhostRegistry.PrincipalSet.handler(async ({ event, context }) => {
   }
 });
 
-GhostRegistry.ByoGovernorSet.handler(async ({ event, context }) => {
+indexer.onEvent({ contract: "GhostRegistry", event: "ByoGovernorSet" }, async ({ event, context }) => {
   const { byoContract, byoTokenId, safe, governor } = event.params;
 
   const byo = {
@@ -79,8 +79,8 @@ GhostRegistry.ByoGovernorSet.handler(async ({ event, context }) => {
     id: safeId,
     safeAddress: safeId,
     sources: existing ? `${existing.sources},byo` : "byo",
-    agentName: existing?.agentName ?? null,
-    erc8004AgentId: existing?.erc8004AgentId ?? null,
+    agentName: existing?.agentName ?? undefined,
+    erc8004AgentId: existing?.erc8004AgentId ?? undefined,
     lastUpdated: BigInt(event.block.timestamp),
   });
 });

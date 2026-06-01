@@ -74,6 +74,20 @@ type ByoAgent {
 
 # ── Safe lookup table (union of all Safe addresses seen) ────────────────────
 
+# ── ERC-8048 on-chain metadata ───────────────────────────────────────────────
+
+type Metadata {
+  id: ID!                   # "{tokenId}:{key}"
+  tokenId: BigInt!
+  key: String!
+  value: String!
+  setAt: BigInt!
+  blockNumber: BigInt!
+  txHash: String!
+}
+
+# ── Safe lookup table (union of all Safe addresses seen) ────────────────────
+
 type SafeIndex {
   id: ID!                   # Safe address (lowercase)
   safeAddress: String!

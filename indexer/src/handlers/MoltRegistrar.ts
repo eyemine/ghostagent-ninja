@@ -1,33 +1,30 @@
-import { MoltRegistrar } from "generated";
+import { indexer } from "envio";
 
-MoltRegistrar.SubnameMinted.handler(async ({ event, context }) => {
+const MOLT_ADDRESS = "0x4b54213c1e5826497ff39ba8c87a7b75d2bc3c50";
+
+indexer.onEvent({ contract: "MoltRegistrar", event: "SubnameMinted" }, async ({ event, context }) => {
   const { parentNode, labelhash, subnode, tokenId, owner } = event.params;
 
-  const mint = {
-    id: `${tokenId.toString()}:${event.block.number}`,
+  context.SubnameMint.set({
+    id: `molt:${tokenId.toString()}`,
+    registrar: "molt",
+    registrarAddress: MOLT_ADDRESS,
     parentNode,
     labelhash,
     subnode,
     tokenId,
     owner: owner.toLowerCase(),
+    tba: undefined,
     mintedAt: BigInt(event.block.timestamp),
     blockNumber: BigInt(event.block.number),
     txHash: event.transaction.hash,
-  };
-  context.SubnameMint.set(mint);
+  });
 });
 
-MoltRegistrar.TokenboundAccountCreated.handler(async ({ event, context }) => {
-  const { account, tokenContract, tokenId } = event.params;
-
-  const tba = {
-    id: `${tokenId.toString()}:${event.block.number}`,
-    account: account.toLowerCase(),
-    tokenContract: tokenContract.toLowerCase(),
-    tokenId,
-    createdAt: BigInt(event.block.timestamp),
-    blockNumber: BigInt(event.block.number),
-    txHash: event.transaction.hash,
-  };
-  context.TokenboundAccount.set(tba);
+indexer.onEvent({ contract: "MoltRegistrar", event: "TokenboundAccountCreated" }, async ({ event, context }) => {
+  const { account, tokenId } = event.params;
+  const existing = await context.SubnameMint.get(`molt:${tokenId.toString()}`);
+  if (existing) {
+    context.SubnameMint.set({ ...existing, tba: account.toLowerCase() });
+  }
 });

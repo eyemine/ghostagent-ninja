@@ -1,6 +1,6 @@
-import { IdentityRegistry } from "generated";
+import { indexer } from "envio";
 
-IdentityRegistry.AgentRegistered.handler(async ({ event, context }) => {
+indexer.onEvent({ contract: "IdentityRegistry", event: "AgentRegistered" }, async ({ event, context }) => {
   const { agentId, owner, agentURI } = event.params;
   const chainId = event.chainId;
 

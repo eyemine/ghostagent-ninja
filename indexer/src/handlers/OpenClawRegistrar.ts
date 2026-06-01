@@ -1,33 +1,30 @@
-import { OpenClawRegistrar } from "generated";
+import { indexer } from "envio";
 
-OpenClawRegistrar.SubnameMinted.handler(async ({ event, context }) => {
+const OPENCLAW_ADDRESS = "0xbD8285A8455CCEC4bE671D9eE3924Ab1264fcbbe";
+
+indexer.onEvent({ contract: "OpenClawRegistrar", event: "SubnameMinted" }, async ({ event, context }) => {
   const { parentNode, labelhash, subnode, tokenId, owner } = event.params;
 
-  const mint = {
-    id: `${tokenId.toString()}:${event.block.number}`,
+  context.SubnameMint.set({
+    id: `openclaw:${tokenId.toString()}`,
+    registrar: "openclaw",
+    registrarAddress: OPENCLAW_ADDRESS,
     parentNode,
     labelhash,
     subnode,
     tokenId,
     owner: owner.toLowerCase(),
+    tba: undefined,
     mintedAt: BigInt(event.block.timestamp),
     blockNumber: BigInt(event.block.number),
     txHash: event.transaction.hash,
-  };
-  context.SubnameMint.set(mint);
+  });
 });
 
-OpenClawRegistrar.TokenboundAccountCreated.handler(async ({ event, context }) => {
-  const { account, tokenContract, tokenId } = event.params;
-
-  const tba = {
-    id: `${tokenId.toString()}:${event.block.number}`,
-    account: account.toLowerCase(),
-    tokenContract: tokenContract.toLowerCase(),
-    tokenId,
-    createdAt: BigInt(event.block.timestamp),
-    blockNumber: BigInt(event.block.number),
-    txHash: event.transaction.hash,
-  };
-  context.TokenboundAccount.set(tba);
+indexer.onEvent({ contract: "OpenClawRegistrar", event: "TokenboundAccountCreated" }, async ({ event, context }) => {
+  const { account, tokenId } = event.params;
+  const existing = await context.SubnameMint.get(`openclaw:${tokenId.toString()}`);
+  if (existing) {
+    context.SubnameMint.set({ ...existing, tba: account.toLowerCase() });
+  }
 });

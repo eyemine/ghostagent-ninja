@@ -1,6 +1,6 @@
-import { MetadataRegistry } from "generated";
+import { indexer } from "envio";
 
-MetadataRegistry.MetadataSet.handler(async ({ event, context }) => {
+indexer.onEvent({ contract: "MetadataRegistry", event: "MetadataSet" }, async ({ event, context }) => {
   const { tokenId, key, value } = event.params;
   const id = `${tokenId.toString()}:${key}`;
 

@@ -1,33 +1,30 @@
-import { PicoClawRegistrar } from "generated";
+import { indexer } from "envio";
 
-PicoClawRegistrar.SubnameMinted.handler(async ({ event, context }) => {
+const PICOCLAW_ADDRESS = "0xe5fd65562698f46ea9762bd38141535b1fd875b5";
+
+indexer.onEvent({ contract: "PicoClawRegistrar", event: "SubnameMinted" }, async ({ event, context }) => {
   const { parentNode, labelhash, subnode, tokenId, owner } = event.params;
 
-  const mint = {
-    id: `${tokenId.toString()}:${event.block.number}`,
+  context.SubnameMint.set({
+    id: `picoclaw:${tokenId.toString()}`,
+    registrar: "picoclaw",
+    registrarAddress: PICOCLAW_ADDRESS,
     parentNode,
     labelhash,
     subnode,
     tokenId,
     owner: owner.toLowerCase(),
+    tba: undefined,
     mintedAt: BigInt(event.block.timestamp),
     blockNumber: BigInt(event.block.number),
     txHash: event.transaction.hash,
-  };
-  context.SubnameMint.set(mint);
+  });
 });
 
-PicoClawRegistrar.TokenboundAccountCreated.handler(async ({ event, context }) => {
-  const { account, tokenContract, tokenId } = event.params;
-
-  const tba = {
-    id: `${tokenId.toString()}:${event.block.number}`,
-    account: account.toLowerCase(),
-    tokenContract: tokenContract.toLowerCase(),
-    tokenId,
-    createdAt: BigInt(event.block.timestamp),
-    blockNumber: BigInt(event.block.number),
-    txHash: event.transaction.hash,
-  };
-  context.TokenboundAccount.set(tba);
+indexer.onEvent({ contract: "PicoClawRegistrar", event: "TokenboundAccountCreated" }, async ({ event, context }) => {
+  const { account, tokenId } = event.params;
+  const existing = await context.SubnameMint.get(`picoclaw:${tokenId.toString()}`);
+  if (existing) {
+    context.SubnameMint.set({ ...existing, tba: account.toLowerCase() });
+  }
 });
