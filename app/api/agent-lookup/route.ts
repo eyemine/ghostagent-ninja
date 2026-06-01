@@ -71,6 +71,7 @@ async function readRegistrarImpl(registrarAddress: string): Promise<string> {
         jsonrpc: '2.0', id: 1, method: 'eth_call',
         params: [{ to: registrarAddress, data: selector }, 'latest'],
       }),
+      signal: AbortSignal.timeout(3000),
     });
     const json = await res.json() as { result?: string };
     if (json.result && json.result !== '0x' && json.result.length >= 42) {
@@ -109,6 +110,7 @@ async function deriveTbaAddress(tokenId: number, tokenContract: string): Promise
         jsonrpc: '2.0', id: 1, method: 'eth_call',
         params: [{ to: ERC6551_REGISTRY, data }, 'latest'],
       }),
+      signal: AbortSignal.timeout(3000),
     });
     const json = await res.json() as { result?: string };
     if (!json.result || json.result === '0x') return null;
@@ -135,6 +137,7 @@ async function deriveTbaWithFallback(tokenId: number, currentRegistrar: string, 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'eth_getCode', params: [tba, 'latest'] }),
+        signal: AbortSignal.timeout(3000),
       });
       const codeJson = await codeRes.json() as { result?: string };
       if (codeJson.result && codeJson.result !== '0x') return tba;
@@ -151,6 +154,7 @@ async function deriveTbaWithFallback(tokenId: number, currentRegistrar: string, 
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ jsonrpc: '2.0', id: 3, method: 'eth_getCode', params: [oldTba, 'latest'] }),
+          signal: AbortSignal.timeout(3000),
         });
         const codeJson = await codeRes.json() as { result?: string };
         if (codeJson.result && codeJson.result !== '0x') return oldTba;
@@ -249,7 +253,12 @@ export async function GET(req: NextRequest) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'resolveAddress', name: lookupName }),
+      signal: AbortSignal.timeout(6000),
     });
+
+    if (!resolveRes.ok) {
+      return NextResponse.json({ error: `Worker error: ${resolveRes.status}` }, { status: 502 });
+    }
 
     const resolved = await resolveRes.json() as any;
 
