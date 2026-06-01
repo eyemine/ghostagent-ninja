@@ -3,6 +3,10 @@ name: ghostagent-indexer
 description: Real-time indexer for GhostAgent Protocol on Gnosis Chain.
 ecosystem: evm
 
+field_selection:
+  transaction_fields:
+    - hash
+
 chains:
   - id: 100  # Gnosis Chain mainnet
     start_block: 32000000
