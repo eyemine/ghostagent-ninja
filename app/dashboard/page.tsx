@@ -346,7 +346,7 @@ export default function DashboardHome() {
 
               // Enrich with live lookup + agent card in parallel
               const [lookupResult, cardResult] = await Promise.allSettled([
-                fetch(`/api/agent-lookup?q=${encodeURIComponent(a.name)}`, { signal: AbortSignal.timeout(5000) }),
+                fetch(`/api/agent-lookup?q=${encodeURIComponent(a.name)}`, { signal: AbortSignal.timeout(12000) }),
                 fetch(`/api/agent-card?agent=${a.name}`, {
                   headers: { 'Accept': 'application/json' },
                   signal: AbortSignal.timeout(15000),
