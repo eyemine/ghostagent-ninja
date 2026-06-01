@@ -349,7 +349,7 @@ export default function DashboardHome() {
                 fetch(`/api/agent-lookup?q=${encodeURIComponent(a.name)}`, { signal: AbortSignal.timeout(5000) }),
                 fetch(`/api/agent-card?agent=${a.name}`, {
                   headers: { 'Accept': 'application/json' },
-                  signal: AbortSignal.timeout(5000),
+                  signal: AbortSignal.timeout(15000),
                 }),
               ]);
 

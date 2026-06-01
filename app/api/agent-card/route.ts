@@ -41,35 +41,53 @@ export async function GET(req: NextRequest) {
 
   const sldFallback: SldKey = VALID_SLDS.includes(sldParam as SldKey) ? (sldParam as SldKey) : 'agent';
 
-  // Resolve current SLD and agentId from KV — single worker call
-  let sld: SldKey = sldFallback;
-  let allRegistrations: Erc8004Registration[] = [];
-  try {
-    // resolveAddress — get TLD
-    const kvRes = await fetch(WORKER_URL, {
+  // Fetch all 4 KV sources in parallel — they are independent of each other
+  const beaconName = agentName.replace(/\./g, '-');
+  const [kvRes, idRes, profileRes, byoRes] = await Promise.allSettled([
+    fetch(WORKER_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'resolveAddress', name: `${agentName}_` }),
-    });
-    if (kvRes.ok) {
-      const kvData = await kvRes.json() as Record<string, unknown>;
+      signal: AbortSignal.timeout(5000),
+    }),
+    fetch(WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'getAgentIdentity', agentName }),
+      signal: AbortSignal.timeout(5000),
+    }),
+    fetch(WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'getAgentProfile', agentName }),
+      signal: AbortSignal.timeout(5000),
+    }),
+    fetch(WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'kvGet', key: `byo-origin-image:${agentName}` }),
+      signal: AbortSignal.timeout(5000),
+    }),
+  ]);
+
+  // Process: TLD / SLD
+  let sld: SldKey = sldFallback;
+  if (kvRes.status === 'fulfilled' && kvRes.value.ok) {
+    try {
+      const kvData = await kvRes.value.json() as Record<string, unknown>;
       const kvTld = kvData?.tld as string | undefined;
       if (kvTld) {
         const kvSld = kvTld.split('.')[0] as SldKey;
         if (VALID_SLDS.includes(kvSld)) sld = kvSld;
       }
-    }
-  } catch { /* Non-fatal */ }
+    } catch { /* Non-fatal */ }
+  }
 
-  try {
-    // getAgentIdentity — get all-chain registrations
-    const idRes = await fetch(WORKER_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'getAgentIdentity', agentName }),
-    });
-    if (idRes.ok) {
-      const idData = await idRes.json() as Record<string, unknown>;
+  // Process: ERC-8004 registrations
+  let allRegistrations: Erc8004Registration[] = [];
+  if (idRes.status === 'fulfilled' && idRes.value.ok) {
+    try {
+      const idData = await idRes.value.json() as Record<string, unknown>;
       const erc8004 = idData?.erc8004 as Record<string, { agentId?: number; chainId?: number }> | undefined;
       if (erc8004) {
         const registryMain = ERC8004_ADDRESSES.mainnet.identityRegistry;
@@ -83,8 +101,8 @@ export async function GET(req: NextRequest) {
           allRegistrations.push({ agentId: aid, agentRegistry: `eip155:${cid}:${registryAddr}` });
         }
       }
-    }
-  } catch { /* Non-fatal — serve with empty registrations */ }
+    } catch { /* Non-fatal — serve with empty registrations */ }
+  }
 
   // Build base registration file
   let regFile: Erc8004RegistrationFile = buildErc8004RegistrationFile({ agentName, sld });
@@ -92,15 +110,10 @@ export async function GET(req: NextRequest) {
     regFile = { ...regFile, registrations: allRegistrations };
   }
 
-  // Merge per-agent KV profile overrides (description, webUrl, socialLinks)
-  try {
-    const profileRes = await fetch(WORKER_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'getAgentProfile', agentName }),
-    });
-    if (profileRes.ok) {
-      const { profile } = await profileRes.json() as { profile: Record<string, unknown> };
+  // Process: agent profile overrides
+  if (profileRes.status === 'fulfilled' && profileRes.value.ok) {
+    try {
+      const { profile } = await profileRes.value.json() as { profile: Record<string, unknown> };
       if (profile.description && typeof profile.description === 'string') {
         regFile = { ...regFile, description: profile.description };
       }
@@ -132,51 +145,42 @@ export async function GET(req: NextRequest) {
         ext.staticCardCid = profile.staticCardCid;
         ext.staticCardUrl = `https://gateway.lighthouse.storage/ipfs/${profile.staticCardCid}`;
       }
-    }
-  } catch {
-    // Non-fatal — serve base file without profile overrides
+    } catch { /* Non-fatal — serve base file without profile overrides */ }
   }
 
-  // BYO NFT molt: override image with origin NFT image if stored
-  // Try both dot format (email local part) and hyphen format (beacon label)
+  // Process: BYO origin image (already fetched in parallel above)
   let originImageUrl: string | null = null;
-  try {
-    const beaconName = agentName.replace(/\./g, '-');
-    const imgKv = await fetch(WORKER_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'kvGet', key: `byo-origin-image:${agentName}` }),
-    });
-    if (imgKv.ok) {
-      const { value } = await imgKv.json() as { value?: string | null };
+  if (byoRes.status === 'fulfilled' && byoRes.value.ok) {
+    try {
+      const { value } = await byoRes.value.json() as { value?: string | null };
       if (value) {
         const parsed = JSON.parse(value) as { imageUrl?: string };
-        if (parsed.imageUrl) {
-          originImageUrl = parsed.imageUrl;
-        }
-      } else if (beaconName !== agentName) {
-        // Try hyphen format as fallback
-        const imgKv2 = await fetch(WORKER_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'kvGet', key: `byo-origin-image:${beaconName}` }),
-        });
-        if (imgKv2.ok) {
-          const { value: value2 } = await imgKv2.json() as { value?: string | null };
-          if (value2) {
-            const parsed2 = JSON.parse(value2) as { imageUrl?: string };
-            if (parsed2.imageUrl) {
-              originImageUrl = parsed2.imageUrl;
-            }
-          }
+        if (parsed.imageUrl) originImageUrl = parsed.imageUrl;
+      }
+    } catch { /* Non-fatal */ }
+  }
+
+  // Hyphen-format fallback for BYO image (only if dot-format returned nothing)
+  if (!originImageUrl && beaconName !== agentName) {
+    try {
+      const imgKv2 = await fetch(WORKER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'kvGet', key: `byo-origin-image:${beaconName}` }),
+        signal: AbortSignal.timeout(5000),
+      });
+      if (imgKv2.ok) {
+        const { value: value2 } = await imgKv2.json() as { value?: string | null };
+        if (value2) {
+          const parsed2 = JSON.parse(value2) as { imageUrl?: string };
+          if (parsed2.imageUrl) originImageUrl = parsed2.imageUrl;
         }
       }
-    }
-    if (originImageUrl) {
-      regFile = { ...regFile, image: originImageUrl };
-    }
-  } catch {
-    // Non-fatal
+    } catch { /* Non-fatal */ }
+  }
+
+  if (originImageUrl) {
+    regFile = { ...regFile, image: originImageUrl };
   }
 
   // If no BYO image in KV, try to detect POW NFT pattern and fetch poster directly
