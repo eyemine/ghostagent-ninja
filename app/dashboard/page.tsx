@@ -344,30 +344,31 @@ export default function DashboardHome() {
               const isOwner = candidates.some(c => c.toLowerCase() === connectedWallet.toLowerCase());
               if (!isOwner) return null;
 
-              // Enrich with live lookup (TBA + normalized tier/tld)
-              let lookup: {
-                tbaAddress?: string | null;
-                safe?: string | null;
-                accountTier?: string;
-                tld?: string | null;
-              } | null = null;
-              try {
-                const lookupRes = await fetch(`/api/agent-lookup?q=${encodeURIComponent(a.name)}`);
-                if (lookupRes.ok) lookup = await lookupRes.json();
-              } catch { /* non-fatal */ }
-              
-              // Fetch agent card for image
+              // Enrich with live lookup + agent card in parallel
+              const [lookupResult, cardResult] = await Promise.allSettled([
+                fetch(`/api/agent-lookup?q=${encodeURIComponent(a.name)}`, { signal: AbortSignal.timeout(5000) }),
+                fetch(`/api/agent-card?agent=${a.name}`, {
+                  headers: { 'Accept': 'application/json' },
+                  signal: AbortSignal.timeout(5000),
+                }),
+              ]);
+
+              let lookup: { tbaAddress?: string | null; safe?: string | null; accountTier?: string; tld?: string | null } | null = null;
+              if (lookupResult.status === 'fulfilled' && lookupResult.value.ok) {
+                try { lookup = await lookupResult.value.json(); } catch { /* non-fatal */ }
+              }
+
               let imageUrl: string | undefined;
-              try {
-                const cardRes = await fetch(`/api/agent-card?agent=${a.name}`);
-                if (cardRes.ok) {
-                  const card = await cardRes.json() as { image?: string };
+              if (cardResult.status === 'fulfilled' && cardResult.value.ok) {
+                try {
+                  const card = await cardResult.value.json() as { image?: string };
                   if (card.image) imageUrl = card.image;
-                }
-              } catch { /* non-fatal */ }
+                } catch { /* non-fatal */ }
+              }
 
               const tierRaw = (lookup?.accountTier ?? identity.accountTier ?? identity.tier ?? 'basic').toLowerCase();
-              const tier: AgentTier = tierRaw === 'free' || tierRaw === 'basic' ? 'free' : 'pro';
+              // Normalize: 'lite' is legacy Pro branding
+              const tier: AgentTier = (tierRaw === 'free' || tierRaw === 'basic') ? 'free' : 'pro';
               
               const tbaAddr = (identity as Record<string, unknown>).tbaAddress as string | null ?? null;
               const safeAddr = (identity as Record<string, unknown>).safeAddress as string | null ?? null;
