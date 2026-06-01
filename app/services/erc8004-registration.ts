@@ -7,7 +7,7 @@
 import { SLD_VISUAL, type SldKey } from './genome-metadata';
 
 export const APP_DOMAIN = process.env.NEXT_PUBLIC_APP_URL ?? 'https://ghostagent.ninja';
-export const IPFS_GATEWAY = 'https://cloudflare-ipfs.com/ipfs';
+export const IPFS_GATEWAY = 'https://ipfs.io/ipfs';
 
 // ─── ERC-8004 Contract Addresses ─────────────────────────────────────────────
 // Same addresses on all mainnets; same addresses (different) on all testnets.

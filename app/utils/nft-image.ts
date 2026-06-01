@@ -3,7 +3,7 @@
  * Supports: data:application/json (URL-encoded or base64), https://, ipfs://
  */
 
-const IPFS_GATEWAY = 'https://cloudflare-ipfs.com/ipfs/';
+const IPFS_GATEWAY = 'https://ipfs.io/ipfs/';
 
 const RPC: Record<string, string> = {
   base:     'https://mainnet.base.org',

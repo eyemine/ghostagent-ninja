@@ -232,7 +232,7 @@ export function MoltStep3({ source, target, onBack, onSuccess }: MoltStep3Props)
               <div className="flex justify-between">
                 <span>Beacon CID</span>
                 <a
-                  href={`https://cloudflare-ipfs.com/ipfs/${result.newBeaconCid}`}
+                  href={`https://ipfs.io/ipfs/${result.newBeaconCid}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="font-mono text-sky-400 hover:underline"

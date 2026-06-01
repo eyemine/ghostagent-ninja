@@ -267,7 +267,7 @@ export function MoltModal({ agentName, currentIdentity, ownerWallet, onClose, on
                   <div className="flex justify-between text-xs">
                     <span className="text-[var(--muted)]">Beacon CID</span>
                     <a
-                      href={`https://cloudflare-ipfs.com/ipfs/${result.newBeaconCid}`}
+                      href={`https://ipfs.io/ipfs/${result.newBeaconCid}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="font-mono text-sky-400 hover:underline"
