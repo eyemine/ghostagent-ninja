@@ -39,6 +39,7 @@ interface AgentIdentity {
   accountTier: string;
   privacyTier: string;
   emailAddress: string;
+  tld: string | null;
   moltPath: { surgeReputationScore: number | null } | null;
 }
 
@@ -65,8 +66,8 @@ export default function EmbedAgentPanel() {
     });
   }, [name]);
 
-  const sldFromName  = card?.name?.split('.')?.[1] ?? null;
-  const sldMeta      = SLD_META[sldFromName ?? ''] ?? SLD_META['nftmail'];
+  const sldFromTld   = identity?.tld?.split('.')?.[0] ?? null;
+  const sldMeta      = SLD_META[sldFromTld ?? ''] ?? SLD_META['nftmail'];
   const privacyMeta  = PRIVACY_META[identity?.privacyTier ?? 'exposed'];
   const agentId      = card?.registrations?.[0]?.agentId ?? null;
   const emailService = card?.services?.find(s => s.name === 'email');
@@ -112,9 +113,9 @@ export default function EmbedAgentPanel() {
           <div className="flex-1 min-w-0">
             <div className="flex flex-wrap items-center gap-1 mb-0.5">
               <span className="text-sm font-bold text-[#f2eee4]">{name}</span>
-              {sldFromName && (
+              {identity?.tld && (
                 <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[8px] font-semibold ring-1 ${sldMeta.color} ${sldMeta.bg} ${sldMeta.ring}`}>
-                  .{sldFromName}.gno
+                  .{identity.tld}
                 </span>
               )}
               <span className={`inline-flex items-center gap-0.5 rounded-full bg-white/[0.04] px-1.5 py-0.5 text-[8px] font-semibold ring-1 ring-current/20 ${privacyMeta.color}`}>
