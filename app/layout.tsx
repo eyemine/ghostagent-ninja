@@ -4,8 +4,7 @@ import { Inter, Roboto_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 import { ErrorBoundary } from "./components/ErrorBoundary";
-import { AppNav } from "./components/AppNav";
-import { Footer } from "./components/Footer";
+import { ConditionalLayout } from "./components/ConditionalLayout";
 
 const geistSans = Inter({
   variable: "--font-geist-sans",
@@ -95,13 +94,13 @@ export default function RootLayout({
             `,
           }}
         />
-        <AppNav />
-        <ErrorBoundary>
-          <Providers>
-            {children}
-          </Providers>
-        </ErrorBoundary>
-        <Footer />
+        <ConditionalLayout>
+          <ErrorBoundary>
+            <Providers>
+              {children}
+            </Providers>
+          </ErrorBoundary>
+        </ConditionalLayout>
       </body>
     </html>
   );
