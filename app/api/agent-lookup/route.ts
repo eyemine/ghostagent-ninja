@@ -227,9 +227,11 @@ function normaliseQuery(q: string): { name: string; isAgent: boolean } {
   const withoutDomain = q.replace(/@nftmail\.box$/i, '').trim().toLowerCase();
   // Strip TLD suffixes (.agent.gno, .molt.gno, .nftmail.gno, .openclaw.gno, .picoclaw.gno, .vault.gno)
   const withoutTld = withoutDomain.replace(/\.(agent|molt|nftmail|openclaw|picoclaw|vault)\.gno$/i, '');
+  // Convert dots to hyphens to match KV storage format (chonk.676 → chonk-676)
+  const normalized = withoutTld.replace(/\./g, '-');
   // Strip trailing underscore to get base name
-  const isAgent = withoutTld.endsWith('_');
-  const name = isAgent ? withoutTld.slice(0, -1) : withoutTld;
+  const isAgent = normalized.endsWith('_');
+  const name = isAgent ? normalized.slice(0, -1) : normalized;
   return { name, isAgent };
 }
 
