@@ -225,9 +225,11 @@ export interface AgentIdentityGraph {
 function normaliseQuery(q: string): { name: string; isAgent: boolean } {
   // Strip @nftmail.box suffix if present
   const withoutDomain = q.replace(/@nftmail\.box$/i, '').trim().toLowerCase();
+  // Strip TLD suffixes (.agent.gno, .molt.gno, .nftmail.gno, .openclaw.gno, .picoclaw.gno, .vault.gno)
+  const withoutTld = withoutDomain.replace(/\.(agent|molt|nftmail|openclaw|picoclaw|vault)\.gno$/i, '');
   // Strip trailing underscore to get base name
-  const isAgent = withoutDomain.endsWith('_');
-  const name = isAgent ? withoutDomain.slice(0, -1) : withoutDomain;
+  const isAgent = withoutTld.endsWith('_');
+  const name = isAgent ? withoutTld.slice(0, -1) : withoutTld;
   return { name, isAgent };
 }
 

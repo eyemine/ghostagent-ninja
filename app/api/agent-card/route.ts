@@ -29,8 +29,11 @@ const CHAIN_IDS: Record<string, number> = {
 const VALID_SLDS: SldKey[] = ['agent', 'molt', 'vault', 'nftmail', 'picoclaw', 'openclaw'];
 
 export async function GET(req: NextRequest) {
-  const agentName = req.nextUrl.searchParams.get('agent') ?? '';
+  let agentName = req.nextUrl.searchParams.get('agent') ?? '';
   const sldParam  = req.nextUrl.searchParams.get('sld')   ?? 'nftmail';
+
+  // Normalize: strip TLD suffixes (.agent.gno, .molt.gno, etc.)
+  agentName = agentName.replace(/\.(agent|molt|nftmail|openclaw|picoclaw|vault)\.gno$/i, '');
 
   if (!agentName || !/^[a-z0-9][a-z0-9.-]{0,}[a-z0-9]$/.test(agentName)) {
     return NextResponse.json(
