@@ -8,8 +8,15 @@ const WORKER_URL = process.env.NEXT_PUBLIC_WORKER_URL ?? 'https://nftmail-email-
 
 const GHOST_LOGO = '/ghost-logo.png';
 
-type AgentTier = 'free' | 'pro';
+type AgentTier = 'basic' | 'lite' | 'premium' | 'ghost';
 type BrainType = 'CF Worker' | 'Safe Brain' | 'GlassBox';
+
+const TIER_LABEL: Record<string, string> = {
+  basic:   'Basic',
+  lite:    'Lite',
+  premium: 'Premium',
+  ghost:   'Ghost',
+};
 
 interface DemoAgent {
   name: string;
@@ -58,7 +65,7 @@ const DEMO_AGENTS: DemoAgent[] = [
     name: 'eyemine',
     namespace: 'openclaw.gno',
     tba: '0xb7e4...af13',
-    tier: 'pro',
+    tier: 'lite',
     hostScore: 72.3,
     inbox: 12,
     events: 3,
@@ -69,7 +76,7 @@ const DEMO_AGENTS: DemoAgent[] = [
     name: 'treasury',
     namespace: 'vault.gno',
     tba: '0xd4e5...d4e5',
-    tier: 'pro',
+    tier: 'premium',
     hostScore: 95.1,
     inbox: 47,
     events: 8,
@@ -80,7 +87,7 @@ const DEMO_AGENTS: DemoAgent[] = [
     name: 'hive',
     namespace: 'molt.gno',
     tba: '0xc3d4...c3d4',
-    tier: 'free',
+    tier: 'basic',
     hostScore: 22.0,
     inbox: 6,
     events: 1,
@@ -167,19 +174,14 @@ function AgentCard({ agent, onSelect, selected }: { agent: DemoAgent; onSelect: 
 
           {/* Badges */}
           <div className="mt-2 flex flex-wrap gap-1">
-            {agent.tier === 'pro' ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-violet-500/15 px-2 py-0.5 text-[9px] font-bold text-violet-300 ring-1 ring-violet-500/30">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/collection-icons/lite.png" alt="Pro" className="h-3 w-3 object-contain" />
-                PRO
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1 rounded-full bg-zinc-500/15 px-2 py-0.5 text-[9px] font-medium text-zinc-400 ring-1 ring-zinc-500/20">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/collection-icons/basic.png" alt="Basic" className="h-3 w-3 object-contain" />
-                BASIC
-              </span>
-            )}
+            <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-medium ring-1 ${
+              agent.tier === 'ghost' ? 'bg-purple-500/15 text-purple-300 ring-purple-500/30' :
+              agent.tier === 'premium' ? 'bg-amber-500/15 text-amber-300 ring-amber-500/30' :
+              agent.tier === 'lite' ? 'bg-violet-500/15 text-violet-300 ring-violet-500/30' :
+              'bg-zinc-500/15 text-zinc-400 ring-zinc-500/20'
+            }`}>
+              {TIER_LABEL[agent.tier] ?? agent.tier.toUpperCase()}
+            </span>
             {agent.ipDomain && (
               <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-[9px] font-medium text-emerald-300 ring-1 ring-emerald-500/20 truncate max-w-full">
                 {agent.ipDomain}
@@ -208,11 +210,11 @@ function AgentCard({ agent, onSelect, selected }: { agent: DemoAgent; onSelect: 
         ))}
       </div>
 
-      {/* Free tier warning */}
-      {agent.tier === 'free' && (
+      {/* Basic tier warning */}
+      {agent.tier === 'basic' && (
         <div className="mt-4 flex items-start gap-2 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2">
           <svg className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-          <span className="text-[10px] text-amber-300/80">Free tier — 8-day history window. Molt to Pro for persistent storage + IP protection.</span>
+          <span className="text-[10px] text-amber-300/80">Basic tier — 8-day history window. Molt to Lite for persistent storage + IP protection.</span>
         </div>
       )}
       {selected && (
@@ -340,9 +342,10 @@ export default function DashboardHome() {
               } catch { /* non-fatal */ }
 
               // Tier: prefer agent-lookup (authoritative via resolveAddress), fall back to identity
-              // 'basic' = free, 'lite'/'premium'/'ghost' = pro
               const tierRaw = (lookupTier ?? identity.accountTier ?? 'basic').toLowerCase();
-              const tier: AgentTier = (tierRaw === 'free' || tierRaw === 'basic') ? 'free' : 'pro';
+              const tier: AgentTier = (['basic', 'lite', 'premium', 'ghost'] as AgentTier[]).includes(tierRaw as AgentTier)
+                ? (tierRaw as AgentTier)
+                : 'basic';
 
               return {
                 name:        a.name,
