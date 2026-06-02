@@ -2,6 +2,17 @@
 const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
+  async headers() {
+    return [
+      {
+        source: '/embed/:path*',
+        headers: [
+          { key: 'X-Frame-Options',           value: 'ALLOWALL' },
+          { key: 'Content-Security-Policy',   value: "frame-ancestors *" },
+        ],
+      },
+    ];
+  },
   async rewrites() {
     return [
       {

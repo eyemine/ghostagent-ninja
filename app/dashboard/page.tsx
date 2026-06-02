@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
-import { WorkReceiptCard } from '../components/WorkReceiptCard';
 
 const WORKER_URL = process.env.NEXT_PUBLIC_WORKER_URL ?? 'https://nftmail-email-worker.richard-159.workers.dev';
 
@@ -92,30 +91,6 @@ const DEMO_AGENTS: DemoAgent[] = [
 
 // DEMO_BODIES removed - now fetching real NFT data via /api/my-nfts
 
-const DEMO_RECEIPTS = [
-  {
-    receiptNumber: 42,
-    cid: 'bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi',
-    licenseId: '0x1234567890abcdef1234567890abcdef12345678',
-    revenue: 10,
-    agentAddress: '0xb7e40c4b6a0e180577f6c34de944612eb8f3af13',
-    surgeGained: 0.1,
-    storyTxHash: '0x9876543210fedcba9876543210fedcba98765432',
-    timestamp: Date.now() - 3600000,
-  },
-  {
-    receiptNumber: 41,
-    cid: 'bafybeihdwdcefgh4c5mvc3jd4yachnuuokinmjnfcnvqbqhzanmkioebu',
-    licenseId: '0xabcdef1234567890abcdef1234567890abcdef12',
-    revenue: 25,
-    agentAddress: '0xd4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5',
-    surgeGained: 0.25,
-    storyTxHash: '0xfedcba9876543210fedcba9876543210fedcba98',
-    timestamp: Date.now() - 86400000,
-  },
-];
-
-// These will be replaced with real data fetched from APIs
 
 const NS_THEME: Record<string, { text: string; border: string; bg: string; selBorder: string; selBg: string; imgBorder: string; placeholder: string }> = {
   'agent.gno':    { text: 'text-blue-300',    border: 'border-blue-500/20',    bg: 'bg-blue-500/5',    selBorder: 'border-blue-400/50',    selBg: 'bg-blue-500/10',    imgBorder: 'border-blue-500/30',    placeholder: 'bg-blue-950/60' },
@@ -256,8 +231,6 @@ function AgentCard({ agent, onSelect, selected }: { agent: DemoAgent; onSelect: 
   );
 }
 
-const DEMO_RECEIPT_DATA = DEMO_RECEIPTS;
-
 type ActionHref = ((n: string) => string) | (() => string);
 
 const AGENT_ACTIONS = [
@@ -343,21 +316,32 @@ export default function DashboardHome() {
               const isOwner = candidates.some(c => c.toLowerCase() === connectedWallet.toLowerCase());
               if (!isOwner) return null;
 
-              // Fetch agent card image — tier/TBA/TLD all come from getAgentIdentity now
+              // Fetch agent card image + authoritative tier from agent-lookup in parallel
               let imageUrl: string | undefined;
+              let lookupTier: string | null = null;
               try {
-                const cardRes = await fetch(`/api/agent-card?agent=${a.name}`, {
-                  headers: { 'Accept': 'application/json' },
-                  signal: AbortSignal.timeout(10000),
-                });
-                if (cardRes.ok) {
-                  const card = await cardRes.json() as { image?: string };
+                const [cardRes, lookupRes] = await Promise.allSettled([
+                  fetch(`/api/agent-card?agent=${a.name}`, {
+                    headers: { 'Accept': 'application/json' },
+                    signal: AbortSignal.timeout(10000),
+                  }),
+                  fetch(`/api/agent-lookup?q=${a.name}`, {
+                    signal: AbortSignal.timeout(10000),
+                  }),
+                ]);
+                if (cardRes.status === 'fulfilled' && cardRes.value.ok) {
+                  const card = await cardRes.value.json() as { image?: string };
                   if (card.image) imageUrl = card.image;
+                }
+                if (lookupRes.status === 'fulfilled' && lookupRes.value.ok) {
+                  const lookup = await lookupRes.value.json() as { accountTier?: string };
+                  if (lookup.accountTier) lookupTier = lookup.accountTier;
                 }
               } catch { /* non-fatal */ }
 
-              // Tier: 'basic' = free, 'lite'/'pro' = pro (lite is the stored value, pro is the display label), 'premium'/'ghost' = pro
-              const tierRaw = (identity.accountTier ?? 'basic').toLowerCase();
+              // Tier: prefer agent-lookup (authoritative via resolveAddress), fall back to identity
+              // 'basic' = free, 'lite'/'premium'/'ghost' = pro
+              const tierRaw = (lookupTier ?? identity.accountTier ?? 'basic').toLowerCase();
               const tier: AgentTier = (tierRaw === 'free' || tierRaw === 'basic') ? 'free' : 'pro';
 
               return {
@@ -417,12 +401,13 @@ export default function DashboardHome() {
   const bodies = liveBodies ?? [];
   const brains = liveBrains ?? [];
   const isDemo = liveAgents === null;
-  
-  // Filter: My Bodies = bodies without brains, My Brains = brains without bodies
-  const orphanBodies = bodies.filter(body => 
-    !brains.some(brain => brain.agent === body.name)
+
+  // Exclude bodies that already appear as agents in the My Agents section
+  const agentNames = new Set(agents.map(a => a.name));
+  const orphanBodies = bodies.filter(body =>
+    !agentNames.has(body.name) && !brains.some(brain => brain.agent === body.name)
   );
-  const orphanBrains = brains.filter(brain => 
+  const orphanBrains = brains.filter(brain =>
     !bodies.some(body => body.name === brain.agent)
   );
 
@@ -525,37 +510,52 @@ export default function DashboardHome() {
             Mint Agent Body →
           </Link>
         </div>
-        <div className="overflow-hidden rounded-2xl border border-[rgba(176,128,92,0.35)] bg-[var(--card)]">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-[rgba(176,128,92,0.2)]">
-                {['NAME', 'NAMESPACE', 'TOKEN ID', 'TBA', 'MINTED'].map((h) => (
-                  <th key={h} className="px-4 py-3 text-left text-[10px] font-semibold tracking-wider text-[var(--muted)]">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {orphanBodies.map((body, i) => {
-                const nsColor = (NS_THEME[body.namespace] ?? NS_FALLBACK).text;
-                return (
-                  <tr
-                    key={body.name}
-                    onClick={() => setSelectedBody(body.name)}
-                    className={`cursor-pointer transition ${
-                      selectedBody === body.name ? 'bg-amber-500/5' : 'hover:bg-white/[0.02]'
-                    } ${i < orphanBodies.length - 1 ? 'border-b border-[rgba(176,128,92,0.15)]' : ''}`}
-                  >
-                    <td className="px-4 py-3 font-medium text-[#f2eee4]">{body.name}</td>
-                    <td className={`px-4 py-3 text-xs font-medium ${nsColor}`}>{body.namespace}</td>
-                    <td className="px-4 py-3 text-[var(--muted)]">#{body.tokenId}</td>
-                    <td className="px-4 py-3 font-mono text-xs text-[var(--muted)]">{body.tba}</td>
-                    <td className="px-4 py-3 text-xs text-[var(--muted)]">{body.minted}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        {!authenticated ? (
+          <div className="rounded-2xl border border-[rgba(176,128,92,0.2)] bg-[rgba(176,128,92,0.04)] px-6 py-8 text-center">
+            <p className="text-sm text-[var(--muted)]">Connect your wallet to see your bodies.</p>
+          </div>
+        ) : bodiesLoading ? (
+          <div className="rounded-2xl border border-[rgba(176,128,92,0.15)] bg-[rgba(176,128,92,0.03)] px-6 py-8 text-center">
+            <p className="text-sm text-[var(--muted)] animate-pulse">Loading your bodies…</p>
+          </div>
+        ) : orphanBodies.length === 0 ? (
+          <div className="rounded-2xl border border-zinc-700/30 bg-zinc-800/10 px-6 py-8 text-center space-y-1">
+            <p className="text-sm text-[var(--muted)]">No unpaired bodies found.</p>
+            <p className="text-xs text-zinc-600">Bodies are beacon NFTs not yet paired with a brain.</p>
+          </div>
+        ) : (
+          <div className="overflow-hidden rounded-2xl border border-[rgba(176,128,92,0.35)] bg-[var(--card)]">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-[rgba(176,128,92,0.2)]">
+                  {['NAME', 'NAMESPACE', 'TOKEN ID', 'TBA', 'MINTED'].map((h) => (
+                    <th key={h} className="px-4 py-3 text-left text-[10px] font-semibold tracking-wider text-[var(--muted)]">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {orphanBodies.map((body, i) => {
+                  const nsColor = (NS_THEME[body.namespace] ?? NS_FALLBACK).text;
+                  return (
+                    <tr
+                      key={body.name}
+                      onClick={() => setSelectedBody(body.name)}
+                      className={`cursor-pointer transition ${
+                        selectedBody === body.name ? 'bg-amber-500/5' : 'hover:bg-white/[0.02]'
+                      } ${i < orphanBodies.length - 1 ? 'border-b border-[rgba(176,128,92,0.15)]' : ''}`}
+                    >
+                      <td className="px-4 py-3 font-medium text-[#f2eee4]">{body.name}</td>
+                      <td className={`px-4 py-3 text-xs font-medium ${nsColor}`}>{body.namespace}</td>
+                      <td className="px-4 py-3 text-[var(--muted)]">#{body.tokenId}</td>
+                      <td className="px-4 py-3 font-mono text-xs text-[var(--muted)]">{body.tba}</td>
+                      <td className="px-4 py-3 text-xs text-[var(--muted)]">{body.minted}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
 
       {/* Body Action Bar */}
@@ -659,19 +659,15 @@ export default function DashboardHome() {
         <div className="h-px flex-1 bg-[var(--border)]" />
       </div>
 
-      {/* Telemetry — Work Receipts */}
+      {/* Telemetry */}
       <section>
-        <div className="mb-4 flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-semibold text-[#f2eee4]">Agent Telemetry</h2>
-            <p className="mt-0.5 text-xs text-[var(--muted)]">Live on-chain activity and inbox stats for your TBAs</p>
-          </div>
-          <span className="text-xs text-[var(--muted)]">Verified by Story Protocol</span>
+        <div className="mb-4">
+          <h2 className="text-xl font-semibold text-[#f2eee4]">Agent Telemetry</h2>
+          <p className="mt-0.5 text-xs text-[var(--muted)]">Agent on-chain activity log</p>
         </div>
-        <div className="grid gap-4">
-          {DEMO_RECEIPT_DATA.map((receipt) => (
-            <WorkReceiptCard key={receipt.receiptNumber} {...receipt} />
-          ))}
+        <div className="rounded-2xl border border-dashed border-[rgba(176,128,92,0.2)] bg-[rgba(176,128,92,0.03)] px-6 py-10 text-center">
+          <p className="text-sm text-[var(--muted)]">No on-chain activity yet.</p>
+          <p className="text-xs text-zinc-600 mt-1">Work receipts and transaction events will appear here once your agents start transacting.</p>
         </div>
       </section>
 
