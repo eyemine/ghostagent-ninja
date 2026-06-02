@@ -175,6 +175,31 @@ export default function EmbedAgentPanel() {
 
         <div className="h-px bg-[rgba(176,128,92,0.1)]" />
 
+        {/* Endpoints */}
+        <div className="space-y-1">
+          <div className="text-[8px] font-semibold tracking-wider text-zinc-600 uppercase mb-1">Endpoints</div>
+          {[
+            { label: 'WEB', value: `https://ghostagent.ninja/agent/${name}`, href: `https://ghostagent.ninja/agent/${name}` },
+            { label: 'A2A', value: `https://ghostagent.ninja/api/agent-card?agent=${name}`, href: `https://ghostagent.ninja/api/agent-card?agent=${name}` },
+            { label: 'EMAIL', value: emailService?.endpoint ?? '—', href: null },
+            { label: 'X402', value: 'https://ghostagent.ninja/api/trade-intent', href: 'https://ghostagent.ninja/api/trade-intent' },
+          ].map((row) => (
+            <div key={row.label} className="flex items-center justify-between text-[9px]">
+              <span className="text-zinc-600 w-10 shrink-0">{row.label}</span>
+              {row.href ? (
+                <a href={row.href} target="_blank" rel="noopener noreferrer"
+                  className="font-mono text-[rgba(176,128,92,0.75)] hover:text-[rgba(176,128,92,1)] transition truncate text-right">
+                  {row.value} ↗
+                </a>
+              ) : (
+                <span className="font-mono text-zinc-600 truncate text-right">{row.value}</span>
+              )}
+            </div>
+          ))}
+        </div>
+
+        <div className="h-px bg-[rgba(176,128,92,0.1)]" />
+
         {/* Footer */}
         <div className="flex items-center justify-between">
           <a
