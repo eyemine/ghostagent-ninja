@@ -9,6 +9,7 @@ import { base, mainnet } from 'viem/chains';
 import { MercuryoButton } from '../components/MercuryoWidget';
 import { EmailAliasToggle } from '../components/EmailAliasToggle';
 import type { AgentRegistryEntry } from '../api/agents/route';
+import { generateNormieHandles } from '../services/agent-identity-router';
 
 type NftType = 'ens' | 'chonk' | 'pownft' | 'normie' | 'mooncat' | 'other';
 type Step = 'check' | 'select-agent' | 'confirm' | 'molting' | 'done' | 'error';
@@ -144,25 +145,27 @@ async function fetchPownftImage(tokenId: string): Promise<{ name: string; imageU
   }
 }
 
-async function fetchNormieImage(tokenId: string): Promise<{ name: string; imageUrl: string | null }> {
+async function fetchNormieImage(tokenId: string): Promise<{ name: string; imageUrl: string | null; erc8004Name: string | null }> {
   try {
     const alchemyKey = process.env.NEXT_PUBLIC_ALCHEMY_API_KEY;
-    // Normies are on Ethereum
     const normieContract = '0x9eb6e2025b64f340691e424b7fe7022ffde12438';
     if (alchemyKey) {
       const res = await fetch(`https://eth-mainnet.g.alchemy.com/nft/v3/${alchemyKey}/getNFTMetadata?contractAddress=${normieContract}&tokenId=${tokenId}&refreshCache=false`);
       if (res.ok) {
-        const data = await res.json() as any;
+        const data = await res.json() as { name?: string; image?: { contentType?: string; pngUrl?: string; thumbnailUrl?: string; cachedUrl?: string; originalUrl?: string }; raw?: { metadata?: { agent_card?: { name?: string } } } };
         const isVideo = data?.image?.contentType?.startsWith('video/');
         const imageUrl = isVideo
-          ? (data?.image?.pngUrl || data?.image?.thumbnailUrl || null)
-          : (data?.image?.cachedUrl || data?.image?.originalUrl || data?.image?.pngUrl || null);
-        return { name: data?.name || `Normie #${tokenId}`, imageUrl };
+          ? (data?.image?.pngUrl ?? data?.image?.thumbnailUrl ?? null)
+          : (data?.image?.cachedUrl ?? data?.image?.originalUrl ?? data?.image?.pngUrl ?? null);
+        const nftName = data?.name ?? `Normie #${tokenId}`;
+        // ERC-8004 agent card name may be embedded in raw metadata
+        const erc8004Name = data?.raw?.metadata?.agent_card?.name ?? null;
+        return { name: nftName, imageUrl, erc8004Name };
       }
     }
     // Fallback: tokenURI on Ethereum
     const tokenIdHex = BigInt(tokenId).toString(16).padStart(64, '0');
-    const rpcRes = await fetch('https://eth-mainnet.g.alchemy.com/v2/demo', {
+    const rpcRes = await fetch('https://cloudflare-eth.com', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_call', params: [{ to: normieContract, data: '0xc87b56dd' + tokenIdHex }, 'latest'] }),
     });
@@ -172,14 +175,14 @@ async function fetchNormieImage(tokenId: string): Promise<{ name: string; imageU
       if (raw.startsWith('http') || raw.startsWith('ipfs://') || raw.startsWith('data:')) {
         const uri = raw.startsWith('ipfs://') ? `https://ipfs.io/ipfs/${raw.slice(7)}` : raw;
         if (!raw.startsWith('data:')) {
-          const meta = await (await fetch(uri, { signal: AbortSignal.timeout(5000) })).json() as any;
-          return { name: meta?.name || `Normie #${tokenId}`, imageUrl: meta?.image || null };
+          const meta = await (await fetch(uri, { signal: AbortSignal.timeout(5000) })).json() as { name?: string; image?: string; agent_card?: { name?: string } };
+          return { name: meta?.name ?? `Normie #${tokenId}`, imageUrl: meta?.image ?? null, erc8004Name: meta?.agent_card?.name ?? null };
         }
       }
     }
-    return { name: `Normie #${tokenId}`, imageUrl: null };
+    return { name: `Normie #${tokenId}`, imageUrl: null, erc8004Name: null };
   } catch {
-    return { name: `Normie #${tokenId}`, imageUrl: null };
+    return { name: `Normie #${tokenId}`, imageUrl: null, erc8004Name: null };
   }
 }
 
@@ -509,7 +512,7 @@ export default function OgNftMoltPage() {
     ens:     { nameLabel: 'ENS NAME', prefill: '' },
     chonk:   { nameLabel: 'CHONK NAME', prefill: 'chonk' },
     pownft:  { nameLabel: 'ATOM NAME', prefill: 'atom' },
-    normie:  { nameLabel: 'NORMIE NAME', prefill: 'normie' },
+    normie:  { nameLabel: 'NORMIE NAME', prefill: '' },
     mooncat: { nameLabel: 'MOONCAT NAME', prefill: 'mooncat' },
     other:   { nameLabel: 'VERIFIED COLLECTION', prefill: '' },
   };
@@ -543,7 +546,9 @@ export default function OgNftMoltPage() {
         const { name, imageUrl } = await fetchPownftImage(tokenId);
         preview = { type: 'pownft', tokenId, name, imageUrl, chain: 'mainnet' };
       } else if (nftType === 'normie') {
-        const { name, imageUrl } = await fetchNormieImage(tokenId);
+        const { name, imageUrl, erc8004Name } = await fetchNormieImage(tokenId);
+        const handles = generateNormieHandles(Number(tokenId), erc8004Name, name);
+        setPrimaryName(handles.slug + '.normie');
         preview = { type: 'normie', tokenId, name, imageUrl, chain: 'mainnet' };
       } else if (nftType === 'mooncat') {
         const { name, imageUrl } = await fetchMooncatImage(tokenId);
@@ -676,7 +681,7 @@ export default function OgNftMoltPage() {
           <p className="text-[#f2eee4] font-semibold">What happens</p>
           {(() => {
             const tid = tokenId || '[TokenID]';
-            const prefix = nftType === 'pownft' ? 'atom' : nftType === 'normie' ? 'normie' : nftType === 'chonk' ? 'chonk' : nftType === 'mooncat' ? 'mooncat' : null;
+            const prefix = nftType === 'pownft' ? 'atom' : nftType === 'chonk' ? 'chonk' : nftType === 'mooncat' ? 'mooncat' : null;
             // For 'other' collections use the field1 prefix
             const primary = prefix ? `${prefix}.${tid}@nftmail.box` : primaryName ? `${primaryName}@nftmail.box` : '[ENSname]@nftmail.box';
             const agent   = prefix ? `${prefix}.${tid}_@nftmail.box` : primaryName ? `${primaryName}_@nftmail.box` : '[ENSname]_@nftmail.box';
@@ -870,6 +875,9 @@ export default function OgNftMoltPage() {
                   <p className="text-[10px] text-[var(--muted)]">{nftPreview.chain === 'base' ? 'Base' : 'Ethereum'} · token #{nftPreview.tokenId}</p>
                   {collectionName === 'dxterminal' && primaryName && (
                     <p className="mt-0.5 font-mono text-[10px] text-cyan-400">{primaryName}@nftmail.box</p>
+                  )}
+                  {nftType === 'normie' && primaryName && (
+                    <p className="mt-0.5 font-mono text-[10px] text-fuchsia-400">{primaryName}@nftmail.box</p>
                   )}
                 </div>
               </div>

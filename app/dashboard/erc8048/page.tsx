@@ -38,7 +38,8 @@ const VERIFIED_COLLECTIONS: Record<string, {
     label: 'Normie',
     contract: '0x7Bc1C072742D8391817EB4Eb2317F98dc72C61dB',
     chain: 'base',
-    pattern: /^normie[._](\d+)/i,
+    // Matches both old-style normie.123 and new-style shadow-trader.normie (slug.normie)
+    pattern: /(?:^normie[._](\d+)|[._]normie$)/i,
     imageUrl: (id) => `https://base-mainnet.g.alchemy.com/nft/v3/${ALCHEMY_KEY}/getNFTMetadata?contractAddress=0x7Bc1C072742D8391817EB4Eb2317F98dc72C61dB&tokenId=${id}`,
   },
   mooncat: {
@@ -275,6 +276,29 @@ export default function Erc8048Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* ── Awakening Required banner (Normies without ERC-8004 name) ── */}
+      {pairedNft?.key === 'normie' && /^\d+\.normie$/i.test(agentParam) && (
+        <div className="mb-6 rounded-xl border border-amber-500/30 bg-amber-500/8 p-5">
+          <div className="flex items-start gap-3">
+            <span className="mt-0.5 text-base">⚡</span>
+            <div className="space-y-1.5">
+              <p className="text-sm font-semibold text-amber-300">Awakening Required for Named Identity</p>
+              <p className="text-xs leading-relaxed text-amber-100/70">
+                This Normie is using a token-ID fallback handle (<span className="font-mono text-amber-200">{agentParam}</span>).
+                To claim a named identity like <span className="font-mono text-amber-200">shadow-trader.normie@nftmail.box</span>,
+                the NFT must first be Awakened — i.e. publish an <strong className="text-amber-200">ERC-8004 Agent Card</strong> with a custom name field.
+              </p>
+              <p className="text-xs text-amber-100/50">
+                Once Awakened, pair your Normie again on the Pair NFT page to lock in the canonical handle. The sidecar below can still be enrolled now — it will be migrated automatically on Awakening.
+              </p>
+              <a href="/pair-nft" className="mt-1 inline-block rounded border border-amber-500/40 bg-amber-500/15 px-3 py-1.5 text-xs font-semibold text-amber-300 transition hover:bg-amber-500/25">
+                Pair with Named Identity →
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
 
       {!authenticated ? (
         <div className="rounded-xl border border-indigo-500/30 bg-indigo-500/10 p-6">
