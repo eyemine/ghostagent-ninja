@@ -3,8 +3,8 @@
 import { useState } from 'react';
 import type { TokenSidecarState } from '../../types/indexer';
 
-interface PodCardProps {
-  pod: TokenSidecarState;
+interface SidecarCardProps {
+  sidecar: TokenSidecarState;
   userAddress: string;
   refreshData: () => Promise<void>;
 }
@@ -20,7 +20,7 @@ function parseVaultUuid(vaultId?: string): number | null {
   return Number.isInteger(uuid) ? uuid : null;
 }
 
-export function PodCard({ pod, userAddress, refreshData }: PodCardProps) {
+export function SidecarCard({ sidecar, userAddress, refreshData }: SidecarCardProps) {
   const [processing, setProcessing] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -47,46 +47,46 @@ export function PodCard({ pod, userAddress, refreshData }: PodCardProps) {
   }
 
   async function handleRegister() {
-    await runAction('/api/cdr/register', { tokenId: pod.tokenId, storySafeAddress: userAddress });
+    await runAction('/api/cdr/register', { tokenId: sidecar.tokenId, storySafeAddress: userAddress });
   }
 
   async function handleProvision() {
-    if (!pod.storyIpId) return;
-    await runAction('/api/cdr/provision', { tokenId: pod.tokenId, ipId: pod.storyIpId });
+    if (!sidecar.storyIpId) return;
+    await runAction('/api/cdr/provision', { tokenId: sidecar.tokenId, ipId: sidecar.storyIpId });
   }
 
   async function handleUnlock() {
-    const vaultUuid = parseVaultUuid(pod.cdrVaultId);
+    const vaultUuid = parseVaultUuid(sidecar.cdrVaultId);
     if (vaultUuid === null) {
       setError('Invalid CDR vault id');
       return;
     }
-    await runAction('/api/cdr/unlock', { tokenId: pod.tokenId, userAddress, vaultUuid });
+    await runAction('/api/cdr/unlock', { tokenId: sidecar.tokenId, userAddress, vaultUuid });
   }
 
   return (
     <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-5 font-mono text-xs shadow-xl">
-      <img src={pod.image} alt={pod.name} className="mb-4 h-48 w-full rounded-lg border border-slate-800 object-cover" />
-      <h3 className="mb-3 truncate text-sm font-bold text-slate-200">{pod.name}</h3>
+      <img src={sidecar.image} alt={sidecar.name} className="mb-4 h-48 w-full rounded-lg border border-slate-800 object-cover" />
+      <h3 className="mb-3 truncate text-sm font-bold text-slate-200">{sidecar.name}</h3>
 
       <div className="my-3 space-y-2 border-y border-slate-800/60 py-3 text-slate-400">
-        <div className="truncate"><span className="text-indigo-400">story[ip_id]:</span> {pod.storyIpId ? short(pod.storyIpId, 10, 6) : 'UNSET'}</div>
-        <div className="truncate"><span className="text-indigo-400">story[license_id]:</span> {pod.storyLicenseId ?? 'UNSET'}</div>
-        <div className="truncate"><span className="text-indigo-400">cdr[vault_id]:</span> {pod.cdrVaultId ? short(pod.cdrVaultId, 14, 0) : 'UNSET'}</div>
+        <div className="truncate"><span className="text-indigo-400">story[ip_id]:</span> {sidecar.storyIpId ? short(sidecar.storyIpId, 10, 6) : 'UNSET'}</div>
+        <div className="truncate"><span className="text-indigo-400">story[license_id]:</span> {sidecar.storyLicenseId ?? 'UNSET'}</div>
+        <div className="truncate"><span className="text-indigo-400">cdr[vault_id]:</span> {sidecar.cdrVaultId ? short(sidecar.cdrVaultId, 14, 0) : 'UNSET'}</div>
       </div>
 
       <div className="mt-4 flex flex-col gap-2">
-        {!pod.isRegistered ? (
+        {!sidecar.isRegistered ? (
           <button onClick={handleRegister} disabled={processing} className="w-full rounded bg-indigo-600 py-2 font-bold text-white transition-all hover:bg-indigo-500 disabled:opacity-50">
             {processing ? 'MINTING IP ASSET...' : 'Register on Story L1'}
           </button>
-        ) : !pod.hasSidecarState ? (
+        ) : !sidecar.hasSidecarState ? (
           <button onClick={handleProvision} disabled={processing} className="w-full rounded bg-emerald-600 py-2 font-bold text-white transition-all hover:bg-emerald-500 disabled:opacity-50">
-            {processing ? 'PROVISIONING...' : 'Provision CDR Stems Vault'}
+            {processing ? 'PROVISIONING...' : 'Provision CDR Vault'}
           </button>
         ) : (
           <button onClick={handleUnlock} disabled={processing} className="w-full rounded border border-indigo-500/30 bg-slate-800 py-2 font-bold text-indigo-400 transition-all hover:bg-slate-700 disabled:opacity-50">
-            {processing ? 'UNLOCKING...' : 'Access Sovereign IP Pod'}
+            {processing ? 'UNLOCKING...' : 'Access Sovereign IP Sidecar'}
           </button>
         )}
       </div>

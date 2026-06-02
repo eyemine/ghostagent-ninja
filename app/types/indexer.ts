@@ -1,10 +1,15 @@
-export interface Erc8048RawState {
+export interface EnvioMetadataEntity {
   tokenId: string;
   key: string;
   value: `0x${string}`;
 }
 
-export interface ChonkPodMetadata {
+export interface EnvioMetadataResponse {
+  Metadata: EnvioMetadataEntity[];
+}
+
+export interface TokenSidecarState {
+  contractAddress: `0x${string}`;
   tokenId: number;
   name: string;
   image: string;
@@ -12,13 +17,5 @@ export interface ChonkPodMetadata {
   storyLicenseId?: string;
   cdrVaultId?: string;
   isRegistered: boolean;
-  hasVault: boolean;
-}
-
-export interface EnvioMetadataResponse {
-  Metadata: Array<{
-    tokenId: string;
-    key: string;
-    value: string;
-  }>;
+  hasSidecarState: boolean;
 }

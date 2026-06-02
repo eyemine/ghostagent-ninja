@@ -8,7 +8,8 @@
  * Hosted endpoint format: https://indexer.bigdevenergy.link/{deployId}/v1/graphql
  */
 
-import type { ChonkPodMetadata, EnvioMetadataResponse } from '../types/indexer';
+import type { TokenSidecarState, EnvioMetadataResponse } from '../types/indexer';
+import { decodeStringValue } from './erc8048-publisher';
 
 const ENDPOINT = process.env.NEXT_PUBLIC_ENVIO_ENDPOINT ?? process.env.NEXT_PUBLIC_ENVIO_GRAPHQL_URL ?? null;
 const BASE_CHONK_CONTRACT = process.env.NEXT_PUBLIC_BASE_CHONK_CONTRACT ?? '0x07152bfde079b5319e5308C43fB1DBc9C76CB4f9';
@@ -158,8 +159,8 @@ function normalizeHexAddress(value: string | null | undefined): `0x${string}` | 
   return value as `0x${string}`;
 }
 
-const QUERY_METADATA_BY_TOKEN_LIST = `
-  query GetPodMetadata($tokenIds: [BigInt!]) {
+const GET_SIDECAR_METADATA_QUERY = `
+  query GetSidecarMetadata($tokenIds: [BigInt!]) {
     Metadata(where: { tokenId: { _in: $tokenIds } }) {
       tokenId
       key
@@ -168,37 +169,47 @@ const QUERY_METADATA_BY_TOKEN_LIST = `
   }
 `;
 
-export async function fetchPodMetadataForWallet(walletAddress: string): Promise<ChonkPodMetadata[]> {
-  const ownedIds = await fetchChonkTokenIdsForWallet(walletAddress);
-  if (ownedIds.length === 0) return [];
+export async function fetchSovereignSidecarMatrix(
+  tokenContract: `0x${string}`,
+  tokenIds: number[],
+): Promise<TokenSidecarState[]> {
+  if (!ENDPOINT || tokenIds.length === 0) return [];
 
-  const data = await gql<EnvioMetadataResponse>(QUERY_METADATA_BY_TOKEN_LIST, {
-    tokenIds: ownedIds.map(String),
+  const data = await gql<EnvioMetadataResponse>(GET_SIDECAR_METADATA_QUERY, {
+    tokenIds: tokenIds.map(String),
   });
 
-  const records = data?.Metadata ?? [];
+  const metadataRows = data?.Metadata ?? [];
 
-  return ownedIds.map((id) => {
-    const tokenEvents = records.filter((event) => event.tokenId === id.toString());
-    const storyIpId = normalizeHexAddress(tokenEvents.find((event) => event.key === 'story[ip_id]')?.value);
-    const storyLicenseId = decodeHexString(tokenEvents.find((event) => event.key === 'story[license_id]')?.value);
-    const cdrVaultId = decodeHexString(tokenEvents.find((event) => event.key === 'cdr[vault_id]')?.value);
+  return tokenIds.map((id) => {
+    const tokenRecords = metadataRows.filter((row) => row.tokenId === id.toString());
+    const rawIpId = tokenRecords.find((r) => r.key === 'story[ip_id]')?.value;
+    const rawLicenseId = tokenRecords.find((r) => r.key === 'story[license_id]')?.value;
+    const rawVaultId = tokenRecords.find((r) => r.key === 'cdr[vault_id]')?.value;
 
     return {
+      contractAddress: tokenContract,
       tokenId: id,
-      name: `Chonk Virtual Artist #${id}`,
+      name: `Asset Identifier #${id}`,
       image: `https://api.chonks.carbonlocks.xyz/images/${id}.png`,
-      storyIpId,
-      storyLicenseId,
-      cdrVaultId,
-      isRegistered: !!storyIpId,
-      hasVault: !!cdrVaultId,
+      storyIpId: rawIpId ? normalizeHexAddress(rawIpId) : undefined,
+      storyLicenseId: rawLicenseId ? decodeStringValue(rawLicenseId) : undefined,
+      cdrVaultId: rawVaultId ? decodeStringValue(rawVaultId) : undefined,
+      isRegistered: !!rawIpId,
+      hasSidecarState: tokenRecords.length > 0,
     };
   });
 }
 
-async function fetchChonkTokenIdsForWallet(walletAddress: string): Promise<number[]> {
+// ── Wallet token discovery (ERC-721 Enumerable + fallback) ────────────────────
+
+export async function fetchTokenIdsForWallet(
+  walletAddress: string,
+  contractAddress: string,
+  rpcUrl: string = 'https://mainnet.base.org',
+): Promise<number[]> {
   if (!walletAddress.startsWith('0x')) return [];
+
   const configuredIds = process.env.NEXT_PUBLIC_CDR_DEMO_CHONK_TOKEN_IDS;
   if (configuredIds) {
     return configuredIds
@@ -207,13 +218,47 @@ async function fetchChonkTokenIdsForWallet(walletAddress: string): Promise<numbe
       .filter((value) => Number.isInteger(value) && value >= 0);
   }
 
+  // Primary: ERC-721 Enumerable (balanceOf + tokenOfOwnerByIndex)
+  try {
+    const balanceRes = await rpcCall(rpcUrl, 'eth_call', [{
+      to: contractAddress,
+      data: encodeBalanceOfCall(walletAddress),
+    }, 'latest']);
+    const balance = Number(BigInt(balanceRes ?? '0x0'));
+    if (balance === 0) return [];
+
+    const ids: number[] = [];
+    for (let i = 0; i < balance; i++) {
+      const idRes = await rpcCall(rpcUrl, 'eth_call', [{
+        to: contractAddress,
+        data: encodeTokenOfOwnerByIndexCall(walletAddress, i),
+      }, 'latest']);
+      const id = Number(BigInt(idRes ?? '0x0'));
+      if (Number.isSafeInteger(id)) ids.push(id);
+    }
+    return ids;
+  } catch {
+    // Fallback: limited-range eth_getLogs (last ~100k blocks)
+    return fetchTokenIdsViaLogs(walletAddress, contractAddress, rpcUrl);
+  }
+}
+
+async function fetchTokenIdsViaLogs(
+  walletAddress: string,
+  contractAddress: string,
+  rpcUrl: string,
+): Promise<number[]> {
   const owner = walletAddress.toLowerCase();
-  const contract = BASE_CHONK_CONTRACT.toLowerCase();
+  const contract = contractAddress.toLowerCase();
   const transferTopic = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
   const ownerTopic = `0x${owner.slice(2).padStart(64, '0')}`;
 
   try {
-    const res = await fetch('https://mainnet.base.org', {
+    const latestRes = await rpcCall(rpcUrl, 'eth_blockNumber', []);
+    const latest = Number(BigInt(latestRes ?? '0x0'));
+    const fromBlock = Math.max(0, latest - 100_000);
+
+    const res = await fetch(rpcUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -222,14 +267,15 @@ async function fetchChonkTokenIdsForWallet(walletAddress: string): Promise<numbe
         method: 'eth_getLogs',
         params: [{
           address: contract,
-          fromBlock: '0x0',
+          fromBlock: `0x${fromBlock.toString(16)}`,
           toBlock: 'latest',
           topics: [transferTopic, null, ownerTopic],
         }],
       }),
-      signal: AbortSignal.timeout(5000),
+      signal: AbortSignal.timeout(8000),
     });
-    const json = await res.json() as { result?: Array<{ topics?: string[] }> };
+    const json = await res.json() as { result?: Array<{ topics?: string[] }>; error?: unknown };
+    if (json.error) return [];
     return Array.from(new Set((json.result ?? [])
       .map((log) => log.topics?.[3])
       .filter((topic): topic is string => !!topic)
@@ -238,4 +284,26 @@ async function fetchChonkTokenIdsForWallet(walletAddress: string): Promise<numbe
   } catch {
     return [];
   }
+}
+
+async function rpcCall(rpcUrl: string, method: string, params: unknown[]): Promise<string | null> {
+  const res = await fetch(rpcUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+    signal: AbortSignal.timeout(5000),
+  });
+  const json = await res.json() as { result?: string; error?: unknown };
+  if (json.error) return null;
+  return json.result ?? null;
+}
+
+function encodeBalanceOfCall(owner: string): string {
+  return `0x70a08231000000000000000000000000${owner.slice(2).toLowerCase()}`;
+}
+
+function encodeTokenOfOwnerByIndexCall(owner: string, index: number): string {
+  const ownerPadded = owner.slice(2).toLowerCase().padStart(64, '0');
+  const indexHex = index.toString(16).padStart(64, '0');
+  return `0x2f745c59${ownerPadded}${indexHex}`;
 }
