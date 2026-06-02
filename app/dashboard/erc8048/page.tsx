@@ -48,6 +48,13 @@ const VERIFIED_COLLECTIONS: Record<string, {
     pattern: /^mooncat[._](\d+)/i,
     imageUrl: (id) => `https://eth-mainnet.g.alchemy.com/nft/v3/${ALCHEMY_KEY}/getNFTMetadata?contractAddress=0xc3f733ca98e0dad0386979eb96fb1722a1a05e69&tokenId=${id}`,
   },
+  dxterminal: {
+    label: 'DX Terminal',
+    contract: '0x41dc69132cce31fcbf6755c84538ca268520246f',
+    chain: 'base',
+    pattern: /^dxterm[._](\d+)/i,
+    imageUrl: (id) => `https://base-mainnet.g.alchemy.com/nft/v3/${ALCHEMY_KEY}/getNFTMetadata?contractAddress=0x41dc69132cce31fcbf6755c84538ca268520246f&tokenId=${id}`,
+  },
 };
 
 type VerifiedCollectionKey = keyof typeof VERIFIED_COLLECTIONS;
@@ -86,6 +93,12 @@ async function fetchNftImage(key: VerifiedCollectionKey, tokenId: string): Promi
       const r = await fetch(`https://eth-mainnet.g.alchemy.com/nft/v3/${ALCHEMY_KEY}/getNFTMetadata?contractAddress=${VERIFIED_COLLECTIONS.mooncat.contract}&tokenId=${tokenId}&refreshCache=false`);
       if (!r.ok) return null;
       const d = await r.json() as { image?: { cachedUrl?: string; pngUrl?: string } };
+      return d?.image?.cachedUrl ?? d?.image?.pngUrl ?? null;
+    }
+    if (key === 'dxterminal' && ALCHEMY_KEY) {
+      const r = await fetch(`https://base-mainnet.g.alchemy.com/nft/v3/${ALCHEMY_KEY}/getNFTMetadata?contractAddress=${VERIFIED_COLLECTIONS.dxterminal.contract}&tokenId=${tokenId}&refreshCache=false`);
+      if (!r.ok) return null;
+      const d = await r.json() as { image?: { cachedUrl?: string; pngUrl?: string; contentType?: string } };
       return d?.image?.cachedUrl ?? d?.image?.pngUrl ?? null;
     }
   } catch { /* fall through */ }

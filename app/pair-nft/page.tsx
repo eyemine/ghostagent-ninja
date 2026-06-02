@@ -39,7 +39,8 @@ const ENS_CONTRACT     = '0x57f1887a8BF19b14fC0dF6Fd9B2acc9Af147eA85';
 const POWNFT_CONTRACT  = '0x9abb7bddc43fa67c76a62d8c016513827f59be1b';
 // Normies live on Ethereum mainnet — single source of truth
 const NORMIE_CONTRACT = '0x9eb6e2025b64f340691e424b7fe7022ffde12438';
-const MOONCAT_CONTRACT = '0xc3f733ca98e0dad0386979eb96fb1722a1a05e69';
+const MOONCAT_CONTRACT  = '0xc3f733ca98e0dad0386979eb96fb1722a1a05e69';
+const DXTERMINAL_CONTRACT = '0x41dc69132cce31fcbf6755c84538ca268520246f';
 const TREASURY = '0xeD0B0694953158dd54D0c36D320b391f44cd67f3';
 const USDC_BASE = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
 const USDC_ETH  = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48';
@@ -59,8 +60,9 @@ const ICONS = {
   chonk:   `${CI}/chonk.svg`,
   pownft:  `${CI}/pownft.png`,
   normie:  `${CI}/normie.png`,
-  other:   `${CI}/other.png`,
-  mooncat: `${CI}/mooncat.png`,
+  other:      `${CI}/other.png`,
+  mooncat:    `${CI}/mooncat.png`,
+  dxterminal: `${CI}/dxterminal.png`,
   nftmail: `${CI}/nftmail.png`,
   molt:    `${CI}/molt.png`,
   openclaw:`${CI}/openclaw.png`,
@@ -71,6 +73,7 @@ const ICONS = {
 
 // Verified ERC-721 collections — whitelisted, check-only (not yet activated for minting)
 const VERIFIED_COLLECTIONS = [
+  { slug: 'dxterminal',      name: 'DX Terminal',        field1: 'dxterm',     contract: DXTERMINAL_CONTRACT,                                chain: 'base', rpc: 'https://mainnet.base.org',   opensea: 'https://opensea.io/collection/dxterminal' },
   { slug: 'deadfellaz',       name: 'Dead Fellaz',        field1: 'DFZ',        contract: '0x2acab3dea77832c09420663b0e1cb386031ba17b', chain: 'eth', rpc: 'https://cloudflare-eth.com', opensea: 'https://opensea.io/collection/dead-fellaz' },
   { slug: 'cryptoadz',       name: 'CrypToadz',          field1: 'Toad',       contract: '0x1cb1a5e65610aeff2551a50f76a87a7d3fb649c6', chain: 'eth', rpc: 'https://cloudflare-eth.com', opensea: 'https://opensea.io/collection/cryptoadz-by-gremplin' },
   { slug: 'cryptopunks',     name: 'CryptoPunks',        field1: 'Punk',       contract: '0xb47e3cd837dDF8e4c57F05d70Ab865de6e193BBB', chain: 'eth', rpc: 'https://cloudflare-eth.com', opensea: 'https://opensea.io/collection/cryptopunks' },
@@ -89,6 +92,8 @@ const TIER_FEES = { basic: 10, lite: 14, premium: 2 } as const;
 function paymentChainForNftType(type: NftType): 'base' | 'mainnet' {
   // Base NFTs: pay on Base (cheap ~$0.01)
   if (type === 'chonk') return 'base';
+  // 'other' type — check if the collection is on Base
+  // (handled dynamically via resolvedRpc chain, payment defaults to mainnet for safety)
   // Ethereum NFTs: ENS, POWNFT, Normies, Mooncat, Other ERC-721
   return 'mainnet';
 }
@@ -431,6 +436,7 @@ export default function OgNftMoltPage() {
     const alchemyKey = process.env.NEXT_PUBLIC_ALCHEMY_API_KEY;
     if (nftType === 'other') {
       const col = VERIFIED_COLLECTIONS.find(c => c.slug === collectionName);
+      if (col?.chain === 'base') return alchemyKey ? `https://base-mainnet.g.alchemy.com/v2/${alchemyKey}` : 'https://mainnet.base.org';
       return col?.rpc ?? 'https://cloudflare-eth.com';
     }
     if (nftType === 'chonk') {
@@ -629,6 +635,7 @@ export default function OgNftMoltPage() {
           {(() => {
             const tid = tokenId || '[TokenID]';
             const prefix = nftType === 'pownft' ? 'atom' : nftType === 'normie' ? 'normie' : nftType === 'chonk' ? 'chonk' : nftType === 'mooncat' ? 'mooncat' : null;
+            // For 'other' collections use the field1 prefix
             const primary = prefix ? `${prefix}.${tid}@nftmail.box` : primaryName ? `${primaryName}@nftmail.box` : '[ENSname]@nftmail.box';
             const agent   = prefix ? `${prefix}.${tid}_@nftmail.box` : primaryName ? `${primaryName}_@nftmail.box` : '[ENSname]_@nftmail.box';
             const beacon  = prefix ? `${prefix}-${tid}.nftmail.gno` : primaryName ? `${primaryName}.nftmail.gno` : '[ENSname].nftmail.gno';
