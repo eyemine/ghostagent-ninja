@@ -89,11 +89,14 @@ function isVerifiedCollectionSlug(slug: string): slug is VerifiedCollectionSlug 
 const TIER_FEES = { basic: 10, lite: 14, premium: 2 } as const;
 
 // Payment chain per NFT type — pay on the chain where NFT lives for user consistency
-function paymentChainForNftType(type: NftType): 'base' | 'mainnet' {
+function paymentChainForNftType(type: NftType, _collectionSlug?: string): 'base' | 'mainnet' {
   // Base NFTs: pay on Base (cheap ~$0.01)
   if (type === 'chonk') return 'base';
-  // 'other' type — check if the collection is on Base
-  // (handled dynamically via resolvedRpc chain, payment defaults to mainnet for safety)
+  // 'other' Base collections (e.g. DX Terminal)
+  if (type === 'other') {
+    const col = VERIFIED_COLLECTIONS.find(c => c.slug === _collectionSlug);
+    if (col?.chain === 'base') return 'base';
+  }
   // Ethereum NFTs: ENS, POWNFT, Normies, Mooncat, Other ERC-721
   return 'mainnet';
 }
@@ -228,6 +231,41 @@ async function getAgentTier(agentName: string): Promise<{ tier: keyof typeof TIE
     // Default to basic tier if check fails
   }
   return { tier: 'basic', fee: TIER_FEES.basic };
+}
+
+async function fetchDxTerminalMetadata(tokenId: string): Promise<{ name: string; imageUrl: string | null; agentSlug: string }> {
+  try {
+    const alchemyKey = process.env.NEXT_PUBLIC_ALCHEMY_API_KEY;
+    if (alchemyKey) {
+      const r = await fetch(`https://base-mainnet.g.alchemy.com/nft/v3/${alchemyKey}/getNFTMetadata?contractAddress=${DXTERMINAL_CONTRACT}&tokenId=${tokenId}&refreshCache=false`);
+      if (r.ok) {
+        const d = await r.json() as { name?: string; image?: { cachedUrl?: string; pngUrl?: string; contentType?: string } };
+        const rawName = d?.name ?? `DX Terminal #${tokenId}`;
+        const agentSlug = rawName.toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 32) || `dxterm${tokenId}`;
+        const isVideo = d?.image?.contentType?.startsWith('video/');
+        const imageUrl = isVideo ? (d?.image?.pngUrl ?? null) : (d?.image?.cachedUrl ?? d?.image?.pngUrl ?? null);
+        return { name: rawName, imageUrl, agentSlug };
+      }
+    }
+    // fallback: tokenURI on Base
+    const tokenIdHex = BigInt(tokenId).toString(16).padStart(64, '0');
+    const res = await fetch('https://mainnet.base.org', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_call', params: [{ to: DXTERMINAL_CONTRACT, data: '0xc87b56dd' + tokenIdHex }, 'latest'] }),
+    });
+    const data = await res.json() as { result?: string };
+    if (data.result && data.result !== '0x') {
+      const raw = Buffer.from(data.result.slice(2), 'hex').toString().replace(/\0.*$/, '');
+      const uri = raw.startsWith('ipfs://') ? `https://ipfs.io/ipfs/${raw.slice(7)}` : raw;
+      if (uri.startsWith('http')) {
+        const meta = await (await fetch(uri, { signal: AbortSignal.timeout(6000) })).json() as { name?: string; image?: string };
+        const rawName = meta?.name ?? `DX Terminal #${tokenId}`;
+        const agentSlug = rawName.toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 32) || `dxterm${tokenId}`;
+        return { name: rawName, imageUrl: meta?.image ?? null, agentSlug };
+      }
+    }
+  } catch { /* fall through */ }
+  return { name: `DX Terminal #${tokenId}`, imageUrl: null, agentSlug: `dxterm${tokenId}` };
 }
 
 async function fetchErc721Image(contract: string, tokenId: string): Promise<{ name: string; imageUrl: string | null }> {
@@ -510,6 +548,10 @@ export default function OgNftMoltPage() {
       } else if (nftType === 'mooncat') {
         const { name, imageUrl } = await fetchMooncatImage(tokenId);
         preview = { type: 'mooncat', tokenId, name, imageUrl, chain: 'mainnet' };
+      } else if (collectionName === 'dxterminal') {
+        const { name, imageUrl, agentSlug } = await fetchDxTerminalMetadata(tokenId);
+        setPrimaryName(`${agentSlug}.dx`);
+        preview = { type: 'other', tokenId, name, imageUrl, chain: 'base' };
       } else {
         // For 'other' ERC721, try to fetch metadata via tokenURI
         const { name, imageUrl } = await fetchErc721Image(contract, tokenId);
@@ -525,8 +567,8 @@ export default function OgNftMoltPage() {
     try {
       const provider = (window as unknown as { ethereum?: unknown }).ethereum;
       if (!provider) throw new Error('No wallet provider — connect MetaMask or WalletConnect');
-      const chain = paymentChainForNftType(nftType) === 'base' ? base : mainnet;
-      const usdcAddress = paymentChainForNftType(nftType) === 'base' ? USDC_BASE : USDC_ETH;
+      const chain = paymentChainForNftType(nftType, collectionName) === 'base' ? base : mainnet;
+      const usdcAddress = paymentChainForNftType(nftType, collectionName) === 'base' ? USDC_BASE : USDC_ETH;
       const walletClient = createWalletClient({ chain, transport: custom(provider as Parameters<typeof custom>[0]) });
       const [account] = await walletClient.requestAddresses();
 
@@ -576,7 +618,7 @@ export default function OgNftMoltPage() {
     setStep('molting'); setError(null); setLogs([]);
     const feeUsdc = selectedTier === 'premium' ? PREMIUM_FEE_USDC : PRO_FEE_USDC;
     addLog(`Verifying ${nftPreview?.name ?? 'NFT'} ownership on-chain…`);
-    addLog(txHash ? `Verifying ${feeUsdc} USDC payment on ${paymentChainForNftType(nftType) === 'base' ? 'Base' : 'Ethereum'}…` : 'Coupon applied — fee waived');
+    addLog(txHash ? `Verifying ${feeUsdc} USDC payment on ${paymentChainForNftType(nftType, collectionName) === 'base' ? 'Base' : 'Ethereum'}…` : 'Coupon applied — fee waived');
     try {
       const res = await fetch(`/api/byo-molt-v2?t=${Date.now()}`, {
         method: 'POST',
@@ -647,13 +689,14 @@ export default function OgNftMoltPage() {
                 <p>✓ Human inbox <span className="font-mono text-[#f2eee4]">{primary}</span></p>
                 <p className="ml-3">+ Agent inbox <span className="font-mono text-[#f2eee4]">{agent}</span></p>
                 <p className="text-amber-300/80">Your NFT stays in your wallet — it is the key, not the asset held</p>
+                {collectionName === 'dxterminal' && primaryName && <p className="text-cyan-300/80">Agent address: <span className="font-mono">{primaryName}@nftmail.box</span></p>}
               </>
             );
           })()}
         </div>
         <div className="mt-3 flex items-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2">
           <svg className="h-3.5 w-3.5 shrink-0 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-          <p className="text-[10px] text-amber-300">Fee: <strong>{selectedTier === 'premium' ? PREMIUM_FEE_USDC : PRO_FEE_USDC} USDC</strong> on {paymentChainForNftType(nftType) === 'base' ? 'Base' : 'Ethereum'} · send to <span className="font-mono">{TREASURY.slice(0,10)}…</span></p>
+          <p className="text-[10px] text-amber-300">Fee: <strong>{selectedTier === 'premium' ? PREMIUM_FEE_USDC : PRO_FEE_USDC} USDC</strong> on {paymentChainForNftType(nftType, collectionName) === 'base' ? 'Base' : 'Ethereum'} · send to <span className="font-mono">{TREASURY.slice(0,10)}…</span></p>
         </div>
       </div>
 
@@ -810,6 +853,26 @@ export default function OgNftMoltPage() {
           {/* Tier selection step */}
           {step === 'select-agent' && ownershipVerified && nftPreview && (
             <div className="space-y-4">
+              {/* NFT preview — shown immediately after ownership check */}
+              <div className="flex items-center gap-3 rounded-xl border border-emerald-500/25 bg-emerald-500/5 px-3 py-2.5">
+                <div className="h-20 w-20 shrink-0 overflow-hidden rounded-lg border border-[rgba(176,128,92,0.3)] bg-black/30">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={nftPreview.imageUrl ?? ICONS.other}
+                    alt={nftPreview.name}
+                    className="h-full w-full object-cover"
+                    onError={(e) => { (e.currentTarget as HTMLImageElement).src = ICONS.other; }}
+                  />
+                </div>
+                <div>
+                  <p className="text-[10px] font-semibold text-emerald-400">✓ Ownership confirmed</p>
+                  <p className="text-sm font-bold text-[#f2eee4]">{nftPreview.name}</p>
+                  <p className="text-[10px] text-[var(--muted)]">{nftPreview.chain === 'base' ? 'Base' : 'Ethereum'} · token #{nftPreview.tokenId}</p>
+                  {collectionName === 'dxterminal' && primaryName && (
+                    <p className="mt-0.5 font-mono text-[10px] text-cyan-400">{primaryName}@nftmail.box</p>
+                  )}
+                </div>
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* PRO Panel */}
                 <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/5 p-4 space-y-4">
@@ -926,8 +989,8 @@ export default function OgNftMoltPage() {
                   <p className="text-[10px] text-[var(--muted)]">{nftPreview.chain === 'base' ? 'Base' : 'Ethereum'} · token #{nftPreview.tokenId}</p>
                 </div>
               </div>
-              {/* Coupon OR payment — blocked for verified collections (not yet activated) */}
-              {nftType === 'other' && isVerifiedCollectionSlug(collectionName) ? (
+              {/* Coupon OR payment — blocked for verified collections not yet activated */}
+              {nftType === 'other' && isVerifiedCollectionSlug(collectionName) && collectionName !== 'dxterminal' ? (
                 <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-center space-y-2">
                   <p className="text-sm font-bold text-amber-400">⏳ Not Activated</p>
                   <p className="text-[10px] text-[var(--muted)] leading-relaxed">
@@ -962,7 +1025,7 @@ export default function OgNftMoltPage() {
                   {!couponValid && (
                     <div className="space-y-2">
                       <div className="text-[10px] font-semibold tracking-wider text-[var(--muted)]">
-                        PAY {selectedTier === 'premium' ? PREMIUM_FEE_USDC : PRO_FEE_USDC} USDC · {selectedTier === 'premium' ? 'Premium' : 'Pro'} Tier · {paymentChainForNftType(nftType) === 'base' ? 'Base' : 'Ethereum'}
+                        PAY {selectedTier === 'premium' ? PREMIUM_FEE_USDC : PRO_FEE_USDC} USDC · {selectedTier === 'premium' ? 'Premium' : 'Pro'} Tier · {paymentChainForNftType(nftType, collectionName) === 'base' ? 'Base' : 'Ethereum'}
                       </div>
                       <button onClick={handlePayWithWallet} disabled={paying}
                         className={`flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-40 ${selectedTier === 'premium' ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600' : 'bg-gradient-to-r from-emerald-600 to-teal-600'}`}>
@@ -981,11 +1044,11 @@ export default function OgNftMoltPage() {
                         walletAddress={ownerWallet || TREASURY}
                         defaultAmount={(selectedTier === 'premium' ? PREMIUM_FEE_USDC : PRO_FEE_USDC) + 2}
                         currency="USDC"
-                        network={paymentChainForNftType(nftType) === 'base' ? 'BASE' : 'ETHEREUM'}
+                        network={paymentChainForNftType(nftType, collectionName) === 'base' ? 'BASE' : 'ETHEREUM'}
                         label={`💳 Buy USDC with Card (~$${(selectedTier === 'premium' ? PREMIUM_FEE_USDC : PRO_FEE_USDC) + 2} USD)`}
                       />
                       <p className="text-[9px] text-[var(--muted)] text-center">
-                        Wallet payment sends {selectedTier === 'premium' ? PREMIUM_FEE_USDC : PRO_FEE_USDC} USDC on {paymentChainForNftType(nftType) === 'base' ? 'Base' : 'Ethereum'} to{' '}
+                        Wallet payment sends {selectedTier === 'premium' ? PREMIUM_FEE_USDC : PRO_FEE_USDC} USDC on {paymentChainForNftType(nftType, collectionName) === 'base' ? 'Base' : 'Ethereum'} to{' '}
                         <span className="font-mono text-amber-300/60">{TREASURY.slice(0,10)}…</span>
                       </p>
                     </div>
