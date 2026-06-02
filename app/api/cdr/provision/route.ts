@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createAndRegisterCdrVault } from '../../../lib/cdr/create-vault';
+import { createAndRegisterCdrVault } from '../../../services/cdr-create-vault';
 
 interface ProvisionRequest {
   tokenId?: number;

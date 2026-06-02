@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { registerChonkAsStoryIp } from '../../../lib/story/register';
+import { registerChonkAsStoryIp } from '../../../services/story-register';
 
 interface RegisterRequest {
   tokenId?: number;
