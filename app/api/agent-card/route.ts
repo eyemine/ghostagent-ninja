@@ -196,11 +196,11 @@ export async function GET(req: NextRequest) {
   }
 
   // If no BYO image in KV, try to detect POW NFT pattern and fetch poster directly
-  // Pattern: atom.158 (element.atomicNumber) or atom-158 beacon label
+  // Pattern: atom-158 or atom.158 ONLY — do NOT match chonk-N, normie-N, mooncat-N etc.
   if (!originImageUrl) {
-    const powMatch = agentName.match(/^(\w+)[.-](\d+)$/);
+    const powMatch = agentName.match(/^atom[.-](\d+)$/);
     if (powMatch) {
-      const tokenId = powMatch[2];
+      const tokenId = powMatch[1];
       try {
         const powRes = await fetch(`https://www.pownftmetadata.com/t/${tokenId}`, { signal: AbortSignal.timeout(5000) });
         if (powRes.ok) {

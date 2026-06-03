@@ -291,7 +291,7 @@ export async function GET(req: NextRequest) {
 
       const needsTbaDerivation = tbaAddress === null && mintedTokenId !== null;
 
-      const [beaconResult, moltResult, tbaResult] = await Promise.allSettled([
+      const [beaconResult, moltResult, tbaResult, tbaKvResult] = await Promise.allSettled([
         // Beacon
         fetch(WORKER_URL, {
           method: 'POST',
@@ -312,6 +312,14 @@ export async function GET(req: NextRequest) {
           const registrar = SLD_REGISTRARS[sld] ?? SLD_REGISTRARS['nftmail'];
           return deriveTbaWithFallback(mintedTokenId!, registrar, sld);
         })() : Promise.resolve(null),
+
+        // BYO mirror TBA — stored in tba:{name} KV by byo-molt for Gnosis mirror TBA
+        tbaAddress === null ? fetch(WORKER_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'kvGet', key: `tba:${name}` }),
+          signal: AbortSignal.timeout(3000),
+        }).then(r => r.json()).catch(() => null) : Promise.resolve(null),
       ]);
 
       if (beaconResult.status === 'fulfilled') {
@@ -334,6 +342,17 @@ export async function GET(req: NextRequest) {
 
       if (tbaResult.status === 'fulfilled' && tbaResult.value !== null) {
         tbaAddress = tbaResult.value as string | null;
+      }
+
+      // BYO mirror TBA fallback — use tba:{name} KV if still not found
+      if (tbaAddress === null && tbaKvResult.status === 'fulfilled' && tbaKvResult.value) {
+        try {
+          const kvVal = (tbaKvResult.value as any)?.value;
+          if (kvVal) {
+            const parsed = JSON.parse(kvVal) as { tbaAddress?: string };
+            if (parsed.tbaAddress) tbaAddress = parsed.tbaAddress;
+          }
+        } catch { /* non-fatal */ }
       }
     }
 

@@ -237,9 +237,10 @@ export async function POST(req: NextRequest) {
     const beaconLabel = type === 'ens' ? displayLabel : `${beaconPrefix}-${displayLabel}`;
 
     // Calculate humanLocalPart early - needed for Safe creation saltNonce
+    // Use hyphens (not dots) so KV keys match the read-time normalisation (chonk-676 not chonk.676)
     const humanLocalPart = type === 'ens'
-      ? (nftName ?? `ens.${tokenId.slice(0, 8)}`)
-      : `${emailPrefix}.${displayLabel}`;
+      ? (nftName ?? `ens-${tokenId.slice(0, 8)}`)
+      : `${emailPrefix}-${displayLabel}`;
 
     // Safe address and TBA address for new-agent molts (set during beacon/Safe step)
     let safeAddress: string | null = null;
@@ -353,27 +354,29 @@ export async function POST(req: NextRequest) {
     // controller is always the human EOA (ownerWallet) — used to show inboxes in nftmail.box
     // The Safe is stored separately in the safe: field of acct-tier and nftmailgno records
 
-    // ── Step 3d: Fetch on-chain traits to determine service tier ──
-    // POW NFT: Gold → premium (professional), Silver → lite, else → basic+
-    // Normie:  Agent type → premium, else → basic+
-    // Chonk/MoonCat/Other: basic+ (traits mutable or unavailable)
-    let accountTier = 'basic';
+    // ── Step 3d: Determine service tier ──
+    // All BYO molts are paid (fee or coupon) → minimum lite tier.
+    // POW NFT Gold trait → professional; POW NFT Silver trait → lite (same minimum).
+    // Normie Agent type → professional; all else → lite.
+    // Chonk/MoonCat/ENS: traits mutable or unavailable → lite (paid minimum).
+    let accountTier = 'lite'; // minimum for any paid BYO molt
     try {
       const nftContract = NFT_CONTRACTS[type]?.contract ?? contractAddress;
       const nftChain = (NFT_CONTRACTS[type]?.chain ?? 'mainnet') as 'base' | 'mainnet' | 'gnosis';
       if (nftContract && (type === 'pownft' || type === 'normie')) {
         const traits = await fetchNftTraitsOnChain(nftContract, tokenId, nftChain);
-        accountTier = determineTierFromTraits(type, traits);
-        console.log(`[byo-molt] ${type}#${tokenId} traits:`, JSON.stringify(traits), '→ tier:', accountTier);
+        const traitTier = determineTierFromTraits(type, traits);
+        if (traitTier === 'professional') accountTier = 'professional';
+        console.log(`[byo-molt] ${type}#${tokenId} traits:`, JSON.stringify(traits), '→ traitTier:', traitTier, '→ accountTier:', accountTier);
       }
     } catch (err) {
-      console.error('[byo-molt] trait fetch failed (defaulting to basic):', err);
+      console.error('[byo-molt] trait fetch failed (keeping lite):', err);
     }
 
     // ── Step 4: Register aliases (both human + agent emails) ──
-    // Human HITL email: chonk.123@nftmail.box (dot separator, no underscore)
-    // Agent A2A email:  chonk.123_@nftmail.box (dot separator, trailing underscore)
-    // ENS: eyemine.eth@nftmail.box / eyemine.eth_@nftmail.box
+    // Human HITL email: chonk-123@nftmail.box (hyphen separator, no underscore)
+    // Agent A2A email:  chonk-123_@nftmail.box (hyphen separator, trailing underscore)
+    // ENS: eyemine@nftmail.box / eyemine_@nftmail.box
     const agentLocalPart = `${humanLocalPart}_`;
     const humanEmail = `${humanLocalPart}@nftmail.box`;
     const agentEmail = `${agentLocalPart}@nftmail.box`;
