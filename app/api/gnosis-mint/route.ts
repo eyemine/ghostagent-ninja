@@ -170,7 +170,16 @@ export async function POST(req: NextRequest) {
       args: [label, ownerWallet as Address, ipaMetaBytes, tbaSalt],
     });
 
-    const receipt = await gnosisPublic.waitForTransactionReceipt({ hash });
+    const receipt = await Promise.race([
+      gnosisPublic.waitForTransactionReceipt({ hash }),
+      new Promise<null>(res => setTimeout(() => res(null), 8_000)),
+    ]);
+    if (!receipt) {
+      return NextResponse.json({ success: true, txHash: hash, tokenId: null, timedOut: true,
+        email: `${label}@nftmail.box`, originNft: `${label}.${tld}`,
+        controller: ownerWallet, tbaAddress: null, privacyTier, kvRegistered: false,
+        explorer: `https://gnosisscan.io/tx/${hash}` });
+    }
 
     // ─── Parse SubnameMinted event ───
     let mintedTokenId: number | null = null;

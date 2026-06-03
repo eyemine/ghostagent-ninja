@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
     if (!collectionId) return NextResponse.json({ error: 'Missing collectionId' }, { status: 400 });
     if (!primaryName)  return NextResponse.json({ error: 'Missing primaryName' }, { status: 400 });
     if (!ownerWallet || !/^0x[0-9a-fA-F]{40}$/.test(ownerWallet)) return NextResponse.json({ error: 'Missing or invalid ownerWallet' }, { status: 400 });
-    if (!safeAddress || !/^0x[0-9a-fA-F]{40}$/.test(safeAddress)) return NextResponse.json({ error: 'Missing or invalid safeAddress' }, { status: 400 });
+    // safeAddress is optional: if provided, TBA will be added as a Safe signer post-molt
 
     // Tier gate — check before any payment is requested
     try {

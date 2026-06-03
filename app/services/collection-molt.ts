@@ -40,7 +40,7 @@ export interface CollectionMoltParams {
   primaryName: string;      // bare agent name, no _
   tokenId: string;          // NFT token ID
   ownerWallet: string;      // caller's EVM address (used for fee verification only)
-  safeAddress: string;      // agent's Gnosis Safe — TBA will be added as signer here
+  safeAddress?: string;     // agent's Gnosis Safe — TBA will be added as signer (optional)
   paymentTxHash: string;    // Gnosis tx hash proving 2 xDAI fee
   webhookSecret: string;
   appUrl: string;
@@ -322,10 +322,12 @@ export async function runCollectionMolt(
     return { status: 'error', step: 'tba-deploy', error: tba.error ?? 'TBA deployment failed' };
   }
 
-  // 4. Add Gnosis TBA as signer on the Safe (idempotent)
-  const signerResult = await addTbaAsSigner(safeAddress, tba.tbaAddress);
-  if (!signerResult.success) {
-    return { status: 'error', step: 'add-signer', error: signerResult.error ?? 'addOwnerWithThreshold failed' };
+  // 4. Add Gnosis TBA as signer on the Safe (optional — skipped if no safeAddress provided)
+  if (safeAddress && /^0x[0-9a-fA-F]{40}$/.test(safeAddress)) {
+    const signerResult = await addTbaAsSigner(safeAddress, tba.tbaAddress);
+    if (!signerResult.success) {
+      return { status: 'error', step: 'add-signer', error: signerResult.error ?? 'addOwnerWithThreshold failed' };
+    }
   }
 
   // 5. Mint beacon NFT — owner = Gnosis TBA (not user EOA)
@@ -337,7 +339,7 @@ export async function runCollectionMolt(
   // 6. Record molt + upgrade tier (non-fatal)
   await recordMolt(
     collection, primaryName, tokenId, ownerWallet,
-    tba.tbaAddress, safeAddress,
+    tba.tbaAddress, safeAddress ?? '',
     beacon.beaconNft!, beacon.txHash!,
     webhookSecret,
   );
@@ -349,7 +351,7 @@ export async function runCollectionMolt(
     beaconNft: beacon.beaconNft!,
     beaconTxHash: beacon.txHash!,
     beaconTokenId: beacon.tokenId ?? null,
-    safeAddress,
+    safeAddress: safeAddress ?? '',
     message: `${collection.name} Molt Complete: ${collection.name} #${tokenId} TBA is now a key to your Safe`,
   };
 }

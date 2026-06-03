@@ -193,6 +193,7 @@ export default function CollectionMoltPage() {
           primaryName,
           tokenId,
           ownerWallet,
+          safeAddress: isSafeAuth ? safeAddress : undefined,
           paymentTxHash: txHash,
         }),
       });

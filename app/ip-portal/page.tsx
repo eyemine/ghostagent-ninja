@@ -123,11 +123,13 @@ function IpPortalInner() {
       const effectiveTba = tbaAddress || safeAddress;
       const res = await fetch('/api/gasless-ip-mint', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({ agentName, tbaAddress: effectiveTba }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          agentName,
+          tbaAddress: effectiveTba,
+          ownerWallet: wallet.address,
+          privyToken: token ?? undefined,
+        }),
       });
       const data = await res.json() as any;
       if (!res.ok) throw new Error(data.error ?? `Request failed (${res.status})`);
