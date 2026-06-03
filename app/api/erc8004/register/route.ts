@@ -222,6 +222,11 @@ export async function POST(req: NextRequest) {
     const receipt = await chainPublic.waitForTransactionReceipt({ hash: txHash });
 
     // ─── Step 4: Parse AgentRegistered event → agentId ───
+    // Primary:  decodeEventLog via ABI
+    // Fallback: direct topic[1] parse using known on-chain topic hash
+    //   keccak256("AgentRegistered(uint256,address,string)")
+    //   = 0xca52e62c367d81bb2e328eb795f7c7ba24afb478408a26c0e201d155c449bc4a
+    const AGENT_REGISTERED_TOPIC = '0xca52e62c367d81bb2e328eb795f7c7ba24afb478408a26c0e201d155c449bc4a';
     let agentId: number | null = null;
     for (const log of receipt.logs) {
       try {
@@ -232,8 +237,14 @@ export async function POST(req: NextRequest) {
         });
         if (decoded.eventName === 'AgentRegistered') {
           agentId = Number((decoded.args as any).agentId);
+          break;
         }
-      } catch {}
+      } catch { /* non-matching log — try direct parse */ }
+      // Fallback: match known topic hash and read agentId from topics[1]
+      if (agentId === null && log.topics[0]?.toLowerCase() === AGENT_REGISTERED_TOPIC && log.topics[1]) {
+        agentId = parseInt(log.topics[1], 16);
+        break;
+      }
     }
 
     // ─── Step 5: (skipped) agentURI is canonical and self-updating; no re-pin needed ───
