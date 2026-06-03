@@ -231,7 +231,12 @@ export async function mintChonkBeacon(
         skipInboxRegistration: true,
       }),
     });
-    const data = await res.json() as any;
+    let data: any;
+    try {
+      data = await res.json();
+    } catch {
+      return { success: false, error: `Beacon mint returned non-JSON (HTTP ${res.status})` };
+    }
     if (!res.ok || !data.success) {
       return { success: false, error: data.error ?? 'Beacon mint failed' };
     }

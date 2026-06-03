@@ -13,10 +13,10 @@ import {
   createPublicClient,
   createWalletClient,
   http,
-  encodeFunctionData,
   decodeEventLog,
   type Address,
 } from 'viem';
+import { namehash } from 'viem/ens';
 import { privateKeyToAccount } from 'viem/accounts';
 import { defineChain } from 'viem';
 
@@ -39,6 +39,18 @@ const REGISTRAR_CONTRACTS: Record<string, Address> = {
   'vault.gno': '0xc6b184a38da64d1d535674dafb9ce2440058ec4e',
   'agent.gno': '0x608071875bcc0ef0b934f8a2367672d8c472cacf',
 };
+
+// ENS registry on Gnosis (same canonical address as Ethereum mainnet)
+const ENS_REGISTRY = '0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e' as Address;
+const EnsRegistryABI = [
+  {
+    name: 'owner',
+    type: 'function',
+    inputs: [{ name: 'node', type: 'bytes32' }],
+    outputs: [{ name: '', type: 'address' }],
+    stateMutability: 'view',
+  },
+] as const;
 
 const MintSubnameABI = [
   {
@@ -114,6 +126,31 @@ export async function POST(req: NextRequest) {
 
     const gnosisPublic = createPublicClient({ chain: gnosis, transport: http() });
     const gnosisWallet = createWalletClient({ chain: gnosis, transport: http(), account });
+
+    // ─── Idempotency check: skip mint if name already registered ───
+    // Handles retries and accidental duplicate registrations gracefully.
+    try {
+      const node = namehash(`${label}.${tld}`) as `0x${string}`;
+      const existingOwner = await gnosisPublic.readContract({
+        address: ENS_REGISTRY,
+        abi: EnsRegistryABI,
+        functionName: 'owner',
+        args: [node],
+      });
+      if (existingOwner && existingOwner !== '0x0000000000000000000000000000000000000000') {
+        console.log(`[gnosis-mint] ${label}.${tld} already registered (owner=${existingOwner}) — returning idempotent success`);
+        return NextResponse.json({
+          success: true, txHash: null, tokenId: null,
+          email: `${label}@nftmail.box`,
+          originNft: `${label}.${tld}`,
+          controller: ownerWallet, tbaAddress: null, privacyTier,
+          kvRegistered: false, alreadyRegistered: true,
+          explorer: null,
+        });
+      }
+    } catch {
+      // Non-fatal — proceed with mint if pre-check fails
+    }
 
     // ─── Build Story IPA metadata ───
     const sld = tld.replace('.gno', '') as 'agent' | 'openclaw' | 'molt' | 'picoclaw' | 'vault' | 'nftmail';
