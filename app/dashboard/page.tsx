@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
 
@@ -233,7 +233,34 @@ function AgentCard({ agent, onSelect, selected }: { agent: DemoAgent; onSelect: 
   );
 }
 
-type ActionHref = ((n: string) => string) | (() => string);
+function AgentCardSkeleton({ name }: { name: string }) {
+  return (
+    <div className="flex flex-col justify-between rounded-2xl border border-zinc-700/30 bg-zinc-800/10 p-5 animate-pulse">
+      <div className="flex gap-3">
+        <div className="w-1/2 shrink-0 aspect-square rounded-xl bg-zinc-800/60" />
+        <div className="flex-1 space-y-2 py-1">
+          <div className="h-3 w-3/4 rounded bg-zinc-700/60" />
+          <div className="h-2.5 w-1/2 rounded bg-zinc-700/40" />
+          <div className="h-2 w-2/3 rounded bg-zinc-700/30" />
+          <div className="mt-3 flex gap-1">
+            <div className="h-4 w-10 rounded-full bg-zinc-700/40" />
+          </div>
+        </div>
+      </div>
+      <div className="mt-4 grid grid-cols-3 gap-2">
+        {[0,1,2].map(i => (
+          <div key={i} className="rounded-lg border border-zinc-700/20 bg-black/20 px-2.5 py-2">
+            <div className="h-2 w-8 rounded bg-zinc-700/40 mb-1.5" />
+            <div className="h-4 w-6 rounded bg-zinc-700/30" />
+          </div>
+        ))}
+      </div>
+      <div className="mt-3 text-center text-[10px] text-zinc-600 animate-pulse">{name}</div>
+    </div>
+  );
+}
+
+type ActionHref = ((n: string, extra?: string) => string) | (() => string);
 
 const AGENT_ACTIONS = [
   { key: 'agent-profile', label: 'Agent Profile', href: (n: string) => `/dashboard/agent-profile?agent=${n}`, color: 'border-amber-500/30 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20' },
@@ -244,7 +271,7 @@ const AGENT_ACTIONS = [
   { key: 'swarm',         label: 'Swarm',         href: (n: string) => `/dashboard/swarm?agent=${n}`,         color: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20' },
   { key: 'trade',         label: 'Trade Intent',  href: (n: string) => `/dashboard/trade?agent=${n}`,         color: 'border-violet-500/30 bg-violet-500/10 text-violet-300 hover:bg-violet-500/20' },
   { key: 'hitl',          label: 'HITL Gates',    href: (n: string) => `/dashboard/hitl?agent=${n}`,          color: 'border-red-500/30 bg-red-500/10 text-red-300 hover:bg-red-500/20' },
-  { key: 'ip-portal',     label: 'IP Portal',     href: (n: string) => `/ip-portal?agent=${n}`,               color: 'border-[#7c4dff]/30 bg-[#7c4dff]/10 text-[#a78bfa] hover:bg-[#7c4dff]/20' },
+  { key: 'ip-portal',     label: 'IP Portal',     href: (n: string, sld?: string) => `/ip-portal?agent=${n}${sld ? `&sld=${sld}` : ''}`, color: 'border-[#7c4dff]/30 bg-[#7c4dff]/10 text-[#a78bfa] hover:bg-[#7c4dff]/20' },
   { key: 'stake-host',   label: 'Stake $HOST',   href: (n: string) => `/host?agent=${n}`,                    color: 'border-[rgba(176,128,92,0.3)] bg-[rgba(176,128,92,0.08)] text-[#b0805c] hover:bg-[rgba(176,128,92,0.15)]' },
 ] as Array<{ key: string; label: string; href: ActionHref; color: string }>;
 
@@ -263,8 +290,10 @@ export default function DashboardHome() {
   const { wallets } = useWallets();
   const connectedWallet = wallets[0]?.address ?? null;
 
-  const [liveAgents, setLiveAgents]       = useState<DemoAgent[] | null>(null);
-  const [agentsLoading, setAgentsLoading] = useState(false);
+  // agent loading: null = not started, [] = loading-started
+  type AgentEntry = { name: string; tld: string | null; data: DemoAgent | null };
+  const [agentEntries, setAgentEntries]   = useState<AgentEntry[] | null>(null);
+  const loadingWallet = useRef<string | null>(null);
 
   const [selectedAgent, setSelectedAgent] = useState<string>('');
   const [selectedBody,  setSelectedBody]  = useState<string>('');
@@ -274,104 +303,123 @@ export default function DashboardHome() {
   const [bodiesLoading, setBodiesLoading] = useState(false);
   const [brainsLoading, setBrainsLoading] = useState(false);
 
-  // Fetch agents owned by connected wallet (via worker listAgents + filter by onChainOwner)
+  // Fetch agents — skeleton-first progressive loading
   useEffect(() => {
-    if (!connectedWallet) { setLiveAgents(null); return; }
-    setAgentsLoading(true);
+    if (!connectedWallet) { setAgentEntries(null); return; }
+    loadingWallet.current = connectedWallet;
+    setAgentEntries([]);   // triggers skeleton state
+
     fetch(WORKER_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'listAgents' }),
-      signal: AbortSignal.timeout(10000), // 10s timeout
+      signal: AbortSignal.timeout(10000),
     })
-      .then(r => {
-        if (!r.ok) throw new Error(`Worker returned ${r.status}`);
-        return r.json() as Promise<{ agents?: Array<{ name: string; tld: string | null }> }>;
-      })
-      .then(async (data) => {
+      .then(r => r.ok ? r.json() as Promise<{ agents?: Array<{ name: string; tld: string | null }> }> : Promise.reject())
+      .then((data) => {
+        if (loadingWallet.current !== connectedWallet) return;
         const allAgents = data.agents ?? [];
-        // Fetch full identity for each agent to check ownership
-        const ownedAgents = await Promise.all(
-          allAgents.map(async (a) => {
-            try {
-              const idRes = await fetch(WORKER_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'getAgentIdentity', agentName: a.name }),
-                signal: AbortSignal.timeout(5000), // 5s timeout per agent
-              });
-              if (!idRes.ok) return null;
-              const identity = await idRes.json() as {
-                onChainOwner?: string;
-                identityNft?: { owner?: string; tld?: string | null } | null;
-                principal?: string | null;
-                safe?: string | null;
-                safeAddress?: string | null;
-                tbaAddress?: string | null;
-                accountTier?: string;
-              };
+        // Show a skeleton slot for every agent immediately
+        setAgentEntries(allAgents.map(a => ({ name: a.name, tld: a.tld, data: null })));
 
-              const owner = identity.onChainOwner ?? identity.identityNft?.owner ?? null;
-              const controller = identity.principal ?? null;
-              const safeAddr = identity.safeAddress ?? identity.safe ?? null;
-              const candidates = [owner, controller, safeAddr].filter(Boolean) as string[];
-              const isOwner = candidates.some(c => c.toLowerCase() === connectedWallet.toLowerCase());
-              if (!isOwner) return null;
+        // Independently resolve each agent — fill in cards as they arrive
+        allAgents.forEach(async (a) => {
+          try {
+            const idRes = await fetch(WORKER_URL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ action: 'getAgentIdentity', agentName: a.name }),
+              signal: AbortSignal.timeout(5000),
+            });
+            if (!idRes.ok) throw new Error('identity fetch failed');
+            const identity = await idRes.json() as {
+              onChainOwner?: string;
+              identityNft?: { owner?: string; tld?: string | null; name?: string | null } | null;
+              principal?: string | null;
+              safe?: string | null;
+              safeAddress?: string | null;
+              tbaAddress?: string | null;
+              accountTier?: string;
+            };
 
-              // Fetch agent card image + authoritative tier from agent-lookup in parallel
-              let imageUrl: string | undefined;
-              let lookupTier: string | null = null;
-              try {
-                const [cardRes, lookupRes] = await Promise.allSettled([
-                  fetch(`/api/agent-card?agent=${a.name}`, {
-                    headers: { 'Accept': 'application/json' },
-                    signal: AbortSignal.timeout(10000),
-                  }),
-                  fetch(`/api/agent-lookup?q=${a.name}`, {
-                    signal: AbortSignal.timeout(10000),
-                  }),
-                ]);
-                if (cardRes.status === 'fulfilled' && cardRes.value.ok) {
-                  const card = await cardRes.value.json() as { image?: string };
-                  if (card.image) imageUrl = card.image;
-                }
-                if (lookupRes.status === 'fulfilled' && lookupRes.value.ok) {
-                  const lookup = await lookupRes.value.json() as { accountTier?: string };
-                  if (lookup.accountTier) lookupTier = lookup.accountTier;
-                }
-              } catch { /* non-fatal */ }
-
-              // Tier: prefer agent-lookup (authoritative via resolveAddress), fall back to identity
-              const tierRaw = (lookupTier ?? identity.accountTier ?? 'basic').toLowerCase();
-              const tier: AgentTier = (['basic', 'lite', 'premium', 'ghost'] as AgentTier[]).includes(tierRaw as AgentTier)
-                ? (tierRaw as AgentTier)
-                : 'basic';
-
-              return {
-                name:        a.name,
-                namespace:   identity.identityNft?.tld ?? a.tld ?? 'nftmail.gno',
-                tba:         identity.tbaAddress ?? safeAddr ?? identity.safe ?? connectedWallet,
-                safeAddress: safeAddr ?? undefined,
-                tier,
-                hostScore: 0,
-                inbox:     0,
-                events:    0,
-                active:    true,
-                imageUrl,
-                principal: identity.principal ?? identity.identityNft?.owner ?? undefined,
-              };
-            } catch {
-              return null;
+            // Ownership check — drop agent if wallet doesn't match any candidate
+            const owner    = identity.onChainOwner ?? identity.identityNft?.owner ?? null;
+            const ctrl     = identity.principal ?? null;
+            const safeAddr = identity.safeAddress ?? identity.safe ?? null;
+            const isOwner  = [owner, ctrl, safeAddr]
+              .filter(Boolean)
+              .some(c => c!.toLowerCase() === connectedWallet.toLowerCase());
+            if (!isOwner) {
+              setAgentEntries(prev => prev?.filter(e => e.name !== a.name) ?? null);
+              return;
             }
-          })
-        );
-        const filtered = ownedAgents.filter(a => a !== null) as DemoAgent[];
-        setLiveAgents(filtered);
-        if (filtered.length > 0) setSelectedAgent(filtered[0].name);
+
+            // Derive namespace: prefer stored tld, then parse identityNft.name, then fall back
+            const nftName  = identity.identityNft?.name ?? '';
+            const namespace =
+              identity.identityNft?.tld ??
+              (nftName ? nftName.replace(/^[^.]+\./, '') : null) ??
+              a.tld ?? 'nftmail.gno';
+
+            const tierRaw = (identity.accountTier ?? 'basic').toLowerCase();
+            const tier: AgentTier = (['basic', 'lite', 'premium', 'ghost'] as AgentTier[]).includes(tierRaw as AgentTier)
+              ? (tierRaw as AgentTier) : 'basic';
+
+            const basicCard: DemoAgent = {
+              name:        a.name,
+              namespace,
+              tba:         identity.tbaAddress ?? safeAddr ?? connectedWallet,
+              safeAddress: safeAddr ?? undefined,
+              tier,
+              hostScore:   0,
+              inbox:       0,
+              events:      0,
+              active:      true,
+              principal:   identity.principal ?? identity.identityNft?.owner ?? undefined,
+            };
+
+            // Immediately show basic card (no image yet)
+            setAgentEntries(prev => {
+              const updated = prev?.map(e => e.name === a.name ? { ...e, data: basicCard } : e) ?? null;
+              // Auto-select first resolved agent
+              if (updated && !selectedAgent) {
+                const first = updated.find(e => e.data !== null);
+                if (first) setSelectedAgent(first.name);
+              }
+              return updated;
+            });
+
+            // Enrich with image + authoritative tier in background
+            const [cardRes, lookupRes] = await Promise.allSettled([
+              fetch(`/api/agent-card?agent=${a.name}`, { headers: { 'Accept': 'application/json' }, signal: AbortSignal.timeout(10000) }),
+              fetch(`/api/agent-lookup?q=${a.name}`, { signal: AbortSignal.timeout(10000) }),
+            ]);
+            let imageUrl: string | undefined;
+            let lookupTier: string | null = null;
+            if (cardRes.status === 'fulfilled' && cardRes.value.ok) {
+              const card = await cardRes.value.json() as { image?: string };
+              if (card.image) imageUrl = card.image;
+            }
+            if (lookupRes.status === 'fulfilled' && lookupRes.value.ok) {
+              const lu = await lookupRes.value.json() as { accountTier?: string };
+              if (lu.accountTier) lookupTier = lu.accountTier;
+            }
+            const finalTierRaw = (lookupTier ?? tierRaw).toLowerCase();
+            const finalTier: AgentTier = (['basic', 'lite', 'premium', 'ghost'] as AgentTier[]).includes(finalTierRaw as AgentTier)
+              ? (finalTierRaw as AgentTier) : tier;
+
+            setAgentEntries(prev => prev?.map(e =>
+              e.name === a.name && e.data
+                ? { ...e, data: { ...e.data, imageUrl, tier: finalTier } }
+                : e
+            ) ?? null);
+          } catch {
+            setAgentEntries(prev => prev?.filter(e => e.name !== a.name) ?? null);
+          }
+        });
       })
-      .catch(() => setLiveAgents([]))
-      .finally(() => setAgentsLoading(false));
-  }, [connectedWallet]);
+      .catch(() => setAgentEntries([]));
+  }, [connectedWallet]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch bodies = beacon NFTs (real on-chain data)
   useEffect(() => {
@@ -400,10 +448,14 @@ export default function DashboardHome() {
     setBrainsLoading(false);
   }, [connectedWallet]);
 
-  const agents = liveAgents ?? DEMO_AGENTS;
+  // Derive display lists from agentEntries
+  const resolvedAgents = agentEntries?.filter(e => e.data !== null).map(e => e.data as DemoAgent) ?? [];
+  const skeletonNames  = agentEntries?.filter(e => e.data === null).map(e => e.name) ?? [];
+  const agentsLoading  = agentEntries !== null && agentEntries.length === 0;
+  const isDemo         = agentEntries === null;
+  const agents         = isDemo ? DEMO_AGENTS : resolvedAgents;
   const bodies = liveBodies ?? [];
   const brains = liveBrains ?? [];
-  const isDemo = liveAgents === null;
 
   // Exclude bodies that already appear as agents in the My Agents section
   const agentNames = new Set(agents.map(a => a.name));
@@ -445,9 +497,9 @@ export default function DashboardHome() {
         </div>
       ) : agentsLoading ? (
         <div className="rounded-2xl border border-[rgba(176,128,92,0.15)] bg-[rgba(176,128,92,0.03)] px-6 py-12 text-center">
-          <p className="text-sm text-[var(--muted)] animate-pulse">Loading your agents…</p>
+          <p className="text-sm text-[var(--muted)] animate-pulse">Looking up your agents…</p>
         </div>
-      ) : agents.length === 0 ? (
+      ) : agents.length === 0 && skeletonNames.length === 0 ? (
         <div className="rounded-2xl border border-zinc-700/30 bg-zinc-800/10 px-6 py-12 text-center space-y-2">
           <p className="text-sm text-[var(--muted)]">No agents found for this wallet.</p>
           <p className="text-xs text-zinc-600">Agent ownership is determined by the Beacon NFT. Connect the EOA wallet holding the NFT.</p>
@@ -468,6 +520,9 @@ export default function DashboardHome() {
                 onSelect={() => setSelectedAgent(agent.name)}
               />
             ))}
+            {skeletonNames.map(name => (
+              <AgentCardSkeleton key={name} name={name} />
+            ))}
           </div>
         </>
       )}
@@ -483,15 +538,24 @@ export default function DashboardHome() {
           <span className="text-[10px] text-zinc-600">select agent card to action</span>
         </div>
         <div className="flex items-center gap-2 overflow-x-auto pb-1">
-          {AGENT_ACTIONS.map(action => (
+          {AGENT_ACTIONS.map(action => {
+            const selectedAgentData = agents.find(a => a.name === selectedAgent);
+            const sld = selectedAgentData?.namespace?.replace(/\.gno$/, '') ?? '';
+            const href = action.key === 'byo-nft'
+              ? (action.href as () => string)()
+              : action.key === 'ip-portal'
+              ? (action.href as (n: string, sld?: string) => string)(selectedAgent, sld)
+              : (action.href as (n: string) => string)(selectedAgent);
+            return (
             <Link
               key={action.key}
-              href={action.key === 'byo-nft' ? (action.href as () => string)() : (action.href as (n: string) => string)(selectedAgent)}
+              href={href}
               className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition shrink-0 ${action.color}`}
             >
               {action.label}
             </Link>
-          ))}
+            );
+          })}
         </div>
       </div>
       )}

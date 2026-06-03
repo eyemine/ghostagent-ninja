@@ -3085,6 +3085,18 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
           return corsify(Response.json({ status: 'ok', key }), request);
         }
 
+        // Generic KV delete (admin only — requires webhook secret)
+        if (email.action === 'kvDelete') {
+          const key    = (email as any).key || '';
+          const secret = (email as any).webhookSecret || request.headers.get('x-webhook-secret') || '';
+          if (!key) return corsify(Response.json({ error: 'Missing key' }, { status: 400 }), request);
+          if (env.WEBHOOK_SECRET && secret !== env.WEBHOOK_SECRET) {
+            return corsify(Response.json({ error: 'Unauthorized' }, { status: 401 }), request);
+          }
+          await env.INBOX_KV.delete(key);
+          return corsify(Response.json({ status: 'deleted', key }), request);
+        }
+
         // EIP-712 TradeIntent — store, list, retrieve signed trade intent artifacts
         // Artifacts are referenced as requestURI in ERC-8004 Validation Registry submissions.
         // Glass Box audit entry emitted on every store.

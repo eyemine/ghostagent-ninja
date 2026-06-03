@@ -34,9 +34,6 @@ export async function GET(req: NextRequest) {
 
   // Normalize: strip TLD suffixes (.agent.gno, .molt.gno, etc.)
   agentName = agentName.replace(/\.(agent|molt|nftmail|openclaw|picoclaw|vault)\.gno$/i, '');
-  // Convert dots to hyphens to match KV storage format (chonk.676 → chonk-676)
-  agentName = agentName.replace(/\./g, '-');
-
   if (!agentName || !/^[a-z0-9][a-z0-9.-]{0,}[a-z0-9]$/.test(agentName)) {
     return NextResponse.json(
       { error: 'Missing or invalid agent name' },

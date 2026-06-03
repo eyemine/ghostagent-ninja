@@ -1,17 +1,31 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { useWallets } from '@privy-io/react-auth';
+import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { AuthorshipDeclarationModal } from '../components/AuthorshipDeclarationModal';
 import type { AuthorshipDeclarationRecord } from '../services/authorship-declaration';
 
+const WORKER_URL = process.env.NEXT_PUBLIC_WORKER_URL ?? 'https://nftmail-email-worker.richard-159.workers.dev';
+
+const SLD_OPTIONS = [
+  { value: 'agent.gno',     label: 'agent.gno' },
+  { value: 'nftmail.gno',   label: 'nftmail.gno' },
+  { value: 'molt.gno',      label: 'molt.gno' },
+  { value: 'openclaw.gno',  label: 'openclaw.gno' },
+  { value: 'picoclaw.gno',  label: 'picoclaw.gno' },
+  { value: 'vault.gno',     label: 'vault.gno' },
+];
+
+type PortalMode = 'sovereign' | 'mint-ip';
 type PortalStep = 'connect' | 'agent' | 'declare' | 'register';
+type MintState  = 'idle' | 'minting' | 'success' | 'error';
 
 const STEP_LABELS = [
-  { n: 1, key: 'connect', label: 'Connect Wallet' },
-  { n: 2, key: 'agent',   label: 'Select Agent' },
-  { n: 3, key: 'declare', label: 'Sign Declaration' },
+  { n: 1, key: 'connect',  label: 'Connect Wallet' },
+  { n: 2, key: 'agent',    label: 'Select Agent' },
+  { n: 3, key: 'declare',  label: 'Sign Declaration' },
   { n: 4, key: 'register', label: 'Register on Story' },
 ];
 
@@ -19,17 +33,68 @@ const STEP_INDEX: Record<PortalStep, number> = {
   connect: 0, agent: 1, declare: 2, register: 3,
 };
 
-export default function IpPortalPage() {
+function IpPortalInner() {
+  const searchParams = useSearchParams();
+  const { getAccessToken } = usePrivy();
   const { wallets } = useWallets();
   const wallet = wallets[0];
 
-  const [step, setStep] = useState<PortalStep>('connect');
-  const [agentName, setAgentName] = useState('');
+  const [mode, setMode]               = useState<PortalMode>('sovereign');
+  const [step, setStep]               = useState<PortalStep>('connect');
+  const [agentName, setAgentName]     = useState('');
   const [safeAddress, setSafeAddress] = useState('');
+  const [tbaAddress, setTbaAddress]   = useState('');
   const [agentTokenId, setAgentTokenId] = useState('');
-  const [domain, setDomain] = useState('nftmail.box');
-  const [showModal, setShowModal] = useState(false);
-  const [record, setRecord] = useState<AuthorshipDeclarationRecord | null>(null);
+  const [domain, setDomain]           = useState('agent.gno');
+  const [showModal, setShowModal]     = useState(false);
+  const [record, setRecord]           = useState<AuthorshipDeclarationRecord | null>(null);
+  const [identityLoading, setIdentityLoading] = useState(false);
+
+  // Mint .ip state
+  const [mintState, setMintState]   = useState<MintState>('idle');
+  const [mintError, setMintError]   = useState<string | null>(null);
+  const [mintResult, setMintResult] = useState<{ txHash: string; fullDomain: string; ipAccount?: string } | null>(null);
+
+  // Auto-fill from URL params (?agent=chonk.599&sld=agent)
+  useEffect(() => {
+    const paramAgent = searchParams.get('agent') ?? '';
+    const paramSld   = searchParams.get('sld')   ?? '';
+    const paramMode  = searchParams.get('mode')  ?? '';
+    if (paramMode === 'mint') setMode('mint-ip');
+    if (paramAgent) {
+      setAgentName(paramAgent);
+      if (paramSld && SLD_OPTIONS.some(o => o.value.startsWith(paramSld))) {
+        setDomain(SLD_OPTIONS.find(o => o.value.startsWith(paramSld))!.value);
+      }
+      // Fetch identity for safe + tba + namespace
+      setIdentityLoading(true);
+      fetch(WORKER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'getAgentIdentity', agentName: paramAgent }),
+        signal: AbortSignal.timeout(6000),
+      })
+        .then(r => r.ok ? r.json() : null)
+        .then((identity: any) => {
+          if (!identity) return;
+          if (identity.safeAddress || identity.safe) {
+            setSafeAddress(identity.safeAddress ?? identity.safe);
+          }
+          if (identity.tbaAddress) setTbaAddress(identity.tbaAddress);
+          const nftName = identity.identityNft?.name ?? '';
+          const tld = identity.identityNft?.tld ??
+            (nftName ? nftName.replace(/^[^.]+\./, '') : null) ?? null;
+          if (tld && SLD_OPTIONS.some(o => o.value === tld)) setDomain(tld);
+        })
+        .catch(() => {})
+        .finally(() => setIdentityLoading(false));
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Skip to agent step if wallet already connected
+  useEffect(() => {
+    if (wallet?.address && step === 'connect') setStep('agent');
+  }, [wallet?.address]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const currentStepIndex = STEP_INDEX[step];
 
@@ -39,9 +104,7 @@ export default function IpPortalPage() {
 
   function handleAgentSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (agentName && safeAddress && agentTokenId) {
-      setStep('declare');
-    }
+    if (agentName && safeAddress && agentTokenId) setStep('declare');
   }
 
   function handleDeclarationComplete(r: AuthorshipDeclarationRecord) {
@@ -49,6 +112,34 @@ export default function IpPortalPage() {
     setShowModal(false);
     setStep('register');
   }
+
+  async function handleMintCreationIP() {
+    if (!agentName || !safeAddress) return;
+    setMintState('minting');
+    setMintError(null);
+    setMintResult(null);
+    try {
+      const token = await getAccessToken();
+      const effectiveTba = tbaAddress || safeAddress;
+      const res = await fetch('/api/gasless-ip-mint', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ agentName, tbaAddress: effectiveTba }),
+      });
+      const data = await res.json() as any;
+      if (!res.ok) throw new Error(data.error ?? `Request failed (${res.status})`);
+      setMintResult({ txHash: data.txHash, fullDomain: data.fullDomain ?? `${agentName}.creation.ip`, ipAccount: data.ipAccount });
+      setMintState('success');
+    } catch (err: any) {
+      setMintError(err.message ?? 'Minting failed');
+      setMintState('error');
+    }
+  }
+
+  const ipDomain = domain === 'molt.gno' ? `${agentName}.moltbook.ip` : `${agentName}.creation.ip`;
 
   const storyPortalUrl = record
     ? `https://portal.story.foundation/registration?name=${encodeURIComponent(agentName + '.' + domain)}&description=${encodeURIComponent('GhostAgent AI Agent — ' + agentName + '.' + domain)}`
@@ -77,16 +168,142 @@ export default function IpPortalPage() {
         {/* Hero */}
         <section className="text-center">
           <h1 className="text-2xl font-bold tracking-tight text-[#f2eee4] sm:text-3xl">
-            Sovereign IP Registration
+            IP Portal
           </h1>
           <p className="mt-2 text-sm text-[var(--muted)]">
-            Declare human authorship · Pin to IPFS · Register on Story Protocol
-          </p>
-          <p className="mt-1 text-[11px] text-amber-400/70">
-            EIP-712 signed declaration · IPFS pinned · GlassBox logged
+            Mint a Story Protocol .ip domain · Declare human authorship · Register on Story
           </p>
         </section>
 
+        {/* Mode tabs */}
+        <div className="flex rounded-xl border border-[var(--border)] bg-black/20 p-1 gap-1">
+          <button
+            onClick={() => setMode('mint-ip')}
+            className={`flex-1 rounded-lg px-4 py-2 text-xs font-semibold transition ${
+              mode === 'mint-ip'
+                ? 'bg-[rgba(124,77,255,0.18)] text-[rgb(200,180,255)] border border-[rgba(124,77,255,0.35)]'
+                : 'text-[var(--muted)] hover:text-white'
+            }`}
+          >
+            Mint .creation.ip Domain
+          </button>
+          <button
+            onClick={() => setMode('sovereign')}
+            className={`flex-1 rounded-lg px-4 py-2 text-xs font-semibold transition ${
+              mode === 'sovereign'
+                ? 'bg-amber-900/20 text-amber-300 border border-amber-700/30'
+                : 'text-[var(--muted)] hover:text-white'
+            }`}
+          >
+            Sovereign IP Declaration
+          </button>
+        </div>
+
+        {/* ── Mint .creation.ip mode ── */}
+        {mode === 'mint-ip' && (
+          <div className="rounded-2xl border border-[var(--border)] bg-[#0d0a07]/80 p-6 shadow-2xl space-y-5">
+            <div>
+              <h2 className="text-base font-semibold text-[#f2eee4]">
+                Mint {identityLoading ? '…' : (agentName ? ipDomain : '[name].creation.ip')}
+              </h2>
+              <p className="mt-1 text-[12px] text-[var(--muted)]">
+                GhostAgent treasury mints your Story Protocol .ip subdomain on your behalf — gas fees paid in $IP.
+                {domain === 'molt.gno' && ' molt.gno agents mint under .moltbook.ip.'}
+              </p>
+            </div>
+
+            {identityLoading && (
+              <p className="text-[11px] text-[var(--muted)] animate-pulse">Loading agent identity…</p>
+            )}
+
+            <div className="space-y-3">
+              <div>
+                <label className="mb-1 block text-[11px] text-[var(--muted)] uppercase tracking-wider">Agent Name</label>
+                <input
+                  value={agentName}
+                  onChange={e => setAgentName(e.target.value.toLowerCase().replace(/[^a-z0-9.-]/g, ''))}
+                  placeholder="e.g. chonk.599"
+                  className="w-full rounded-lg border border-[var(--border)] bg-black/30 px-3 py-2 text-sm text-[#f2eee4] placeholder:text-[var(--muted)] focus:border-violet-600/50 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-[11px] text-[var(--muted)] uppercase tracking-wider">Domain (SLD)</label>
+                <select
+                  value={domain}
+                  onChange={e => setDomain(e.target.value)}
+                  className="w-full rounded-lg border border-[var(--border)] bg-black/30 px-3 py-2 text-sm text-[#f2eee4] focus:border-violet-600/50 focus:outline-none"
+                >
+                  {SLD_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-[11px] text-[var(--muted)] uppercase tracking-wider">Agent Safe / TBA Address</label>
+                <input
+                  value={tbaAddress || safeAddress}
+                  onChange={e => { setTbaAddress(e.target.value); setSafeAddress(e.target.value); }}
+                  placeholder="0x… (auto-filled from dashboard)"
+                  className="w-full rounded-lg border border-[var(--border)] bg-black/30 px-3 py-2 font-mono text-sm text-[#f2eee4] placeholder:text-[var(--muted)] focus:border-violet-600/50 focus:outline-none"
+                />
+                <p className="mt-1 text-[10px] text-[var(--muted)]">This address becomes the owner of the .creation.ip NFT on Story Protocol.</p>
+              </div>
+            </div>
+
+            {/* Domain preview */}
+            {agentName && (
+              <div className="rounded-lg border border-[rgba(124,77,255,0.25)] bg-[rgba(124,77,255,0.07)] px-4 py-3">
+                <p className="text-[10px] font-semibold tracking-wider text-[var(--muted)] mb-1">DOMAIN TO MINT</p>
+                <p className="font-mono text-sm font-bold text-[rgb(200,180,255)]">{ipDomain}</p>
+                <p className="mt-1 text-[10px] text-[var(--muted)]">
+                  Registered on Story Protocol (chain 1514) · NFTMAIL Safe pays mint fee
+                </p>
+              </div>
+            )}
+
+            {/* Already minted success */}
+            {mintState === 'success' && mintResult && (
+              <div className="rounded-lg border border-emerald-800/40 bg-emerald-900/10 px-4 py-3 space-y-2">
+                <div className="flex items-center gap-2 text-sm text-emerald-400">
+                  <span>✓</span>
+                  <span className="font-mono font-bold">{mintResult.fullDomain}</span>
+                </div>
+                {mintResult.ipAccount && (
+                  <p className="text-[11px] text-[var(--muted)]">IP Account: <span className="font-mono text-[#c8bfb0]">{mintResult.ipAccount}</span></p>
+                )}
+                <a
+                  href={`https://www.storyscan.io/tx/${mintResult.txHash}`}
+                  target="_blank" rel="noopener noreferrer"
+                  className="text-[11px] text-[rgb(200,180,255)] hover:underline"
+                >
+                  View tx on StoryScan ↗
+                </a>
+              </div>
+            )}
+
+            {mintError && (
+              <div className="rounded-lg border border-red-800/30 bg-red-900/10 px-4 py-3 text-[12px] text-red-400">
+                {mintError}
+              </div>
+            )}
+
+            {mintState !== 'success' && (
+              <button
+                onClick={handleMintCreationIP}
+                disabled={!agentName || !(tbaAddress || safeAddress) || mintState === 'minting' || !wallet?.address}
+                className="w-full rounded-lg border border-[rgba(124,77,255,0.35)] bg-[rgba(124,77,255,0.12)] px-5 py-3 text-sm font-semibold text-[rgb(200,180,255)] transition hover:bg-[rgba(124,77,255,0.2)] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {!wallet?.address
+                  ? 'Connect wallet first'
+                  : mintState === 'minting'
+                  ? 'Minting on Story…'
+                  : `Mint ${agentName ? ipDomain : '.creation.ip'}`}
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* ── Sovereign IP mode ── */}
+        {mode === 'sovereign' && (
+        <>
         {/* Step indicator */}
         <div className="flex items-center justify-center gap-0">
           {STEP_LABELS.map((s, i) => (
@@ -152,6 +369,7 @@ export default function IpPortalPage() {
                 <h2 className="text-base font-semibold text-[#f2eee4]">Select your agent</h2>
                 <p className="mt-1 text-[12px] text-[var(--muted)]">
                   Enter the agent you are declaring authorship over.
+                  {identityLoading && <span className="ml-2 animate-pulse text-amber-400/70">Loading identity…</span>}
                 </p>
               </div>
 
@@ -160,8 +378,8 @@ export default function IpPortalPage() {
                   <label className="mb-1 block text-[11px] text-[var(--muted)] uppercase tracking-wider">Agent Name</label>
                   <input
                     value={agentName}
-                    onChange={e => setAgentName(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
-                    placeholder="e.g. eyemine"
+                    onChange={e => setAgentName(e.target.value.toLowerCase().replace(/[^a-z0-9.-]/g, ''))}
+                    placeholder="e.g. chonk.599"
                     required
                     className="w-full rounded-lg border border-[var(--border)] bg-black/30 px-3 py-2 text-sm text-[#f2eee4] placeholder:text-[var(--muted)] focus:border-amber-600/50 focus:outline-none"
                   />
@@ -174,10 +392,7 @@ export default function IpPortalPage() {
                     onChange={e => setDomain(e.target.value)}
                     className="w-full rounded-lg border border-[var(--border)] bg-black/30 px-3 py-2 text-sm text-[#f2eee4] focus:border-amber-600/50 focus:outline-none"
                   >
-                    <option value="nftmail.box">nftmail.box</option>
-                    <option value="openclaw.gno">openclaw.gno</option>
-                    <option value="vault.gno">vault.gno</option>
-                    <option value="molt.gno">molt.gno</option>
+                    {SLD_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
                 </div>
 
@@ -373,6 +588,8 @@ export default function IpPortalPage() {
             </div>
           )}
         </div>
+        </>
+        )}
 
         {/* Legal footer */}
         <footer className="text-center text-[10px] text-[var(--muted)] space-y-1">
@@ -402,5 +619,13 @@ export default function IpPortalPage() {
         />
       )}
     </div>
+  );
+}
+
+export default function IpPortalPage() {
+  return (
+    <Suspense>
+      <IpPortalInner />
+    </Suspense>
   );
 }
