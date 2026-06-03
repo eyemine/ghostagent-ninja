@@ -48,7 +48,7 @@ interface AgentIdentity {
 
 const TIER_LABEL: Record<string, string> = {
   basic:   'Basic',
-  lite:    'Lite',
+  lite:    'Pro',
   premium: 'Premium',
   ghost:   'Ghost',
 };

@@ -113,7 +113,7 @@ const NAMESPACES: NsConfig[] = [
     decayDays: null,
     ipDomain: '*.creation.ip',
     moltPath: 'ghost',
-    fullDesc: 'Top-tier Premium namespace. Private by default, persistent storage, IP protection on Story Protocol, and full $HOST earning.\n24 xDAI includes 1 year subscription, then 24 xDAI annually (or downgrade to Lite 30-day history).\n14 xDAI molt-to (22 xDAI from nftmail.gno).',
+    fullDesc: 'Top-tier Premium namespace. Private by default, persistent storage, IP protection on Story Protocol, and full $HOST earning.\n24 xDAI includes 1 year subscription, then 24 xDAI annually (or downgrade to Pro 30-day history).\n14 xDAI molt-to (22 xDAI from nftmail.gno).',
     badges: ['Gnosis Safe', '*.creation.ip', 'Private default', 'Persistent'],
     tier: 'premium',
     tierLabel: 'Premium-only',

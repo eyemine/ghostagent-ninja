@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
         const agentLevel = workerTierToLevel(tierData?.tier ?? tierData?.raw ? JSON.parse(tierData.raw ?? '{}').tier : undefined);
         if (!MOLT_PERMITTED_TIERS.has(agentLevel)) {
           return NextResponse.json({
-            error: 'Molt requires Lite tier or above — evolve your agent first. Basic tier and free picoclaw accounts cannot molt.',
+            error: 'Molt requires Pro tier or above — evolve your agent first. Basic tier and free picoclaw accounts cannot molt.',
             currentTier: tierData?.tier ?? 'basic',
             requiredTier: 'lite',
             upgradeUrl: '/nftmail?upgrade=1',

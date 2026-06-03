@@ -243,8 +243,8 @@ export async function validateMolt(
   // Bypass tier restriction if wallet is owner AND owns the beacon NFT
   if (!MOLT_PERMITTED_TIERS.has(agentLevel) && !(isOwner && walletOwnsBeacon)) {
     errors.push(
-      'Molting requires Lite tier or above. ' +
-      'Free picoclaw (Basic) accounts cannot molt — evolve to Lite first (2 xDAI).',
+      'Molting requires Pro tier or above. ' +
+      'Free picoclaw (Basic) accounts cannot molt — evolve to Pro first (2 xDAI).',
     );
   }
 

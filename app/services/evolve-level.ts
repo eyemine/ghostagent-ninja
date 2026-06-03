@@ -61,7 +61,7 @@ export const LEVEL_META: Record<EvolveLevel, {
     description: 'Free tier. 8-day history window. Inbox address is permanent. Receive only. No Safe, no send.'
   },
   lite: {
-    label: 'Lite',
+    label: 'Pro',
     color: 'text-amber-300',
     bgColor: 'bg-amber-500/10',
     ringColor: 'ring-amber-500/25',
@@ -126,7 +126,7 @@ export const DOWNGRADE_ACTIONS: Partial<Record<EvolveLevel, EvolveAction>> = {
   premium: {
     from: 'premium',
     to: 'lite',
-    label: 'Drop back to Lite',
+    label: 'Drop back to Pro',
     oneOffXdai: 0,
     annualXdai: 0,
     unlocks: [],
@@ -174,7 +174,7 @@ export function parseLevelRecord(raw: string | null): LevelRecord {
     retention: isPremium ? 'infinite' : isLite ? '30-day' : '8-day',
     sendEnabled: workerTier !== 'basic',
     ipAssetDomain: data.story_ip ? `${data.story_ip}.creation.ip` : null,
-    marketplaceBadge: isPremium && !isGhost ? 'Premium' : isLite ? 'Lite' : null,
+    marketplaceBadge: isPremium && !isGhost ? 'Premium' : isLite ? 'Pro' : null,
     isSoulbound: isGhost,
     arweaveArchive: isGhost
       ? { enabled: true, txId: data.arweave_tx_id ?? undefined, archivedAt: data.arweave_archived_at ?? undefined }

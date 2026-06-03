@@ -13,7 +13,7 @@ const SLD_META: Record<string, { color: string; bg: string; ring: string }> = {
 };
 
 const TIER_LABEL: Record<string, string> = {
-  basic: 'Basic', lite: 'Lite', premium: 'Premium', ghost: 'Ghost',
+  basic: 'Basic', lite: 'Pro', premium: 'Premium', ghost: 'Ghost',
 };
 
 const PRIVACY_META: Record<string, { icon: string; label: string; color: string }> = {

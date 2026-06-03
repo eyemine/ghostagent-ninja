@@ -108,7 +108,7 @@ export default function EvolveModal({
       } : null);
 
       if (data.storyIp?.fullDomain) setStoryIp(data.storyIp.fullDomain);
-      setStatusMsg(data.message ?? `${action === 'upgrade' ? 'Molted to Premium' : 'Returned to Lite'} ✓`);
+      setStatusMsg(data.message ?? `${action === 'upgrade' ? 'Molted to Premium' : 'Returned to Pro'} ✓`);
       setConfirmDowngrade(false);
       onLevelChange?.(newLevel);
     } catch (err: any) {
@@ -357,7 +357,7 @@ export default function EvolveModal({
                     )}
 
                     <p className="text-center text-[9px] text-[var(--muted)]">
-                      Zero lock-in · drop back to Lite any time · email preserved
+                      Zero lock-in · drop back to Pro any time · email preserved
                     </p>
                   </div>
                 )}
@@ -466,7 +466,7 @@ export default function EvolveModal({
                           onClick={() => setConfirmDowngrade(true)}
                           className="w-full rounded-xl border border-zinc-500/30 bg-zinc-500/10 py-2.5 text-xs font-semibold text-zinc-300 transition hover:bg-zinc-500/20"
                         >
-                          Drop back to Lite
+                          Drop back to Pro
                         </button>
                       </>
                     ) : (

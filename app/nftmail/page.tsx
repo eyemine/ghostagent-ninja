@@ -191,7 +191,7 @@ export default function NftmailPage() {
             </div>
             <div className="ml-8 space-y-3">
               <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-[10px] text-amber-300/80">
-                Mint {'{name}'}.nftmail.gno → get {'{name}'}_@nftmail.box. 2 xDAI — born a Lite. 30-day history, send 10 emails via API. Molt to Premium for aliases, persistent history and unlimited send.
+                Mint {'{name}'}.nftmail.gno → get {'{name}'}_@nftmail.box. 2 xDAI — born a Pro. 30-day history, send 10 emails via API. Molt to Premium for aliases, persistent history and unlimited send.
               </div>
               {tier !== 'none' ? (
                 <div className="flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/8 px-4 py-3">

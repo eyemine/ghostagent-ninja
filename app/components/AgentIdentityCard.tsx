@@ -28,7 +28,7 @@ const TIER_COLOR: Record<string, string> = {
 
 const TIER_LABEL: Record<string, string> = {
   basic:   'Basic',
-  lite:    'Lite',
+  lite:    'Pro',
   premium: 'PRO',
   ghost:   'Ghost',
 };

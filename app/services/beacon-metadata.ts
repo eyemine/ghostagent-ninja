@@ -160,7 +160,7 @@ export function buildBeaconMetadata(params: BuildBeaconParams): BeaconMetadata {
   };
 
   const nextUnlockMap: Record<string, string> = {
-    basic: 'Upgrade to Lite: send capability + Gnosis Safe body (10 xDAI)',
+    basic: 'Upgrade to Pro: send capability + Gnosis Safe body (10 xDAI)',
     lite:  'Evolve to Premium: infinite retention + Story .ip NFT (14 + 24 xDAI/yr)',
     premium: 'Ascend to Ghost: sovereign governance + IP revenue share',
     ghost: 'Max level reached — sovereign agent',

@@ -117,7 +117,7 @@ export default function GhostSettingsPage() {
               <span className="ml-auto text-[9px] text-zinc-500">cloud · transferable</span>
             </div>
             <p className="text-[10px] text-[var(--muted)] leading-relaxed">
-              Basic → Lite → Premium. Cloud-hosted. Renewable subscription. Can be sold on marketplace.
+              Basic → Pro → Premium. Cloud-hosted. Renewable subscription. Can be sold on marketplace.
               Identity is an ERC-721 NFT — a transferable digital asset.
             </p>
           </div>

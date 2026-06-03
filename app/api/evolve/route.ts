@@ -270,7 +270,7 @@ export async function POST(req: NextRequest) {
       workerTier: newWorkerTier,
       expiresAt,
       retention: isBasicToLite ? '30-day' : action === 'upgrade' ? 'infinite' : '30-day',
-      marketplaceBadge: isBasicToLite ? 'Lite' : action === 'upgrade' ? 'Premium' : 'Lite',
+      marketplaceBadge: isBasicToLite ? 'Pro' : action === 'upgrade' ? 'Premium' : 'Pro',
       storyIp: basicToLiteIPResult ?? storyIpResult ?? null,
       paymentTxHash: txHash ?? null,
       molt_path: moltPathResult
@@ -285,10 +285,10 @@ export async function POST(req: NextRequest) {
           }
         : null,
       message: isBasicToLite
-        ? `Evolved to Lite ✓ — send enabled + ${basicToLiteIPResult?.fullDomain ? `.IP Minted: ${basicToLiteIPResult.fullDomain}` : 'Story .ip asset registered'}`
+        ? `Evolved to Pro ✓ — send enabled + ${basicToLiteIPResult?.fullDomain ? `.IP Minted: ${basicToLiteIPResult.fullDomain}` : 'Story .ip asset registered'}`
         : action === 'upgrade'
         ? `Evolved to Premium ✓ — infinite retention + Story .ip asset registered`
-        : `Returned to Lite — 30-day cycle active. Email, Safe, and history preserved.`,
+        : `Returned to Pro — 30-day cycle active. Email, Safe, and history preserved.`,
     });
   } catch (err: any) {
     return NextResponse.json({ error: err?.message ?? 'Internal error' }, { status: 500 });

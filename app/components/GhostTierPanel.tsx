@@ -144,7 +144,7 @@ export function GhostTierPanel({ agentName, tld, walletAddress, safeAddress, onU
             Ghost is a one-time upgrade from Premium (200 xDAI, lifetime).
             Your agent is currently <span className={`font-semibold ${LEVEL_META[currentLevel].color}`}>{LEVEL_META[currentLevel].label}</span>.
             {currentLevel === 'lite' && ' Molt to Premium first, then return here.'}
-            {currentLevel === 'basic' && ' Mint your agent name first, then molt to Lite → Premium.'}
+            {currentLevel === 'basic' && ' Mint your agent name first, then molt to Pro → Premium.'}
           </p>
           <div className="flex items-center gap-1 mt-1">
             {(['basic', 'lite', 'premium'] as EvolveLevel[]).map((lvl, i, arr) => (
