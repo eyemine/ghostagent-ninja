@@ -33,6 +33,7 @@ interface AgentCard {
 }
 
 interface AgentIdentity {
+  originNft: string | null;
   onChainOwner: string | null;
   tbaAddress: string | null;
   safe: string | null;
@@ -83,136 +84,168 @@ export default function EmbedAgentPanel() {
 
   if (!card && !identity) {
     return (
-      <div className="flex h-screen items-center justify-center bg-transparent">
+      <div className="flex min-h-screen items-center justify-center bg-[#080b12]">
         <p className="text-xs text-zinc-500">Agent not found</p>
       </div>
     );
   }
 
+  const CHAIN_LABELS: Record<string,string> = { gnosis:'Gnosis', base:'Base', baseSepolia:'Base Sepolia' };
+  const CHAIN_COLORS: Record<string,string> = {
+    gnosis:      'text-violet-300 bg-violet-500/10 ring-violet-500/20',
+    base:        'text-blue-300 bg-blue-500/10 ring-blue-500/20',
+    baseSepolia: 'text-zinc-400 bg-zinc-500/10 ring-zinc-500/20',
+  };
+
   return (
-    <div className="min-h-screen bg-[#080b12] p-3">
-      <div className="rounded-xl border border-[rgba(176,128,92,0.3)] bg-[rgba(255,255,255,0.025)] p-4 space-y-3.5">
+    <div className="min-h-screen bg-[#080b12] flex items-start justify-center py-4 px-3">
+      <div className="w-full max-w-sm">
+        <div className="rounded-2xl border border-[rgba(176,128,92,0.35)] bg-[var(--card)] p-5 space-y-4">
 
-        {/* Header row */}
-        <div className="flex items-start gap-3">
-          <div className="h-14 w-14 shrink-0 rounded-xl border border-[rgba(176,128,92,0.2)] bg-black/40 overflow-hidden">
-            {imageUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={imageUrl} alt={name} className="h-full w-full object-cover" />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center">
-                <svg className="h-6 w-6 text-zinc-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <rect x="3" y="3" width="18" height="18" rx="3"/>
-                  <circle cx="8.5" cy="8.5" r="1.5"/>
-                  <polyline points="21 15 16 10 5 21"/>
-                </svg>
+          {/* Header */}
+          <div className="flex items-start gap-4">
+            <div className="h-16 w-16 shrink-0 rounded-xl border border-[rgba(176,128,92,0.2)] bg-black/40 overflow-hidden">
+              {imageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={imageUrl} alt={name} className="h-full w-full object-cover" />
+              ) : (
+                <div className="flex h-full w-full flex-col items-center justify-center gap-1">
+                  <svg className="h-7 w-7 text-zinc-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
+                  </svg>
+                  <span className="text-[8px] font-semibold tracking-wider text-zinc-700 uppercase">NFT</span>
+                </div>
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-lg font-bold text-[#f2eee4]">{name}</h1>
+                {identity?.tld && (
+                  <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-semibold ring-1 ${sldMeta.color} ${sldMeta.bg} ${sldMeta.ring}`}>
+                    .{identity.tld}
+                  </span>
+                )}
+                <span className={`inline-flex items-center gap-1 rounded-full bg-white/[0.04] px-2 py-0.5 text-[9px] font-semibold ring-1 ring-current/20 ${privacyMeta.color}`}>
+                  {privacyMeta.icon} {privacyMeta.label}
+                </span>
+                {card?.active && (
+                  <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-[9px] font-semibold text-emerald-400 ring-1 ring-emerald-500/20">Active</span>
+                )}
               </div>
-            )}
+              <p className="mt-1 text-[11px] text-[var(--muted)]">
+                {card?.name ?? `${name}.gno`}
+                {emailService && <span className="ml-2 font-mono">{emailService.endpoint}</span>}
+              </p>
+              {card?.description && (
+                <p className="mt-1.5 text-[11px] text-[var(--muted)] leading-relaxed line-clamp-2">{card.description}</p>
+              )}
+            </div>
           </div>
 
-          <div className="flex-1 min-w-0">
-            <div className="flex flex-wrap items-center gap-1 mb-0.5">
-              <span className="text-sm font-bold text-[#f2eee4]">{name}</span>
-              {identity?.tld && (
-                <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[8px] font-semibold ring-1 ${sldMeta.color} ${sldMeta.bg} ${sldMeta.ring}`}>
-                  .{identity.tld}
-                </span>
-              )}
-              <span className={`inline-flex items-center gap-0.5 rounded-full bg-white/[0.04] px-1.5 py-0.5 text-[8px] font-semibold ring-1 ring-current/20 ${privacyMeta.color}`}>
-                {privacyMeta.icon} {privacyMeta.label}
-              </span>
-              {card?.active && (
-                <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[8px] font-semibold text-emerald-400 ring-1 ring-emerald-500/20">
-                  Active
-                </span>
-              )}
-            </div>
-            {emailService && (
-              <p className="font-mono text-[10px] text-zinc-500 truncate">{emailService.endpoint}</p>
-            )}
-            {card?.description && (
-              <p className="mt-1 text-[10px] text-zinc-500 leading-relaxed line-clamp-2">{card.description}</p>
-            )}
+          <div className="h-px bg-[var(--border)]" />
+
+          {/* Stats */}
+          <div className="grid grid-cols-3 gap-2.5 text-center">
+            {[
+              { label: 'Surge Score', value: identity?.moltPath?.surgeReputationScore != null ? String(identity.moltPath.surgeReputationScore) : '—', color: 'text-violet-300' },
+              { label: 'Tier',        value: TIER_LABEL[identity?.accountTier ?? ''] ?? identity?.accountTier ?? '—', color: 'text-[#f2eee4]' },
+              { label: 'ERC-8004 ID', value: agentId != null ? `#${agentId}` : '—', color: 'text-amber-300' },
+            ].map(({ label, value, color }) => (
+              <div key={label} className="rounded-lg border border-[rgba(176,128,92,0.2)] bg-black/20 px-2 py-2.5">
+                <div className="text-[9px] font-semibold tracking-wider text-[var(--muted)]">{label}</div>
+                <div className={`mt-1 text-sm font-medium ${color}`}>{value}</div>
+              </div>
+            ))}
           </div>
-        </div>
 
-        <div className="h-px bg-[rgba(176,128,92,0.1)]" />
-
-        {/* Stats grid */}
-        <div className="grid grid-cols-3 gap-1.5 text-center">
-          {[
-            { label: 'Surge', value: identity?.moltPath?.surgeReputationScore != null ? String(identity.moltPath.surgeReputationScore) : '—', color: 'text-violet-300' },
-            { label: 'Tier',  value: TIER_LABEL[identity?.accountTier ?? ''] ?? identity?.accountTier ?? '—', color: 'text-[#f2eee4]' },
-            { label: 'ID',    value: agentId != null ? `#${agentId}` : '—', color: 'text-amber-300' },
-          ].map(({ label, value, color }) => (
-            <div key={label} className="rounded-lg border border-[rgba(176,128,92,0.12)] bg-black/20 px-1.5 py-2">
-              <div className="text-[7px] font-semibold tracking-wider text-zinc-600 uppercase">{label}</div>
-              <div className={`mt-0.5 text-xs font-semibold ${color}`}>{value}</div>
+          {/* Endpoints from card.services */}
+          {card?.services && card.services.length > 0 && (
+            <div>
+              <h2 className="text-[10px] font-semibold tracking-[0.16em] text-[var(--muted)] mb-2.5">ENDPOINTS</h2>
+              <div className="space-y-1.5">
+                {card.services.map((svc, i) => {
+                  const isEmail = svc.name === 'email';
+                  const href = isEmail ? `https://nftmail.box/inbox/${name}_` : null;
+                  return (
+                    <div key={i} className="flex items-center justify-between gap-3 rounded-lg border border-[rgba(176,128,92,0.12)] bg-black/20 px-3 py-2">
+                      <span className="text-[10px] font-semibold tracking-wider text-[var(--muted)] shrink-0 w-12">{svc.name.toUpperCase()}</span>
+                      {href ? (
+                        <a href={href} target="_blank" rel="noopener noreferrer" className="font-mono text-[10px] text-[rgba(176,128,92,0.8)] truncate flex-1 hover:underline">{svc.endpoint}</a>
+                      ) : (
+                        <span className="font-mono text-[10px] text-zinc-400 truncate flex-1">{svc.endpoint}</span>
+                      )}
+                      {svc.version && <span className="text-[9px] text-zinc-600 shrink-0">v{svc.version}</span>}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-          ))}
-        </div>
+          )}
 
-        {/* On-chain identity */}
-        <div className="space-y-1">
-          {[
-            { label: 'TBA',   value: shortAddr(identity?.tbaAddress ?? null), href: identity?.tbaAddress ? `https://gnosisscan.io/address/${identity.tbaAddress}` : null },
-            { label: 'Safe',  value: identity?.safe ? shortAddr(identity.safe) : '—',  href: identity?.safe ? `https://app.safe.global/home?safe=gno:${identity.safe}` : null },
-            { label: 'Owner', value: shortAddr(identity?.onChainOwner ?? null),         href: identity?.onChainOwner ? `https://gnosisscan.io/address/${identity.onChainOwner}` : null },
-          ].map((row) => (
-            <div key={row.label} className="flex items-center justify-between text-[10px]">
-              <span className="text-zinc-600 w-9 shrink-0">{row.label}</span>
-              {row.href ? (
-                <a href={row.href} target="_blank" rel="noopener noreferrer"
-                  className="font-mono text-[rgba(176,128,92,0.75)] hover:text-[rgba(176,128,92,1)] transition truncate">
-                  {row.value} ↗
-                </a>
-              ) : (
-                <span className="font-mono text-zinc-600 truncate">{row.value}</span>
-              )}
+          {/* On-chain identity */}
+          <div>
+            <h2 className="text-[10px] font-semibold tracking-[0.16em] text-[var(--muted)] mb-2.5">ON-CHAIN IDENTITY</h2>
+            <div className="space-y-2">
+              {[
+                { label: 'NFT Origin', value: identity?.originNft ?? '—', href: null },
+                { label: 'TBA',   value: shortAddr(identity?.tbaAddress ?? null), href: identity?.tbaAddress ? `https://gnosisscan.io/address/${identity.tbaAddress}` : null },
+                { label: 'Safe',  value: identity?.safe ? shortAddr(identity.safe) : '—', href: identity?.safe ? `https://app.safe.global/home?safe=gno:${identity.safe}` : null },
+                { label: 'Owner', value: shortAddr(identity?.onChainOwner ?? null), href: identity?.onChainOwner ? `https://gnosisscan.io/address/${identity.onChainOwner}` : null },
+              ].map((row) => (
+                <div key={row.label} className="flex items-center justify-between gap-4 text-[11px]">
+                  <span className="text-[var(--muted)] shrink-0 w-20">{row.label}</span>
+                  {row.href ? (
+                    <a href={row.href} target="_blank" rel="noopener noreferrer" className="font-mono text-[rgba(176,128,92,0.9)] truncate hover:underline">{row.value} ↗</a>
+                  ) : (
+                    <span className="font-mono text-zinc-500 truncate">{row.value}</span>
+                  )}
+                </div>
+              ))}
+              {/* ERC-8004 chain badges */}
+              <div className="flex items-start justify-between gap-4 text-[11px]">
+                <span className="text-[var(--muted)] shrink-0 w-20">ERC-8004</span>
+                <div className="flex flex-wrap gap-1.5 justify-end">
+                  {(card?.registrations ?? []).length === 0 ? (
+                    <a href={`https://ghostagent.ninja/api/agent-card?agent=${name}`} target="_blank" rel="noopener noreferrer" className="font-mono text-[10px] text-[rgba(176,128,92,0.8)] hover:underline">agent-card ↗</a>
+                  ) : (card?.registrations ?? []).map((reg) => {
+                    const ck = reg.agentRegistry.includes(':100:') ? 'gnosis' : reg.agentRegistry.includes(':84532:') ? 'baseSepolia' : 'base';
+                    const cs = ck === 'gnosis' ? 'gnosis' : ck === 'baseSepolia' ? 'base-sepolia' : 'base';
+                    return (
+                      <a key={reg.agentId} href={`https://8004agents.ai/${cs}/agent/${reg.agentId}#metadata`} target="_blank" rel="noopener noreferrer"
+                        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-semibold ring-1 hover:brightness-125 ${CHAIN_COLORS[ck]}`}>
+                        {CHAIN_LABELS[ck]} #{reg.agentId} ↗
+                      </a>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
-          ))}
-        </div>
+          </div>
 
-        <div className="h-px bg-[rgba(176,128,92,0.1)]" />
+          <div className="h-px bg-[var(--border)]" />
 
-        {/* Endpoints */}
-        <div className="space-y-1">
-          <div className="text-[8px] font-semibold tracking-wider text-zinc-600 uppercase mb-1">Endpoints</div>
-          {[
-            { label: 'WEB', value: `https://ghostagent.ninja/agent/${name}`, href: `https://ghostagent.ninja/agent/${name}` },
-            { label: 'A2A', value: `https://ghostagent.ninja/api/agent-card?agent=${name}`, href: `https://ghostagent.ninja/api/agent-card?agent=${name}` },
-            { label: 'EMAIL', value: emailService?.endpoint ?? '—', href: null },
-            { label: 'X402', value: 'https://ghostagent.ninja/api/trade-intent', href: 'https://ghostagent.ninja/api/trade-intent' },
-          ].map((row) => (
-            <div key={row.label} className="flex items-center justify-between text-[9px]">
-              <span className="text-zinc-600 w-10 shrink-0">{row.label}</span>
-              {row.href ? (
-                <a href={row.href} target="_blank" rel="noopener noreferrer"
-                  className="font-mono text-[rgba(176,128,92,0.75)] hover:text-[rgba(176,128,92,1)] transition truncate text-right">
-                  {row.value} ↗
-                </a>
-              ) : (
-                <span className="font-mono text-zinc-600 truncate text-right">{row.value}</span>
-              )}
+          {/* Footer */}
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            {identity?.emailAddress && (
+              <a href={`https://nftmail.box/inbox/${name}_`} target="_blank" rel="noopener noreferrer"
+                className="font-mono text-[10px] text-[var(--muted)] hover:text-white transition">
+                {identity.emailAddress}
+              </a>
+            )}
+            <div className="flex gap-2">
+              <a href={`https://ghostagent.ninja/agent/${name}`} target="_blank" rel="noopener noreferrer"
+                className="rounded-lg border border-[rgba(176,128,92,0.25)] bg-black/30 px-3 py-1.5 text-[11px] font-medium text-[var(--muted)] transition hover:text-white">
+                Full Profile ↗
+              </a>
+              <a href={`https://notapaperclip.red/erc8004?agent=${encodeURIComponent(name)}`} target="_blank" rel="noopener noreferrer"
+                className="rounded-lg border px-3 py-1.5 text-[11px] font-semibold transition"
+                style={{ color:'rgb(176,128,92)', borderColor:'rgba(176,128,92,0.4)', background:'rgba(176,128,92,0.1)' }}>
+                ERC-8004 ↗
+              </a>
             </div>
-          ))}
+          </div>
+
         </div>
-
-        <div className="h-px bg-[rgba(176,128,92,0.1)]" />
-
-        {/* Footer */}
-        <div className="flex items-center justify-between">
-          <a
-            href={`https://ghostagent.ninja/agent/${name}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-[9px] text-[rgba(176,128,92,0.6)] hover:text-[rgba(176,128,92,1)] transition"
-          >
-            Full profile ↗
-          </a>
-          <span className="text-[8px] font-semibold tracking-[0.15em] text-zinc-700 uppercase">GhostAgent Protocol</span>
-        </div>
-
       </div>
     </div>
   );
