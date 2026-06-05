@@ -222,6 +222,18 @@ export interface AgentIdentityGraph {
   };
 }
 
+// Detect if input uses BYO dot format (e.g., chonk.697) vs native format (ghostagent_)
+function isByoDotFormat(q: string): boolean {
+  const withoutDomain = q.replace(/@nftmail\.box$/i, '').trim().toLowerCase();
+  const withoutTld = withoutDomain.replace(/\.(agent|molt|nftmail|openclaw|picoclaw|vault)\.gno$/i, '');
+  return withoutTld.includes('.') && /^(chonk|atom|normie|mooncat)\./.test(withoutTld);
+}
+
+// Check if normalized name is a BYO agent (e.g., chonk-697, atom-1234)
+function isByoName(name: string): boolean {
+  return /^(chonk|atom|normie|mooncat)-/.test(name);
+}
+
 function normaliseQuery(q: string): { name: string; isAgent: boolean } {
   // Strip @nftmail.box suffix if present
   const withoutDomain = q.replace(/@nftmail\.box$/i, '').trim().toLowerCase();
@@ -360,7 +372,7 @@ export async function GET(req: NextRequest) {
     const graph: AgentIdentityGraph = {
       inputQuery: q,
       resolvedName: name,
-      emailAddress: `${name}_@nftmail.box`,
+      emailAddress: (isByoDotFormat(q) || isByoName(name)) ? `${name.replace(/-/g, '.')}_@nftmail.box` : `${name}_@nftmail.box`,
 
       exists: resolved.exists ?? false,
       stream: resolved.stream ?? 'agent',
