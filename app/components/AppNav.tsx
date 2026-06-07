@@ -8,6 +8,7 @@ const NAV = [
   { href: '/dashboard', label: 'Dashboard' },
   { href: '/pair-nft', label: 'Pair My NFT' },
   { href: '/agents?tab=mint', label: 'Mint Agent ID' },
+  { href: '/namespace', label: 'Namespace' },
   { href: '/dashboard/marketplace', label: 'Marketplace' },
   { href: '/treasury', label: 'Treasury' },
   { href: '/docs', label: 'Docs' },
