@@ -441,6 +441,7 @@ export async function POST(req: NextRequest) {
         });
         const kvJson = await kvRes.json() as any;
         kvRegistered = kvJson?.status === 'registered';
+        if (ipAccount) fetch(nftmailWorkerUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'upgradeTier',secret:webhookSecret,name:agentName,tier:'lite',storyIp:agentName})}).catch(()=>{});
       } catch {
         // Non-fatal — KV can be backfilled manually
       }

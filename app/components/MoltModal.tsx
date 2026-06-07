@@ -20,7 +20,7 @@ export interface MoltResult {
   targetIdentity: string;
   newBeaconCid: string | null;
   totalXdaiBurned: number;
-  surgeReputationScore: number;
+  activityScore: number;
 }
 
 type Step = 'select' | 'preview' | 'paying' | 'molting' | 'done' | 'error';
@@ -89,7 +89,7 @@ export function MoltModal({ agentName, currentIdentity, ownerWallet, onClose, on
         targetIdentity: data.targetIdentity,
         newBeaconCid: data.newBeaconCid,
         totalXdaiBurned: data.totalXdaiBurned,
-        surgeReputationScore: data.surgeReputationScore,
+        activityScore: data.activityScore ?? data.surgeReputationScore ?? 0,
       };
       setResult(moltResult);
       setStep('done');
@@ -260,8 +260,8 @@ export function MoltModal({ agentName, currentIdentity, ownerWallet, onClose, on
                   <span className="font-semibold text-white">{result.totalXdaiBurned.toFixed(1)}</span>
                 </div>
                 <div className="flex justify-between text-xs">
-                  <span className="text-[var(--muted)]">Surge reputation</span>
-                  <span className="font-semibold text-amber-300">{result.surgeReputationScore} pts</span>
+                  <span className="text-[var(--muted)]">Activity score</span>
+                  <span className="font-semibold text-amber-300">{result.activityScore} pts</span>
                 </div>
                 {result.newBeaconCid && (
                   <div className="flex justify-between text-xs">

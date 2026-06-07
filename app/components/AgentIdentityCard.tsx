@@ -303,8 +303,8 @@ export function AgentIdentityCard({ name: initialName }: AgentIdentityCardProps)
                   color="text-amber-300"
                 />
                 <Row
-                  label="Surge Score"
-                  value={graph.moltPath.surgeReputationScore != null ? graph.moltPath.surgeReputationScore.toString() : '—'}
+                  label="Story IP"
+                  value={graph.storyIp ?? '—'}
                   color="text-fuchsia-300"
                 />
                 <Row

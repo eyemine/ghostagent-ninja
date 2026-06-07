@@ -27,13 +27,13 @@ type ByoType = 'chonk' | 'pownft' | 'normie' | 'mooncat' | 'ens' | null;
 
 function detectByoType(agentName: string): { type: ByoType; tokenId: string | null; contract: string | null; marketLink: string | null } {
   const n = agentName.toLowerCase();
-  const chonkM = n.match(/^chonk[._](\d+)/);
+  const chonkM = n.match(/^chonk[._-](\d+)/);
   if (chonkM) return { type: 'chonk', tokenId: chonkM[1], contract: CHONK_CONTRACT, marketLink: `https://www.chonks.xyz/market/chonks/${chonkM[1]}` };
-  const pownftM = n.match(/^atom[._](\d+)/);
+  const pownftM = n.match(/^atom[._-](\d+)/);
   if (pownftM) return { type: 'pownft', tokenId: pownftM[1], contract: POWNFT_CONTRACT, marketLink: `https://pownft.com/atom/${pownftM[1]}` };
-  const normieM = n.match(/^normie[._](\d+)/);
+  const normieM = n.match(/^normie[._-](\d+)/);
   if (normieM) return { type: 'normie', tokenId: normieM[1], contract: NORMIE_CONTRACT, marketLink: `https://opensea.io/assets/base/${NORMIE_CONTRACT}/${normieM[1]}` };
-  const mooncatM = n.match(/^mooncat[._](\d+)/);
+  const mooncatM = n.match(/^mooncat[._-](\d+)/);
   if (mooncatM) return { type: 'mooncat', tokenId: mooncatM[1], contract: MOONCAT_CONTRACT, marketLink: `https://opensea.io/assets/ethereum/${MOONCAT_CONTRACT}/${mooncatM[1]}` };
   return { type: null, tokenId: null, contract: null, marketLink: null };
 }
@@ -100,6 +100,7 @@ const publicClient = createPublicClient({
 interface AgentIdentity {
   name: string;
   email?: string;
+  storyIp?: string | null;
   identityNft?: { name: string; tokenId: number; owner: string; tld: string };
   safe?: string;
   tbaAddress?: string | null;

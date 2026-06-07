@@ -269,11 +269,10 @@ async function recordMolt(
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        action: 'upgradeTierIfBelow',
+        action: 'upgradeTier',
         secret: webhookSecret,
-        label: primaryName,
-        minTier: 'lite',
-        retention: '30-day',
+        name: primaryName,
+        tier: 'lite',
       }),
     }),
   ]);

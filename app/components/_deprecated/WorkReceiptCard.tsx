@@ -9,14 +9,16 @@ interface WorkReceiptProps {
   revenue: number;
   agentAddress: string;
   receiptNumber: number;
-  surgeGained?: number;
+  storyIpId?: string;
+  x402Status?: 'active' | 'inactive' | 'pending';
+  cdrVaultUuid?: string | null;
   isNewlyPro?: boolean;
   storyTxHash?: string;
   timestamp?: number;
 }
 
 const STORY_EXPLORER_URL = 'https://explorer.storyprotocol.xyz/tx/';
-const SURGE_DECIMALS = 18;
+const STORY_IPA_URL = 'https://explorer.storyprotocol.xyz/ipa/';
 
 function formatDate(timestamp: number = Date.now()) {
   return new Date(timestamp).toLocaleDateString('en-US', {
@@ -32,15 +34,15 @@ export function WorkReceiptCard({
   revenue, 
   agentAddress, 
   receiptNumber,
-  surgeGained = 0.1,
+  storyIpId,
+  x402Status = 'inactive',
+  cdrVaultUuid = null,
   isNewlyPro = false,
   storyTxHash,
   timestamp = Date.now()
 }: WorkReceiptProps) {
   const [showMoltEffect, setShowMoltEffect] = useState(false);
-  const [surgeCounter, setSurgeCounter] = useState(0);
   const [mounted, setMounted] = useState(false);
-  const [showSurgeGlow, setShowSurgeGlow] = useState(false);
 
   const truncateHash = (hash: string) => `${hash.slice(0, 6)}...${hash.slice(-4)}`;
 
@@ -48,29 +50,6 @@ export function WorkReceiptCard({
   useEffect(() => {
     setMounted(true);
   }, []);
-
-  // Animate SURGE counter and glow effect
-  useEffect(() => {
-    if (surgeGained > 0) {
-      const steps = 20;
-      const increment = surgeGained / steps;
-      let current = 0;
-      
-      const timer = setInterval(() => {
-        if (current < surgeGained) {
-          current += increment;
-          setSurgeCounter(Math.min(current, surgeGained));
-          // Trigger glow effect
-          setShowSurgeGlow(true);
-          setTimeout(() => setShowSurgeGlow(false), 200);
-        } else {
-          clearInterval(timer);
-        }
-      }, 50);
-
-      return () => clearInterval(timer);
-    }
-  }, [surgeGained]);
 
   // Trigger molt animation for new Pro agents
   useEffect(() => {
@@ -125,55 +104,31 @@ export function WorkReceiptCard({
         </div>
 
         <div className="space-y-4">
-          {/* SURGE Reputation Gain */}
-          <motion.div 
-            className="flex flex-col gap-1"
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            transition={{ delay: 0.2 }}
-          >
-            <span className="text-sm text-zinc-400">Reputation Gained</span>
-            <div className="flex items-center gap-2">
-              <motion.div 
-                className={`
-                  text-lg font-medium text-violet-300 relative
-                  ${showSurgeGlow ? 'animate-pulse' : ''}
-                `}
-                style={{
-                  textShadow: showSurgeGlow 
-                    ? '0 0 10px rgba(167, 139, 250, 0.5), 0 0 20px rgba(167, 139, 250, 0.3)' 
-                    : 'none',
-                  transition: 'text-shadow 0.2s ease-out'
-                }}
-              >
-                {/* Glow Ring */}
-                <motion.div
-                  initial={false}
-                  animate={{
-                    opacity: showSurgeGlow ? [0, 1, 0] : 0,
-                    scale: showSurgeGlow ? [1, 1.5, 1] : 1,
-                  }}
-                  transition={{ duration: 0.4 }}
-                  className="absolute inset-0 -m-2 rounded-full bg-violet-500/20 blur-sm"
-                />
-                +{surgeCounter.toFixed(3)} $HOST
-              </motion.div>
-              <motion.div
-                initial={{ scale: 0.8, opacity: 0 }}
-                animate={{ 
-                  scale: 1, 
-                  opacity: 1,
-                  boxShadow: showSurgeGlow 
-                    ? '0 0 15px rgba(167, 139, 250, 0.3)' 
-                    : '0 0 0 rgba(0,0,0,0)'
-                }}
-                transition={{ delay: 0.5, type: 'spring' }}
-                className="px-2 py-0.5 bg-violet-500/10 text-violet-300 text-xs rounded-full"
-              >
-                {(surgeGained * 20).toFixed(1)} Reputation Points
-              </motion.div>
+          {/* Status: Story IP / x402 / CDR Vault */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="flex flex-col gap-1">
+              <span className="text-xs text-zinc-500 uppercase tracking-wider">Story IP</span>
+              {storyIpId ? (
+                <a href={`${STORY_IPA_URL}${storyIpId}`} target="_blank" rel="noopener noreferrer"
+                  className="text-sm font-medium text-violet-300 hover:text-violet-200 transition-colors">
+                  {storyIpId.slice(0, 6)}…{storyIpId.slice(-4)}
+                </a>
+              ) : <span className="text-sm text-zinc-500">—</span>}
             </div>
-          </motion.div>
+            <div className="flex flex-col gap-1">
+              <span className="text-xs text-zinc-500 uppercase tracking-wider">x402</span>
+              <span className={`text-sm font-medium ${x402Status === 'active' ? 'text-emerald-300' : x402Status === 'pending' ? 'text-amber-300' : 'text-zinc-500'}`}>
+                {x402Status === 'active' ? 'Active' : x402Status === 'pending' ? 'Pending' : 'Inactive'}
+              </span>
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-xs text-zinc-500 uppercase tracking-wider">CDR Vault</span>
+              {cdrVaultUuid
+                ? <span className="text-sm font-medium text-cyan-300">#{cdrVaultUuid}</span>
+                : <span className="text-sm text-zinc-500">—</span>}
+            </div>
+          </div>
+          <div className="h-px bg-zinc-700/50" />
 
           <div className="flex flex-col gap-1">
             <span className="text-sm text-zinc-400">IPFS Content ID</span>

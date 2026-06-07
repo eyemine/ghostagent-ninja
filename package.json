@@ -39,6 +39,7 @@
   "devDependencies": {
     "@ardrive/turbo-sdk": "^1.41.0",
     "@cloudflare/workers-types": "^4.20260217.0",
+    "@story-protocol/core-sdk": "^1.4.4",
     "@types/node": "20.11.16",
     "@types/react": "18.2.51",
     "@types/react-copy-to-clipboard": "^5.0.7",

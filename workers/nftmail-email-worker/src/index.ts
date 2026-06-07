@@ -2248,6 +2248,10 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
 
         // Agent Registry: update acct-tier (safe, story_ip, tier) and/or nftmailgno (originNft, tokenId, TBA) for an agent
         if (email.action === 'setAgentRecord') {
+          const secret = (email as any).secret || request.headers.get('X-Webhook-Secret') || '';
+          if (env.WEBHOOK_SECRET && secret !== env.WEBHOOK_SECRET) {
+            return corsify(Response.json({ error: 'Unauthorized' }, { status: 401 }), request);
+          }
           // Preserve .agent suffix for agent inbox keys (ghostagent.agent vs ghostagent)
           const rawName = ((email as any).agentName || '').toLowerCase().trim();
           const agentName = rawName.endsWith('.agent') ? rawName : rawName.replace(/\.agent$/, '');
@@ -5109,7 +5113,7 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
             return corsify(Response.json({ error: `${label} is already registered`, status: 'already_registered' }, { status: 409 }), request);
           }
 
-          const originNft: string = (email as any).originNft || `${label}.nftmail.gno`;
+          const originNft: string = (email as any).originNft || `${label}.agent.gno`;
           const legacyIdentity: string | null = (email as any).legacyIdentity || null;
           const mintedTokenId: number | null = (email as any).mintedTokenId || null;
           const privacyTier: string = (email as any).privacyTier || 'exposed';

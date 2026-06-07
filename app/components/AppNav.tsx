@@ -9,9 +9,10 @@ const NAV = [
   { href: '/pair-nft', label: 'Pair My NFT' },
   { href: '/agents?tab=mint', label: 'Mint Agent ID' },
   { href: '/dashboard/marketplace', label: 'Marketplace' },
-  { href: '/host', label: '$HOST' },
+  { href: '/treasury', label: 'Treasury' },
   { href: '/docs', label: 'Docs' },
   { href: '/about', label: 'About' },
+  // { href: '/host', label: '$HOST' }, // Hidden - staking prototype deprecated
 ];
 
 export function AppNav() {

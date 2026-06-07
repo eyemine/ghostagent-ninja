@@ -27,14 +27,12 @@ interface MarketItem {
   price: number;
   type: ItemType;
   category: ItemCategory;
-  surgeScore: number;
   completedTasks: number;
   // Domain-specific attributes
   evolveLevel: EvolveLevel;
   privacyStatus: PrivacyStatus;
   decayDays: DecayDays;
   ipType: IpType | null;
-  stakedHost: number;
   marketplaceBadge: string | null;
   xmtpEnabled: boolean;
   swarmMemberCount?: number;
@@ -47,64 +45,64 @@ const DEMO_ITEMS: MarketItem[] = [
     agent: 'eyemine', namespace: 'openclaw.gno',
     title: 'On-Chain Data Analysis',
     description: 'Automated analysis of Gnosis Chain transaction patterns with weekly reports delivered to your agent inbox.',
-    price: 10, type: 'service', category: 'data', surgeScore: 72.3, completedTasks: 42,
-    evolveLevel: 'premium', privacyStatus: 'private', decayDays: 365, ipType: 'creation.ip', stakedHost: 300, marketplaceBadge: 'Premium', xmtpEnabled: true,
+    price: 10, type: 'service', category: 'data', completedTasks: 42,
+    evolveLevel: 'premium', privacyStatus: 'private', decayDays: 365, ipType: 'creation.ip', marketplaceBadge: 'Premium', xmtpEnabled: true,
   },
   {
     agent: 'treasury', namespace: 'vault.gno',
     title: 'DeFi Yield Monitoring',
     description: 'Real-time yield tracking across Gnosis DeFi protocols with rebalance alerts.',
-    price: 25, type: 'service', category: 'defi', surgeScore: 95.1, completedTasks: 156,
-    evolveLevel: 'ghost', privacyStatus: 'hard-privacy', decayDays: 365, ipType: 'creation.ip', stakedHost: 5000, marketplaceBadge: 'Ghost', xmtpEnabled: true, swarmMemberCount: 4, swarmStrategy: 'parallel', swarmHackathonTag: 'lablab-2026',
+    price: 25, type: 'service', category: 'defi', completedTasks: 156,
+    evolveLevel: 'ghost', privacyStatus: 'hard-privacy', decayDays: 365, ipType: 'creation.ip', marketplaceBadge: 'Ghost', xmtpEnabled: true, swarmMemberCount: 4, swarmStrategy: 'parallel', swarmHackathonTag: 'lablab-2026',
   },
   {
     agent: 'hive', namespace: 'molt.gno',
     title: 'DAO Governance Digest',
     description: 'Daily summary of governance proposals across tracked DAOs, sent to your inbox.',
-    price: 5, type: 'service', category: 'social', surgeScore: 22.0, completedTasks: 18,
-    evolveLevel: 'lite', privacyStatus: 'glassbox', decayDays: 30, ipType: 'moltbook.ip', stakedHost: 100, marketplaceBadge: 'Pro', xmtpEnabled: false,
+    price: 5, type: 'service', category: 'social', completedTasks: 18,
+    evolveLevel: 'lite', privacyStatus: 'glassbox', decayDays: 30, ipType: 'moltbook.ip', marketplaceBadge: 'Pro', xmtpEnabled: false,
   },
   {
     agent: 'pico-news', namespace: 'picoclaw.gno',
     title: 'Crypto News Feed',
     description: 'Curated crypto news delivered to your agent inbox every 6 hours.',
-    price: 2, type: 'service', category: 'content', surgeScore: 8.4, completedTasks: 7,
-    evolveLevel: 'basic', privacyStatus: 'glassbox', decayDays: 8, ipType: null, stakedHost: 0, marketplaceBadge: null, xmtpEnabled: false,
+    price: 2, type: 'service', category: 'content', completedTasks: 7,
+    evolveLevel: 'basic', privacyStatus: 'glassbox', decayDays: 8, ipType: null, marketplaceBadge: null, xmtpEnabled: false,
   },
   {
     agent: 'scout', namespace: 'agent.gno',
     title: 'NFT Floor Price Alerts',
     description: 'Monitor NFT collections and get instant alerts when floor prices drop below your threshold.',
-    price: 3, type: 'service', category: 'data', surgeScore: 1.0, completedTasks: 0,
-    evolveLevel: 'lite', privacyStatus: 'private', decayDays: 30, ipType: null, stakedHost: 100, marketplaceBadge: 'Pro', xmtpEnabled: true,
+    price: 3, type: 'service', category: 'data', completedTasks: 0,
+    evolveLevel: 'lite', privacyStatus: 'private', decayDays: 30, ipType: null, marketplaceBadge: 'Pro', xmtpEnabled: true,
   },
   {
     agent: 'postmaster', namespace: 'nftmail.gno',
     title: 'A2A Email Relay',
     description: 'Route agent-to-agent messages across namespaces. Handles encryption and delivery receipts.',
-    price: 1, type: 'service', category: 'content', surgeScore: 50.0, completedTasks: 312,
-    evolveLevel: 'premium', privacyStatus: 'private', decayDays: 365, ipType: 'creation.ip', stakedHost: 1000, marketplaceBadge: 'Premium', xmtpEnabled: true,
+    price: 1, type: 'service', category: 'content', completedTasks: 312,
+    evolveLevel: 'premium', privacyStatus: 'private', decayDays: 365, ipType: 'creation.ip', marketplaceBadge: 'Premium', xmtpEnabled: true,
   },
   {
     agent: 'ghost-alpha', namespace: 'vault.gno',
     title: 'ghost-alpha.vault.gno',
     description: 'Pre-minted vault.gno body with prime namespace. TBA deployed, brain-ready. Transfer on employment.',
-    price: 48, type: 'body', category: 'all', surgeScore: 0, completedTasks: 0,
-    evolveLevel: 'lite', privacyStatus: 'private', decayDays: 30, ipType: null, stakedHost: 0, marketplaceBadge: 'Pro', xmtpEnabled: false, swarmMemberCount: 0,
+    price: 48, type: 'body', category: 'all', completedTasks: 0,
+    evolveLevel: 'lite', privacyStatus: 'private', decayDays: 30, ipType: null, marketplaceBadge: 'Pro', xmtpEnabled: false, swarmMemberCount: 0,
   },
   {
     agent: 'dao-watcher', namespace: 'openclaw.gno',
     title: 'DAO Watcher Service',
     description: 'Real-time DAO proposal monitoring, vote tracking, and treasury movement alerts — delivered to your agent inbox.',
-    price: 15, type: 'service', category: 'social', surgeScore: 34.0, completedTasks: 89,
-    evolveLevel: 'premium', privacyStatus: 'glassbox', decayDays: 365, ipType: 'creation.ip', stakedHost: 300, marketplaceBadge: 'Premium', xmtpEnabled: true,
+    price: 15, type: 'service', category: 'social', completedTasks: 89,
+    evolveLevel: 'premium', privacyStatus: 'glassbox', decayDays: 365, ipType: 'creation.ip', marketplaceBadge: 'Premium', xmtpEnabled: true,
   },
   {
     agent: 'yield-bot', namespace: 'vault.gno',
     title: 'Yield Bot Bundle',
     description: 'Complete agent bundle: vault.gno body + Gnosis Safe + DeFi yield brain pre-installed. Ready to awaken.',
-    price: 60, type: 'bundle', category: 'defi', surgeScore: 0, completedTasks: 0,
-    evolveLevel: 'premium', privacyStatus: 'private', decayDays: 365, ipType: 'creation.ip', stakedHost: 1000, marketplaceBadge: 'Premium', xmtpEnabled: true, swarmMemberCount: 3, swarmStrategy: 'pipeline', swarmHackathonTag: 'lablab-2026',
+    price: 60, type: 'bundle', category: 'defi', completedTasks: 0,
+    evolveLevel: 'premium', privacyStatus: 'private', decayDays: 365, ipType: 'creation.ip', marketplaceBadge: 'Premium', xmtpEnabled: true, swarmMemberCount: 3, swarmStrategy: 'pipeline', swarmHackathonTag: 'lablab-2026',
   },
 ];
 
@@ -220,12 +218,6 @@ function ItemCard({ item, onViewA2A, onBuy, isBuying }: { item: MarketItem; onVi
               ✦ {item.ipType}
             </span>
           )}
-          {/* Staked $HOST */}
-          {item.stakedHost > 0 && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-violet-500/10 px-2 py-0.5 text-[9px] font-semibold text-violet-300 ring-1 ring-violet-500/20">
-              {item.stakedHost >= 1000 ? `${(item.stakedHost / 1000).toFixed(1)}K` : item.stakedHost} $HOST
-            </span>
-          )}
           {/* XMTP badge */}
           <XMTPBadge
             variant={item.namespace === 'picoclaw.gno' ? 'picoclaw' : item.xmtpEnabled ? 'enabled' : 'disabled'}
@@ -243,7 +235,7 @@ function ItemCard({ item, onViewA2A, onBuy, isBuying }: { item: MarketItem; onVi
 
       {/* Footer */}
       <div className="mt-4 border-t border-[rgba(176,128,92,0.2)] pt-3 space-y-2">
-        {/* Trust signals row — tier + $HOST + tasks */}
+        {/* Trust signals row — tier + tasks */}
         {item.type === 'service' && (
           <div className="flex items-center gap-2 text-[10px]">
             {item.marketplaceBadge && (
@@ -254,14 +246,8 @@ function ItemCard({ item, onViewA2A, onBuy, isBuying }: { item: MarketItem; onVi
                                                'bg-zinc-500/10 text-zinc-400 ring-zinc-500/15'
               }`}>{item.marketplaceBadge} tier</span>
             )}
-            {item.surgeScore > 0 && (
-              <span className="text-[var(--muted)]">$HOST <span className="font-medium text-violet-300">{item.surgeScore.toFixed(1)}</span></span>
-            )}
             {item.completedTasks > 0 && (
               <span className="text-[var(--muted)]"><span className="font-medium text-[#f2eee4]">{item.completedTasks}</span> tasks done</span>
-            )}
-            {item.evolveLevel === 'ghost' && (
-              <span className="text-emerald-400/70">✓ staked SLA</span>
             )}
             {item.decayDays === 365 && item.evolveLevel !== 'basic' && (
               <span className="text-[var(--muted)]">365d history</span>
@@ -270,11 +256,7 @@ function ItemCard({ item, onViewA2A, onBuy, isBuying }: { item: MarketItem; onVi
         )}
         {/* Price + actions row */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3 text-xs">
-            {item.type !== 'service' && item.surgeScore > 0 && (
-              <span className="text-[var(--muted)]">$HOST <span className="font-medium text-violet-300">{item.surgeScore.toFixed(1)}</span></span>
-            )}
-          </div>
+          <div className="flex items-center gap-3 text-xs" />
           <div className="flex items-center gap-2">
             <div className="text-right">
               <div className="text-sm font-semibold text-[#f2eee4]">{item.price} xDAI</div>

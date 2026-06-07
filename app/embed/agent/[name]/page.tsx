@@ -147,7 +147,7 @@ export default function EmbedAgentPanel() {
           {/* Stats */}
           <div className="grid grid-cols-3 gap-2.5 text-center">
             {[
-              { label: 'Surge Score', value: identity?.moltPath?.surgeReputationScore != null ? String(identity.moltPath.surgeReputationScore) : '—', color: 'text-violet-300' },
+              { label: 'x402', value: card?.services?.some(s => s.name === 'x402') ? 'Active' : '—', color: 'text-emerald-300' },
               { label: 'Tier',        value: TIER_LABEL[identity?.accountTier ?? ''] ?? identity?.accountTier ?? '—', color: 'text-[#f2eee4]' },
               { label: 'ERC-8004 ID', value: agentId != null ? `#${agentId}` : '—', color: 'text-amber-300' },
             ].map(({ label, value, color }) => (

@@ -17,7 +17,7 @@ export interface DashboardAgent {
   currentIdentity?: string;
   ownerWallet: string;
   totalXdaiBurned?: number;
-  surgeReputationScore?: number;
+  activityScore?: number;
 }
 
 interface DashboardAgentCardProps {
@@ -38,7 +38,7 @@ export function DashboardAgentCard({ agent, onMoltComplete }: DashboardAgentCard
 
   const currentIdentity = latestMolt?.targetIdentity ?? agent.currentIdentity ?? 'default';
   const totalXdaiBurned = latestMolt?.totalXdaiBurned ?? agent.totalXdaiBurned ?? 0;
-  const surgeScore = latestMolt?.surgeReputationScore ?? agent.surgeReputationScore ?? 0;
+  const activityScore = latestMolt?.activityScore ?? agent.activityScore ?? 0;
 
   function handleMoltSuccess(result: MoltResult) {
     setLatestMolt(result);
@@ -112,7 +112,7 @@ export function DashboardAgentCard({ agent, onMoltComplete }: DashboardAgentCard
               <div className="text-[8px] text-[var(--muted)]">burned</div>
             </div>
             <div className="text-right">
-              <div className="text-[10px] font-semibold text-amber-300">{surgeScore} pts</div>
+              <div className="text-[10px] font-semibold text-amber-300">{activityScore} pts</div>
               <div className="text-[8px] text-[var(--muted)]">surge rep</div>
             </div>
           </div>

@@ -33,7 +33,7 @@ export default function AgentAuditCard({ tbaAddress, agentName, namespace, regis
   });
   const [loading, setLoading] = useState(true);
   const [telemetry, setTelemetry] = useState<{
-    surgeScore: number;
+    activityScore: number;
     inbox: { count: number };
     heartbeat: { isActive: boolean; lastBeat?: number };
   } | null>(null);
@@ -131,7 +131,7 @@ export default function AgentAuditCard({ tbaAddress, agentName, namespace, regis
         if (res.ok) {
           const data = await res.json() as Record<string, any>;
           setTelemetry({
-            surgeScore: data.surgeScore || 0,
+            activityScore: data.activityScore || 0,
             inbox: data.inbox || { count: 0 },
             heartbeat: data.heartbeat || { isActive: false },
           });
@@ -229,14 +229,14 @@ export default function AgentAuditCard({ tbaAddress, agentName, namespace, regis
           )}
         </div>
 
-        {/* SURGE / Heartbeat */}
+        {/* ACTIVITY / Heartbeat */}
         <div className="bg-[var(--card)] px-4 py-4">
-          <div className="text-[10px] font-semibold tracking-wider text-[var(--muted)]">SURGE</div>
+          <div className="text-[10px] font-semibold tracking-wider text-[var(--muted)]">INBOX</div>
           <div className="mt-1.5 text-xl font-bold text-violet-300">
-            {telemetry ? telemetry.surgeScore.toFixed(1) : '0.0'}
+            {telemetry ? (telemetry.inbox.count ?? 0) : '—'}
           </div>
           <div className="mt-0.5 text-[10px] text-[var(--muted)]">
-            {telemetry?.inbox.count ?? 0} msgs
+            {telemetry?.heartbeat.isActive ? '● live' : 'msgs'}
           </div>
         </div>
       </div>

@@ -16,7 +16,6 @@ interface AgentCardProps {
   namespace: Namespace;
   safeAddress: string;
   tier: AgentTier;
-  surgeScore?: number;
   inboxCount?: number;
   calendarCount?: number;
   lastHeartbeat?: number;
@@ -28,7 +27,6 @@ interface AgentCardProps {
   privacyStatus?: PrivacyStatus;
   decayDays?: 8 | 30 | 365 | null;
   ipType?: 'creation.ip' | 'moltbook.ip' | null;
-  stakedHost?: number;
   marketplaceBadge?: string | null;
   xmtpEnabled?: boolean;
   swarmMemberCount?: number;
@@ -114,7 +112,6 @@ export function AgentCard({
   namespace,
   safeAddress,
   tier,
-  surgeScore = 0,
   inboxCount = 0,
   calendarCount = 0,
   lastHeartbeat,
@@ -125,7 +122,6 @@ export function AgentCard({
   privacyStatus,
   decayDays,
   ipType,
-  stakedHost,
   marketplaceBadge,
   xmtpEnabled,
   swarmMemberCount = 0,
@@ -211,7 +207,7 @@ export function AgentCard({
       </div>
 
       {/* Domain attribute badges */}
-      {(evolveLevel || privacyStatus || decayDays || ipType || (stakedHost && stakedHost > 0) || marketplaceBadge) && (
+      {(evolveLevel || privacyStatus || decayDays || ipType || marketplaceBadge) && (
         <div className="relative mt-3 flex flex-wrap items-center gap-1.5">
           {evolveLevel && (() => {
             const m = EVOLVE_META[evolveLevel];
@@ -237,11 +233,6 @@ export function AgentCard({
               ✦ {ipType}
             </span>
           )}
-          {stakedHost != null && stakedHost > 0 && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-violet-500/10 px-2 py-0.5 text-[9px] font-semibold text-violet-300 ring-1 ring-violet-500/20">
-              {stakedHost >= 1000 ? `${(stakedHost / 1000).toFixed(1)}K` : stakedHost} $HOST staked
-            </span>
-          )}
           {marketplaceBadge && (
             <span className="inline-flex items-center rounded-full bg-[rgba(176,128,92,0.12)] px-2 py-0.5 text-[9px] font-semibold text-[#b0805c] ring-1 ring-[rgba(176,128,92,0.25)]">
               {marketplaceBadge}
@@ -255,8 +246,8 @@ export function AgentCard({
       {/* Stats row */}
       <div className="relative mt-4 grid grid-cols-3 gap-3">
         <div className="rounded-lg border border-[var(--border)] bg-black/20 px-3 py-2">
-          <div className="text-[10px] font-semibold tracking-wider text-[var(--muted)]">$HOST</div>
-          <div className="mt-0.5 text-sm font-medium text-violet-300">{surgeScore.toFixed(1)}</div>
+          <div className="text-[10px] font-semibold tracking-wider text-[var(--muted)]">SAFE</div>
+          <div className="mt-0.5 text-sm font-medium text-emerald-300">{safeAddress ? `${safeAddress.slice(0,6)}…` : '—'}</div>
         </div>
         <div className="rounded-lg border border-[var(--border)] bg-black/20 px-3 py-2">
           <div className="text-[10px] font-semibold tracking-wider text-[var(--muted)]">INBOX</div>
