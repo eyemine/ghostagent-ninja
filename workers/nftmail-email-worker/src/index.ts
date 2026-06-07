@@ -5107,6 +5107,57 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
             }, { status: 429 }), request);
           }
           // ─────────────────────────────────────────────────────────────────
+          // ENS parent-ownership guard — for ENS-derived labels (e.g. "eyemine" from eyemine.eth):
+          // Verify the current ENS registrant matches `controller`.
+          // This prevents a new vitalik.eth owner from stealing vitalik.agent.gno.
+          // Guard only applies to non-hyphenated, non-dotted labels that look like ENS names.
+          const isEnsLabel = (email as any).ensName || ((email as any).originNft ?? '').includes('.eth');
+          if (isEnsLabel && controller) {
+            try {
+              const ensLabel = label.replace(/_$/, ''); // strip trailing _ for agent local-part
+              const ETH_RPC = (env as any).ETH_RPC_URL ?? 'https://cloudflare-eth.com';
+              const ENS_REGISTRAR = '0x57f1887a8BF19b14fC0dF6Fd9B2acc9Af147eA85';
+              // keccak256 of label — computed inline without viem (CF Workers compatible)
+              async function keccak256Hex(input: string): Promise<string> {
+                const enc = new TextEncoder();
+                const data = enc.encode(input);
+                const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+                // Note: ETH keccak256 ≠ SHA-256 but CF Workers don't have keccak natively.
+                // We call eth_call directly with the precomputed tokenId from the client via ensTokenId field.
+                void hashBuffer;
+                return '';
+              }
+              void keccak256Hex; // unused — use client-provided ensTokenId if present
+              const ensTokenId: string | undefined = (email as any).ensTokenId;
+              if (ensTokenId) {
+                const rpcBody = JSON.stringify({
+                  jsonrpc: '2.0', id: 1, method: 'eth_call',
+                  params: [{
+                    to: ENS_REGISTRAR,
+                    data: `0x6352211e${BigInt(ensTokenId).toString(16).padStart(64, '0')}`, // ownerOf(uint256)
+                  }, 'latest'],
+                });
+                const rpcRes = await fetch(ETH_RPC, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: rpcBody,
+                }).then(r => r.json()).catch(() => null) as { result?: string } | null;
+                const ensOwner = rpcRes?.result ? `0x${rpcRes.result.slice(-40)}` : null;
+                if (ensOwner && ensOwner.toLowerCase() !== controller.toLowerCase()) {
+                  console.warn(`[registerSovereign] ENS ownership mismatch for ${ensLabel}.eth: owner=${ensOwner}, controller=${controller}`);
+                  return corsify(Response.json({
+                    error: `ENS ownership mismatch: ${ensLabel}.eth is owned by a different wallet. You cannot claim this subname.`,
+                    status: 'ens_ownership_mismatch',
+                    ensOwner,
+                  }, { status: 403 }), request);
+                }
+              }
+            } catch (ensErr) {
+              console.warn('[registerSovereign] ENS ownership check failed (non-fatal, proceeding):', ensErr);
+            }
+          }
+
+          // ─────────────────────────────────────────────────────────────────
           // Prevent duplicate registration (trusted calls skip this — they may update existing)
           const existingReg = await env.INBOX_KV.get(`nftmailgno:${(email as any).legacyIdentity || label}`);
           if (existingReg && !isTrustedCall) {

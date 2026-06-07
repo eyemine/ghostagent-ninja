@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { usePrivy } from '@privy-io/react-auth';
+import { type EnsExpiryInfo, shouldWarnExpiry } from '../../utils/ens-expiry';
 
 const SLD_META: Record<string, { label: string; color: string; bg: string; ring: string }> = {
   molt:     { label: 'Molt',     color: 'text-fuchsia-300', bg: 'bg-fuchsia-500/10', ring: 'ring-fuchsia-500/20' },
@@ -64,6 +65,7 @@ export default function AgentPublicProfilePage() {
   const [card, setCard]       = useState<AgentCard | null>(null);
   const [identity, setIdent]  = useState<AgentIdentity | null>(null);
   const [loading, setLoading] = useState(true);
+  const [ensExpiry, setEnsExpiry] = useState<EnsExpiryInfo | null>(null);
 
   useEffect(() => {
     if (!name) return;
@@ -76,6 +78,15 @@ export default function AgentPublicProfilePage() {
       if (identRes.status === 'fulfilled') setIdent(identRes.value as AgentIdentity);
       setLoading(false);
     });
+  }, [name]);
+
+  // Non-blocking ENS expiry check — only fires if the agent name looks like a bare ENS label
+  useEffect(() => {
+    if (!name || name.includes('-') || name.includes('.')) return; // skip chonk-123 style
+    fetch(`/api/ens-expiry?label=${encodeURIComponent(name)}`)
+      .then(r => r.ok ? r.json() : null)
+      .then((data: EnsExpiryInfo | null) => { if (data) setEnsExpiry(data); })
+      .catch(() => {});
   }, [name]);
 
   // Derive SLD from card name e.g. "ghostagent.molt.gno" → "molt"
@@ -120,6 +131,44 @@ export default function AgentPublicProfilePage() {
             </span>
           )}
         </div>
+
+        {/* ENS expiry warning banner */}
+        {shouldWarnExpiry(ensExpiry) && ensExpiry && (
+          <div className={`mb-4 rounded-xl border px-4 py-3 text-xs flex items-start gap-3 ${
+            ensExpiry.isExpired
+              ? 'border-red-500/30 bg-red-500/8 text-red-300'
+              : ensExpiry.isGracePeriod
+              ? 'border-orange-500/30 bg-orange-500/8 text-orange-300'
+              : 'border-amber-500/30 bg-amber-500/8 text-amber-300'
+          }`}>
+            <span className="text-base shrink-0">
+              {ensExpiry.isExpired ? '🔴' : ensExpiry.isGracePeriod ? '🟠' : '⚠️'}
+            </span>
+            <div className="flex flex-col gap-0.5">
+              <span className="font-semibold">
+                {ensExpiry.isExpired
+                  ? `${ensExpiry.ensName} has expired`
+                  : ensExpiry.isGracePeriod
+                  ? `${ensExpiry.ensName} is in grace period — renew immediately`
+                  : `${ensExpiry.ensName} expires in ${ensExpiry.daysRemaining} days`
+                }
+              </span>
+              <span className="text-[10px] opacity-75">
+                {ensExpiry.isExpired
+                  ? 'This agent\'s parent ENS domain is expired. Email delivery and identity resolution may be disrupted. Renew on app.ens.domains to restore.'
+                  : 'Renew your ENS domain to maintain agent identity resolution and email delivery.'}
+              </span>
+              <a
+                href={`https://app.ens.domains/name/${ensExpiry.ensName}/details`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-1 inline-flex items-center gap-1 underline underline-offset-2 opacity-80 hover:opacity-100"
+              >
+                Renew on ENS ↗
+              </a>
+            </div>
+          </div>
+        )}
 
         {loading ? (
           <div className="flex items-center justify-center py-20">
