@@ -23,6 +23,7 @@ import {
 } from '../../services/chonk-molt';
 import { WORKER_URL } from '../../utils/config';
 import { fetchNftImageOnChain, fetchNftTraitsOnChain, type NftTrait } from '../../utils/nft-image';
+import { verifyOwnershipOrDelegate } from '../../utils/delegate-verify';
 import { createSafeForByoMolt } from '../../services/create-safe';
 import { deployGnosisTba } from '../../services/gnosis-tba';
 
@@ -140,6 +141,7 @@ export async function POST(req: NextRequest) {
       primaryName?: string;
       tokenId?: string;
       ownerWallet?: string;
+      vaultWallet?: string;
       paymentTxHash?: string;
       couponCode?: string;
       nftType?: string;
@@ -152,7 +154,7 @@ export async function POST(req: NextRequest) {
     };
 
     const {
-      primaryName, tokenId, ownerWallet, paymentTxHash, couponCode,
+      primaryName, tokenId, ownerWallet, vaultWallet, paymentTxHash, couponCode,
       nftType = 'chonk', contractAddress, nftName, moltTarget = 'new-agent', targetAgent, targetTld, buildVersion
     } = body as any;
 
@@ -194,15 +196,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing contract address for NFT type' }, { status: 400 });
     }
 
-    const ownership = await verifyGenericOwnership(contract, tokenId, rpc, ownerWallet);
+    const ownership = await verifyOwnershipOrDelegate({
+      contract, tokenId, rpcUrl: rpc,
+      connectedWallet: ownerWallet,
+      vaultWallet: vaultWallet ?? undefined,
+    });
     if (!ownership.verified) {
       return NextResponse.json({
         status: 'error', step: 'ownership',
-        error: ownership.actualOwner
-          ? `Wallet does not own ${nftName ?? `#${tokenId}`} — owner is ${ownership.actualOwner}`
-          : `Token #${tokenId} not found on-chain`,
+        error: ownership.error ??
+          (ownership.actualOwner
+            ? `Wallet does not own ${nftName ?? `#${tokenId}`} — owner is ${ownership.actualOwner}`
+            : `Token #${tokenId} not found on-chain`),
       }, { status: 403 });
     }
+    // If access is via delegation, record the vault wallet as the actual controller
+    const effectiveController = ownership.viaDelegate && ownership.vaultWallet
+      ? ownership.vaultWallet
+      : ownerWallet.toLowerCase();
 
     // ── Step 2: Verify payment OR redeem coupon ──
     if (hasCoupon) {
@@ -483,7 +494,7 @@ export async function POST(req: NextRequest) {
               action: 'registerSovereign',
               secret: webhookSecret,
               label: humanLocalPart,
-              controller: ownerWallet.toLowerCase(),
+              controller: effectiveController,
               originNft: beacon.beaconNft,
               accountTier,
               safe: safeAddress ?? null,
@@ -496,7 +507,7 @@ export async function POST(req: NextRequest) {
               action: 'registerSovereign',
               secret: webhookSecret,
               label: agentLocalPart,
-              controller: ownerWallet.toLowerCase(),
+              controller: effectiveController,
               originNft: beacon.beaconNft,
               accountTier,
               safe: safeAddress ?? null,

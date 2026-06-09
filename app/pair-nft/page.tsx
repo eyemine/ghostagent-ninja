@@ -337,6 +337,8 @@ export default function OgNftMoltPage() {
   const [contractAddr, setContractAddr]   = useState('');
   const [tokenId, setTokenId]             = useState('');
   const [ownerWallet, setOwnerWallet]     = useState('');
+  const [vaultWallet, setVaultWallet]     = useState('');
+  const [viaDelegate, setViaDelegate]     = useState(false);
   const [paymentTxHash, setPaymentTxHash] = useState('');
   const [couponCode, setCouponCode]       = useState('');
   const [couponValid, setCouponValid]     = useState(false);
@@ -528,13 +530,30 @@ export default function OgNftMoltPage() {
 
   async function handleVerifyOwnership() {
     if (!tokenId || !ownerWallet) return;
-    setChecking(true); setError(null); setNftPreview(null);
+    setChecking(true); setError(null); setNftPreview(null); setViaDelegate(false);
     try {
       const contract = resolvedContract();
       if (!contract) { setError('Paste the NFT contract address.'); setChecking(false); return; }
       const actualOwner = await checkOwner(contract, tokenId, resolvedRpc());
       if (!actualOwner) { setError(`Token #${tokenId} not found on-chain.`); setOwnershipVerified(false); setChecking(false); return; }
-      if (actualOwner !== ownerWallet.toLowerCase()) { setError(`Token #${tokenId} owned by ${actualOwner.slice(0,10)}…, not your wallet.`); setOwnershipVerified(false); setChecking(false); return; }
+      const isDirectOwner = actualOwner === ownerWallet.toLowerCase();
+      if (!isDirectOwner) {
+        // Not direct owner — check delegate.xyz before rejecting
+        const delegateRes = await fetch(`/api/delegate-check?hot=${ownerWallet}&vault=${actualOwner}&contract=${contract}&tokenId=${tokenId}`);
+        if (delegateRes.ok) {
+          const { isDelegated } = await delegateRes.json() as { isDelegated: boolean };
+          if (isDelegated) {
+            setVaultWallet(actualOwner);
+            setViaDelegate(true);
+          } else {
+            setError(`Token #${tokenId} owned by ${actualOwner.slice(0,10)}… — not your wallet. If it’s in cold storage, set your hot wallet as a delegate on delegate.xyz first.`);
+            setOwnershipVerified(false); setChecking(false); return;
+          }
+        } else {
+          setError(`Token #${tokenId} owned by ${actualOwner.slice(0,10)}…, not your wallet.`);
+          setOwnershipVerified(false); setChecking(false); return;
+        }
+      }
       let preview: NftPreview;
       if (nftType === 'ens') {
         const { name, imageUrl } = await fetchEnsImage(tokenId);
@@ -630,6 +649,7 @@ export default function OgNftMoltPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           primaryName, tokenId, ownerWallet, paymentTxHash: txHash,
+          ...(viaDelegate && vaultWallet ? { vaultWallet } : {}),
           nftType, contractAddress: resolvedContract(), nftName: nftPreview?.name,
           moltTarget, targetAgent: moltTarget === 'existing-agent' ? selectedAgent : undefined,
           targetTld: moltTarget === 'existing-agent' ? 'molt.gno' : 'agent.gno', // new-agent → agent.gno, overlay → molt.gno
@@ -844,6 +864,15 @@ export default function OgNftMoltPage() {
               )}
             </div>
           </div>
+
+          {viaDelegate && vaultWallet && (
+            <div className="flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 text-[10px]">
+              <span className="text-emerald-400 font-semibold">🔐 Delegated access</span>
+              <span className="text-[var(--muted)]">via</span>
+              <span className="font-mono text-emerald-300">{vaultWallet.slice(0,10)}…{vaultWallet.slice(-4)}</span>
+              <a href="https://delegate.xyz" target="_blank" rel="noopener noreferrer" className="ml-auto text-[var(--muted)] underline hover:text-white">delegate.xyz ↗</a>
+            </div>
+          )}
 
           {error && !ownershipVerified && <p className="text-xs text-red-400">{error}</p>}
 
