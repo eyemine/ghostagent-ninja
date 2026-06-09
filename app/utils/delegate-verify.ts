@@ -4,8 +4,9 @@
  * Allows a hot wallet to act on behalf of a cold-storage vault wallet
  * when claiming NFT-gated features (Pair My NFT, nftmail.box inbox).
  *
- * Registry: 0x00000000000076A84feF008CDAEE9090904FC7cd
+ * Registry V2: 0x00000000000000447e69651d841bD8D104Bed493
  * Same address on Ethereum mainnet, Base, Gnosis, and most EVM chains.
+ * (V1 was 0x00000000000076A84feF008CDAEE9090904FC7cd — do not use)
  *
  * Usage:
  *   const result = await checkDelegateForERC721({
@@ -18,7 +19,7 @@
  *   if (result.isDelegated) { ... }
  */
 
-export const DELEGATE_REGISTRY_V2 = '0x00000000000076A84feF008CDAEE9090904FC7cd';
+export const DELEGATE_REGISTRY_V2 = '0x00000000000000447e69651d841bD8D104Bed493';
 
 // checkDelegateForERC721(address delegate, address vault, address contract_, uint256 tokenId, bytes32 rights) → bool
 // selector: keccak256("checkDelegateForERC721(address,address,address,uint256,bytes32)")[0:4]
