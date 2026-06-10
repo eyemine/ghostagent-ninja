@@ -130,7 +130,6 @@ export default function DelegatePage() {
             nftContractAddress={selectedNftType === 'fakenormie' ? FAKE_NORMIE_CONTRACT : NORMIES_CONTRACT}
             nftCollectionName={selectedNftType === 'fakenormie' ? 'FakeNormie' : 'Normies'}
             chain={selectedNftType === 'fakenormie' ? 'gnosis' : 'ethereum'}
-            tokenId={tokenId || undefined}
           />
         )}
       </div>
