@@ -18,6 +18,20 @@ const ICONS = {
 const NORMIES_CONTRACT = '0x9eb6e2025b64f340691e424b7fe7022ffde12438';
 type NftType = 'normie' | 'chonk' | 'mooncat' | 'pownft' | 'other';
 
+interface NftOption {
+  k: NftType;
+  l: string;
+  img: string;
+}
+
+const NFT_OPTIONS: NftOption[] = [
+  {k:'normie', l:'NORMIES', img:ICONS.normie},
+  {k:'chonk', l:'CHONKS', img:ICONS.chonk},
+  {k:'mooncat', l:'MOONCATS', img:ICONS.mooncat},
+  {k:'pownft', l:'POWNFT', img:ICONS.pownft},
+  {k:'other', l:'OTHER', img:ICONS.other},
+];
+
 export default function DelegatePage() {
   const { authenticated, login } = usePrivy();
   const { wallets } = useWallets();
@@ -38,7 +52,7 @@ export default function DelegatePage() {
       </div>
 
       <div className="grid grid-cols-5 gap-3">
-        {[{k:'normie',l:'NORMIES',img:ICONS.normie},{k:'chonk',l:'CHONKS',img:ICONS.chonk},{k:'mooncat',l:'MOONCATS',img:ICONS.mooncat},{k:'pownft',l:'POWNFT',img:ICONS.pownft},{k:'other',l:'OTHER',img:ICONS.other}].map((opt: {k:NftType,l:string,img:string}) => (
+        {NFT_OPTIONS.map(opt => (
           <button key={opt.k} onClick={() => setSelectedNftType(opt.k)} className={`rounded-lg border p-3 ${selectedNftType===opt.k?'border-fuchsia-500/50 bg-fuchsia-500/10 text-fuchsia-300':'border-gray-700 bg-black/20 text-gray-400'}`}>
             <img src={opt.img} alt={opt.l} className="w-20 h-20 mx-auto mb-1" />
             <span className="text-[10px]">{opt.l}</span>
