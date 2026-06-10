@@ -331,7 +331,7 @@ export default function OgNftMoltPage() {
   const preselectedAgent = searchParams.get('agent') ?? undefined;
 
   const [step, setStep]                   = useState<Step>('check');
-  const [nftType, setNftType]             = useState<NftType>('ens');
+  const [nftType, setNftType]             = useState<NftType>('normie');
   const [primaryName, setPrimaryName]     = useState('');
   const [collectionName, setCollectionName] = useState('');
   const [contractAddr, setContractAddr]   = useState('');
@@ -511,11 +511,10 @@ export default function OgNftMoltPage() {
   }
 
   const NFT_TYPE_META: Record<NftType, { nameLabel: string; prefill: string }> = {
-    ens:     { nameLabel: 'ENS NAME', prefill: '' },
     chonk:   { nameLabel: 'CHONK NAME', prefill: 'chonk' },
+    mooncat: { nameLabel: 'MOONCAT NAME', prefill: 'mooncat' },
     pownft:  { nameLabel: 'ATOM NAME', prefill: 'atom' },
     normie:  { nameLabel: 'NORMIE NAME', prefill: '' },
-    mooncat: { nameLabel: 'MOONCAT NAME', prefill: 'mooncat' },
     other:   { nameLabel: 'VERIFIED COLLECTION', prefill: '' },
   };
 
