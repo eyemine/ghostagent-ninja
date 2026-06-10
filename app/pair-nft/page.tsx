@@ -11,7 +11,7 @@ import { EmailAliasToggle } from '../components/EmailAliasToggle';
 import type { AgentRegistryEntry } from '../api/agents/route';
 import { generateNormieHandles } from '../services/agent-identity-router';
 
-type NftType = 'ens' | 'chonk' | 'pownft' | 'normie' | 'mooncat' | 'other';
+type NftType = 'normie' | 'chonk' | 'mooncat' | 'pownft' | 'fakenormie' | 'other';
 type Step = 'check' | 'select-agent' | 'confirm' | 'molting' | 'done' | 'error';
 type MoltTarget = 'new-agent' | 'existing-agent';
 
@@ -57,12 +57,12 @@ const ICONS = {
   premium:   `${CI}/premium.png`,
   ghost:   `${CI}/ghost.png`,
   byo:     `${CI}/byo.png`,
-  ens:     `${CI}/ens.svg`,
+  fakenormie: `${CI}/fakenormie.png`,
   chonk:   `${CI}/chonk.svg`,
+  mooncat: `${CI}/mooncat.png`,
   pownft:  `${CI}/pownft.png`,
   normie:  `${CI}/normie.png`,
-  other:      `${CI}/other.png`,
-  mooncat:    `${CI}/mooncat.png`,
+  other:   `${CI}/other.png`,
   dxterminal: `${CI}/dxterminal.png`,
   nftmail: `${CI}/nftmail.png`,
   molt:    `${CI}/molt.png`,
@@ -735,11 +735,11 @@ export default function OgNftMoltPage() {
             <label className="block text-[10px] font-semibold tracking-wider text-[var(--muted)] mb-2">NFT COLLECTION</label>
             <div className="grid grid-cols-6 gap-3">
               {([
-                {k:'ens'     as NftType, l:'ENS\nName',       img:ICONS.ens},
+                {k:'normie'  as NftType, l:'NORMIES\nON ETH',  img:ICONS.normie},
                 {k:'chonk'   as NftType, l:'CHONKS\nON BASE', img:ICONS.chonk},
+                {k:'mooncat' as NftType, l:'MOONCATS\nON ETH',img:ICONS.mooncat},
                 {k:'pownft'  as NftType, l:'POWNFT\nON ETH',  img:ICONS.pownft},
-                {k:'normie'  as NftType, l:'NORMIES\nON ETH', img:ICONS.normie},
-                {k:'mooncat' as NftType, l:'MOONCATS\nON ETH', img:ICONS.mooncat},
+                {k:'fakenormie' as NftType, l:'FAKENORMIE\nON GNOSIS', img:ICONS.fakenormie},
                 {k:'other'   as NftType, l:'OTHER\nERC-721',  img:ICONS.other},
               ]).map(opt => (
                 <button key={opt.k} onClick={() => { selectNftType(opt.k); setTokenId(''); }}
