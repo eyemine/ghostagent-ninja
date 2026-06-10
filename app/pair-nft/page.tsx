@@ -11,7 +11,7 @@ import { EmailAliasToggle } from '../components/EmailAliasToggle';
 import type { AgentRegistryEntry } from '../api/agents/route';
 import { generateNormieHandles } from '../services/agent-identity-router';
 
-type NftType = 'normie' | 'chonk' | 'mooncat' | 'pownft' | 'fakenormie' | 'other';
+type NftType = 'ens' | 'normie' | 'chonk' | 'mooncat' | 'pownft' | 'fakenormie' | 'other';
 type Step = 'check' | 'select-agent' | 'confirm' | 'molting' | 'done' | 'error';
 type MoltTarget = 'new-agent' | 'existing-agent';
 
@@ -54,9 +54,10 @@ const CI = '/collection-icons';
 const ICONS = {
   basic:   `${CI}/basic.png`,
   lite:    `${CI}/lite.png`,
-  premium:   `${CI}/premium.png`,
+  premium: `${CI}/premium.png`,
   ghost:   `${CI}/ghost.png`,
   byo:     `${CI}/byo.png`,
+  ens:     `${CI}/ens.svg`,
   fakenormie: `${CI}/fakenormie.png`,
   chonk:   `${CI}/chonk.svg`,
   mooncat: `${CI}/mooncat.png`,
@@ -331,7 +332,7 @@ export default function OgNftMoltPage() {
   const preselectedAgent = searchParams.get('agent') ?? undefined;
 
   const [step, setStep]                   = useState<Step>('check');
-  const [nftType, setNftType]             = useState<NftType>('normie');
+  const [nftType, setNftType]             = useState<NftType>('ens');
   const [primaryName, setPrimaryName]     = useState('');
   const [collectionName, setCollectionName] = useState('');
   const [contractAddr, setContractAddr]   = useState('');
@@ -511,10 +512,12 @@ export default function OgNftMoltPage() {
   }
 
   const NFT_TYPE_META: Record<NftType, { nameLabel: string; prefill: string }> = {
+    ens:     { nameLabel: 'ENS NAME', prefill: '' },
+    normie:  { nameLabel: 'NORMIE NAME', prefill: '' },
     chonk:   { nameLabel: 'CHONK NAME', prefill: 'chonk' },
     mooncat: { nameLabel: 'MOONCAT NAME', prefill: 'mooncat' },
     pownft:  { nameLabel: 'ATOM NAME', prefill: 'atom' },
-    normie:  { nameLabel: 'NORMIE NAME', prefill: '' },
+    fakenormie: { nameLabel: 'FAKENORMIE NAME', prefill: '' },
     other:   { nameLabel: 'VERIFIED COLLECTION', prefill: '' },
   };
 
@@ -732,8 +735,9 @@ export default function OgNftMoltPage() {
           {/* NFT type picker */}
           <div>
             <label className="block text-[10px] font-semibold tracking-wider text-[var(--muted)] mb-2">NFT COLLECTION</label>
-            <div className="grid grid-cols-6 gap-3">
+            <div className="grid grid-cols-7 gap-3">
               {([
+                {k:'ens'     as NftType, l:'ENS\nName',       img:ICONS.ens},
                 {k:'normie'  as NftType, l:'NORMIES\nON ETH',  img:ICONS.normie},
                 {k:'chonk'   as NftType, l:'CHONKS\nON BASE', img:ICONS.chonk},
                 {k:'mooncat' as NftType, l:'MOONCATS\nON ETH',img:ICONS.mooncat},
