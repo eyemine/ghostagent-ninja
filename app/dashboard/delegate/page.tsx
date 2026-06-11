@@ -29,12 +29,12 @@ interface NftOption {
 
 const NFT_OPTIONS: NftOption[] = [
   {k:'ens', l:'ENS', img:ICONS.ens},
-  {k:'normie', l:'NORMIES', img:ICONS.normie},
-  {k:'fakenormie', l:'FAKENORMIE', img:ICONS.fakenormie},
-  {k:'chonk', l:'CHONKS', img:ICONS.chonk},
-  {k:'mooncat', l:'MOONCATS', img:ICONS.mooncat},
-  {k:'pownft', l:'POWNFT', img:ICONS.pownft},
-  {k:'other', l:'OTHER', img:ICONS.other},
+  {k:'normie', l:'NORMIES\nON ETH', img:ICONS.normie},
+  {k:'fakenormie', l:'FAKENORMIE\nON GNOSIS', img:ICONS.fakenormie},
+  {k:'chonk', l:'CHONKS\nON BASE', img:ICONS.chonk},
+  {k:'mooncat', l:'MOONCATS\nON ETH', img:ICONS.mooncat},
+  {k:'pownft', l:'POWNFT\nON ETH', img:ICONS.pownft},
+  {k:'other', l:'OTHER\nERC-721', img:ICONS.other},
 ];
 
 const CHAIN_OPTIONS: {k: SupportedChainName; l: string}[] = [
@@ -130,7 +130,7 @@ export default function DelegatePage() {
           <div className="grid grid-cols-7 gap-3">
             {NFT_OPTIONS.map(opt => (
               <button key={opt.k} onClick={() => handleNftTypeChange(opt.k)} className={`rounded-lg border p-3 ${selectedNftType===opt.k?'border-fuchsia-500/50 bg-fuchsia-500/10 text-fuchsia-300':'border-gray-700 bg-black/20 text-gray-400'}`}>
-                <img src={opt.img} alt={opt.l} className="w-20 h-20 mx-auto mb-1" />
+                <img src={opt.img} alt={opt.l} className="w-24 h-24 mx-auto mb-1" />
                 <span className="text-[10px]">{opt.l}</span>
               </button>
             ))}
