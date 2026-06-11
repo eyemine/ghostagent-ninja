@@ -513,11 +513,11 @@ export default function OgNftMoltPage() {
 
   const NFT_TYPE_META: Record<NftType, { nameLabel: string; prefill: string }> = {
     ens:     { nameLabel: 'ENS NAME', prefill: '' },
-    normie:  { nameLabel: 'NORMIE NAME', prefill: '' },
+    normie:  { nameLabel: 'NORMIE NAME', prefill: 'Normie' },
+    fakenormie: { nameLabel: 'FAKENORMIE NAME', prefill: 'abnormie' },
     chonk:   { nameLabel: 'CHONK NAME', prefill: 'chonk' },
     mooncat: { nameLabel: 'MOONCAT NAME', prefill: 'mooncat' },
     pownft:  { nameLabel: 'ATOM NAME', prefill: 'atom' },
-    fakenormie: { nameLabel: 'FAKENORMIE NAME', prefill: '' },
     other:   { nameLabel: 'VERIFIED COLLECTION', prefill: '' },
   };
 
@@ -684,13 +684,13 @@ export default function OgNftMoltPage() {
   return (
     <div className="max-w-5xl mx-auto space-y-6">
 
-      {/* Header — marketplace-style */}
+      {/* Header — aligned with Dashboard */}
       <div className="flex items-center gap-3">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={ICONS.byo} alt="Pair your NFT" className="h-28 w-28 shrink-0 rounded-xl border border-fuchsia-500/40 object-contain" />
+        <img src={ICONS.byo} alt="Pair your NFT" className="h-28 w-28 object-contain drop-shadow-[0_0_18px_rgba(184,134,97,0.4)]" />
         <div>
           <h1 className="pl-1 text-2xl font-bold text-[#f2eee4]">Pair your NFT</h1>
-          <p className="mt-1 pl-1 text-sm text-[var(--muted)]">Use an NFT you already own — ENS, Chonk, or Verified Collection — as the governing key to your GhostAgent Safe</p>
+          <p className="pl-1 mt-0.5 text-xs text-[var(--muted)]">Use an NFT you already own — ENS, Chonk, or Verified Collection — as the governing key to your GhostAgent Safe</p>
         </div>
       </div>
 

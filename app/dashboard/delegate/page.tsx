@@ -37,9 +37,9 @@ const NFT_OPTIONS: NftOption[] = [
   {k:'other', l:'OTHER', img:ICONS.other},
 ];
 
-const NFT_TYPE_META: Record<NftType, { nameLabel: string; chain: string; helper: string }> = {
-  ens: { nameLabel: 'ENS NAME', chain: 'ethereum', helper: 'e.g. vitalik.eth' },
-  normie: { nameLabel: 'NORMIE NAME', chain: 'ethereum', helper: 'Find your Normie on OpenSea' },
+const NFT_TYPE_META: Record<NftType, { nameLabel: string; prefill: string; chain: SupportedChainName; tokenLabel: string; helper: string }> = {
+  ens: { nameLabel: 'ENS NAME', prefill: '', chain: 'ethereum', tokenLabel: 'TOKEN ID', helper: 'e.g. vitalik.eth' },
+  normie: { nameLabel: 'NORMIE NAME', prefill: 'Normie', chain: 'ethereum', tokenLabel: 'TOKEN ID', helper: 'Find your Normie on OpenSea' },
   fakenormie: { nameLabel: 'FAKENORMIE', chain: 'gnosis', helper: 'Demo NFT on Gnosis Chain' },
   chonk: { nameLabel: 'CHONK NAME', chain: 'base', helper: 'Find your Chonk on chonks.xyz' },
   mooncat: { nameLabel: 'MOONCAT NAME', chain: 'ethereum', helper: 'Find your Mooncat' },
