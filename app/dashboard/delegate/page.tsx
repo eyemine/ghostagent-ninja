@@ -5,10 +5,12 @@ import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { DelegationWizard } from '../../components/DelegationWizard';
 import type { SupportedChainName } from '../../utils/delegate-write';
 
-const GHOSTAGENT_IMG = '/ghostagent-ninja.png';
+const GHOSTVAULT_IMG = '/collection-icons/GhostVault.png';
 const CI = '/collection-icons';
 const ICONS = {
+  ens: `${CI}/ens.svg`,
   normie: `${CI}/normie.png`,
+  fakenormie: `${CI}/fakenormie.png`,
   chonk: `${CI}/chonk.svg`,
   mooncat: `${CI}/mooncat.png`,
   pownft: `${CI}/pownft.png`,
@@ -16,7 +18,8 @@ const ICONS = {
 };
 
 const NORMIES_CONTRACT = '0x9eb6e2025b64f340691e424b7fe7022ffde12438';
-type NftType = 'normie' | 'chonk' | 'mooncat' | 'pownft' | 'other';
+const FAKE_NORMIE_CONTRACT = process.env.NEXT_PUBLIC_FAKE_NORMIE_CONTRACT ?? '';
+type NftType = 'ens' | 'normie' | 'fakenormie' | 'chonk' | 'mooncat' | 'pownft' | 'other';
 
 interface NftOption {
   k: NftType;
@@ -25,49 +28,138 @@ interface NftOption {
 }
 
 const NFT_OPTIONS: NftOption[] = [
+  {k:'ens', l:'ENS', img:ICONS.ens},
   {k:'normie', l:'NORMIES', img:ICONS.normie},
+  {k:'fakenormie', l:'FAKENORMIE', img:ICONS.fakenormie},
   {k:'chonk', l:'CHONKS', img:ICONS.chonk},
   {k:'mooncat', l:'MOONCATS', img:ICONS.mooncat},
   {k:'pownft', l:'POWNFT', img:ICONS.pownft},
   {k:'other', l:'OTHER', img:ICONS.other},
 ];
 
+const NFT_TYPE_META: Record<NftType, { nameLabel: string; chain: string; helper: string }> = {
+  ens: { nameLabel: 'ENS NAME', chain: 'ethereum', helper: 'e.g. vitalik.eth' },
+  normie: { nameLabel: 'NORMIE NAME', chain: 'ethereum', helper: 'Find your Normie on OpenSea' },
+  fakenormie: { nameLabel: 'FAKENORMIE', chain: 'gnosis', helper: 'Demo NFT on Gnosis Chain' },
+  chonk: { nameLabel: 'CHONK NAME', chain: 'base', helper: 'Find your Chonk on chonks.xyz' },
+  mooncat: { nameLabel: 'MOONCAT NAME', chain: 'ethereum', helper: 'Find your Mooncat' },
+  pownft: { nameLabel: 'ATOM NAME', chain: 'ethereum', helper: 'Find your Atom on pownft.com' },
+  other: { nameLabel: 'COLLECTION', chain: 'gnosis', helper: 'Enter contract address below' },
+};
+
 export default function DelegatePage() {
   const { authenticated, login } = usePrivy();
   const { wallets } = useWallets();
-  const [customContract, setCustomContract] = useState('');
-  const [customChain, setCustomChain] = useState<SupportedChainName>('gnosis');
   const [selectedNftType, setSelectedNftType] = useState<NftType>('normie');
   const [tokenId, setTokenId] = useState('');
+  const [primaryName, setPrimaryName] = useState('');
+  const [demoMintState, setDemoMintState] = useState<'idle'|'minting'|'minted'|'already'|'error'>('idle');
+  const [demoTokenId, setDemoTokenId] = useState<string|null>(null);
+  const [demoError, setDemoError] = useState('');
   const connectedWallet = wallets.find(w => w.walletClientType !== 'privy')?.address ?? wallets[0]?.address ?? null;
+
+  const handleDemoMint = useCallback(async () => {
+    if (!connectedWallet) return;
+    setDemoMintState('minting');
+    try {
+      const res = await fetch('/api/demo-mint', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ recipientAddress: connectedWallet }) });
+      const data = await res.json() as any;
+      if (data.alreadyMinted) { setDemoMintState('already'); return; }
+      if (!data.success) { setDemoError(data.error ?? 'Mint failed'); setDemoMintState('error'); return; }
+      setDemoTokenId(data.tokenId ?? null); setDemoMintState('minted');
+    } catch (e) { setDemoError('Network error'); setDemoMintState('error'); }
+  }, [connectedWallet]);
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       <div className="flex items-center gap-3">
-        <img src={GHOSTAGENT_IMG} alt="NFT Delegation" className="h-28 w-28 object-contain drop-shadow-[0_0_18px_rgba(184,134,97,0.4)]" />
+        <img src={GHOSTVAULT_IMG} alt="NFT Delegation" className="h-28 w-28 object-contain drop-shadow-[0_0_18px_rgba(184,134,97,0.4)]" />
         <div>
           <h1 className="pl-1 text-2xl font-bold text-[#f2eee4]">NFT Delegation</h1>
-          <p className="pl-1 mt-0.5 text-xs text-[var(--muted)]">Delegate token-level proxy access</p>
+          <p className="pl-1 mt-0.5 text-xs text-[var(--muted)]">Delegate token-level proxy access without moving your NFT</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-5 gap-3">
-        {NFT_OPTIONS.map(opt => (
-          <button key={opt.k} onClick={() => setSelectedNftType(opt.k)} className={`rounded-lg border p-3 ${selectedNftType===opt.k?'border-fuchsia-500/50 bg-fuchsia-500/10 text-fuchsia-300':'border-gray-700 bg-black/20 text-gray-400'}`}>
-            <img src={opt.img} alt={opt.l} className="w-20 h-20 mx-auto mb-1" />
-            <span className="text-[10px]">{opt.l}</span>
-          </button>
-        ))}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="rounded-xl border border-sky-500/20 bg-sky-500/5 p-4">
+          <div className="text-[10px] font-semibold uppercase tracking-widest text-sky-400 mb-1">Phase 1</div>
+          <div className="text-xs font-semibold text-white mb-1">Delegate to hot wallet</div>
+          <div className="text-[10px] text-gray-400">Connect cold vault, select NFT, verify ownership, sign once.</div>
+        </div>
+        <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
+          <div className="text-[10px] font-semibold uppercase tracking-widest text-emerald-400 mb-1">Phase 2</div>
+          <div className="text-xs font-semibold text-white mb-1">Farcaster Proxy</div>
+          <div className="text-[10px] text-gray-400">Mobile access via delegated hot wallet.</div>
+        </div>
       </div>
 
-      <div>
-        <label className="block text-[10px] font-semibold text-gray-400 mb-1">TOKEN ID</label>
-        <input className="w-full rounded-lg border border-gray-700 bg-black/30 px-3 py-2 text-white" value={tokenId} onChange={e => setTokenId(e.target.value.replace(/[^0-9]/g,''))} />
+      <div className="w-full rounded-2xl border border-orange-500/30 bg-[var(--card)] p-5 space-y-4">
+        <p className="text-sm font-semibold text-[#f2eee4]">OG NFTs</p>
+        <div>
+          <label className="block text-[10px] font-semibold tracking-wider text-gray-400 mb-2">NFT COLLECTION</label>
+          <div className="grid grid-cols-7 gap-3">
+            {NFT_OPTIONS.map(opt => (
+              <button key={opt.k} onClick={() => setSelectedNftType(opt.k)} className={`rounded-lg border p-3 ${selectedNftType===opt.k?'border-fuchsia-500/50 bg-fuchsia-500/10 text-fuchsia-300':'border-gray-700 bg-black/20 text-gray-400'}`}>
+                <img src={opt.img} alt={opt.l} className="w-20 h-20 mx-auto mb-1" />
+                <span className="text-[10px]">{opt.l}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <div>
+            <label className="block text-[10px] font-semibold text-gray-400 mb-1">{NFT_TYPE_META[selectedNftType].nameLabel}</label>
+            <input className="w-full rounded-lg border border-gray-700 bg-black/30 px-3 py-2 text-white text-sm" placeholder={NFT_TYPE_META[selectedNftType].helper} value={primaryName} onChange={e => setPrimaryName(e.target.value)} />
+          </div>
+          <div>
+            <label className="block text-[10px] font-semibold text-gray-400 mb-1">TOKEN ID</label>
+            <input className="w-full rounded-lg border border-gray-700 bg-black/30 px-3 py-2 text-white text-sm" placeholder="e.g. 123" value={tokenId} onChange={e => setTokenId(e.target.value.replace(/[^0-9]/g,''))} />
+          </div>
+          <div>
+            <label className="block text-[10px] font-semibold text-gray-400 mb-1">WALLET ADDRESS (must hold the NFT)</label>
+            <div className="flex items-center gap-2 w-full rounded-lg border border-gray-700 bg-black/30 px-3 py-2">
+              <span className="text-sm text-white truncate flex-1">{connectedWallet || 'Not connected'}</span>
+              {connectedWallet && <span className="text-emerald-400 text-xs">connected</span>}
+            </div>
+          </div>
+          {!authenticated && (
+            <button onClick={login} className="w-full rounded-lg bg-fuchsia-600/80 px-4 py-3 text-sm font-bold text-white hover:bg-fuchsia-600">Connect Wallet</button>
+          )}
+        </div>
+
+        {authenticated && selectedNftType !== 'fakenormie' && (
+          <DelegationWizard nftContractAddress={NORMIES_CONTRACT} nftCollectionName={NFT_TYPE_META[selectedNftType].nameLabel} chain="ethereum" />
+        )}
       </div>
 
-      {authenticated && selectedNftType === 'normie' && (
-        <DelegationWizard nftContractAddress={NORMIES_CONTRACT} nftCollectionName="Normies" chain="ethereum" />
-      )}
+      <div className="w-full rounded-2xl border border-pink-500/30 bg-pink-500/5 p-5 space-y-4">
+        <p className="text-sm font-semibold text-pink-300">FakeNormie Sandbox</p>
+        <p className="text-xs text-gray-400">Mint a demo FakeNormie NFT on Gnosis Chain to test delegation.</p>
+        {!authenticated ? (
+          <button onClick={login} className="w-full rounded-lg bg-fuchsia-600/80 px-4 py-3 text-sm font-bold text-white hover:bg-fuchsia-600">Connect Wallet to Mint</button>
+        ) : (
+          <>
+            {demoMintState === 'idle' && (
+              <button onClick={handleDemoMint} className="w-full rounded-lg bg-pink-600/80 px-4 py-3 text-sm font-bold text-white hover:bg-pink-600">Mint Demo FakeNormie</button>
+            )}
+            {demoMintState === 'minting' && <div className="rounded-lg bg-gray-800/50 px-4 py-3 text-sm text-gray-300">Minting...</div>}
+            {demoMintState === 'minted' && (
+              <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/30 px-4 py-3">
+                <div className="text-sm text-emerald-400 font-semibold">Minted! Token ID: {demoTokenId}</div>
+                <p className="text-xs text-gray-400 mt-1">Select FAKENORMIE above and enter this Token ID to delegate.</p>
+              </div>
+            )}
+            {demoMintState === 'already' && <div className="rounded-lg bg-amber-500/10 border border-amber-500/30 px-4 py-3 text-sm text-amber-400">You already have a FakeNormie. Check your wallet!</div>}
+            {demoMintState === 'error' && (
+              <div className="rounded-lg bg-red-500/10 border border-red-500/30 px-4 py-3">
+                <div className="text-sm text-red-400">{demoError}</div>
+                <button onClick={() => setDemoMintState('idle')} className="mt-2 text-xs text-sky-400 hover:underline">Try again</button>
+              </div>
+            )}
+          </>
+        )}
+      </div>
 
       <div className="text-center text-[10px] text-gray-500">
         Powered by <a href="https://delegate.xyz" target="_blank" rel="noopener" className="text-sky-400">Delegate V2</a>

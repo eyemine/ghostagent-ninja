@@ -739,10 +739,10 @@ export default function OgNftMoltPage() {
               {([
                 {k:'ens'     as NftType, l:'ENS\nName',       img:ICONS.ens},
                 {k:'normie'  as NftType, l:'NORMIES\nON ETH',  img:ICONS.normie},
+                {k:'fakenormie' as NftType, l:'FAKENORMIE\nON GNOSIS', img:ICONS.fakenormie},
                 {k:'chonk'   as NftType, l:'CHONKS\nON BASE', img:ICONS.chonk},
                 {k:'mooncat' as NftType, l:'MOONCATS\nON ETH',img:ICONS.mooncat},
                 {k:'pownft'  as NftType, l:'POWNFT\nON ETH',  img:ICONS.pownft},
-                {k:'fakenormie' as NftType, l:'FAKENORMIE\nON GNOSIS', img:ICONS.fakenormie},
                 {k:'other'   as NftType, l:'OTHER\nERC-721',  img:ICONS.other},
               ]).map(opt => (
                 <button key={opt.k} onClick={() => { selectNftType(opt.k); setTokenId(''); }}
