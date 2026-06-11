@@ -473,7 +473,7 @@ export default function DashboardHome() {
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-4">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={GHOST_LOGO} alt="GhostAgent" className="h-28 w-28 object-contain drop-shadow-[0_0_18px_rgba(184,134,97,0.4)]" />
+          <img src={GHOST_LOGO} alt="GhostAgent" className="h-36 w-36 object-contain drop-shadow-[0_0_18px_rgba(184,134,97,0.4)]" />
           <div>
             <h1 className="pl-1 text-2xl font-bold text-[#f2eee4]">My Agents</h1>
             <p className="pl-1 mt-0.5 text-xs text-[var(--muted)]">Fully-rigged Agents – Mirror Bodies with Brains installed</p>

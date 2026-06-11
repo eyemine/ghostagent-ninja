@@ -685,9 +685,9 @@ export default function OgNftMoltPage() {
     <div className="max-w-5xl mx-auto space-y-6">
 
       {/* Header — aligned with Dashboard */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 mb-4">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={ICONS.byo} alt="Pair your NFT" className="h-28 w-28 object-contain drop-shadow-[0_0_18px_rgba(184,134,97,0.4)]" />
+        <img src={ICONS.byo} alt="Pair your NFT" className="h-28 w-28 rounded object-contain drop-shadow-[0_0_18px_rgba(184,134,97,0.4)]" />
         <div>
           <h1 className="pl-1 text-2xl font-bold text-[#f2eee4]">Pair your NFT</h1>
           <p className="pl-1 mt-0.5 text-xs text-[var(--muted)]">Use an NFT you already own — ENS, Chonk, or Verified Collection — as the governing key to your GhostAgent Safe</p>
@@ -867,6 +867,10 @@ export default function OgNftMoltPage() {
               )}
             </div>
           </div>
+
+          {authenticated && (
+            <button className="w-full rounded-lg bg-sky-600/80 px-4 py-3 text-sm font-bold text-white hover:bg-sky-600">Verify Ownership</button>
+          )}
 
           {viaDelegate && vaultWallet && (
             <div className="flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 text-[10px]">

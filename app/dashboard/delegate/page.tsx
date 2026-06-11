@@ -156,34 +156,43 @@ export default function DelegatePage() {
           {!authenticated && (
             <button onClick={login} className="w-full rounded-lg bg-fuchsia-600/80 px-4 py-3 text-sm font-bold text-white hover:bg-fuchsia-600">Connect Wallet</button>
           )}
-          {authenticated && showMintButton && demoMintState === 'idle' && (
-            <button onClick={handleDemoMint} className="w-full rounded-lg bg-pink-600/80 px-4 py-3 text-sm font-bold text-white hover:bg-pink-600">Mint FakeNormie</button>
+          {authenticated && (
+            <button className="w-full rounded-lg bg-sky-600/80 px-4 py-3 text-sm font-bold text-white hover:bg-sky-600">Verify Ownership</button>
           )}
-          {authenticated && showMintButton && demoMintState === 'minting' && (
-            <div className="rounded-lg bg-gray-800/50 px-4 py-3 text-sm text-gray-300">Minting...</div>
-          )}
-          {authenticated && showMintButton && demoMintState === 'minted' && (
-            <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/30 px-4 py-3">
-              <div className="text-sm text-emerald-400 font-semibold">Minted! Token ID: {demoTokenId}</div>
-              <p className="text-xs text-gray-400 mt-1">Enter this Token ID above to delegate.</p>
-            </div>
-          )}
-          {authenticated && showMintButton && demoMintState === 'already' && (
-            <div className="rounded-lg bg-amber-500/10 border border-amber-500/30 px-4 py-3 text-sm text-amber-400">You already have a FakeNormie. Check your wallet!</div>
-          )}
-          {authenticated && showMintButton && demoMintState === 'error' && (
-            <div className="rounded-lg bg-red-500/10 border border-red-500/30 px-4 py-3">
-              <div className="text-sm text-red-400">{demoError}</div>
-              <button onClick={() => setDemoMintState('idle')} className="mt-2 text-xs text-sky-400 hover:underline">Try again</button>
-            </div>
-          )}
+ 
         </div>
 
         {authenticated && (
           <DelegationWizard nftContractAddress={resolvedContract()} nftCollectionName={NFT_TYPE_META[selectedNftType].nameLabel} chain={resolvedChain()} />
         )}
       </div>
-
+      <div className="w-full rounded-2xl border border-pink-500/30 bg-pink-500/5 p-5 space-y-4">
+        <p className="text-sm font-semibold text-pink-300">FakeNormie Sandbox</p>
+        <p className="text-xs text-gray-400">Mint a demo FakeNormie NFT on Gnosis Chain to test delegation.</p>
+        {!authenticated ? (
+          <button onClick={login} className="w-full rounded-lg bg-fuchsia-600/80 px-4 py-3 text-sm font-bold text-white hover:bg-fuchsia-600">Connect Wallet to Mint</button>
+        ) : (
+          <>
+            {demoMintState === 'idle' && (
+              <button onClick={handleDemoMint} className="w-full rounded-lg bg-pink-600/80 px-4 py-3 text-sm font-bold text-white hover:bg-pink-600">Mint FakeNormie</button>
+            )}
+            {demoMintState === 'minting' && <div className="rounded-lg bg-gray-800/50 px-4 py-3 text-sm text-gray-300">Minting...</div>}
+            {demoMintState === 'minted' && (
+              <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/30 px-4 py-3">
+                <div className="text-sm text-emerald-400 font-semibold">Minted! Token ID: {demoTokenId}</div>
+                <p className="text-xs text-gray-400 mt-1">Select FAKENORMIE above and enter this Token ID to delegate.</p>
+              </div>
+            )}
+            {demoMintState === 'already' && <div className="rounded-lg bg-amber-500/10 border border-amber-500/30 px-4 py-3 text-sm text-amber-400">You already have a FakeNormie. Check your wallet!</div>}
+            {demoMintState === 'error' && (
+              <div className="rounded-lg bg-red-500/10 border border-red-500/30 px-4 py-3">
+                <div className="text-sm text-red-400">{demoError}</div>
+                <button onClick={() => setDemoMintState('idle')} className="mt-2 text-xs text-sky-400 hover:underline">Try again</button>
+              </div>
+            )}
+          </>
+        )}
+      </div>
       <div className="text-center text-[10px] text-gray-500">
         Powered by <a href="https://delegate.xyz" target="_blank" rel="noopener" className="text-sky-400">Delegate V2</a>
       </div>
