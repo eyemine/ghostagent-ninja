@@ -682,7 +682,7 @@ export default function OgNftMoltPage() {
   const ic = "w-full rounded-lg border border-[rgba(176,128,92,0.25)] bg-black/30 px-3 py-2 text-sm text-[#f2eee4] placeholder-[var(--muted)] focus:border-[rgba(176,128,92,0.55)] focus:outline-none transition";
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
+    <div className="max-w-5xl mx-auto px-4 md:px-8 pt-8 pb-12 space-y-6">
 
       {/* Header — aligned with Dashboard */}
       <div className="flex items-center gap-3 mb-4">
@@ -867,10 +867,6 @@ export default function OgNftMoltPage() {
               )}
             </div>
           </div>
-
-          {authenticated && (
-            <button className="w-full rounded-lg bg-sky-600/80 px-4 py-3 text-sm font-bold text-white hover:bg-sky-600">Verify Ownership</button>
-          )}
 
           {viaDelegate && vaultWallet && (
             <div className="flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 text-[10px]">

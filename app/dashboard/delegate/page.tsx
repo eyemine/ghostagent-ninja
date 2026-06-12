@@ -123,15 +123,15 @@ export default function DelegatePage() {
         </div>
       </div>
 
-      <div className="w-full rounded-2xl border border-orange-500/30 bg-[var(--card)] p-5 space-y-4">
+      <div className="w-full rounded-2xl border border-[rgba(176,128,92,0.2)] bg-[var(--card)] p-5 space-y-4">
         <p className="text-sm font-semibold text-[#f2eee4]">OG NFTs</p>
         <div>
           <label className="block text-[10px] font-semibold tracking-wider text-gray-400 mb-2">NFT COLLECTION</label>
           <div className="grid grid-cols-7 gap-3">
             {NFT_OPTIONS.map(opt => (
-              <button key={opt.k} onClick={() => handleNftTypeChange(opt.k)} className={`rounded-lg border p-3 ${selectedNftType===opt.k?'border-fuchsia-500/50 bg-fuchsia-500/10 text-fuchsia-300':'border-gray-700 bg-black/20 text-gray-400'}`}>
-                <img src={opt.img} alt={opt.l} className="w-24 h-24 mx-auto mb-1" />
-                <span className="text-[10px]">{opt.l}</span>
+              <button key={opt.k} onClick={() => handleNftTypeChange(opt.k)} className={`flex flex-col items-center gap-1 rounded-lg border p-3 text-center transition ${selectedNftType===opt.k?'border-fuchsia-500/50 bg-fuchsia-500/10 text-fuchsia-300':'border-[rgba(176,128,92,0.2)] bg-black/20 text-[var(--muted)] hover:text-[#f2eee4]'}`}>
+                <img src={opt.img} alt={opt.l} className="w-24 h-24 rounded object-contain flex-shrink-0" />
+                <span className="whitespace-pre-line leading-tight text-[10px] text-center">{opt.l}</span>
               </button>
             ))}
           </div>
@@ -157,7 +157,10 @@ export default function DelegatePage() {
             <button onClick={login} className="w-full rounded-lg bg-fuchsia-600/80 px-4 py-3 text-sm font-bold text-white hover:bg-fuchsia-600">Connect Wallet</button>
           )}
           {authenticated && (
-            <button className="w-full rounded-lg bg-sky-600/80 px-4 py-3 text-sm font-bold text-white hover:bg-sky-600">Verify Ownership</button>
+            <button onClick={() => {}} disabled={!primaryName || !tokenId || !connectedWallet}
+              className="w-full rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 py-2.5 text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-40">
+              Verify NFT Ownership →
+            </button>
           )}
  
         </div>
