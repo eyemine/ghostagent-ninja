@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import { keccak256, toHex } from 'viem';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { DelegationWizard } from '../../components/DelegationWizard';
 import type { SupportedChainName } from '../../utils/delegate-write';
@@ -17,8 +18,16 @@ const ICONS = {
   other: `${CI}/other.png`,
 };
 
-const NORMIES_CONTRACT = '0x9eb6e2025b64f340691e424b7fe7022ffde12438';
+const NORMIES_CONTRACT   = '0x9eb6e2025b64f340691e424b7fe7022ffde12438';
+const CHONK_CONTRACT     = '0x07152bfde079b5319e5308C43fB1DBc9C76CB4f9';
+const MOONCAT_CONTRACT   = '0xc3f733ca98e0dad0386979eb96fb1722a1a05e69';
+const POWNFT_CONTRACT    = '0x9abb7bddc43fa67c76a62d8c016513827f59be1b';
 const FAKE_NORMIE_CONTRACT = process.env.NEXT_PUBLIC_FAKE_NORMIE_CONTRACT ?? '';
+const NFT_RPCS: Partial<Record<NftType, string>> = {
+  ens: 'https://cloudflare-eth.com', normie: 'https://cloudflare-eth.com',
+  fakenormie: 'https://rpc.gnosischain.com', chonk: 'https://mainnet.base.org',
+  mooncat: 'https://cloudflare-eth.com', pownft: 'https://cloudflare-eth.com',
+};
 type NftType = 'ens' | 'normie' | 'fakenormie' | 'chonk' | 'mooncat' | 'pownft' | 'other';
 
 interface NftOption {
@@ -28,7 +37,7 @@ interface NftOption {
 }
 
 const NFT_OPTIONS: NftOption[] = [
-  {k:'ens', l:'ENS', img:ICONS.ens},
+  {k:'ens', l:'ENS\nName', img:ICONS.ens},
   {k:'normie', l:'NORMIES\nON ETH', img:ICONS.normie},
   {k:'fakenormie', l:'FAKENORMIE\nON GNOSIS', img:ICONS.fakenormie},
   {k:'chonk', l:'CHONKS\nON BASE', img:ICONS.chonk},
@@ -45,8 +54,8 @@ const CHAIN_OPTIONS: {k: SupportedChainName; l: string}[] = [
 
 const NFT_TYPE_META: Record<NftType, { nameLabel: string; prefill: string; chain: SupportedChainName; tokenLabel: string; helper: string }> = {
   ens: { nameLabel: 'ENS NAME', prefill: '', chain: 'ethereum', tokenLabel: 'TOKEN ID', helper: 'e.g. vitalik.eth' },
-  normie: { nameLabel: 'NORMIE NAME', prefill: 'Normie', chain: 'ethereum', tokenLabel: 'TOKEN ID', helper: 'Find your Normie on OpenSea' },
-  fakenormie: { nameLabel: 'FAKENORMIE NAME', prefill: 'abnormie', chain: 'gnosis', tokenLabel: 'TOKEN ID', helper: 'Demo NFT on Gnosis Chain' },
+  normie: { nameLabel: 'NORMIE NAME', prefill: 'normie', chain: 'ethereum', tokenLabel: 'NORMIE TOKEN ID', helper: 'e.g. 1234' },
+  fakenormie: { nameLabel: 'AGENT NAME', prefill: '', chain: 'gnosis', tokenLabel: 'FAKE TYPE', helper: 'Token ID (e.g. 1)' },
   chonk: { nameLabel: 'CHONK NAME', prefill: 'chonk', chain: 'base', tokenLabel: 'CHONK TOKEN ID', helper: 'Find your Chonk on chonks.xyz' },
   mooncat: { nameLabel: 'MOONCAT NAME', prefill: 'mooncat', chain: 'ethereum', tokenLabel: 'TOKEN ID', helper: 'Find your Mooncat' },
   pownft: { nameLabel: 'ATOM NAME', prefill: 'atom', chain: 'ethereum', tokenLabel: 'TOKEN ID', helper: 'Find your Atom on pownft.com' },
@@ -81,14 +90,16 @@ export default function DelegatePage() {
   const handleNftTypeChange = (t: NftType) => {
     setSelectedNftType(t);
     const meta = NFT_TYPE_META[t];
-    if (meta.prefill) setPrimaryName(meta.prefill);
-    else setPrimaryName('');
-    setTokenId('');
+    if (meta.prefill) setPrimaryName(meta.prefill); else setPrimaryName('');
+    setTokenId(''); setVerifyResult(null); setVerifyError('');
   };
 
   const resolvedContract = () => {
-    if (selectedNftType === 'normie') return NORMIES_CONTRACT;
+    if (selectedNftType === 'normie')     return NORMIES_CONTRACT;
     if (selectedNftType === 'fakenormie') return FAKE_NORMIE_CONTRACT;
+    if (selectedNftType === 'chonk')      return CHONK_CONTRACT;
+    if (selectedNftType === 'mooncat')    return MOONCAT_CONTRACT;
+    if (selectedNftType === 'pownft')     return POWNFT_CONTRACT;
     return customContract;
   };
 
@@ -98,6 +109,51 @@ export default function DelegatePage() {
   };
 
   const ic = "w-full rounded-lg border border-[rgba(176,128,92,0.25)] bg-black/30 px-3 py-2 text-sm text-[#f2eee4] placeholder-[var(--muted)] focus:border-[rgba(176,128,92,0.55)] focus:outline-none transition";
+  const [ensResolving, setEnsResolving] = useState(false);
+  const [verifying, setVerifying]       = useState(false);
+  const [verifyResult, setVerifyResult] = useState<'ok'|'fail'|null>(null);
+  const [verifyError, setVerifyError]   = useState('');
+
+  async function resolveEnsName() {
+    if (!primaryName) return;
+    setEnsResolving(true); setVerifyResult(null);
+    try {
+      const label = primaryName.replace(/\.eth$/i, '').toLowerCase();
+      const labelHash = keccak256(toHex(label));
+      setTokenId(BigInt(labelHash).toString(10));
+    } catch { }
+    finally { setEnsResolving(false); }
+  }
+
+  async function handleVerifyOwnership() {
+    if (!tokenId || !connectedWallet) return;
+    const contract = resolvedContract();
+    if (!contract) { setVerifyResult('fail'); setVerifyError('Contract address required'); return; }
+    setVerifying(true); setVerifyResult(null); setVerifyError('');
+    try {
+      const tokenIdHex = BigInt(tokenId).toString(16).padStart(64, '0');
+      const rpc = NFT_RPCS[selectedNftType] ?? 'https://cloudflare-eth.com';
+      const res = await fetch(rpc, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jsonrpc:'2.0', id:1, method:'eth_call',
+          params:[{ to: contract, data: `0x6352211e${tokenIdHex}` }, 'latest'] }),
+      });
+      const json = await res.json() as { result?: string; error?: unknown };
+      if (!json.result || json.result === '0x' || json.error) {
+        setVerifyResult('fail'); setVerifyError(`Token #${tokenId} not found on-chain`);
+      } else {
+        const owner = `0x${json.result.slice(26)}`.toLowerCase();
+        if (owner === connectedWallet.toLowerCase()) {
+          setVerifyResult('ok');
+        } else {
+          setVerifyResult('fail');
+          setVerifyError(`Token #${tokenId} is owned by ${owner.slice(0,10)}… — not your connected wallet`);
+        }
+      }
+    } catch { setVerifyResult('fail'); setVerifyError('Could not verify — check your connection'); }
+    finally { setVerifying(false); }
+  }
+
   const showMintButton = selectedNftType === 'normie' || selectedNftType === 'fakenormie';
 
   return (
@@ -146,14 +202,87 @@ export default function DelegatePage() {
         </div>
 
         <div className="space-y-3">
-          <div>
-            <label className="block text-[10px] font-semibold text-gray-400 mb-1">{NFT_TYPE_META[selectedNftType].nameLabel}</label>
-            <input className={ic} placeholder={NFT_TYPE_META[selectedNftType].helper} value={primaryName} onChange={e => setPrimaryName(e.target.value)} />
-          </div>
-          <div>
-            <label className="block text-[10px] font-semibold text-gray-400 mb-1">{NFT_TYPE_META[selectedNftType].tokenLabel}</label>
-            <input className={ic} placeholder="e.g. 123" value={tokenId} onChange={e => setTokenId(e.target.value.replace(/[^0-9]/g,''))} />
-          </div>
+
+          {selectedNftType === 'ens' ? (
+            <>
+              <div>
+                <label className="block text-[10px] font-semibold text-gray-400 mb-1">ENS NAME</label>
+                <div className="flex gap-2">
+                  <input className={`${ic} flex-1`} placeholder="e.g. vitalik"
+                    value={primaryName}
+                    onChange={e => { setPrimaryName(e.target.value.toLowerCase().replace(/[^a-z0-9-.]/g,'')); setTokenId(''); setVerifyResult(null); }} />
+                  <button onClick={resolveEnsName} disabled={!primaryName || ensResolving}
+                    className="shrink-0 rounded-lg bg-fuchsia-600/80 px-4 py-2 text-xs font-bold text-white transition hover:bg-fuchsia-600 disabled:opacity-40">
+                    {ensResolving ? 'Resolving…' : 'Resolve →'}
+                  </button>
+                </div>
+              </div>
+              {tokenId && (
+                <div>
+                  <label className="block text-[10px] font-semibold text-gray-400 mb-1">RESOLVED TOKEN ID</label>
+                  <div className={`${ic} opacity-70 cursor-not-allowed font-mono text-xs truncate`}>{tokenId}</div>
+                </div>
+              )}
+            </>
+          ) : selectedNftType === 'normie' ? (
+            <>
+              <div>
+                <label className="block text-[10px] font-semibold text-gray-400 mb-1">NORMIE TOKEN ID</label>
+                <input className={ic} placeholder="e.g. 1234" value={tokenId}
+                  onChange={e => { setTokenId(e.target.value.replace(/[^0-9]/g,'')); setVerifyResult(null); }} />
+              </div>
+              {tokenId && <p className="text-[10px] text-[var(--muted)]">→ <span className="font-mono text-fuchsia-300">normie.{tokenId}@nftmail.box</span></p>}
+            </>
+          ) : selectedNftType === 'fakenormie' ? (
+            <>
+              <div>
+                <label className="block text-[10px] font-semibold text-gray-400 mb-1">AGENT NAME (from NFT title)</label>
+                <div className="flex items-center gap-2">
+                  <div className={`${ic} flex-1 opacity-70 cursor-not-allowed italic text-[var(--muted)]`}>Fake</div>
+                  <span className="text-[var(--muted)] font-mono text-lg select-none">.</span>
+                  <div className={`${ic} flex-1 opacity-70 cursor-not-allowed italic text-[var(--muted)]`}>Normie</div>
+                </div>
+                <p className="mt-1 text-[10px] text-[var(--muted)] italic">Populated from your NFT&apos;s on-chain title after verification</p>
+              </div>
+              <div>
+                <label className="block text-[10px] font-semibold text-gray-400 mb-1">FAKE TYPE</label>
+                <input className={ic} placeholder="Token ID (e.g. 1)" value={tokenId}
+                  onChange={e => { setTokenId(e.target.value.replace(/[^0-9]/g,'')); setVerifyResult(null); }} />
+              </div>
+            </>
+          ) : selectedNftType === 'other' ? (
+            <>
+              <div>
+                <label className="block text-[10px] font-semibold text-gray-400 mb-1">CONTRACT ADDRESS</label>
+                <input className={ic} placeholder="0x…" value={customContract}
+                  onChange={e => { setCustomContract(e.target.value.trim()); setVerifyResult(null); }} />
+              </div>
+              <div>
+                <label className="block text-[10px] font-semibold text-gray-400 mb-1">CHAIN</label>
+                <select className={ic} value={customChain} onChange={e => setCustomChain(e.target.value as SupportedChainName)}>
+                  {CHAIN_OPTIONS.map(c => <option key={c.k} value={c.k}>{c.l}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[10px] font-semibold text-gray-400 mb-1">TOKEN ID</label>
+                <input className={ic} placeholder="e.g. 123" value={tokenId}
+                  onChange={e => { setTokenId(e.target.value.replace(/[^0-9]/g,'')); setVerifyResult(null); }} />
+              </div>
+            </>
+          ) : (
+            <>
+              <div>
+                <label className="block text-[10px] font-semibold text-gray-400 mb-1">{NFT_TYPE_META[selectedNftType].nameLabel}</label>
+                <div className={`${ic} opacity-70 cursor-not-allowed`}>{NFT_TYPE_META[selectedNftType].prefill}</div>
+              </div>
+              <div>
+                <label className="block text-[10px] font-semibold text-gray-400 mb-1">{NFT_TYPE_META[selectedNftType].tokenLabel}</label>
+                <input className={ic} placeholder="e.g. 123" value={tokenId}
+                  onChange={e => { setTokenId(e.target.value.replace(/[^0-9]/g,'')); setVerifyResult(null); }} />
+              </div>
+            </>
+          )}
+
           <div>
             <label className="block text-[10px] font-semibold text-gray-400 mb-1">WALLET ADDRESS (must hold the NFT)</label>
             <div className="flex items-center gap-2 w-full rounded-lg border border-gray-700 bg-black/30 px-3 py-2">
@@ -161,16 +290,23 @@ export default function DelegatePage() {
               {connectedWallet && <span className="text-emerald-400 text-xs">✓ connected</span>}
             </div>
           </div>
-          {!authenticated && (
-            <button onClick={login} className="w-full rounded-lg bg-fuchsia-600/80 px-4 py-3 text-sm font-bold text-white hover:bg-fuchsia-600">Connect Wallet</button>
+
+          {verifyResult === 'ok' && (
+            <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/30 px-4 py-3 text-sm text-emerald-400 font-semibold">✓ Ownership verified — proceed to delegate below</div>
           )}
-          {authenticated && (
-            <button onClick={() => {}} disabled={!primaryName || !tokenId || !connectedWallet}
+          {verifyResult === 'fail' && (
+            <div className="rounded-lg bg-red-500/10 border border-red-500/30 px-4 py-3 text-xs text-red-400">{verifyError}</div>
+          )}
+
+          {!authenticated ? (
+            <button onClick={login} className="w-full rounded-lg bg-fuchsia-600/80 px-4 py-3 text-sm font-bold text-white hover:bg-fuchsia-600">Connect Wallet</button>
+          ) : (
+            <button onClick={handleVerifyOwnership} disabled={!tokenId || !connectedWallet || verifying}
               className="w-full rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 py-2.5 text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-40">
-              Verify NFT Ownership →
+              {verifying ? 'Checking…' : 'Verify NFT Ownership →'}
             </button>
           )}
- 
+
         </div>
 
         {authenticated && (
