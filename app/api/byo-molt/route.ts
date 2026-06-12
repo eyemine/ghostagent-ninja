@@ -36,20 +36,22 @@ const ETH_RPC = ALCHEMY_KEY
   : 'https://ethereum.publicnode.com';
 
 const NFT_CONTRACTS: Record<string, { contract: string; rpc: string; chain: string }> = {
-  chonk:   { contract: '0x07152bfde079b5319e5308C43fB1DBc9C76CB4f9', rpc: 'https://mainnet.base.org', chain: 'base' },
-  ens:     { contract: '0x57f1887a8BF19b14fC0dF6Fd9B2acc9Af147eA85', rpc: ETH_RPC, chain: 'mainnet' },
-  pownft:  { contract: '0x9abb7bddc43fa67c76a62d8c016513827f59be1b', rpc: ETH_RPC, chain: 'mainnet' },
-  normie:  { contract: '0x9eb6e2025b64f340691e424b7fe7022ffde12438', rpc: ETH_RPC, chain: 'mainnet' },
-  mooncat: { contract: '0xc3f733ca98e0dad0386979eb96fb1722a1a05e69', rpc: ETH_RPC, chain: 'mainnet' },
+  chonk:      { contract: '0x07152bfde079b5319e5308C43fB1DBc9C76CB4f9', rpc: 'https://mainnet.base.org', chain: 'base' },
+  ens:        { contract: '0x57f1887a8BF19b14fC0dF6Fd9B2acc9Af147eA85', rpc: ETH_RPC, chain: 'mainnet' },
+  pownft:     { contract: '0x9abb7bddc43fa67c76a62d8c016513827f59be1b', rpc: ETH_RPC, chain: 'mainnet' },
+  normie:     { contract: '0x9eb6e2025b64f340691e424b7fe7022ffde12438', rpc: ETH_RPC, chain: 'mainnet' },
+  mooncat:    { contract: '0xc3f733ca98e0dad0386979eb96fb1722a1a05e69', rpc: ETH_RPC, chain: 'mainnet' },
+  fakenormie: { contract: process.env.FAKE_NORMIE_CONTRACT ?? '', rpc: 'https://rpc.gnosischain.com', chain: 'gnosis' },
 };
 
 // Source chain IDs for Gnosis-side mirror TBA derivation
 const NFT_SOURCE_CHAIN_ID: Record<string, number> = {
-  chonk:   8453, // Base
-  normie:  8453, // Base
-  ens:     1,    // Ethereum mainnet
-  pownft:  1,
-  mooncat: 1,
+  chonk:      8453, // Base
+  normie:     8453, // Base
+  ens:        1,    // Ethereum mainnet
+  pownft:     1,
+  mooncat:    1,
+  fakenormie: 100,  // Gnosis mainnet
 };
 
 // ── Trait-based tier determination ───────────────────────────────────────────
@@ -242,16 +244,18 @@ export async function POST(req: NextRequest) {
     // Beacon labels use hyphens (not dots) to avoid sub.sub.name interpretation
     // e.g. chonk-123.nftmail.gno, atom-1234.nftmail.gno, eyemine.nftmail.gno
     const cleanName = primaryName.toLowerCase().replace(/_$/, '');
-    const beaconPrefix = type === 'pownft' ? 'atom' : type === 'normie' ? 'normie' : type === 'chonk' ? 'chonk' : type === 'mooncat' ? 'mooncat' : 'nft';
-    const emailPrefix  = type === 'pownft' ? 'atom' : type === 'normie' ? 'normie' : type === 'chonk' ? 'chonk' : type === 'mooncat' ? 'mooncat' : 'nft';
+    const beaconPrefix = type === 'pownft' ? 'atom' : type === 'normie' ? 'normie' : type === 'chonk' ? 'chonk' : type === 'mooncat' ? 'mooncat' : type === 'fakenormie' ? 'normie' : 'nft';
+    const emailPrefix  = type === 'pownft' ? 'atom' : type === 'normie' ? 'normie' : type === 'chonk' ? 'chonk' : type === 'mooncat' ? 'mooncat' : type === 'fakenormie' ? 'normie' : 'nft';
     const displayLabel = type === 'ens' && nftName ? nftName.replace(/\.eth$/i, '').toLowerCase() : tokenId.slice(0, 20);
-    const beaconLabel = type === 'ens' ? displayLabel : `${beaconPrefix}-${displayLabel}`;
+    const beaconLabel = type === 'ens' ? displayLabel : type === 'fakenormie' ? cleanName.replace(/\./g, '-') : `${beaconPrefix}-${displayLabel}`;
 
     // Calculate humanLocalPart early - needed for Safe creation saltNonce
     // Use hyphens (not dots) so KV keys match the read-time normalisation (chonk-676 not chonk.676)
     const humanLocalPart = type === 'ens'
       ? (nftName ?? `ens-${tokenId.slice(0, 8)}`)
-      : `${emailPrefix}-${displayLabel}`;
+      : type === 'fakenormie'
+        ? cleanName  // e.g. "bad.normie" → "bad.normie@nftmail.box"
+        : `${emailPrefix}-${displayLabel}`;
 
     // Safe address and TBA address for new-agent molts (set during beacon/Safe step)
     let safeAddress: string | null = null;

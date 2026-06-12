@@ -40,6 +40,16 @@ const ENS_CONTRACT     = '0x57f1887a8BF19b14fC0dF6Fd9B2acc9Af147eA85';
 const POWNFT_CONTRACT  = '0x9abb7bddc43fa67c76a62d8c016513827f59be1b';
 // Normies live on Ethereum mainnet — single source of truth
 const NORMIE_CONTRACT = '0x9eb6e2025b64f340691e424b7fe7022ffde12438';
+const FAKE_NORMIE_CONTRACT = process.env.NEXT_PUBLIC_FAKE_NORMIE_CONTRACT ?? '';
+// FakeNormie manifest — maps reserved slugs to their tokenIds.
+// Populated once the FakeNormie contract is deployed and mints begin.
+const FAKENORMIE_MANIFEST: Record<string, number> = {
+  // 'bad.normie': 1,
+};
+function isFakeNormieReserved(slug: string, tokenId: string) {
+  const reserved = FAKENORMIE_MANIFEST[slug];
+  return reserved !== undefined && reserved !== Number(tokenId);
+}
 const MOONCAT_CONTRACT  = '0xc3f733ca98e0dad0386979eb96fb1722a1a05e69';
 const DXTERMINAL_CONTRACT = '0x41dc69132cce31fcbf6755c84538ca268520246f';
 const TREASURY = '0xeD0B0694953158dd54D0c36D320b391f44cd67f3';
@@ -473,6 +483,7 @@ export default function OgNftMoltPage() {
     if (nftType === 'chonk') return CHONK_CONTRACT;
     if (nftType === 'pownft') return POWNFT_CONTRACT;
     if (nftType === 'normie') return NORMIE_CONTRACT;
+    if (nftType === 'fakenormie') return FAKE_NORMIE_CONTRACT;
     if (nftType === 'mooncat') return MOONCAT_CONTRACT;
     return contractAddr;
   };
@@ -488,6 +499,7 @@ export default function OgNftMoltPage() {
         ? `https://base-mainnet.g.alchemy.com/v2/${alchemyKey}`
         : 'https://mainnet.base.org';
     }
+    if (nftType === 'fakenormie') return 'https://rpc.gnosischain.com';
     return alchemyKey
       ? `https://eth-mainnet.g.alchemy.com/v2/${alchemyKey}`
       : 'https://cloudflare-eth.com';
@@ -514,7 +526,7 @@ export default function OgNftMoltPage() {
   const NFT_TYPE_META: Record<NftType, { nameLabel: string; prefill: string }> = {
     ens:     { nameLabel: 'ENS NAME', prefill: '' },
     normie:  { nameLabel: 'NORMIE NAME', prefill: 'Normie' },
-    fakenormie: { nameLabel: 'FAKENORMIE NAME', prefill: 'abnormie' },
+    fakenormie: { nameLabel: 'AGENT NAME (from NFT title)', prefill: '' },
     chonk:   { nameLabel: 'CHONK NAME', prefill: 'chonk' },
     mooncat: { nameLabel: 'MOONCAT NAME', prefill: 'mooncat' },
     pownft:  { nameLabel: 'ATOM NAME', prefill: 'atom' },
@@ -571,6 +583,19 @@ export default function OgNftMoltPage() {
         const handles = generateNormieHandles(Number(tokenId), erc8004Name, name);
         setPrimaryName(handles.slug + '.normie');
         preview = { type: 'normie', tokenId, name, imageUrl, chain: 'mainnet' };
+      } else if (nftType === 'fakenormie') {
+        if (!FAKE_NORMIE_CONTRACT) {
+          setError('FakeNormie contract not yet deployed — mint one from the sandbox on the Delegation page first.');
+          setChecking(false); return;
+        }
+        const { name, imageUrl } = await fetchErc721Image(FAKE_NORMIE_CONTRACT, tokenId);
+        const slug = name ? name.toLowerCase().replace(/\s+/g, '.').replace(/[^a-z0-9.]/g, '') : `fakenormie.${tokenId}`;
+        if (isFakeNormieReserved(slug, tokenId)) {
+          setError(`The name "${slug}" is already reserved for another FakeNormie.`);
+          setChecking(false); return;
+        }
+        setPrimaryName(slug);
+        preview = { type: 'other', tokenId, name: name || `FakeNormie #${tokenId}`, imageUrl, chain: 'gnosis' as any };
       } else if (nftType === 'mooncat') {
         const { name, imageUrl } = await fetchMooncatImage(tokenId);
         preview = { type: 'mooncat', tokenId, name, imageUrl, chain: 'mainnet' };
@@ -801,6 +826,26 @@ export default function OgNftMoltPage() {
                   {collectionName && tokenId && (
                     <p className="mt-1 text-[10px] text-[var(--muted)]">Agent name: <span className="font-mono text-fuchsia-300">{VERIFIED_COLLECTIONS.find(c=>c.slug===collectionName)?.field1 ?? collectionName}.{tokenId}</span></p>
                   )}
+                </>
+              ) : nftType === 'fakenormie' ? (
+                <>
+                  <div className="flex items-center gap-2">
+                    <div className={`${ic} flex-1 opacity-70 cursor-not-allowed ${
+                      !primaryName ? 'text-[var(--muted)] italic' : 'text-[#f2eee4]'
+                    }`}>
+                      {primaryName ? primaryName.split('.')[0] : 'Fake'}
+                    </div>
+                    <span className="text-[var(--muted)] font-mono text-lg select-none">.</span>
+                    <div className={`${ic} flex-1 opacity-70 cursor-not-allowed ${
+                      !primaryName ? 'text-[var(--muted)] italic' : 'text-[#f2eee4]'
+                    }`}>
+                      {primaryName ? (primaryName.split('.')[1] ?? '') : 'Normie'}
+                    </div>
+                  </div>
+                  {primaryName
+                    ? <p className="mt-1 text-[10px] text-[var(--muted)]">→ <span className="font-mono text-fuchsia-300">{primaryName}@nftmail.box</span></p>
+                    : <p className="mt-1 text-[10px] text-[var(--muted)] italic">Populated automatically from your NFT&apos;s on-chain title after verification</p>
+                  }
                 </>
               ) : (
                 <div className={`${ic} opacity-70 cursor-not-allowed`}>

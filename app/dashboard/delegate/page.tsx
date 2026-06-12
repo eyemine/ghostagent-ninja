@@ -113,7 +113,15 @@ export default function DelegatePage() {
       <div className="grid grid-cols-2 gap-3">
         <div className="rounded-xl border border-sky-500/20 bg-sky-500/5 p-4">
           <div className="text-[10px] font-semibold uppercase tracking-widest text-sky-400 mb-1">Phase 1</div>
-          <div className="text-xs font-semibold text-white mb-1">Delegate to hot wallet</div>
+          <div className="flex items-center gap-1.5 mb-1">
+            <span className="text-xs font-semibold text-white">Delegate to hot wallet</span>
+            <div className="group relative">
+              <span className="text-gray-500 cursor-help text-[11px]">ⓘ</span>
+              <div className="hidden group-hover:block absolute z-10 left-0 top-5 w-64 p-3 bg-slate-900 border border-slate-700 rounded-lg text-[10px] text-gray-300 leading-relaxed shadow-xl">
+                Your hot wallet gets access to chat, email &amp; social features. It cannot transfer your NFT or move treasury funds — those require your cold wallet.
+              </div>
+            </div>
+          </div>
           <div className="text-[10px] text-gray-400">Connect cold vault, select NFT, verify ownership, sign once.</div>
         </div>
         <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
@@ -196,6 +204,59 @@ export default function DelegatePage() {
           </>
         )}
       </div>
+      {/* Safeguards explainer */}
+      <details className="group w-full rounded-2xl border border-slate-700/40 bg-slate-900/20 overflow-hidden">
+        <summary className="flex cursor-pointer items-center justify-between px-5 py-4 text-sm font-semibold text-[#f2eee4] hover:text-white list-none">
+          <span>🔒 How are my assets protected?</span>
+          <svg className="h-4 w-4 text-gray-400 transition-transform group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 9l-7 7-7-7"/></svg>
+        </summary>
+        <div className="px-5 pb-5 space-y-4 text-xs text-gray-400">
+
+          <div className="grid grid-cols-2 gap-3 pt-1">
+            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 space-y-2">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-emerald-400">Hot Wallet Can</p>
+              {['Read & send emails (nftmail.box)', 'Update agent personality & settings', 'Chat with other agents', 'Manage social profiles', 'Browse agent features'].map(t => (
+                <div key={t} className="flex items-start gap-2"><span className="text-emerald-400 shrink-0">✓</span><span>{t}</span></div>
+              ))}
+            </div>
+            <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-4 space-y-2">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-red-400">Hot Wallet Cannot</p>
+              {['Transfer or sell your NFT', 'Move funds from your Safe treasury', 'Change ownership permissions', 'Delete your agent'].map(t => (
+                <div key={t} className="flex items-start gap-2"><span className="text-red-400 shrink-0">✗</span><span>{t}</span></div>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-[rgba(176,128,92,0.15)] bg-black/20 p-4 space-y-1">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-[rgba(176,128,92,0.8)] mb-2">Think of it like…</p>
+            <div className="flex items-center gap-3"><span className="text-lg">🔐</span><span><span className="text-[#f2eee4] font-semibold">Cold Wallet</span> = Your bank vault key — holds the NFT &amp; treasury</span></div>
+            <div className="flex items-center gap-3"><span className="text-lg">💳</span><span><span className="text-[#f2eee4] font-semibold">Hot Wallet</span> = Your debit card — daily access, limited spend</span></div>
+            <div className="flex items-center gap-3"><span className="text-lg">🛡️</span><span><span className="text-[#f2eee4] font-semibold">Safeguards</span> = Spending limits &amp; fraud protection</span></div>
+          </div>
+
+          <div className="rounded-xl border border-emerald-800/30 bg-emerald-950/20 p-4 space-y-1.5">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-emerald-400 mb-2">You&apos;re always in control</p>
+            {['Revoke delegation anytime from delegate.xyz', 'Hot wallet access expires if NFT is transferred', 'All treasury actions require cold wallet signature', 'Full audit trail of all hot wallet activity'].map(t => (
+              <div key={t} className="flex items-center gap-2"><span className="text-emerald-400">✓</span><span>{t}</span></div>
+            ))}
+          </div>
+
+          <details className="rounded-xl border border-slate-700/40 bg-slate-900/30 overflow-hidden">
+            <summary className="cursor-pointer px-4 py-2.5 text-[10px] font-semibold uppercase tracking-widest text-gray-500 hover:text-gray-300 list-none">Technical details: how Safeguards work ▸</summary>
+            <div className="px-4 pb-4 pt-2 font-mono text-[10px] text-slate-400 space-y-2">
+              <p>GhostAgent uses <a href="https://delegate.xyz" target="_blank" rel="noopener" className="text-sky-400 underline">Delegate V2</a> for token-level permissions. The hot wallet signs once to prove ownership of its keys; the frontend checks <code className="text-fuchsia-300">checkDelegateForERC721(hotWallet, coldWallet, NFTcontract, tokenId)</code> against the registry.</p>
+              <pre className="mt-2 rounded bg-black/40 p-3 text-[9px] leading-relaxed whitespace-pre-wrap">{`checkDelegateForERC721(hotWallet, coldWallet, NFT) = true
+→ ✅ Social / comms / brain config: allowed
+→ ❌ Asset transfers / Safe treasury: cold wallet only
+
+Future: Safe Guard intercepts execTransaction() and
+validates delegation on-chain in a single block.`}</pre>
+            </div>
+          </details>
+
+        </div>
+      </details>
+
       <div className="text-center text-[10px] text-gray-500">
         Powered by <a href="https://delegate.xyz" target="_blank" rel="noopener" className="text-sky-400">Delegate V2</a>
       </div>
