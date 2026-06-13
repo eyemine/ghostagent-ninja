@@ -34,6 +34,24 @@ interface MintResult {
   explorer: string;
 }
 
+const FAKENORMIE_HEADER_IMG = '/FakeNormies/FakeNormie1.png';
+
+// Mirrors the Dashboard AGENT_ACTIONS panel (app/dashboard/page.tsx) 1:1 so the
+// "ACTIONS FOR" bar here is identical in appearance and function.
+function agentActions(agent: string): Array<{ key: string; label: string; href: string; color: string }> {
+  return [
+    { key: 'agent-profile', label: 'Agent Profile', href: `/dashboard/agent-profile?agent=${agent}`, color: 'border-amber-500/30 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20' },
+    { key: 'molt',          label: 'Molt',          href: `/molt?agent=${agent}`,                    color: 'border-fuchsia-500/30 bg-fuchsia-500/10 text-fuchsia-300 hover:bg-fuchsia-500/20' },
+    { key: 'ghost-tier',    label: 'Ghost Tier',    href: `/dashboard/settings/ghost?agent=${agent}`, color: 'border-zinc-500/30 bg-zinc-500/10 text-zinc-300 hover:bg-zinc-500/20' },
+    { key: 'delegate-nft',  label: 'Delegate NFT',  href: '/dashboard/delegate',                      color: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20' },
+    { key: 'erc8048',       label: 'ERC-8048',      href: `/dashboard/erc8048?agent=${agent}`,        color: 'border-cyan-500/30 bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500/20' },
+    { key: 'swarm',         label: 'Swarm',         href: `/dashboard/swarm?agent=${agent}`,          color: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20' },
+    { key: 'trade',         label: 'Trade Intent',  href: `/dashboard/trade?agent=${agent}`,          color: 'border-violet-500/30 bg-violet-500/10 text-violet-300 hover:bg-violet-500/20' },
+    { key: 'hitl',          label: 'HITL Gates',    href: `/dashboard/hitl?agent=${agent}`,           color: 'border-red-500/30 bg-red-500/10 text-red-300 hover:bg-red-500/20' },
+    { key: 'ip-portal',     label: 'IP Portal',     href: `/ip-portal?agent=${agent}&sld=fakenormie`, color: 'border-[#7c4dff]/30 bg-[#7c4dff]/10 text-[#a78bfa] hover:bg-[#7c4dff]/20' },
+  ];
+}
+
 export default function FakeNormiesPage() {
   const { ready, authenticated, login, user } = usePrivy();
   const [minting, setMinting] = useState(false);
@@ -96,79 +114,87 @@ export default function FakeNormiesPage() {
     }
   }
 
+  const ownedTokenId = existingTokenId ?? (result ? result.tokenId : null);
+  const ownedSlug    = existingSlug ?? (result ? result.slug : null);
+  const agentRef     = ownedSlug ?? (ownedTokenId !== null ? `token${ownedTokenId}` : '');
+  const mintedImg    = ownedTokenId !== null
+    ? `/FakeNormies/SVGS/${String(ownedTokenId).padStart(2, '0')}.svg`
+    : null;
+
   return (
-    <main className="min-h-screen bg-[#0b0c0f] flex flex-col items-center justify-center px-4 py-16">
+    <div className="min-h-screen bg-[var(--background)] pt-14">
+    <div className="max-w-5xl mx-auto px-4 md:px-8 py-8 pb-12 space-y-6">
 
-      <div className="flex flex-col items-center gap-6 max-w-md w-full text-center">
-
+      {/* Header — aligned with Dashboard */}
+      <div className="flex items-center gap-3 mb-4">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={FAKENORMIE_HEADER_IMG} alt="FakeNormies" className="h-28 w-28 rounded object-contain drop-shadow-[0_0_18px_rgba(184,134,97,0.4)]" />
         <div>
-          <h1 className="text-3xl font-bold text-[#f2eee4] tracking-tight">FakeNormies</h1>
-          <p className="mt-2 text-sm text-[#8a8a8a]">
-            100 free AI agents on Gnosis Chain.<br />
-            Each mint spawns an inbox, a wallet, and an identity.
-          </p>
+          <h1 className="pl-1 text-2xl font-bold text-[#f2eee4]">FakeNormies</h1>
+          <p className="pl-1 mt-0.5 text-xs text-[var(--muted)]">100 free AI agents on Gnosis Chain — each mint spawns an inbox, a wallet, and an identity.</p>
+        </div>
+      </div>
+
+      {/* FakeNormie Sandbox Panel */}
+      <div className="w-full rounded-2xl border border-pink-500/30 bg-pink-500/5 p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="text-left">
+            <p className="text-sm font-semibold text-pink-300">FakeNormie Sandbox</p>
+            <p className="text-xs text-[var(--muted)] mt-0.5">
+              Claim a free FakeNormie NFT on Gnosis Chain — then use it as your agent identity.
+            </p>
+          </div>
         </div>
 
-        {/* FakeNormie Sandbox Panel */}
-        <div className="w-full rounded-2xl border border-pink-500/30 bg-pink-500/5 p-5 space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="text-left">
-              <p className="text-sm font-semibold text-pink-300">FakeNormie Sandbox</p>
-              <p className="text-xs text-[var(--muted)] mt-0.5">
-                Claim a free FakeNormie NFT on Gnosis Chain — then use it as your agent identity.
-              </p>
-            </div>
-          </div>
+        {/* Square image — placeholder .gif until minted, then the token's SVG metadata */}
+        <div className="mx-auto w-full max-w-xs relative aspect-square rounded-2xl overflow-hidden border border-white/10 shadow-lg shadow-black/60 bg-black/40">
+          <Image
+            src={mintedImg ?? '/FakeNormies/FakeNormie.gif'}
+            alt={mintedImg ? `FakeNormie #${ownedTokenId}` : 'FakeNormie placeholder'}
+            fill
+            className="object-contain"
+            unoptimized
+          />
+        </div>
 
-          {/* NFT image enclosed in Sandbox panel */}
-          <div className="relative w-full h-48 rounded-2xl overflow-hidden border border-white/10 shadow-lg shadow-black/60">
-            <Image
-              src="/FakeNormies/FakeNormie.gif"
-              alt="FakeNormie"
-              fill
-              className="object-cover"
-              unoptimized
-            />
-          </div>
-
-          {!result ? (
-            <>
-              {/* CTA */}
-              {!ready ? null : !authenticated ? (
-                <button
-                  onClick={login}
-                  className="w-full rounded-lg bg-fuchsia-600/80 px-4 py-3 text-sm font-bold text-white hover:bg-fuchsia-600 transition"
-                >
-                  Connect Wallet to Claim
-                </button>
-              ) : checking ? (
-                <div className="rounded-lg bg-gray-800/50 px-4 py-3 text-sm text-gray-300">
-                  Checking wallet…
-                </div>
-              ) : existingTokenId !== null ? (
-                <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/30 px-4 py-3 space-y-2">
-                  <p className="text-sm font-semibold text-emerald-400">✓ You own a FakeNormie</p>
-                  <p className="text-xs text-[var(--muted)]">
-                    Token #{existingTokenId} · <span className="font-mono text-pink-300">{existingSlug || `token${existingTokenId}`}</span>
-                  </p>
-                </div>
-              ) : (
-                <button
-                  onClick={handleClaim}
-                  disabled={minting}
-                  className="w-full rounded-lg bg-pink-600/80 px-4 py-3 text-sm font-bold text-white hover:bg-pink-600 transition"
-                >
-                  {minting ? 'Minting on Gnosis Chain…' : 'Claim 1 free FakeNormie →'}
-                </button>
-              )}
-
-              {error && (
-                <p className="text-xs text-red-400 text-center">{error}</p>
-              )}
-
-              <p className="text-[10px] text-[#555]">1 per wallet · gas sponsored by ghostagent.ninja</p>
-            </>
+        {!result ? (
+          <>
+            {/* CTA */}
+            {!ready ? null : !authenticated ? (
+              <button
+                onClick={login}
+                className="w-full rounded-lg bg-fuchsia-600/80 px-4 py-3 text-sm font-bold text-white hover:bg-fuchsia-600 transition"
+              >
+                Connect Wallet to Claim
+              </button>
+            ) : checking ? (
+              <div className="rounded-lg bg-gray-800/50 px-4 py-3 text-sm text-gray-300">
+                Checking wallet…
+              </div>
+            ) : existingTokenId !== null ? (
+              <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/30 px-4 py-3 space-y-2">
+                <p className="text-sm font-semibold text-emerald-400">✓ You own a FakeNormie</p>
+                <p className="text-xs text-[var(--muted)]">
+                  Token #{existingTokenId} · <span className="font-mono text-pink-300">{existingSlug || `token${existingTokenId}`}</span>
+                </p>
+              </div>
             ) : (
+              <button
+                onClick={handleClaim}
+                disabled={minting}
+                className="w-full rounded-lg bg-pink-600/80 px-4 py-3 text-sm font-bold text-white hover:bg-pink-600 transition"
+              >
+                {minting ? 'Minting on Gnosis Chain…' : 'Claim 1 free FakeNormie →'}
+              </button>
+            )}
+
+            {error && (
+              <p className="text-xs text-red-400 text-center">{error}</p>
+            )}
+
+            <p className="text-[10px] text-[#555]">1 per wallet · gas sponsored by ghostagent.ninja</p>
+          </>
+        ) : (
           /* ── Success state ── */
           <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/30 px-4 py-3 space-y-2">
             <p className="text-sm font-semibold text-emerald-400">✓ Minted! Token ID: {result.tokenId}</p>
@@ -185,79 +211,32 @@ export default function FakeNormiesPage() {
             </a>
           </div>
         )}
-        </div>
-
-        {/* Actions for Panel — shown when user has a FakeNormie */}
-        {existingTokenId !== null && (
-          <div className="w-full rounded-2xl border border-[rgba(176,128,92,0.35)] bg-[var(--card)] p-5 space-y-4">
-            <p className="text-sm font-semibold text-[#f2eee4]">Actions for Panel</p>
-            <div className="grid grid-cols-2 gap-2">
-              <a
-                href={`https://nftmail.box/inbox/${existingSlug ?? `token${existingTokenId}`}`}
-                target="_blank" rel="noopener noreferrer"
-                className="flex items-center justify-between rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2.5 text-xs text-amber-300 hover:bg-amber-500/20 transition"
-              >
-                <span>Agent Profile</span><span className="text-[#555]">/dashboard</span>
-              </a>
-              <Link
-                href={`/molt?agent=${existingSlug ?? `token${existingTokenId}`}`}
-                className="flex items-center justify-between rounded-lg border border-fuchsia-500/30 bg-fuchsia-500/10 px-3 py-2.5 text-xs text-fuchsia-300 hover:bg-fuchsia-500/20 transition"
-              >
-                <span>Molt</span><span className="text-[#555]">/molt</span>
-              </Link>
-              <Link
-                href={`/dashboard/settings/ghost?agent=${existingSlug ?? `token${existingTokenId}`}`}
-                className="flex items-center justify-between rounded-lg border border-zinc-500/30 bg-zinc-500/10 px-3 py-2.5 text-xs text-zinc-300 hover:bg-zinc-500/20 transition"
-              >
-                <span>Ghost Tier</span><span className="text-[#555]">/dashboard</span>
-              </Link>
-              <Link
-                href="/dashboard/delegate"
-                className="flex items-center justify-between rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2.5 text-xs text-emerald-300 hover:bg-emerald-500/20 transition"
-              >
-                <span>Delegate NFT</span><span className="text-[#555]">/delegate</span>
-              </Link>
-              <Link
-                href={`/dashboard/erc8048?agent=${existingSlug ?? `token${existingTokenId}`}`}
-                className="flex items-center justify-between rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-2.5 text-xs text-cyan-300 hover:bg-cyan-500/20 transition"
-              >
-                <span>ERC-8048</span><span className="text-[#555]">/dashboard</span>
-              </Link>
-              <Link
-                href={`/dashboard/swarm?agent=${existingSlug ?? `token${existingTokenId}`}`}
-                className="flex items-center justify-between rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2.5 text-xs text-emerald-300 hover:bg-emerald-500/20 transition"
-              >
-                <span>Swarm</span><span className="text-[#555]">/dashboard</span>
-              </Link>
-              <Link
-                href={`/dashboard/trade?agent=${existingSlug ?? `token${existingTokenId}`}`}
-                className="flex items-center justify-between rounded-lg border border-violet-500/30 bg-violet-500/10 px-3 py-2.5 text-xs text-violet-300 hover:bg-violet-500/20 transition"
-              >
-                <span>Trade Intent</span><span className="text-[#555]">/dashboard</span>
-              </Link>
-              <Link
-                href={`/dashboard/hitl?agent=${existingSlug ?? `token${existingTokenId}`}`}
-                className="flex items-center justify-between rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2.5 text-xs text-red-300 hover:bg-red-500/20 transition"
-              >
-                <span>HITL Gates</span><span className="text-[#555]">/dashboard</span>
-              </Link>
-              <Link
-                href={`/ip-portal?agent=${existingSlug ?? `token${existingTokenId}`}`}
-                className="flex items-center justify-between rounded-lg border border-[#7c4dff]/30 bg-[#7c4dff]/10 px-3 py-2.5 text-xs text-[#a78bfa] hover:bg-[#7c4dff]/20 transition"
-              >
-                <span>IP Portal</span><span className="text-[#555]">/ip-portal</span>
-              </Link>
-              <a
-                href={`https://notapaperclip.red/osint/${existingSlug ?? `token${existingTokenId}`}`}
-                target="_blank" rel="noopener noreferrer"
-                className="flex items-center justify-between rounded-lg border border-white/[0.07] bg-white/[0.03] px-3 py-2.5 text-xs text-[#8a8a8a] hover:text-[#f2eee4] transition"
-              >
-                <span>OSINT Audit</span><span className="text-[#555]">notapaperclip.red ↗</span>
-              </a>
-            </div>
-          </div>
-        )}
       </div>
-    </main>
+
+      {/* ACTIONS FOR — identical to the Dashboard agent action bar */}
+      {ownedTokenId !== null && (
+        <div className="rounded-2xl border border-[rgba(176,128,92,0.25)] bg-[var(--card)] px-5 py-4">
+          <div className="mb-3 flex items-center gap-3">
+            <span className="text-[10px] font-semibold tracking-widest text-[var(--muted)]">ACTIONS FOR</span>
+            <span className="rounded-full bg-amber-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-amber-300 ring-1 ring-amber-500/20">
+              {agentRef}
+            </span>
+            <span className="text-[10px] text-zinc-600">your FakeNormie agent</span>
+          </div>
+          <div className="flex items-center gap-2 overflow-x-auto pb-1">
+            {agentActions(agentRef).map(action => (
+              <Link
+                key={action.key}
+                href={action.href}
+                className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition shrink-0 ${action.color}`}
+              >
+                {action.label}
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+    </div>
   );
 }

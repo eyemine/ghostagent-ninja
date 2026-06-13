@@ -2574,6 +2574,21 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
               // D1 path
               names = d1Rows.map(r => r.label);
               for (const r of d1Rows) tldMap[r.label] = r.tld;
+              // Union with KV-only agents (e.g. FakeNormie mints write tld:/nftmailgno:
+              // straight to KV and never get a D1 row). Without this, the D1-first path
+              // silently drops every KV-only agent whenever D1 has at least one row.
+              // Only do this for the unfiltered listing — a safeAddress query is already
+              // controller-scoped via D1 and must not be widened.
+              if (!safeAddress) {
+                const listed = await env.INBOX_KV.list({ prefix: 'tld:' });
+                const kvNames = listed.keys.map(k => k.name.replace(/^tld:/, ''));
+                await Promise.all(kvNames.map(async n => {
+                  if (!(n in tldMap)) {
+                    names.push(n);
+                    tldMap[n] = await env.INBOX_KV.get(`tld:${n}`);
+                  }
+                }));
+              }
             } else {
               // KV fallback
               const listed = await env.INBOX_KV.list({ prefix: 'tld:' });

@@ -716,7 +716,8 @@ export default function OgNftMoltPage() {
   const ic = "w-full rounded-lg border border-[rgba(176,128,92,0.25)] bg-black/30 px-3 py-2 text-sm text-[#f2eee4] placeholder-[var(--muted)] focus:border-[rgba(176,128,92,0.55)] focus:outline-none transition";
 
   return (
-    <div className="max-w-5xl mx-auto px-4 md:px-8 pt-8 pb-12 space-y-6">
+    <div className="min-h-screen bg-[var(--background)] pt-14">
+    <div className="max-w-5xl mx-auto px-4 md:px-8 py-8 pb-12 space-y-6">
 
       {/* Header — aligned with Dashboard */}
       <div className="flex items-center gap-3 mb-4">
@@ -1266,6 +1267,7 @@ export default function OgNftMoltPage() {
         </div>
       )}
 
+    </div>
     </div>
   );
 }

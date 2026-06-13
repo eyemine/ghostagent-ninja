@@ -252,12 +252,15 @@ export async function POST(req: NextRequest) {
           },
         }),
       }).catch(() => {});
-      // Register identity (nftmailgno:) so Dashboard getAgentIdentity can verify ownership
+      // Register identity (nftmailgno:) so Dashboard getAgentIdentity can verify ownership.
+      // NOTE: the worker action is `setAgentRecord` (writes nftmailgno:{agent}); there is no
+      // `setAgentIdentity` action — using the wrong name silently no-ops and the agent never
+      // resolves an owner, so it gets dropped from the Dashboard "My Agents" ownership filter.
       fetch(workerUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: 'setAgentIdentity',
+          action: 'setAgentRecord',
           secret: webhookSecret,
           agentName: slug,
           controller: wallet,
