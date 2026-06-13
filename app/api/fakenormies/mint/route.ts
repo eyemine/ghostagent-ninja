@@ -13,7 +13,8 @@ import {
 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { defineChain } from 'viem';
-import slugIndex from '../../../../public/FakeNormies/manifest.json';
+import fs from 'fs';
+import path from 'path';
 
 const gnosis = defineChain({
   id: 100,
@@ -131,11 +132,19 @@ async function sendWelcomeEmail(to: string, slug: string, tokenId: number, agent
   }
 }
 
-// Invert slugIndex → tokenId map to slug
-const tokenIdToSlug: Record<number, string> = {};
-for (const [slug, id] of Object.entries((slugIndex as { slugIndex: Record<string, number> }).slugIndex)) {
-  tokenIdToSlug[id as number] = slug;
+// Invert slugIndex → tokenId map to slug (loaded at runtime, not bundled)
+function buildTokenIdToSlug(): Record<number, string> {
+  try {
+    const manifestPath = path.join(process.cwd(), 'public', 'FakeNormies', 'manifest.json');
+    const raw = JSON.parse(fs.readFileSync(manifestPath, 'utf-8')) as { slugIndex: Record<string, number> };
+    const map: Record<number, string> = {};
+    for (const [slug, id] of Object.entries(raw.slugIndex)) map[id] = slug;
+    return map;
+  } catch {
+    return {};
+  }
 }
+const tokenIdToSlug = buildTokenIdToSlug();
 
 export async function POST(req: NextRequest) {
   try {
