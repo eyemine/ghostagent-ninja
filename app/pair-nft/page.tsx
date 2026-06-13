@@ -968,7 +968,10 @@ export default function OgNftMoltPage() {
           {step === 'select-agent' && ownershipVerified && nftPreview && (
             <div className="space-y-4">
               {/* NFT preview — shown immediately after ownership check */}
-              <div className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 ${nftType === 'fakenormie' ? 'border-pink-500/30 bg-pink-500/5' : 'border-emerald-500/25 bg-emerald-500/5'}`}>
+              <div className={`relative flex items-center gap-3 rounded-xl border px-3 py-2.5 ${nftType === 'fakenormie' ? 'border-pink-500/30 bg-pink-500/5' : 'border-emerald-500/25 bg-emerald-500/5'}`}>
+                {nftType === 'fakenormie' && (
+                  <Link href="/fakenormies" className="absolute top-2 right-2 text-[10px] text-pink-400 hover:underline">FakeNormies ↗</Link>
+                )}
                 <div className="h-20 w-20 shrink-0 overflow-hidden rounded-lg border border-[rgba(176,128,92,0.3)] bg-black/30">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
@@ -986,7 +989,6 @@ export default function OgNftMoltPage() {
                       <p className="font-mono text-sm font-bold text-[#f2eee4]">{primaryName.replace(/\./g, '-')}.agent.gno</p>
                       <p className="text-xs text-[var(--muted)]">{nftPreview.name}</p>
                       <p className="text-[10px] text-[var(--muted)]">Gnosis · token #{nftPreview.tokenId}</p>
-                      <Link href="/fakenormies" className="text-[10px] text-pink-400 hover:underline">FakeNormies ↗</Link>
                     </>
                   ) : (
                     <>

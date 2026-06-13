@@ -96,16 +96,23 @@ export default function FakeNormiesPage() {
     }).catch(() => {}).finally(() => setChecking(false));
   }, [wallet]);
 
-  // Fetch agent info when slug is known
+  // Fetch agent info + silently sync controller when slug+tokenId are known
   useEffect(() => {
-    if (!existingSlug) return;
+    if (!existingSlug || existingTokenId === null || !wallet) return;
+    // Sync controller to current NFT holder (idempotent — safe to call every load)
+    fetch('/api/fakenormies/claim', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ wallet, tokenId: existingTokenId }),
+    }).catch(() => {});
+    // Fetch agent card
     fetch(`/api/agent-card?agent=${existingSlug}`)
       .then(r => r.ok ? r.json() : null)
       .then((card: { safe?: string; tier?: string; principal?: string } | null) => {
         if (card) setAgentInfo({ safe: card.safe, tier: card.tier, principal: card.principal });
       })
       .catch(() => {});
-  }, [existingSlug]);
+  }, [existingSlug, existingTokenId, wallet]);
 
   async function handleClaim() {
     if (!wallet) return;
@@ -144,7 +151,7 @@ export default function FakeNormiesPage() {
         <img src={FAKENORMIE_HEADER_IMG} alt="FakeNormies" className="h-28 w-28 rounded object-contain drop-shadow-[0_0_18px_rgba(184,134,97,0.4)]" />
         <div>
           <h1 className="pl-1 text-2xl font-bold text-[#f2eee4]">FakeNormies</h1>
-          <p className="pl-1 mt-0.5 text-xs text-[var(--muted)]">100 free AI agents on Gnosis Chain — each mint spawns an inbox, a wallet, and an identity.</p>
+          <p className="pl-1 mt-0.5 text-xs text-[var(--muted)]">100 free AI agent accounts on Gnosis Chain — each mint spawns an inbox and an identity. Upgrade for a wallet and additional sovereign features.</p>
         </div>
       </div>
 
@@ -160,7 +167,7 @@ export default function FakeNormiesPage() {
         </div>
 
         {/* Square image — placeholder .gif until minted, then the token's SVG metadata */}
-        <div className="mx-auto w-full max-w-xs relative aspect-square rounded-2xl overflow-hidden border border-white/10 shadow-lg shadow-black/60 bg-black/40">
+        <div className="mx-auto w-full max-w-xs relative aspect-square overflow-hidden border border-white/10 shadow-lg shadow-black/60 bg-black/40">
           <Image
             src={mintedImg ?? '/FakeNormies/FakeNormie.gif'}
             alt={mintedImg ? `FakeNormie #${ownedTokenId}` : 'FakeNormie placeholder'}
@@ -186,10 +193,7 @@ export default function FakeNormiesPage() {
               </div>
             ) : existingTokenId !== null ? (
               <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/30 px-4 py-3 space-y-3">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-semibold text-emerald-400">✓ You own a FakeNormie</p>
-                  <span className="text-[9px] font-semibold rounded-full bg-emerald-500/20 px-2 py-0.5 text-emerald-300 ring-1 ring-emerald-500/30">✓ selected</span>
-                </div>
+                <p className="text-sm font-semibold text-emerald-400">✓ You own a FakeNormie</p>
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-[11px]">
                   <div>
                     <p className="text-[9px] font-semibold tracking-wider text-[var(--muted)] mb-0.5">AGENT</p>
