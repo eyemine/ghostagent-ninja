@@ -753,8 +753,8 @@ export default function OgNftMoltPage() {
         </div>
       </div>
 
-      {/* FakeNormie Sandbox — shown when normie/fakenormie selected */}
-      {(nftType === 'normie' || nftType === 'fakenormie') && step === 'check' && (
+      {/* FakeNormie Sandbox — shown when fakenormie selected */}
+      {nftType === 'fakenormie' && step === 'check' && (
         <FakeNormieSandbox
           onMinted={(tid) => { setTokenId(tid); }}
         />

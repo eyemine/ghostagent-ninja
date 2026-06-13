@@ -31,7 +31,7 @@ const FAKE_NORMIE_ABI = [
     name: 'mintTo',
     type: 'function',
     inputs: [{ name: 'to', type: 'address' }],
-    outputs: [{ name: 'tokenId', type: 'uint256' }],
+    outputs: [],
     stateMutability: 'nonpayable',
   },
   {
