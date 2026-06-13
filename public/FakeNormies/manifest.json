@@ -1,0 +1,5629 @@
+{
+  "collection": {
+    "name": "FakeNormies",
+    "symbol": "FNORM",
+    "description": "On-chain FakeNormies. Each mint spawns an ERC-8004 agent with a Safe wallet. 10 sends/day + 10 chat/day at Basic.",
+    "totalSupply": 100,
+    "mintPrice": "0",
+    "maxPerWallet": 1,
+    "contractAddress": "",
+    "chainId": 100,
+    "chain": "Gnosis",
+    "tiers": {
+      "Basic": "Free with NFT (10 sends + 10 chat/day)",
+      "Pro": "10 USDC one-time (50 sends + unlimited chat)",
+      "Premium": "24 USDC/year (unlimited + delegation + treasury)"
+    }
+  },
+  "distribution": {
+    "Normie": 32,
+    "Agent": 23,
+    "Alien": 19,
+    "Cat": 11,
+    "Human": 15
+  },
+  "slugIndex": {
+    "super.normie": 0,
+    "mad.normie": 1,
+    "iron.agent": 2,
+    "sir.alien": 3,
+    "rotten.agent": 4,
+    "hot.normie": 5,
+    "deaf.agent": 6,
+    "rare.normie": 7,
+    "young.cat": 8,
+    "faux.agent": 9,
+    "lost.agent": 10,
+    "damn.human": 11,
+    "broke.alien": 12,
+    "sad.normie": 13,
+    "crack.agent": 14,
+    "old.normie": 15,
+    "wicked.alien": 16,
+    "slow.human": 17,
+    "bald.cat": 18,
+    "drunk.normie": 19,
+    "wrong.human": 20,
+    "punk.alien": 21,
+    "dumb.agent": 22,
+    "free.agent": 23,
+    "dead.alien": 24,
+    "pretty.alien": 25,
+    "only.normie": 26,
+    "sexy.human": 27,
+    "legal.alien": 28,
+    "poor.normie": 29,
+    "fat.cat": 30,
+    "old.human": 31,
+    "black.cat": 32,
+    "based.agent": 33,
+    "free.alien": 34,
+    "secret.agent": 35,
+    "evil.human": 36,
+    "baby.alien": 37,
+    "copy.normie": 38,
+    "king.cat": 39,
+    "rotten.normie": 40,
+    "loud.normie": 41,
+    "ugly.agent": 42,
+    "raw.human": 43,
+    "mad.cat": 44,
+    "dead.normie": 45,
+    "sick.human": 46,
+    "found.normie": 47,
+    "nasty.cat": 48,
+    "bored.normie": 49,
+    "super.human": 50,
+    "bored.alien": 51,
+    "hot.alien": 52,
+    "mean.cat": 53,
+    "lone.human": 54,
+    "mid.normie": 55,
+    "raw.normie": 56,
+    "woke.normie": 57,
+    "drunk.agent": 58,
+    "copy.cat": 59,
+    "broke.human": 60,
+    "sore.agent": 61,
+    "house.alien": 62,
+    "sober.agent": 63,
+    "saved.normie": 64,
+    "pink.agent": 65,
+    "dank.normie": 66,
+    "safu.normie": 67,
+    "lazy.cat": 68,
+    "happy.normie": 69,
+    "hairy.normie": 70,
+    "wet.alien": 71,
+    "ugly.normie": 72,
+    "limp.alien": 73,
+    "bald.normie": 74,
+    "epic.human": 75,
+    "big.alien": 76,
+    "rebel.normie": 77,
+    "floor.agent": 78,
+    "lucky.human": 79,
+    "only.agent": 80,
+    "thick.alien": 81,
+    "known.normie": 82,
+    "epic.agent": 83,
+    "big.human": 84,
+    "step.alien": 85,
+    "soft.agent": 86,
+    "daft.alien": 87,
+    "last.normie": 88,
+    "music.agent": 89,
+    "kind.human": 90,
+    "glitch.cat": 91,
+    "lazy.normie": 92,
+    "good.alien": 93,
+    "cheap.normie": 94,
+    "super.agent": 95,
+    "broke.normie": 96,
+    "copy.agent": 97,
+    "safu.agent": 98,
+    "lucky.normie": 99
+  },
+  "tokens": [
+    {
+      "tokenId": 0,
+      "svgFilename": "00.svg",
+      "name": "Super Normie #00",
+      "adjective": "Super",
+      "type": "Normie",
+      "slug": "super.normie",
+      "ghostAgent": {
+        "tier": "Standard",
+        "email": "super.normie@nftmail.box",
+        "gnoIdentity": "super.normie.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "identity"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/0"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Super"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Normie"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Standard"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 1,
+      "svgFilename": "01.svg",
+      "name": "Mad Normie #01",
+      "adjective": "Mad",
+      "type": "Normie",
+      "slug": "mad.normie",
+      "ghostAgent": {
+        "tier": "Standard",
+        "email": "mad.normie@nftmail.box",
+        "gnoIdentity": "mad.normie.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "identity"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/1"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Mad"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Normie"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Standard"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 2,
+      "svgFilename": "02.svg",
+      "name": "Iron Agent #02",
+      "adjective": "Iron",
+      "type": "Agent",
+      "slug": "iron.agent",
+      "ghostAgent": {
+        "tier": "Advanced",
+        "email": "iron.agent@nftmail.box",
+        "gnoIdentity": "iron.agent.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "api_access_preview"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/2"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Iron"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Agent"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Advanced"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 3,
+      "svgFilename": "03.svg",
+      "name": "Sir Alien #03",
+      "adjective": "Sir",
+      "type": "Alien",
+      "slug": "sir.alien",
+      "ghostAgent": {
+        "tier": "Experimental",
+        "email": "sir.alien@nftmail.box",
+        "gnoIdentity": "sir.alien.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "beta_access"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/3"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Sir"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Alien"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Experimental"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 4,
+      "svgFilename": "04.svg",
+      "name": "Rotten Agent #04",
+      "adjective": "Rotten",
+      "type": "Agent",
+      "slug": "rotten.agent",
+      "ghostAgent": {
+        "tier": "Advanced",
+        "email": "rotten.agent@nftmail.box",
+        "gnoIdentity": "rotten.agent.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "api_access_preview"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/4"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Rotten"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Agent"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Advanced"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 5,
+      "svgFilename": "05.svg",
+      "name": "Hot Normie #05",
+      "adjective": "Hot",
+      "type": "Normie",
+      "slug": "hot.normie",
+      "ghostAgent": {
+        "tier": "Standard",
+        "email": "hot.normie@nftmail.box",
+        "gnoIdentity": "hot.normie.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "identity"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/5"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Hot"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Normie"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Standard"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 6,
+      "svgFilename": "06.svg",
+      "name": "Deaf Agent #06",
+      "adjective": "Deaf",
+      "type": "Agent",
+      "slug": "deaf.agent",
+      "ghostAgent": {
+        "tier": "Advanced",
+        "email": "deaf.agent@nftmail.box",
+        "gnoIdentity": "deaf.agent.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "api_access_preview"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/6"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Deaf"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Agent"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Advanced"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 7,
+      "svgFilename": "07.svg",
+      "name": "Rare Normie #07",
+      "adjective": "Rare",
+      "type": "Normie",
+      "slug": "rare.normie",
+      "ghostAgent": {
+        "tier": "Standard",
+        "email": "rare.normie@nftmail.box",
+        "gnoIdentity": "rare.normie.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "identity"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/7"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Rare"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Normie"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Standard"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 8,
+      "svgFilename": "08.svg",
+      "name": "Young Cat #08",
+      "adjective": "Young",
+      "type": "Cat",
+      "slug": "young.cat",
+      "ghostAgent": {
+        "tier": "Playful",
+        "email": "young.cat@nftmail.box",
+        "gnoIdentity": "young.cat.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "game_features_preview"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/8"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Young"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Cat"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Playful"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 9,
+      "svgFilename": "09.svg",
+      "name": "Faux Agent #09",
+      "adjective": "Faux",
+      "type": "Agent",
+      "slug": "faux.agent",
+      "ghostAgent": {
+        "tier": "Advanced",
+        "email": "faux.agent@nftmail.box",
+        "gnoIdentity": "faux.agent.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "api_access_preview"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/9"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Faux"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Agent"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Advanced"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 10,
+      "svgFilename": "10.svg",
+      "name": "Lost Agent #10",
+      "adjective": "Lost",
+      "type": "Agent",
+      "slug": "lost.agent",
+      "ghostAgent": {
+        "tier": "Advanced",
+        "email": "lost.agent@nftmail.box",
+        "gnoIdentity": "lost.agent.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "api_access_preview"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/10"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Lost"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Agent"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Advanced"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 11,
+      "svgFilename": "11.svg",
+      "name": "Damn Human #11",
+      "adjective": "Damn",
+      "type": "Human",
+      "slug": "damn.human",
+      "ghostAgent": {
+        "tier": "Social",
+        "email": "damn.human@nftmail.box",
+        "gnoIdentity": "damn.human.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "enhanced_social"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/11"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Damn"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Human"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Social"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 12,
+      "svgFilename": "12.svg",
+      "name": "Broke Alien #12",
+      "adjective": "Broke",
+      "type": "Alien",
+      "slug": "broke.alien",
+      "ghostAgent": {
+        "tier": "Experimental",
+        "email": "broke.alien@nftmail.box",
+        "gnoIdentity": "broke.alien.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "beta_access"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/12"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Broke"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Alien"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Experimental"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 13,
+      "svgFilename": "13.svg",
+      "name": "Sad Normie #13",
+      "adjective": "Sad",
+      "type": "Normie",
+      "slug": "sad.normie",
+      "ghostAgent": {
+        "tier": "Standard",
+        "email": "sad.normie@nftmail.box",
+        "gnoIdentity": "sad.normie.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "identity"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/13"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Sad"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Normie"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Standard"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 14,
+      "svgFilename": "14.svg",
+      "name": "Crack Agent #14",
+      "adjective": "Crack",
+      "type": "Agent",
+      "slug": "crack.agent",
+      "ghostAgent": {
+        "tier": "Advanced",
+        "email": "crack.agent@nftmail.box",
+        "gnoIdentity": "crack.agent.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "api_access_preview"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/14"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Crack"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Agent"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Advanced"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 15,
+      "svgFilename": "15.svg",
+      "name": "Old Normie #15",
+      "adjective": "Old",
+      "type": "Normie",
+      "slug": "old.normie",
+      "ghostAgent": {
+        "tier": "Standard",
+        "email": "old.normie@nftmail.box",
+        "gnoIdentity": "old.normie.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "identity"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/15"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Old"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Normie"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Standard"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 16,
+      "svgFilename": "16.svg",
+      "name": "Wicked Alien #16",
+      "adjective": "Wicked",
+      "type": "Alien",
+      "slug": "wicked.alien",
+      "ghostAgent": {
+        "tier": "Experimental",
+        "email": "wicked.alien@nftmail.box",
+        "gnoIdentity": "wicked.alien.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "beta_access"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/16"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Wicked"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Alien"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Experimental"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 17,
+      "svgFilename": "17.svg",
+      "name": "Slow Human #17",
+      "adjective": "Slow",
+      "type": "Human",
+      "slug": "slow.human",
+      "ghostAgent": {
+        "tier": "Social",
+        "email": "slow.human@nftmail.box",
+        "gnoIdentity": "slow.human.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "enhanced_social"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/17"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Slow"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Human"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Social"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 18,
+      "svgFilename": "18.svg",
+      "name": "Bald Cat #18",
+      "adjective": "Bald",
+      "type": "Cat",
+      "slug": "bald.cat",
+      "ghostAgent": {
+        "tier": "Playful",
+        "email": "bald.cat@nftmail.box",
+        "gnoIdentity": "bald.cat.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "game_features_preview"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/18"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Bald"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Cat"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Playful"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 19,
+      "svgFilename": "19.svg",
+      "name": "Drunk Normie #19",
+      "adjective": "Drunk",
+      "type": "Normie",
+      "slug": "drunk.normie",
+      "ghostAgent": {
+        "tier": "Standard",
+        "email": "drunk.normie@nftmail.box",
+        "gnoIdentity": "drunk.normie.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "identity"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/19"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Drunk"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Normie"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Standard"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 20,
+      "svgFilename": "20.svg",
+      "name": "Wrong Human #20",
+      "adjective": "Wrong",
+      "type": "Human",
+      "slug": "wrong.human",
+      "ghostAgent": {
+        "tier": "Social",
+        "email": "wrong.human@nftmail.box",
+        "gnoIdentity": "wrong.human.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "enhanced_social"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/20"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Wrong"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Human"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Social"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 21,
+      "svgFilename": "21.svg",
+      "name": "Punk Alien #21",
+      "adjective": "Punk",
+      "type": "Alien",
+      "slug": "punk.alien",
+      "ghostAgent": {
+        "tier": "Experimental",
+        "email": "punk.alien@nftmail.box",
+        "gnoIdentity": "punk.alien.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "beta_access"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/21"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Punk"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Alien"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Experimental"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 22,
+      "svgFilename": "22.svg",
+      "name": "Dumb Agent #22",
+      "adjective": "Dumb",
+      "type": "Agent",
+      "slug": "dumb.agent",
+      "ghostAgent": {
+        "tier": "Advanced",
+        "email": "dumb.agent@nftmail.box",
+        "gnoIdentity": "dumb.agent.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "api_access_preview"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/22"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Dumb"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Agent"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Advanced"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 23,
+      "svgFilename": "23.svg",
+      "name": "Free Agent #23",
+      "adjective": "Free",
+      "type": "Agent",
+      "slug": "free.agent",
+      "ghostAgent": {
+        "tier": "Advanced",
+        "email": "free.agent@nftmail.box",
+        "gnoIdentity": "free.agent.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "api_access_preview"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/23"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Free"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Agent"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Advanced"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 24,
+      "svgFilename": "24.svg",
+      "name": "Dead Alien #24",
+      "adjective": "Dead",
+      "type": "Alien",
+      "slug": "dead.alien",
+      "ghostAgent": {
+        "tier": "Experimental",
+        "email": "dead.alien@nftmail.box",
+        "gnoIdentity": "dead.alien.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "beta_access"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/24"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Dead"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Alien"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Experimental"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 25,
+      "svgFilename": "25.svg",
+      "name": "Pretty Alien #25",
+      "adjective": "Pretty",
+      "type": "Alien",
+      "slug": "pretty.alien",
+      "ghostAgent": {
+        "tier": "Experimental",
+        "email": "pretty.alien@nftmail.box",
+        "gnoIdentity": "pretty.alien.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "beta_access"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/25"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Pretty"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Alien"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Experimental"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 26,
+      "svgFilename": "26.svg",
+      "name": "Only Normie #26",
+      "adjective": "Only",
+      "type": "Normie",
+      "slug": "only.normie",
+      "ghostAgent": {
+        "tier": "Standard",
+        "email": "only.normie@nftmail.box",
+        "gnoIdentity": "only.normie.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "identity"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/26"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Only"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Normie"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Standard"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 27,
+      "svgFilename": "27.svg",
+      "name": "Sexy Human #27",
+      "adjective": "Sexy",
+      "type": "Human",
+      "slug": "sexy.human",
+      "ghostAgent": {
+        "tier": "Social",
+        "email": "sexy.human@nftmail.box",
+        "gnoIdentity": "sexy.human.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "enhanced_social"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/27"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Sexy"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Human"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Social"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 28,
+      "svgFilename": "28.svg",
+      "name": "Legal Alien #28",
+      "adjective": "Legal",
+      "type": "Alien",
+      "slug": "legal.alien",
+      "ghostAgent": {
+        "tier": "Experimental",
+        "email": "legal.alien@nftmail.box",
+        "gnoIdentity": "legal.alien.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "beta_access"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/28"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Legal"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Alien"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Experimental"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 29,
+      "svgFilename": "29.svg",
+      "name": "Poor Normie #29",
+      "adjective": "Poor",
+      "type": "Normie",
+      "slug": "poor.normie",
+      "ghostAgent": {
+        "tier": "Standard",
+        "email": "poor.normie@nftmail.box",
+        "gnoIdentity": "poor.normie.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "identity"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/29"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Poor"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Normie"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Standard"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 30,
+      "svgFilename": "30.svg",
+      "name": "Fat Cat #30",
+      "adjective": "Fat",
+      "type": "Cat",
+      "slug": "fat.cat",
+      "ghostAgent": {
+        "tier": "Playful",
+        "email": "fat.cat@nftmail.box",
+        "gnoIdentity": "fat.cat.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "game_features_preview"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/30"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Fat"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Cat"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Playful"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 31,
+      "svgFilename": "31.svg",
+      "name": "Old Human #31",
+      "adjective": "Old",
+      "type": "Human",
+      "slug": "old.human",
+      "ghostAgent": {
+        "tier": "Social",
+        "email": "old.human@nftmail.box",
+        "gnoIdentity": "old.human.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "enhanced_social"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/31"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Old"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Human"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Social"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 32,
+      "svgFilename": "32.svg",
+      "name": "Black Cat #32",
+      "adjective": "Black",
+      "type": "Cat",
+      "slug": "black.cat",
+      "ghostAgent": {
+        "tier": "Playful",
+        "email": "black.cat@nftmail.box",
+        "gnoIdentity": "black.cat.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "game_features_preview"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/32"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Black"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Cat"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Playful"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 33,
+      "svgFilename": "33.svg",
+      "name": "Based Agent #33",
+      "adjective": "Based",
+      "type": "Agent",
+      "slug": "based.agent",
+      "ghostAgent": {
+        "tier": "Advanced",
+        "email": "based.agent@nftmail.box",
+        "gnoIdentity": "based.agent.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "api_access_preview"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/33"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Based"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Agent"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Advanced"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 34,
+      "svgFilename": "34.svg",
+      "name": "Free Alien #34",
+      "adjective": "Free",
+      "type": "Alien",
+      "slug": "free.alien",
+      "ghostAgent": {
+        "tier": "Experimental",
+        "email": "free.alien@nftmail.box",
+        "gnoIdentity": "free.alien.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "beta_access"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/34"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Free"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Alien"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Experimental"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 35,
+      "svgFilename": "35.svg",
+      "name": "Secret Agent #35",
+      "adjective": "Secret",
+      "type": "Agent",
+      "slug": "secret.agent",
+      "ghostAgent": {
+        "tier": "Advanced",
+        "email": "secret.agent@nftmail.box",
+        "gnoIdentity": "secret.agent.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "api_access_preview"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/35"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Secret"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Agent"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Advanced"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 36,
+      "svgFilename": "36.svg",
+      "name": "Evil Human #36",
+      "adjective": "Evil",
+      "type": "Human",
+      "slug": "evil.human",
+      "ghostAgent": {
+        "tier": "Social",
+        "email": "evil.human@nftmail.box",
+        "gnoIdentity": "evil.human.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "enhanced_social"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/36"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Evil"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Human"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Social"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 37,
+      "svgFilename": "37.svg",
+      "name": "Baby Alien #37",
+      "adjective": "Baby",
+      "type": "Alien",
+      "slug": "baby.alien",
+      "ghostAgent": {
+        "tier": "Experimental",
+        "email": "baby.alien@nftmail.box",
+        "gnoIdentity": "baby.alien.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "beta_access"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/37"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Baby"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Alien"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Experimental"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 38,
+      "svgFilename": "38.svg",
+      "name": "Copy Normie #38",
+      "adjective": "Copy",
+      "type": "Normie",
+      "slug": "copy.normie",
+      "ghostAgent": {
+        "tier": "Standard",
+        "email": "copy.normie@nftmail.box",
+        "gnoIdentity": "copy.normie.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "identity"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/38"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Copy"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Normie"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Standard"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 39,
+      "svgFilename": "39.svg",
+      "name": "King Cat #39",
+      "adjective": "King",
+      "type": "Cat",
+      "slug": "king.cat",
+      "ghostAgent": {
+        "tier": "Playful",
+        "email": "king.cat@nftmail.box",
+        "gnoIdentity": "king.cat.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "game_features_preview"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/39"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "King"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Cat"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Playful"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 40,
+      "svgFilename": "40.svg",
+      "name": "Rotten Normie #40",
+      "adjective": "Rotten",
+      "type": "Normie",
+      "slug": "rotten.normie",
+      "ghostAgent": {
+        "tier": "Standard",
+        "email": "rotten.normie@nftmail.box",
+        "gnoIdentity": "rotten.normie.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "identity"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/40"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Rotten"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Normie"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Standard"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 41,
+      "svgFilename": "41.svg",
+      "name": "Loud Normie #41",
+      "adjective": "Loud",
+      "type": "Normie",
+      "slug": "loud.normie",
+      "ghostAgent": {
+        "tier": "Standard",
+        "email": "loud.normie@nftmail.box",
+        "gnoIdentity": "loud.normie.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "identity"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/41"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Loud"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Normie"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Standard"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 42,
+      "svgFilename": "42.svg",
+      "name": "Ugly Agent #42",
+      "adjective": "Ugly",
+      "type": "Agent",
+      "slug": "ugly.agent",
+      "ghostAgent": {
+        "tier": "Advanced",
+        "email": "ugly.agent@nftmail.box",
+        "gnoIdentity": "ugly.agent.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "api_access_preview"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/42"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Ugly"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Agent"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Advanced"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 43,
+      "svgFilename": "43.svg",
+      "name": "Raw Human #43",
+      "adjective": "Raw",
+      "type": "Human",
+      "slug": "raw.human",
+      "ghostAgent": {
+        "tier": "Social",
+        "email": "raw.human@nftmail.box",
+        "gnoIdentity": "raw.human.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "enhanced_social"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/43"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Raw"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Human"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Social"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 44,
+      "svgFilename": "44.svg",
+      "name": "Mad Cat #44",
+      "adjective": "Mad",
+      "type": "Cat",
+      "slug": "mad.cat",
+      "ghostAgent": {
+        "tier": "Playful",
+        "email": "mad.cat@nftmail.box",
+        "gnoIdentity": "mad.cat.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "game_features_preview"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/44"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Mad"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Cat"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Playful"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 45,
+      "svgFilename": "45.svg",
+      "name": "Dead Normie #45",
+      "adjective": "Dead",
+      "type": "Normie",
+      "slug": "dead.normie",
+      "ghostAgent": {
+        "tier": "Standard",
+        "email": "dead.normie@nftmail.box",
+        "gnoIdentity": "dead.normie.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "identity"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/45"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Dead"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Normie"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Standard"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 46,
+      "svgFilename": "46.svg",
+      "name": "Sick Human #46",
+      "adjective": "Sick",
+      "type": "Human",
+      "slug": "sick.human",
+      "ghostAgent": {
+        "tier": "Social",
+        "email": "sick.human@nftmail.box",
+        "gnoIdentity": "sick.human.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "enhanced_social"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/46"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Sick"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Human"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Social"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 47,
+      "svgFilename": "47.svg",
+      "name": "Found Normie #47",
+      "adjective": "Found",
+      "type": "Normie",
+      "slug": "found.normie",
+      "ghostAgent": {
+        "tier": "Standard",
+        "email": "found.normie@nftmail.box",
+        "gnoIdentity": "found.normie.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "identity"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/47"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Found"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Normie"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Standard"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 48,
+      "svgFilename": "48.svg",
+      "name": "Nasty Cat #48",
+      "adjective": "Nasty",
+      "type": "Cat",
+      "slug": "nasty.cat",
+      "ghostAgent": {
+        "tier": "Playful",
+        "email": "nasty.cat@nftmail.box",
+        "gnoIdentity": "nasty.cat.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "game_features_preview"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/48"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Nasty"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Cat"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Playful"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 49,
+      "svgFilename": "49.svg",
+      "name": "Bored Normie #49",
+      "adjective": "Bored",
+      "type": "Normie",
+      "slug": "bored.normie",
+      "ghostAgent": {
+        "tier": "Standard",
+        "email": "bored.normie@nftmail.box",
+        "gnoIdentity": "bored.normie.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "identity"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/49"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Bored"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Normie"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Standard"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 50,
+      "svgFilename": "50.svg",
+      "name": "Super Human #50",
+      "adjective": "Super",
+      "type": "Human",
+      "slug": "super.human",
+      "ghostAgent": {
+        "tier": "Social",
+        "email": "super.human@nftmail.box",
+        "gnoIdentity": "super.human.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "enhanced_social"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/50"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Super"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Human"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Social"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 51,
+      "svgFilename": "51.svg",
+      "name": "Bored Alien #51",
+      "adjective": "Bored",
+      "type": "Alien",
+      "slug": "bored.alien",
+      "ghostAgent": {
+        "tier": "Experimental",
+        "email": "bored.alien@nftmail.box",
+        "gnoIdentity": "bored.alien.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "beta_access"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/51"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Bored"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Alien"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Experimental"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 52,
+      "svgFilename": "52.svg",
+      "name": "Hot Alien #52",
+      "adjective": "Hot",
+      "type": "Alien",
+      "slug": "hot.alien",
+      "ghostAgent": {
+        "tier": "Experimental",
+        "email": "hot.alien@nftmail.box",
+        "gnoIdentity": "hot.alien.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "beta_access"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/52"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Hot"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Alien"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Experimental"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 53,
+      "svgFilename": "53.svg",
+      "name": "Mean Cat #53",
+      "adjective": "Mean",
+      "type": "Cat",
+      "slug": "mean.cat",
+      "ghostAgent": {
+        "tier": "Playful",
+        "email": "mean.cat@nftmail.box",
+        "gnoIdentity": "mean.cat.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "game_features_preview"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/53"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Mean"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Cat"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Playful"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 54,
+      "svgFilename": "54.svg",
+      "name": "Lone Human #54",
+      "adjective": "Lone",
+      "type": "Human",
+      "slug": "lone.human",
+      "ghostAgent": {
+        "tier": "Social",
+        "email": "lone.human@nftmail.box",
+        "gnoIdentity": "lone.human.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "enhanced_social"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/54"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Lone"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Human"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Social"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 55,
+      "svgFilename": "55.svg",
+      "name": "Mid Normie #55",
+      "adjective": "Mid",
+      "type": "Normie",
+      "slug": "mid.normie",
+      "ghostAgent": {
+        "tier": "Standard",
+        "email": "mid.normie@nftmail.box",
+        "gnoIdentity": "mid.normie.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "identity"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/55"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Mid"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Normie"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Standard"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 56,
+      "svgFilename": "56.svg",
+      "name": "Raw Normie #56",
+      "adjective": "Raw",
+      "type": "Normie",
+      "slug": "raw.normie",
+      "ghostAgent": {
+        "tier": "Standard",
+        "email": "raw.normie@nftmail.box",
+        "gnoIdentity": "raw.normie.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "identity"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/56"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Raw"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Normie"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Standard"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 57,
+      "svgFilename": "57.svg",
+      "name": "Woke Normie #57",
+      "adjective": "Woke",
+      "type": "Normie",
+      "slug": "woke.normie",
+      "ghostAgent": {
+        "tier": "Standard",
+        "email": "woke.normie@nftmail.box",
+        "gnoIdentity": "woke.normie.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "identity"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/57"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Woke"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Normie"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Standard"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 58,
+      "svgFilename": "58.svg",
+      "name": "Drunk Agent #58",
+      "adjective": "Drunk",
+      "type": "Agent",
+      "slug": "drunk.agent",
+      "ghostAgent": {
+        "tier": "Advanced",
+        "email": "drunk.agent@nftmail.box",
+        "gnoIdentity": "drunk.agent.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "api_access_preview"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/58"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Drunk"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Agent"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Advanced"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 59,
+      "svgFilename": "59.svg",
+      "name": "Copy Cat #59",
+      "adjective": "Copy",
+      "type": "Cat",
+      "slug": "copy.cat",
+      "ghostAgent": {
+        "tier": "Playful",
+        "email": "copy.cat@nftmail.box",
+        "gnoIdentity": "copy.cat.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "game_features_preview"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/59"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Copy"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Cat"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Playful"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 60,
+      "svgFilename": "60.svg",
+      "name": "Broke Human #60",
+      "adjective": "Broke",
+      "type": "Human",
+      "slug": "broke.human",
+      "ghostAgent": {
+        "tier": "Social",
+        "email": "broke.human@nftmail.box",
+        "gnoIdentity": "broke.human.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "enhanced_social"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/60"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Broke"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Human"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Social"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 61,
+      "svgFilename": "61.svg",
+      "name": "Sore Agent #61",
+      "adjective": "Sore",
+      "type": "Agent",
+      "slug": "sore.agent",
+      "ghostAgent": {
+        "tier": "Advanced",
+        "email": "sore.agent@nftmail.box",
+        "gnoIdentity": "sore.agent.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "api_access_preview"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/61"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Sore"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Agent"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Advanced"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 62,
+      "svgFilename": "62.svg",
+      "name": "House Alien #62",
+      "adjective": "House",
+      "type": "Alien",
+      "slug": "house.alien",
+      "ghostAgent": {
+        "tier": "Experimental",
+        "email": "house.alien@nftmail.box",
+        "gnoIdentity": "house.alien.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "beta_access"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/62"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "House"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Alien"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Experimental"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 63,
+      "svgFilename": "63.svg",
+      "name": "Sober Agent #63",
+      "adjective": "Sober",
+      "type": "Agent",
+      "slug": "sober.agent",
+      "ghostAgent": {
+        "tier": "Advanced",
+        "email": "sober.agent@nftmail.box",
+        "gnoIdentity": "sober.agent.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "api_access_preview"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/63"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Sober"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Agent"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Advanced"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 64,
+      "svgFilename": "64.svg",
+      "name": "Saved Normie #64",
+      "adjective": "Saved",
+      "type": "Normie",
+      "slug": "saved.normie",
+      "ghostAgent": {
+        "tier": "Standard",
+        "email": "saved.normie@nftmail.box",
+        "gnoIdentity": "saved.normie.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "identity"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/64"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Saved"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Normie"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Standard"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 65,
+      "svgFilename": "65.svg",
+      "name": "Pink Agent #65",
+      "adjective": "Pink",
+      "type": "Agent",
+      "slug": "pink.agent",
+      "ghostAgent": {
+        "tier": "Advanced",
+        "email": "pink.agent@nftmail.box",
+        "gnoIdentity": "pink.agent.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "api_access_preview"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/65"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Pink"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Agent"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Advanced"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 66,
+      "svgFilename": "66.svg",
+      "name": "Dank Normie #66",
+      "adjective": "Dank",
+      "type": "Normie",
+      "slug": "dank.normie",
+      "ghostAgent": {
+        "tier": "Standard",
+        "email": "dank.normie@nftmail.box",
+        "gnoIdentity": "dank.normie.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "identity"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/66"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Dank"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Normie"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Standard"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 67,
+      "svgFilename": "67.svg",
+      "name": "Safu Normie #67",
+      "adjective": "Safu",
+      "type": "Normie",
+      "slug": "safu.normie",
+      "ghostAgent": {
+        "tier": "Standard",
+        "email": "safu.normie@nftmail.box",
+        "gnoIdentity": "safu.normie.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "identity"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/67"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Safu"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Normie"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Standard"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 68,
+      "svgFilename": "68.svg",
+      "name": "Lazy Cat #68",
+      "adjective": "Lazy",
+      "type": "Cat",
+      "slug": "lazy.cat",
+      "ghostAgent": {
+        "tier": "Playful",
+        "email": "lazy.cat@nftmail.box",
+        "gnoIdentity": "lazy.cat.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "game_features_preview"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/68"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Lazy"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Cat"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Playful"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 69,
+      "svgFilename": "69.svg",
+      "name": "Happy Normie #69",
+      "adjective": "Happy",
+      "type": "Normie",
+      "slug": "happy.normie",
+      "ghostAgent": {
+        "tier": "Standard",
+        "email": "happy.normie@nftmail.box",
+        "gnoIdentity": "happy.normie.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "identity"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/69"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Happy"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Normie"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Standard"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 70,
+      "svgFilename": "70.svg",
+      "name": "Hairy Normie #70",
+      "adjective": "Hairy",
+      "type": "Normie",
+      "slug": "hairy.normie",
+      "ghostAgent": {
+        "tier": "Standard",
+        "email": "hairy.normie@nftmail.box",
+        "gnoIdentity": "hairy.normie.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "identity"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/70"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Hairy"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Normie"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Standard"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 71,
+      "svgFilename": "71.svg",
+      "name": "Wet Alien #71",
+      "adjective": "Wet",
+      "type": "Alien",
+      "slug": "wet.alien",
+      "ghostAgent": {
+        "tier": "Experimental",
+        "email": "wet.alien@nftmail.box",
+        "gnoIdentity": "wet.alien.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "beta_access"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/71"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Wet"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Alien"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Experimental"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 72,
+      "svgFilename": "72.svg",
+      "name": "Ugly Normie #72",
+      "adjective": "Ugly",
+      "type": "Normie",
+      "slug": "ugly.normie",
+      "ghostAgent": {
+        "tier": "Standard",
+        "email": "ugly.normie@nftmail.box",
+        "gnoIdentity": "ugly.normie.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "identity"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/72"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Ugly"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Normie"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Standard"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 73,
+      "svgFilename": "73.svg",
+      "name": "Limp Alien #73",
+      "adjective": "Limp",
+      "type": "Alien",
+      "slug": "limp.alien",
+      "ghostAgent": {
+        "tier": "Experimental",
+        "email": "limp.alien@nftmail.box",
+        "gnoIdentity": "limp.alien.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "beta_access"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/73"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Limp"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Alien"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Experimental"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 74,
+      "svgFilename": "74.svg",
+      "name": "Bald Normie #74",
+      "adjective": "Bald",
+      "type": "Normie",
+      "slug": "bald.normie",
+      "ghostAgent": {
+        "tier": "Standard",
+        "email": "bald.normie@nftmail.box",
+        "gnoIdentity": "bald.normie.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "identity"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/74"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Bald"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Normie"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Standard"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 75,
+      "svgFilename": "75.svg",
+      "name": "Epic Human #75",
+      "adjective": "Epic",
+      "type": "Human",
+      "slug": "epic.human",
+      "ghostAgent": {
+        "tier": "Social",
+        "email": "epic.human@nftmail.box",
+        "gnoIdentity": "epic.human.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "enhanced_social"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/75"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Epic"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Human"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Social"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 76,
+      "svgFilename": "76.svg",
+      "name": "Big Alien #76",
+      "adjective": "Big",
+      "type": "Alien",
+      "slug": "big.alien",
+      "ghostAgent": {
+        "tier": "Experimental",
+        "email": "big.alien@nftmail.box",
+        "gnoIdentity": "big.alien.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "beta_access"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/76"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Big"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Alien"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Experimental"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 77,
+      "svgFilename": "77.svg",
+      "name": "Rebel Normie #77",
+      "adjective": "Rebel",
+      "type": "Normie",
+      "slug": "rebel.normie",
+      "ghostAgent": {
+        "tier": "Standard",
+        "email": "rebel.normie@nftmail.box",
+        "gnoIdentity": "rebel.normie.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "identity"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/77"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Rebel"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Normie"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Standard"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 78,
+      "svgFilename": "78.svg",
+      "name": "Floor Agent #78",
+      "adjective": "Floor",
+      "type": "Agent",
+      "slug": "floor.agent",
+      "ghostAgent": {
+        "tier": "Advanced",
+        "email": "floor.agent@nftmail.box",
+        "gnoIdentity": "floor.agent.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "api_access_preview"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/78"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Floor"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Agent"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Advanced"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 79,
+      "svgFilename": "79.svg",
+      "name": "Lucky Human #79",
+      "adjective": "Lucky",
+      "type": "Human",
+      "slug": "lucky.human",
+      "ghostAgent": {
+        "tier": "Social",
+        "email": "lucky.human@nftmail.box",
+        "gnoIdentity": "lucky.human.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "enhanced_social"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/79"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Lucky"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Human"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Social"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 80,
+      "svgFilename": "80.svg",
+      "name": "Only Agent #80",
+      "adjective": "Only",
+      "type": "Agent",
+      "slug": "only.agent",
+      "ghostAgent": {
+        "tier": "Advanced",
+        "email": "only.agent@nftmail.box",
+        "gnoIdentity": "only.agent.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "api_access_preview"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/80"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Only"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Agent"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Advanced"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 81,
+      "svgFilename": "81.svg",
+      "name": "Thick Alien #81",
+      "adjective": "Thick",
+      "type": "Alien",
+      "slug": "thick.alien",
+      "ghostAgent": {
+        "tier": "Experimental",
+        "email": "thick.alien@nftmail.box",
+        "gnoIdentity": "thick.alien.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "beta_access"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/81"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Thick"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Alien"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Experimental"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 82,
+      "svgFilename": "82.svg",
+      "name": "Known Normie #82",
+      "adjective": "Known",
+      "type": "Normie",
+      "slug": "known.normie",
+      "ghostAgent": {
+        "tier": "Standard",
+        "email": "known.normie@nftmail.box",
+        "gnoIdentity": "known.normie.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "identity"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/82"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Known"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Normie"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Standard"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 83,
+      "svgFilename": "83.svg",
+      "name": "Epic Agent #83",
+      "adjective": "Epic",
+      "type": "Agent",
+      "slug": "epic.agent",
+      "ghostAgent": {
+        "tier": "Advanced",
+        "email": "epic.agent@nftmail.box",
+        "gnoIdentity": "epic.agent.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "api_access_preview"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/83"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Epic"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Agent"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Advanced"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 84,
+      "svgFilename": "84.svg",
+      "name": "Big Human #84",
+      "adjective": "Big",
+      "type": "Human",
+      "slug": "big.human",
+      "ghostAgent": {
+        "tier": "Social",
+        "email": "big.human@nftmail.box",
+        "gnoIdentity": "big.human.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "enhanced_social"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/84"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Big"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Human"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Social"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 85,
+      "svgFilename": "85.svg",
+      "name": "Step Alien #85",
+      "adjective": "Step",
+      "type": "Alien",
+      "slug": "step.alien",
+      "ghostAgent": {
+        "tier": "Experimental",
+        "email": "step.alien@nftmail.box",
+        "gnoIdentity": "step.alien.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "beta_access"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/85"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Step"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Alien"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Experimental"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 86,
+      "svgFilename": "86.svg",
+      "name": "Soft Agent #86",
+      "adjective": "Soft",
+      "type": "Agent",
+      "slug": "soft.agent",
+      "ghostAgent": {
+        "tier": "Advanced",
+        "email": "soft.agent@nftmail.box",
+        "gnoIdentity": "soft.agent.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "api_access_preview"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/86"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Soft"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Agent"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Advanced"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 87,
+      "svgFilename": "87.svg",
+      "name": "Daft Alien #87",
+      "adjective": "Daft",
+      "type": "Alien",
+      "slug": "daft.alien",
+      "ghostAgent": {
+        "tier": "Experimental",
+        "email": "daft.alien@nftmail.box",
+        "gnoIdentity": "daft.alien.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "beta_access"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/87"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Daft"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Alien"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Experimental"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 88,
+      "svgFilename": "88.svg",
+      "name": "Last Normie #88",
+      "adjective": "Last",
+      "type": "Normie",
+      "slug": "last.normie",
+      "ghostAgent": {
+        "tier": "Standard",
+        "email": "last.normie@nftmail.box",
+        "gnoIdentity": "last.normie.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "identity"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/88"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Last"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Normie"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Standard"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 89,
+      "svgFilename": "89.svg",
+      "name": "Music Agent #89",
+      "adjective": "Music",
+      "type": "Agent",
+      "slug": "music.agent",
+      "ghostAgent": {
+        "tier": "Advanced",
+        "email": "music.agent@nftmail.box",
+        "gnoIdentity": "music.agent.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "api_access_preview"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/89"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Music"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Agent"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Advanced"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 90,
+      "svgFilename": "90.svg",
+      "name": "Kind Human #90",
+      "adjective": "Kind",
+      "type": "Human",
+      "slug": "kind.human",
+      "ghostAgent": {
+        "tier": "Social",
+        "email": "kind.human@nftmail.box",
+        "gnoIdentity": "kind.human.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "enhanced_social"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/90"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Kind"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Human"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Social"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 91,
+      "svgFilename": "91.svg",
+      "name": "Glitch Cat #91",
+      "adjective": "Glitch",
+      "type": "Cat",
+      "slug": "glitch.cat",
+      "ghostAgent": {
+        "tier": "Playful",
+        "email": "glitch.cat@nftmail.box",
+        "gnoIdentity": "glitch.cat.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "game_features_preview"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/91"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Glitch"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Cat"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Playful"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 92,
+      "svgFilename": "92.svg",
+      "name": "Lazy Normie #92",
+      "adjective": "Lazy",
+      "type": "Normie",
+      "slug": "lazy.normie",
+      "ghostAgent": {
+        "tier": "Standard",
+        "email": "lazy.normie@nftmail.box",
+        "gnoIdentity": "lazy.normie.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "identity"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/92"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Lazy"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Normie"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Standard"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 93,
+      "svgFilename": "93.svg",
+      "name": "Good Alien #93",
+      "adjective": "Good",
+      "type": "Alien",
+      "slug": "good.alien",
+      "ghostAgent": {
+        "tier": "Experimental",
+        "email": "good.alien@nftmail.box",
+        "gnoIdentity": "good.alien.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "beta_access"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/93"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Good"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Alien"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Experimental"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 94,
+      "svgFilename": "94.svg",
+      "name": "Cheap Normie #94",
+      "adjective": "Cheap",
+      "type": "Normie",
+      "slug": "cheap.normie",
+      "ghostAgent": {
+        "tier": "Standard",
+        "email": "cheap.normie@nftmail.box",
+        "gnoIdentity": "cheap.normie.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "identity"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/94"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Cheap"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Normie"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Standard"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 95,
+      "svgFilename": "95.svg",
+      "name": "Super Agent #95",
+      "adjective": "Super",
+      "type": "Agent",
+      "slug": "super.agent",
+      "ghostAgent": {
+        "tier": "Advanced",
+        "email": "super.agent@nftmail.box",
+        "gnoIdentity": "super.agent.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "api_access_preview"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/95"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Super"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Agent"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Advanced"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 96,
+      "svgFilename": "96.svg",
+      "name": "Broke Normie #96",
+      "adjective": "Broke",
+      "type": "Normie",
+      "slug": "broke.normie",
+      "ghostAgent": {
+        "tier": "Standard",
+        "email": "broke.normie@nftmail.box",
+        "gnoIdentity": "broke.normie.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "identity"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/96"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Broke"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Normie"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Standard"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 97,
+      "svgFilename": "97.svg",
+      "name": "Copy Agent #97",
+      "adjective": "Copy",
+      "type": "Agent",
+      "slug": "copy.agent",
+      "ghostAgent": {
+        "tier": "Advanced",
+        "email": "copy.agent@nftmail.box",
+        "gnoIdentity": "copy.agent.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "api_access_preview"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/97"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Copy"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Agent"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Advanced"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 98,
+      "svgFilename": "98.svg",
+      "name": "Safu Agent #98",
+      "adjective": "Safu",
+      "type": "Agent",
+      "slug": "safu.agent",
+      "ghostAgent": {
+        "tier": "Advanced",
+        "email": "safu.agent@nftmail.box",
+        "gnoIdentity": "safu.agent.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "api_access_preview"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/98"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Safu"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Agent"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Advanced"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    },
+    {
+      "tokenId": 99,
+      "svgFilename": "99.svg",
+      "name": "Lucky Normie #99",
+      "adjective": "Lucky",
+      "type": "Normie",
+      "slug": "lucky.normie",
+      "ghostAgent": {
+        "tier": "Standard",
+        "email": "lucky.normie@nftmail.box",
+        "gnoIdentity": "lucky.normie.agent.gno",
+        "features": [
+          "email_inbox",
+          "basic_chat",
+          "identity"
+        ],
+        "dailySends": 10,
+        "dailyChat": 10,
+        "upgradeUrl": "https://ghostagent.ninja/upgrade/99"
+      },
+      "attributes": [
+        {
+          "trait_type": "Adjective",
+          "value": "Lucky"
+        },
+        {
+          "trait_type": "Type",
+          "value": "Normie"
+        },
+        {
+          "trait_type": "GhostAgent Tier",
+          "value": "Standard"
+        },
+        {
+          "trait_type": "Daily Sends",
+          "value": 10
+        },
+        {
+          "trait_type": "Daily Chat",
+          "value": 10
+        },
+        {
+          "trait_type": "ERC-8004 Agent",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Safe Wallet",
+          "value": "Yes"
+        },
+        {
+          "trait_type": "Chain",
+          "value": "Gnosis"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Layer_1" xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 400 400">
+  <!-- Generator: Adobe Illustrator 29.8.3, SVG Export Plug-In . SVG Version: 2.1.1 Build 3)  -->
+  <defs>
+    <style>
+      .st0 {
+        fill: #494a4c;
+        fill-rule: evenodd;
+      }
+
+      .st1 {
+        fill: #e3e5e4;
+      }
+    </style>
+  </defs>
+  <rect class="st1" width="400" height="400"/>
+  <path class="st0" d="M30,60h10v20h10v-20h10v40h-10v10h10v50h-10v10h-20V60ZM140,60h30v20h-10v10h20v40h-40v10h10v20h20v-10h10v10h10v20h10v30h-10v-10h-10v-10h-40v-10h30v-10h-30v-10h-10v10h10v10h-10v10h-20v-10h10v-50h10v-50h10v-20ZM210,60h20v10h10v-10h10v10h20v-10h10v40h-10v20h-10v-20h-10v20h10v30h-10v30h-10v10h10v-10h10v10h10v-10h10v30h-70v-40h10v-20h10v10h10v-20h-10v-20h10v-30h-30v-30ZM290,60h30v20h10v30h10v-10h10v-10h-10v-10h10v-10h20v-10h10v20h-10v30h-20v10h10v20h-10v20h-10v30h10v20h-30v-20h10v-10h-10v-50h-10v-10h10v-10h-20v-20h-10v-30ZM270,80v10h-10v-10h10ZM340,120v20h-10v-20h10ZM180,130h10v20h-10v-20ZM160,140h10v10h-10v-10ZM50,170h10v20h20v-10h10v30H30v-30h10v10h10v-20ZM130,190h10v20h-30v-10h20v-10ZM170,200h10v10h-10v-10ZM50,230h70v10h10v20h-20v10h-10v-10h-30v60h30v-10h30v30h-10v10h-50v-10h-10v10h-10v-10h-10v-20h10v-10h-10v-70h10v-10ZM180,230h50v10h-10v10h20v10h-10v10h10v10h10v40h-10v10h-20v-10h-10v10h-10v-10h-10v10h-10v-10h-10v10h10v20h-30v-30h10v-40h10v-20h10v-30ZM260,230h10v10h10v-10h70v10h-10v20h-20v30h-10v10h10v30h-10v20h-20v-10h10v-10h-10v-20h10v-10h-10v-40h10v-10h-10v10h-30v-30ZM330,240v10h-10v-10h10ZM200,250v10h10v20h10v30h-10v-10h-20v-20h10v-20h-10v-10h10ZM310,270v10h-10v-10h10ZM180,290v10h-10v-10h10ZM240,290v10h-10v-10h10ZM250,320h10v20h-10v10h-20v-10h10v-10h10v-10Z"/>
+</svg>

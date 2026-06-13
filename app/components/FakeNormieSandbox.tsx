@@ -25,32 +25,10 @@ export function FakeNormieSandbox({ wide = false, onMinted }: FakeNormieSandboxP
   const [tokenId, setTokenId] = useState<string | null>(null);
   const [error, setError]     = useState('');
 
-  const handleMint = useCallback(async () => {
-    if (!connectedWallet) return;
-    setState('minting');
-    try {
-      const res = await fetch('/api/demo-mint', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ recipientAddress: connectedWallet }),
-      });
-      const data = await res.json() as {
-        success?: boolean; alreadyMinted?: boolean;
-        tokenId?: string; error?: string;
-      };
-      if (data.alreadyMinted) { setState('already'); return; }
-      if (!data.success) { setError(data.error ?? 'Mint failed'); setState('error'); return; }
-      const tid = data.tokenId ?? null;
-      setTokenId(tid);
-      setState('minted');
-      if (tid) onMinted?.(tid);
-      // Redirect to fakenormies page where user can see their agent
-      router.push('/fakenormies');
-    } catch {
-      setError('Network error — try again');
-      setState('error');
-    }
-  }, [connectedWallet, onMinted]);
+  const handleMint = useCallback(() => {
+    // Redirect to fakenormies page for minting
+    router.push('/fakenormies');
+  }, [router]);
 
   return (
     <div className={`w-full rounded-2xl border border-pink-500/30 bg-pink-500/5 p-5 space-y-3${wide ? ' col-span-2' : ''}`}>
@@ -81,7 +59,7 @@ export function FakeNormieSandbox({ wide = false, onMinted }: FakeNormieSandboxP
           onClick={handleMint}
           className="w-full rounded-lg bg-pink-600/80 px-4 py-3 text-sm font-bold text-white hover:bg-pink-600 transition"
         >
-          Claim free FakeNormie →
+          Claim 1 free FakeNormie →
         </button>
       ) : state === 'minting' ? (
         <div className="rounded-lg bg-gray-800/50 px-4 py-3 text-sm text-gray-300">

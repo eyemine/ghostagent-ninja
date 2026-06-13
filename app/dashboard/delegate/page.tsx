@@ -55,7 +55,7 @@ const CHAIN_OPTIONS: {k: SupportedChainName; l: string}[] = [
 const NFT_TYPE_META: Record<NftType, { nameLabel: string; prefill: string; chain: SupportedChainName; tokenLabel: string; helper: string }> = {
   ens: { nameLabel: 'ENS NAME', prefill: '', chain: 'ethereum', tokenLabel: 'TOKEN ID', helper: 'e.g. vitalik.eth' },
   normie: { nameLabel: 'NORMIE NAME', prefill: 'normie', chain: 'ethereum', tokenLabel: 'NORMIE TOKEN ID', helper: 'e.g. 1234' },
-  fakenormie: { nameLabel: 'AGENT NAME', prefill: '', chain: 'gnosis', tokenLabel: 'FAKE TYPE', helper: 'Token ID (e.g. 1)' },
+  fakenormie: { nameLabel: 'FAKENORMIE TOKENID', prefill: '', chain: 'gnosis', tokenLabel: 'TOKEN ID', helper: 'Token ID (e.g. 0)' },
   chonk: { nameLabel: 'CHONK NAME', prefill: 'chonk', chain: 'base', tokenLabel: 'CHONK TOKEN ID', helper: 'Find your Chonk on chonks.xyz' },
   mooncat: { nameLabel: 'MOONCAT NAME', prefill: 'mooncat', chain: 'ethereum', tokenLabel: 'TOKEN ID', helper: 'Find your Mooncat' },
   pownft: { nameLabel: 'ATOM NAME', prefill: 'atom', chain: 'ethereum', tokenLabel: 'TOKEN ID', helper: 'Find your Atom on pownft.com' },
@@ -154,7 +154,7 @@ export default function DelegatePage() {
     finally { setVerifying(false); }
   }
 
-  const showMintButton = selectedNftType === 'normie' || selectedNftType === 'fakenormie';
+  const showMintButton = selectedNftType === 'fakenormie';
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
@@ -236,18 +236,14 @@ export default function DelegatePage() {
           ) : selectedNftType === 'fakenormie' ? (
             <>
               <div>
-                <label className="block text-[10px] font-semibold text-gray-400 mb-1">AGENT NAME (from NFT title)</label>
-                <div className="flex items-center gap-2">
-                  <div className={`${ic} flex-1 opacity-70 cursor-not-allowed italic text-[var(--muted)]`}>Fake</div>
-                  <span className="text-[var(--muted)] font-mono text-lg select-none">.</span>
-                  <div className={`${ic} flex-1 opacity-70 cursor-not-allowed italic text-[var(--muted)]`}>Normie</div>
-                </div>
-                <p className="mt-1 text-[10px] text-[var(--muted)] italic">Populated from your NFT&apos;s on-chain title after verification</p>
-              </div>
-              <div>
-                <label className="block text-[10px] font-semibold text-gray-400 mb-1">FAKE TYPE</label>
-                <input className={ic} placeholder="Token ID (e.g. 1)" value={tokenId}
+                <label className="block text-[10px] font-semibold text-gray-400 mb-1">TOKEN ID</label>
+                <input className={ic} placeholder="Token ID (e.g. 0)" value={tokenId}
                   onChange={e => { setTokenId(e.target.value.replace(/[^0-9]/g,'')); setVerifyResult(null); }} />
+                {FAKE_NORMIE_CONTRACT && (
+                  <p className="mt-1 text-[10px] text-[var(--muted)]">
+                    Gnosis contract: <span className="font-mono text-fuchsia-300">{FAKE_NORMIE_CONTRACT.slice(0,10)}…{FAKE_NORMIE_CONTRACT.slice(-4)}</span>
+                  </p>
+                )}
               </div>
             </>
           ) : selectedNftType === 'other' ? (

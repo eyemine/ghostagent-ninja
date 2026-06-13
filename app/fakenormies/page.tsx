@@ -99,229 +99,161 @@ export default function FakeNormiesPage() {
   return (
     <main className="min-h-screen bg-[#0b0c0f] flex flex-col items-center justify-center px-4 py-16">
 
-      {/* Hero */}
       <div className="flex flex-col items-center gap-6 max-w-md w-full text-center">
 
-        <div className="relative w-48 h-48 rounded-2xl overflow-hidden border border-white/10 shadow-lg shadow-black/60">
-          <Image
-            src="/FakeNormies/FakeNormie.gif"
-            alt="FakeNormie"
-            fill
-            className="object-cover"
-            unoptimized
-          />
+        <div>
+          <h1 className="text-3xl font-bold text-[#f2eee4] tracking-tight">FakeNormies</h1>
+          <p className="mt-2 text-sm text-[#8a8a8a]">
+            100 free AI agents on Gnosis Chain.<br />
+            Each mint spawns an inbox, a wallet, and an identity.
+          </p>
         </div>
 
-        {!result ? (
-          <>
-            <div>
-              <h1 className="text-3xl font-bold text-[#f2eee4] tracking-tight">FakeNormies</h1>
-              <p className="mt-2 text-sm text-[#8a8a8a]">
-                100 free AI agents on Gnosis Chain.<br />
-                Each mint spawns an inbox, a wallet, and an identity.
+        {/* FakeNormie Sandbox Panel */}
+        <div className="w-full rounded-2xl border border-pink-500/30 bg-pink-500/5 p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="text-left">
+              <p className="text-sm font-semibold text-pink-300">FakeNormie Sandbox</p>
+              <p className="text-xs text-[var(--muted)] mt-0.5">
+                Claim a free FakeNormie NFT on Gnosis Chain — then use it as your agent identity.
               </p>
             </div>
+          </div>
 
-            {/* Tier summary */}
-            <div className="w-full rounded-xl border border-white/[0.07] bg-white/[0.03] divide-y divide-white/[0.05] text-left text-xs">
-              <div className="flex items-start gap-3 px-4 py-3">
-                <span className="mt-0.5 text-lg">👻</span>
-                <div>
-                  <p className="font-semibold text-[#f2eee4]">Basic — Free</p>
-                  <p className="text-[#8a8a8a]">10 emails included · then upgrade to continue</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-3 px-4 py-3">
-                <span className="mt-0.5 text-lg">⚡</span>
-                <div>
-                  <p className="font-semibold text-[#f2eee4]">Pro — 10 USDC on Base</p>
-                  <p className="text-[#8a8a8a]">50 sends/day · unlimited chat · real Safe wallet</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-3 px-4 py-3">
-                <span className="mt-0.5 text-lg">🔮</span>
-                <div>
-                  <p className="font-semibold text-[#f2eee4]">Premium — 24 USDC/yr on Base</p>
-                  <p className="text-[#8a8a8a]">Unlimited everything · treasury · CDR vault</p>
-                </div>
-              </div>
-            </div>
+          {/* NFT image enclosed in Sandbox panel */}
+          <div className="relative w-full h-48 rounded-2xl overflow-hidden border border-white/10 shadow-lg shadow-black/60">
+            <Image
+              src="/FakeNormies/FakeNormie.gif"
+              alt="FakeNormie"
+              fill
+              className="object-cover"
+              unoptimized
+            />
+          </div>
 
-            {/* CTA */}
-            {!ready ? null : !authenticated ? (
-              <button
-                onClick={login}
-                className="w-full rounded-xl border border-white/10 bg-white/[0.05] px-6 py-3 text-sm font-semibold text-[#f2eee4] hover:bg-white/[0.09] transition"
-              >
-                Connect Wallet
-              </button>
-            ) : checking ? (
-              <div className="w-full rounded-xl border border-white/[0.07] bg-white/[0.03] px-6 py-3.5 text-sm text-[#555] text-center">
-                Checking wallet…
-              </div>
-            ) : existingTokenId !== null ? (
-              <div className="w-full flex flex-col gap-3">
-                {/* NFT image */}
-                <div className="relative w-full h-48 rounded-2xl overflow-hidden border border-white/10 shadow-lg shadow-black/60">
-                  <Image
-                    src="/FakeNormies/FakeNormie.gif"
-                    alt="FakeNormie"
-                    fill
-                    className="object-cover"
-                    unoptimized
-                  />
+          {!result ? (
+            <>
+              {/* CTA */}
+              {!ready ? null : !authenticated ? (
+                <button
+                  onClick={login}
+                  className="w-full rounded-lg bg-fuchsia-600/80 px-4 py-3 text-sm font-bold text-white hover:bg-fuchsia-600 transition"
+                >
+                  Connect Wallet to Claim
+                </button>
+              ) : checking ? (
+                <div className="rounded-lg bg-gray-800/50 px-4 py-3 text-sm text-gray-300">
+                  Checking wallet…
                 </div>
-
-                {/* Agent info */}
-                <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/5 px-5 py-4 text-left">
-                  <p className="text-[10px] font-semibold tracking-widest text-emerald-400 uppercase mb-1">Your FakeNormie ✓</p>
-                  <p className="text-xl font-bold text-[#f2eee4] font-mono">
-                    {existingSlug ? `${existingSlug}@nftmail.box` : `FakeNormie #${existingTokenId}`}
+              ) : existingTokenId !== null ? (
+                <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/30 px-4 py-3 space-y-2">
+                  <p className="text-sm font-semibold text-emerald-400">✓ You own a FakeNormie</p>
+                  <p className="text-xs text-[var(--muted)]">
+                    Token #{existingTokenId} · <span className="font-mono text-pink-300">{existingSlug || `token${existingTokenId}`}</span>
                   </p>
-                  <p className="mt-1 text-[11px] text-[#555]">Token #{existingTokenId} · Gnosis Chain</p>
                 </div>
+              ) : (
+                <button
+                  onClick={handleClaim}
+                  disabled={minting}
+                  className="w-full rounded-lg bg-pink-600/80 px-4 py-3 text-sm font-bold text-white hover:bg-pink-600 transition"
+                >
+                  {minting ? 'Minting on Gnosis Chain…' : 'Claim 1 free FakeNormie →'}
+                </button>
+              )}
 
-                {/* Upgrade info */}
-                <div className="rounded-xl border border-white/[0.07] bg-white/[0.03] px-4 py-3 text-left">
-                  <p className="text-xs font-semibold text-[#f2eee4] mb-1">Basic — Free</p>
-                  <p className="text-[11px] text-[#8a8a8a]">8 day history inbox, 10 email sends included · upgrade for full features</p>
-                </div>
+              {error && (
+                <p className="text-xs text-red-400 text-center">{error}</p>
+              )}
 
-                {/* Actions panel */}
-                <div className="rounded-xl border border-white/[0.07] bg-white/[0.03] px-4 py-4 text-left space-y-2">
-                  <p className="text-xs font-semibold text-[#f2eee4] mb-2">Agent actions</p>
-                  <a
-                    href={`https://nftmail.box/inbox/${existingSlug ?? `token${existingTokenId}`}`}
-                    target="_blank" rel="noopener noreferrer"
-                    className="flex items-center justify-between w-full rounded-lg border border-white/[0.07] bg-white/[0.03] px-3 py-2.5 text-xs text-[#f2eee4] hover:bg-white/[0.06] transition"
-                  >
-                    <span>Open Inbox</span><span className="text-[#555]">nftmail.box ↗</span>
-                  </a>
-                  <Link
-                    href={`/dashboard/agent-profile?agent=${existingSlug ?? `token${existingTokenId}`}`}
-                    className="flex items-center justify-between w-full rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2.5 text-xs text-amber-300 hover:bg-amber-500/20 transition"
-                  >
-                    <span>Agent Profile</span><span className="text-[#555]">/dashboard</span>
-                  </Link>
-                  <Link
-                    href={`/molt?agent=${existingSlug ?? `token${existingTokenId}`}`}
-                    className="flex items-center justify-between w-full rounded-lg border border-fuchsia-500/30 bg-fuchsia-500/10 px-3 py-2.5 text-xs text-fuchsia-300 hover:bg-fuchsia-500/20 transition"
-                  >
-                    <span>Molt</span><span className="text-[#555]">/molt</span>
-                  </Link>
-                  <Link
-                    href={`/dashboard/settings/ghost?agent=${existingSlug ?? `token${existingTokenId}`}`}
-                    className="flex items-center justify-between w-full rounded-lg border border-zinc-500/30 bg-zinc-500/10 px-3 py-2.5 text-xs text-zinc-300 hover:bg-zinc-500/20 transition"
-                  >
-                    <span>Ghost Tier</span><span className="text-[#555]">/dashboard</span>
-                  </Link>
-                  <Link
-                    href="/dashboard/delegate"
-                    className="flex items-center justify-between w-full rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2.5 text-xs text-emerald-300 hover:bg-emerald-500/20 transition"
-                  >
-                    <span>Delegate NFT</span><span className="text-[#555]">/delegate</span>
-                  </Link>
-                  <Link
-                    href={`/dashboard/erc8048?agent=${existingSlug ?? `token${existingTokenId}`}`}
-                    className="flex items-center justify-between w-full rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-2.5 text-xs text-cyan-300 hover:bg-cyan-500/20 transition"
-                  >
-                    <span>ERC-8048</span><span className="text-[#555]">/dashboard</span>
-                  </Link>
-                  <Link
-                    href={`/dashboard/swarm?agent=${existingSlug ?? `token${existingTokenId}`}`}
-                    className="flex items-center justify-between w-full rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2.5 text-xs text-emerald-300 hover:bg-emerald-500/20 transition"
-                  >
-                    <span>Swarm</span><span className="text-[#555]">/dashboard</span>
-                  </Link>
-                  <Link
-                    href={`/dashboard/trade?agent=${existingSlug ?? `token${existingTokenId}`}`}
-                    className="flex items-center justify-between w-full rounded-lg border border-violet-500/30 bg-violet-500/10 px-3 py-2.5 text-xs text-violet-300 hover:bg-violet-500/20 transition"
-                  >
-                    <span>Trade Intent</span><span className="text-[#555]">/dashboard</span>
-                  </Link>
-                  <Link
-                    href={`/dashboard/hitl?agent=${existingSlug ?? `token${existingTokenId}`}`}
-                    className="flex items-center justify-between w-full rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2.5 text-xs text-red-300 hover:bg-red-500/20 transition"
-                  >
-                    <span>HITL Gates</span><span className="text-[#555]">/dashboard</span>
-                  </Link>
-                  <Link
-                    href={`/ip-portal?agent=${existingSlug ?? `token${existingTokenId}`}`}
-                    className="flex items-center justify-between w-full rounded-lg border border-[#7c4dff]/30 bg-[#7c4dff]/10 px-3 py-2.5 text-xs text-[#a78bfa] hover:bg-[#7c4dff]/20 transition"
-                  >
-                    <span>IP Portal</span><span className="text-[#555]">/ip-portal</span>
-                  </Link>
-                  <a
-                    href={`https://notapaperclip.red/osint/${existingSlug ?? `token${existingTokenId}`}`}
-                    target="_blank" rel="noopener noreferrer"
-                    className="flex items-center justify-between w-full rounded-lg border border-white/[0.07] bg-white/[0.03] px-3 py-2.5 text-xs text-[#8a8a8a] hover:text-[#f2eee4] transition"
-                  >
-                    <span>OSINT Audit</span><span className="text-[#555]">notapaperclip.red ↗</span>
-                  </a>
-                </div>
-              </div>
+              <p className="text-[10px] text-[#555]">1 per wallet · gas sponsored by ghostagent.ninja</p>
+            </>
             ) : (
-              <button
-                onClick={handleClaim}
-                disabled={minting}
-                className="w-full rounded-xl bg-[rgba(0,163,255,0.15)] border border-[rgba(0,163,255,0.35)] px-6 py-3.5 text-sm font-bold text-[rgb(160,220,255)] hover:bg-[rgba(0,163,255,0.25)] disabled:opacity-50 transition"
-              >
-                {minting ? 'Minting your agent…' : 'Claim your free FakeNormie →'}
-              </button>
-            )}
-
-            {error && (
-              <p className="text-xs text-red-400 text-center">{error}</p>
-            )}
-
-            <p className="text-[10px] text-[#555] mt-1">1 per wallet · gas sponsored by ghostagent.ninja</p>
-          </>
-        ) : (
           /* ── Success state ── */
-          <div className="w-full flex flex-col gap-4">
-            <div className="rounded-xl border border-[rgba(0,255,128,0.2)] bg-[rgba(0,255,128,0.05)] px-5 py-4 text-left">
-              <p className="text-[10px] font-semibold tracking-widest text-[#3dffa0] uppercase mb-1">
-                Token #{result.tokenId} minted ✓
-              </p>
-              <p className="text-xl font-bold text-[#f2eee4] font-mono">{result.humanEmail}</p>
-              <p className="mt-1 text-[11px] text-[#555]">
-                Agent comms: <span className="font-mono text-[#777]">{result.agentEmail}</span>
-              </p>
-            </div>
-
-            <div className="rounded-xl border border-white/[0.07] bg-white/[0.03] px-4 py-4 text-left space-y-3">
-              <p className="text-xs font-semibold text-[#f2eee4]">Next steps</p>
-              <ol className="space-y-2 text-xs text-[#8a8a8a] list-decimal list-inside">
-                <li>Your inbox is live — start receiving emails now</li>
-                <li>Connect your wallet at nftmail.box to send</li>
-                <li>Upgrade to Pro on Base to unlock 50 sends/day + real Safe</li>
-              </ol>
-            </div>
-
+          <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/30 px-4 py-3 space-y-2">
+            <p className="text-sm font-semibold text-emerald-400">✓ Minted! Token ID: {result.tokenId}</p>
+            <p className="text-xs text-[var(--muted)]">
+              Your inbox is live — <span className="font-semibold text-[#f2eee4]">{result.humanEmail}</span>
+            </p>
             <a
               href={result.inboxUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="w-full rounded-xl bg-[rgba(0,163,255,0.15)] border border-[rgba(0,163,255,0.35)] px-6 py-3 text-sm font-bold text-[rgb(160,220,255)] hover:bg-[rgba(0,163,255,0.25)] transition text-center"
+              className="inline-block text-[11px] text-sky-400 hover:underline"
             >
-              Set up your agent →
+              Set up your agent inbox →
             </a>
+          </div>
+        )}
+        </div>
 
-            <div className="flex gap-3 text-xs">
+        {/* Actions for Panel — shown when user has a FakeNormie */}
+        {existingTokenId !== null && (
+          <div className="w-full rounded-2xl border border-[rgba(176,128,92,0.35)] bg-[var(--card)] p-5 space-y-4">
+            <p className="text-sm font-semibold text-[#f2eee4]">Actions for Panel</p>
+            <div className="grid grid-cols-2 gap-2">
               <a
-                href={result.explorer}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex-1 text-center rounded-lg border border-white/[0.07] bg-white/[0.03] px-3 py-2 text-[#8a8a8a] hover:text-[#f2eee4] transition"
+                href={`https://nftmail.box/inbox/${existingSlug ?? `token${existingTokenId}`}`}
+                target="_blank" rel="noopener noreferrer"
+                className="flex items-center justify-between rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2.5 text-xs text-amber-300 hover:bg-amber-500/20 transition"
               >
-                View on Gnosisscan ↗
+                <span>Agent Profile</span><span className="text-[#555]">/dashboard</span>
               </a>
               <Link
-                href="/dashboard"
-                className="flex-1 text-center rounded-lg border border-white/[0.07] bg-white/[0.03] px-3 py-2 text-[#8a8a8a] hover:text-[#f2eee4] transition"
+                href={`/molt?agent=${existingSlug ?? `token${existingTokenId}`}`}
+                className="flex items-center justify-between rounded-lg border border-fuchsia-500/30 bg-fuchsia-500/10 px-3 py-2.5 text-xs text-fuchsia-300 hover:bg-fuchsia-500/20 transition"
               >
-                Dashboard →
+                <span>Molt</span><span className="text-[#555]">/molt</span>
               </Link>
+              <Link
+                href={`/dashboard/settings/ghost?agent=${existingSlug ?? `token${existingTokenId}`}`}
+                className="flex items-center justify-between rounded-lg border border-zinc-500/30 bg-zinc-500/10 px-3 py-2.5 text-xs text-zinc-300 hover:bg-zinc-500/20 transition"
+              >
+                <span>Ghost Tier</span><span className="text-[#555]">/dashboard</span>
+              </Link>
+              <Link
+                href="/dashboard/delegate"
+                className="flex items-center justify-between rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2.5 text-xs text-emerald-300 hover:bg-emerald-500/20 transition"
+              >
+                <span>Delegate NFT</span><span className="text-[#555]">/delegate</span>
+              </Link>
+              <Link
+                href={`/dashboard/erc8048?agent=${existingSlug ?? `token${existingTokenId}`}`}
+                className="flex items-center justify-between rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-2.5 text-xs text-cyan-300 hover:bg-cyan-500/20 transition"
+              >
+                <span>ERC-8048</span><span className="text-[#555]">/dashboard</span>
+              </Link>
+              <Link
+                href={`/dashboard/swarm?agent=${existingSlug ?? `token${existingTokenId}`}`}
+                className="flex items-center justify-between rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2.5 text-xs text-emerald-300 hover:bg-emerald-500/20 transition"
+              >
+                <span>Swarm</span><span className="text-[#555]">/dashboard</span>
+              </Link>
+              <Link
+                href={`/dashboard/trade?agent=${existingSlug ?? `token${existingTokenId}`}`}
+                className="flex items-center justify-between rounded-lg border border-violet-500/30 bg-violet-500/10 px-3 py-2.5 text-xs text-violet-300 hover:bg-violet-500/20 transition"
+              >
+                <span>Trade Intent</span><span className="text-[#555]">/dashboard</span>
+              </Link>
+              <Link
+                href={`/dashboard/hitl?agent=${existingSlug ?? `token${existingTokenId}`}`}
+                className="flex items-center justify-between rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2.5 text-xs text-red-300 hover:bg-red-500/20 transition"
+              >
+                <span>HITL Gates</span><span className="text-[#555]">/dashboard</span>
+              </Link>
+              <Link
+                href={`/ip-portal?agent=${existingSlug ?? `token${existingTokenId}`}`}
+                className="flex items-center justify-between rounded-lg border border-[#7c4dff]/30 bg-[#7c4dff]/10 px-3 py-2.5 text-xs text-[#a78bfa] hover:bg-[#7c4dff]/20 transition"
+              >
+                <span>IP Portal</span><span className="text-[#555]">/ip-portal</span>
+              </Link>
+              <a
+                href={`https://notapaperclip.red/osint/${existingSlug ?? `token${existingTokenId}`}`}
+                target="_blank" rel="noopener noreferrer"
+                className="flex items-center justify-between rounded-lg border border-white/[0.07] bg-white/[0.03] px-3 py-2.5 text-xs text-[#8a8a8a] hover:text-[#f2eee4] transition"
+              >
+                <span>OSINT Audit</span><span className="text-[#555]">notapaperclip.red ↗</span>
+              </a>
             </div>
           </div>
         )}

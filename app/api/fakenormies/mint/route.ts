@@ -252,6 +252,20 @@ export async function POST(req: NextRequest) {
           },
         }),
       }).catch(() => {});
+      // Register identity (nftmailgno:) so Dashboard getAgentIdentity can verify ownership
+      fetch(workerUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'setAgentIdentity',
+          secret: webhookSecret,
+          agentName: slug,
+          controller: wallet,
+          originNft: `${slug}.fakenormie`,
+          mintedTokenId: tokenId,
+          registrar: FAKENORMIES_ADDRESS,
+        }),
+      }).catch(() => {});
       // Seed tld: key so agent appears in listAgents → My Agents dashboard
       fetch(workerUrl, {
         method: 'POST',

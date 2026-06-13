@@ -21,7 +21,7 @@ interface NftPreview {
   tokenId: string;
   name: string;
   imageUrl: string | null;
-  chain: 'mainnet' | 'base';
+  chain: 'mainnet' | 'base' | 'gnosis';
 }
 
 interface MoltResult {
@@ -602,7 +602,9 @@ export default function OgNftMoltPage() {
           setChecking(false); return;
         }
         setPrimaryName(slug);
-        preview = { type: 'other', tokenId, name: `FakeNormie #${tokenNum} · ${slug}`, imageUrl: '/FakeNormies/FakeNormie.gif', chain: 'gnosis' as any };
+        // Use individual SVG from SVGS folder for the specific token
+        const paddedTokenId = String(tokenNum).padStart(2, '0');
+        preview = { type: 'other', tokenId, name: `FakeNormie #${tokenNum} · ${slug}`, imageUrl: `/FakeNormies/SVGS/${paddedTokenId}.svg`, chain: 'gnosis' as any };
       } else if (nftType === 'mooncat') {
         const { name, imageUrl } = await fetchMooncatImage(tokenId);
         preview = { type: 'mooncat', tokenId, name, imageUrl, chain: 'mainnet' };
@@ -735,6 +737,19 @@ export default function OgNftMoltPage() {
           <p className="text-[#f2eee4] font-semibold">What happens</p>
           {(() => {
             const tid = tokenId || '[TokenID]';
+            if (nftType === 'fakenormie') {
+              const slug = primaryName || '[Fake.Normie]';
+              return (
+                <>
+                  <p>✓ Gnosis mirror TBA deployed — your NFT&apos;s TBA becomes the Safe&apos;s sole key</p>
+                  <p>✓ Gnosis Safe created — controlled exclusively by your NFT via its TBA</p>
+                  <p>✓ Beacon NFT <span className="font-mono text-[#f2eee4]">{slug}.nftmail.gno</span> minted <span className="text-violet-300">to the Safe</span> (not your wallet)</p>
+                  <p>✓ Human inbox <span className="font-mono text-[#f2eee4]">{slug}@nftmail.box</span></p>
+                  <p className="ml-3">+ Agent inbox <span className="font-mono text-[#f2eee4]">{slug}_@nftmail.box</span></p>
+                  <p className="text-amber-300/80">Your NFT stays in your wallet — it is the key, not the asset held</p>
+                </>
+              );
+            }
             const prefix = nftType === 'pownft' ? 'atom' : nftType === 'chonk' ? 'chonk' : nftType === 'mooncat' ? 'mooncat' : null;
             // For 'other' collections use the field1 prefix
             const primary = prefix ? `${prefix}.${tid}@nftmail.box` : primaryName ? `${primaryName}@nftmail.box` : '[ENSname]@nftmail.box';
@@ -758,13 +773,6 @@ export default function OgNftMoltPage() {
           <p className="text-[10px] text-amber-300">Fee: <strong>{selectedTier === 'premium' ? PREMIUM_FEE_USDC : PRO_FEE_USDC} USDC</strong> on {paymentChainForNftType(nftType, collectionName) === 'base' ? 'Base' : 'Ethereum'} · send to <span className="font-mono">{TREASURY.slice(0,10)}…</span></p>
         </div>
       </div>
-
-      {/* FakeNormie Sandbox — shown when fakenormie selected */}
-      {nftType === 'fakenormie' && step === 'check' && (
-        <FakeNormieSandbox
-          onMinted={(tid) => { setTokenId(tid); }}
-        />
-      )}
 
       {/* Check + Select Agent + Confirm */}
       {(step === 'check' || step === 'select-agent' || step === 'confirm') && (
@@ -938,6 +946,13 @@ export default function OgNftMoltPage() {
 
           {error && !ownershipVerified && <p className="text-xs text-red-400">{error}</p>}
 
+          {/* FakeNormie Sandbox — shown when fakenormie selected, below OG NFTs */}
+          {nftType === 'fakenormie' && step === 'check' && (
+            <FakeNormieSandbox
+              onMinted={(tid) => { setTokenId(tid); }}
+            />
+          )}
+
           {step === 'check' && nftType !== 'other' && (
             <button onClick={handleVerifyOwnership}
               disabled={(nftType !== 'fakenormie' && !primaryName) || !tokenId || !ownerWallet || checking}
@@ -962,13 +977,23 @@ export default function OgNftMoltPage() {
                 </div>
                 <div>
                   <p className="text-[10px] font-semibold text-emerald-400">✓ Ownership confirmed</p>
-                  <p className="text-sm font-bold text-[#f2eee4]">{nftPreview.name}</p>
-                  <p className="text-[10px] text-[var(--muted)]">{nftPreview.chain === 'base' ? 'Base' : 'Ethereum'} · token #{nftPreview.tokenId}</p>
-                  {collectionName === 'dxterminal' && primaryName && (
-                    <p className="mt-0.5 font-mono text-[10px] text-cyan-400">{primaryName}@nftmail.box</p>
-                  )}
-                  {nftType === 'normie' && primaryName && (
-                    <p className="mt-0.5 font-mono text-[10px] text-fuchsia-400">{primaryName}@nftmail.box</p>
+                  {nftType === 'fakenormie' && primaryName ? (
+                    <>
+                      <p className="text-sm font-bold text-[#f2eee4]">Paired {primaryName}.agent.gno</p>
+                      <p className="text-sm font-bold text-[#f2eee4]">{nftPreview.name}</p>
+                      <p className="text-[10px] text-[var(--muted)]">Gnosis · token #{nftPreview.tokenId}</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-sm font-bold text-[#f2eee4]">{nftPreview.name}</p>
+                      <p className="text-[10px] text-[var(--muted)]">{nftPreview.chain === 'base' ? 'Base' : nftPreview.chain === 'gnosis' ? 'Gnosis' : 'Ethereum'} · token #{nftPreview.tokenId}</p>
+                      {collectionName === 'dxterminal' && primaryName && (
+                        <p className="mt-0.5 font-mono text-[10px] text-cyan-400">{primaryName}@nftmail.box</p>
+                      )}
+                      {nftType === 'normie' && primaryName && (
+                        <p className="mt-0.5 font-mono text-[10px] text-fuchsia-400">{primaryName}@nftmail.box</p>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
