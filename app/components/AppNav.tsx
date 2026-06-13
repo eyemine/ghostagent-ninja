@@ -9,7 +9,7 @@ const NAV = [
   { href: '/pair-nft', label: 'Pair My NFT' },
   { href: '/dashboard/delegate', label: 'NFT Delegation' },
   { href: '/agents?tab=mint', label: 'Mint Agent ID' },
-  { href: '/dashboard/marketplace', label: 'Marketplace' },
+  // { href: '/dashboard/marketplace', label: 'Marketplace' }, // hidden — placeholder content, build with real agents later
   { href: '/docs', label: 'Docs' },
   { href: '/about', label: 'About' },
   // { href: '/host', label: '$HOST' }, // Hidden - staking prototype deprecated

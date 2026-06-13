@@ -24,7 +24,7 @@ const gnosis = defineChain({
 });
 
 // Set FAKE_NORMIE_CONTRACT after deploying FakeNormie.sol
-const FAKE_NORMIE_CONTRACT = (process.env.FAKE_NORMIE_CONTRACT ?? '') as Address;
+const FAKE_NORMIE_CONTRACT = (process.env.FAKE_NORMIE_CONTRACT ?? process.env.NEXT_PUBLIC_FAKE_NORMIE_CONTRACT ?? '') as Address;
 
 const FAKE_NORMIE_ABI = [
   {
@@ -35,10 +35,10 @@ const FAKE_NORMIE_ABI = [
     stateMutability: 'nonpayable',
   },
   {
-    name: 'hasMinted',
+    name: 'balanceOf',
     type: 'function',
-    inputs: [{ name: '', type: 'address' }],
-    outputs: [{ name: '', type: 'bool' }],
+    inputs: [{ name: 'owner', type: 'address' }],
+    outputs: [{ name: '', type: 'uint256' }],
     stateMutability: 'view',
   },
   {
@@ -93,16 +93,16 @@ export async function POST(req: NextRequest) {
   }
 
   // ── Rate limit: 1 per wallet (in-memory) ────────────────────────────────────
+  // Check on-chain balance (in-memory set also checked for speed)
   if (mintedWallets.has(recipient)) {
-    // Also check on-chain in case server restarted
     const publicClient = createPublicClient({ chain: gnosis, transport: http() });
-    const alreadyMinted = await publicClient.readContract({
+    const balance = await publicClient.readContract({
       address: FAKE_NORMIE_CONTRACT,
       abi: FAKE_NORMIE_ABI,
-      functionName: 'hasMinted',
+      functionName: 'balanceOf',
       args: [recipient as Address],
     });
-    if (alreadyMinted) {
+    if (balance > 0n) {
       return NextResponse.json(
         { alreadyMinted: true, message: 'This wallet already has a FakeNormie. Check your wallet!' },
         { status: 200 }

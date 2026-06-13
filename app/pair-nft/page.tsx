@@ -10,6 +10,7 @@ import { MercuryoButton } from '../components/MercuryoWidget';
 import { EmailAliasToggle } from '../components/EmailAliasToggle';
 import type { AgentRegistryEntry } from '../api/agents/route';
 import { generateNormieHandles } from '../services/agent-identity-router';
+import { FakeNormieSandbox } from '../components/FakeNormieSandbox';
 
 type NftType = 'ens' | 'normie' | 'chonk' | 'mooncat' | 'pownft' | 'fakenormie' | 'other';
 type Step = 'check' | 'select-agent' | 'confirm' | 'molting' | 'done' | 'error';
@@ -752,6 +753,13 @@ export default function OgNftMoltPage() {
         </div>
       </div>
 
+      {/* FakeNormie Sandbox — shown when normie/fakenormie selected */}
+      {(nftType === 'normie' || nftType === 'fakenormie') && step === 'check' && (
+        <FakeNormieSandbox
+          onMinted={(tid) => { setTokenId(tid); }}
+        />
+      )}
+
       {/* Check + Select Agent + Confirm */}
       {(step === 'check' || step === 'select-agent' || step === 'confirm') && (
         <div className="w-full rounded-2xl border border-[rgba(176,128,92,0.35)] bg-[var(--card)] p-5 space-y-4">
@@ -926,7 +934,7 @@ export default function OgNftMoltPage() {
 
           {step === 'check' && nftType !== 'other' && (
             <button onClick={handleVerifyOwnership}
-              disabled={!primaryName || !tokenId || !ownerWallet || checking}
+              disabled={(nftType !== 'fakenormie' && !primaryName) || !tokenId || !ownerWallet || checking}
               className="w-full rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 py-2.5 text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-40">
               {checking ? 'Checking ownership…' : 'Verify NFT Ownership →'}
             </button>

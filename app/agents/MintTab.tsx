@@ -7,6 +7,7 @@ import { TermsCheckbox } from '../components/TermsCheckbox';
 import { MintAgentBundle } from '../components/MintAgentBundle';
 import { GenomeEditor } from '../components/GenomeEditor';
 import { defaultGenomeMetadata, type GenomeMetadata } from '../services/genome-metadata';
+import { FakeNormieSandbox } from '../components/FakeNormieSandbox';
 
 type Namespace = 'agent' | 'openclaw' | 'molt' | 'picoclaw' | 'vault' | 'nftmail';
 type VaultPath = 'premium' | 'ghost';
@@ -353,9 +354,7 @@ export default function MintTab() {
             );
           })}
         </div>
-        <p className="text-[11px] text-[var(--muted)]">
-          Use <span className="font-semibold text-[#f4b55a]">$HOST</span> to add features or increase capacity — extend email history, unlock marketplace listing, boost agent reputation.
-        </p>
+        <FakeNormieSandbox wide />
       </div>
 
       {/* ── AGENT NAME ── */}
