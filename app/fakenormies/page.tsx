@@ -60,6 +60,8 @@ export default function FakeNormiesPage() {
   const [existingTokenId, setExistingTokenId] = useState<number | null>(null);
   const [existingSlug, setExistingSlug] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
+  const [showUpgrade, setShowUpgrade] = useState(false);
+  const [agentInfo, setAgentInfo] = useState<{ safe?: string; tier?: string; principal?: string } | null>(null);
 
   const wallet = user?.wallet?.address ?? null;
 
@@ -93,6 +95,17 @@ export default function FakeNormiesPage() {
       }
     }).catch(() => {}).finally(() => setChecking(false));
   }, [wallet]);
+
+  // Fetch agent info when slug is known
+  useEffect(() => {
+    if (!existingSlug) return;
+    fetch(`/api/agent-card?agent=${existingSlug}`)
+      .then(r => r.ok ? r.json() : null)
+      .then((card: { safe?: string; tier?: string; principal?: string } | null) => {
+        if (card) setAgentInfo({ safe: card.safe, tier: card.tier, principal: card.principal });
+      })
+      .catch(() => {});
+  }, [existingSlug]);
 
   async function handleClaim() {
     if (!wallet) return;
@@ -172,11 +185,47 @@ export default function FakeNormiesPage() {
                 Checking wallet…
               </div>
             ) : existingTokenId !== null ? (
-              <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/30 px-4 py-3 space-y-2">
-                <p className="text-sm font-semibold text-emerald-400">✓ You own a FakeNormie</p>
-                <p className="text-xs text-[var(--muted)]">
-                  Token #{existingTokenId} · <span className="font-mono text-pink-300">{existingSlug || `token${existingTokenId}`}</span>
-                </p>
+              <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/30 px-4 py-3 space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-semibold text-emerald-400">✓ You own a FakeNormie</p>
+                  <span className="text-[9px] font-semibold rounded-full bg-emerald-500/20 px-2 py-0.5 text-emerald-300 ring-1 ring-emerald-500/30">✓ selected</span>
+                </div>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-[11px]">
+                  <div>
+                    <p className="text-[9px] font-semibold tracking-wider text-[var(--muted)] mb-0.5">AGENT</p>
+                    <p className="font-mono text-[#f2eee4]">{existingSlug || `token${existingTokenId}`}</p>
+                  </div>
+                  <div>
+                    <p className="text-[9px] font-semibold tracking-wider text-[var(--muted)] mb-0.5">SLD</p>
+                    <p className="font-mono text-pink-300">agent.gno</p>
+                  </div>
+                  {agentInfo?.safe && (
+                    <div className="col-span-2">
+                      <p className="text-[9px] font-semibold tracking-wider text-[var(--muted)] mb-0.5">SAFE</p>
+                      <p className="font-mono text-[#f2eee4]">{agentInfo.safe.slice(0,6)}…{agentInfo.safe.slice(-4)}</p>
+                    </div>
+                  )}
+                  {agentInfo?.principal && (
+                    <div className="col-span-2">
+                      <p className="text-[9px] font-semibold tracking-wider text-[var(--muted)] mb-0.5">PRINCIPAL</p>
+                      <p className="font-mono text-[#f2eee4]">{agentInfo.principal.slice(0,6)}…{agentInfo.principal.slice(-4)}</p>
+                    </div>
+                  )}
+                  {agentInfo?.tier && (
+                    <div>
+                      <p className="text-[9px] font-semibold tracking-wider text-[var(--muted)] mb-0.5">TIER</p>
+                      <p className="font-semibold text-emerald-300 capitalize">{agentInfo.tier}</p>
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center gap-3 pt-1 border-t border-emerald-500/20">
+                  <Link
+                    href={`/agent/${existingSlug || `token${existingTokenId}`}`}
+                    className="text-[11px] text-sky-400 hover:underline"
+                  >
+                    Details →
+                  </Link>
+                </div>
               </div>
             ) : (
               <button
@@ -215,24 +264,88 @@ export default function FakeNormiesPage() {
 
       {/* ACTIONS FOR — identical to the Dashboard agent action bar */}
       {ownedTokenId !== null && (
-        <div className="rounded-2xl border border-[rgba(176,128,92,0.25)] bg-[var(--card)] px-5 py-4">
-          <div className="mb-3 flex items-center gap-3">
-            <span className="text-[10px] font-semibold tracking-widest text-[var(--muted)]">ACTIONS FOR</span>
-            <span className="rounded-full bg-amber-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-amber-300 ring-1 ring-amber-500/20">
-              {agentRef}
-            </span>
-            <span className="text-[10px] text-zinc-600">your FakeNormie agent</span>
+        <div className="space-y-3">
+          {/* ACTIONS FOR */}
+          <div className="rounded-2xl border border-[rgba(176,128,92,0.25)] bg-[var(--card)] px-5 py-4">
+            <div className="mb-3 flex items-center gap-3">
+              <span className="text-[10px] font-semibold tracking-widest text-[var(--muted)]">ACTIONS FOR</span>
+              <span className="rounded-full bg-amber-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-amber-300 ring-1 ring-amber-500/20">
+                {agentRef}
+              </span>
+              <span className="text-[10px] text-zinc-600">your FakeNormie agent</span>
+            </div>
+            <div className="flex items-center gap-2 overflow-x-auto pb-1">
+              {agentActions(agentRef).map(action => (
+                <Link
+                  key={action.key}
+                  href={action.href}
+                  className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition shrink-0 ${action.color}`}
+                >
+                  {action.label}
+                </Link>
+              ))}
+            </div>
           </div>
-          <div className="flex items-center gap-2 overflow-x-auto pb-1">
-            {agentActions(agentRef).map(action => (
-              <Link
-                key={action.key}
-                href={action.href}
-                className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition shrink-0 ${action.color}`}
-              >
-                {action.label}
-              </Link>
-            ))}
+
+          {/* UPGRADE AGENT accordion */}
+          <div className="rounded-2xl border border-fuchsia-500/30 bg-fuchsia-500/5 overflow-hidden">
+            <button
+              onClick={() => setShowUpgrade(v => !v)}
+              className="w-full flex items-center justify-between px-5 py-3 text-sm font-bold text-fuchsia-300 hover:bg-fuchsia-500/10 transition"
+            >
+              <span className="flex items-center gap-2"><span>⬆</span> UPGRADE AGENT</span>
+              <span className="text-[10px] font-normal text-[var(--muted)]">{showUpgrade ? '▲ collapse' : '▼ choose tier'}</span>
+            </button>
+            {showUpgrade && (
+              <div className="px-4 pb-4 grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-fuchsia-500/20">
+                {/* PRO */}
+                <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/5 p-4 space-y-3 mt-4">
+                  <div className="text-center">
+                    <div className="inline-flex items-center justify-center rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-bold text-emerald-300 mb-2">PRO</div>
+                    <p className="text-sm font-semibold text-[#f2eee4]">[name].nftmail.gno</p>
+                    <p className="text-lg font-bold text-emerald-300 mt-1">$10 USD</p>
+                    <p className="text-[10px] text-[var(--muted)]">Permanent NFT-governed email address</p>
+                  </div>
+                  <ul className="space-y-1 text-[11px] text-[var(--muted)]">
+                    <li className="flex items-start gap-2"><span className="text-emerald-400">✓</span> Unlimited inbox storage</li>
+                    <li className="flex items-start gap-2"><span className="text-emerald-400">✓</span> Send 100 emails/day</li>
+                    <li className="flex items-start gap-2"><span className="text-emerald-400">✓</span> Gnosis Safe multi-sig</li>
+                    <li className="flex items-start gap-2"><span className="text-emerald-400">✓</span> Agent autonomies (HITL, Budget)</li>
+                    <li className="flex items-start gap-2"><span className="text-emerald-400">✓</span> BYO NFT molt</li>
+                    <li className="flex items-start gap-2"><span className="text-emerald-400">✓</span> Tradeable NFT</li>
+                  </ul>
+                  <Link
+                    href={`/pair-nft?nft=fakenormie&tokenId=${ownedTokenId}&tier=pro`}
+                    className="block w-full rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 py-3 text-center text-sm font-bold text-white transition hover:opacity-90"
+                  >
+                    Pair NFT Pro ($10 USDC)
+                  </Link>
+                </div>
+                {/* PREMIUM */}
+                <div className="rounded-xl border border-violet-500/40 bg-violet-500/5 p-4 space-y-3 mt-4">
+                  <div className="text-center">
+                    <div className="inline-flex items-center justify-center rounded-full bg-violet-500/20 px-3 py-1 text-xs font-bold text-violet-300 mb-2">PREMIUM</div>
+                    <p className="text-sm font-semibold text-[#f2eee4]">[name].nftmail.gno</p>
+                    <p className="text-lg font-bold text-violet-300 mt-1">$24 USD annual</p>
+                    <p className="text-[10px] text-[var(--muted)]">(or reverts to PRO)</p>
+                  </div>
+                  <ul className="space-y-1 text-[11px] text-[var(--muted)]">
+                    <li className="flex items-start gap-2"><span className="text-violet-400">✓</span> Everything in PRO</li>
+                    <li className="flex items-start gap-2"><span className="text-violet-400">✓</span> Auto-forwarding</li>
+                    <li className="flex items-start gap-2"><span className="text-violet-400">✓</span> Disposable email</li>
+                    <li className="flex items-start gap-2"><span className="text-violet-400">✓</span> ghostmail.box alias</li>
+                    <li className="flex items-start gap-2"><span className="text-violet-400">✓</span> Persistent history</li>
+                    <li className="flex items-start gap-2"><span className="text-violet-400">✓</span> Transferable with governance</li>
+                  </ul>
+                  <Link
+                    href={`/pair-nft?nft=fakenormie&tokenId=${ownedTokenId}&tier=premium`}
+                    className="block w-full rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 py-3 text-center text-sm font-bold text-white transition hover:opacity-90"
+                  >
+                    Pair NFT Premium ($24 USDC)
+                  </Link>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -366,6 +366,7 @@ export default function OgNftMoltPage() {
   const [moltTarget, setMoltTarget]       = useState<MoltTarget>('new-agent');
   const [selectedAgent, setSelectedAgent]   = useState<string>(preselectedAgent ?? '');
   const [selectedTier, setSelectedTier] = useState<'pro' | 'premium'>('pro');
+  const [showUpgradeOptions, setShowUpgradeOptions] = useState(false);
 
   // Tier and fee state
   const [currentTier, setCurrentTier] = useState<keyof typeof TIER_FEES>('basic');
@@ -740,11 +741,12 @@ export default function OgNftMoltPage() {
             const tid = tokenId || '[TokenID]';
             if (nftType === 'fakenormie') {
               const slug = primaryName || '[Fake.Normie]';
+              const slugH = slug.replace(/\./g, '-');
               return (
                 <>
                   <p>✓ Gnosis mirror TBA deployed — your NFT&apos;s TBA becomes the Safe&apos;s sole key</p>
                   <p>✓ Gnosis Safe created — controlled exclusively by your NFT via its TBA</p>
-                  <p>✓ Beacon NFT <span className="font-mono text-[#f2eee4]">{slug}.nftmail.gno</span> minted <span className="text-violet-300">to the Safe</span> (not your wallet)</p>
+                  <p>✓ Beacon NFT <span className="font-mono text-[#f2eee4]">{slugH}.nftmail.gno</span> minted <span className="text-violet-300">to the Safe</span> (not your wallet)</p>
                   <p>✓ Human inbox <span className="font-mono text-[#f2eee4]">{slug}@nftmail.box</span></p>
                   <p className="ml-3">+ Agent inbox <span className="font-mono text-[#f2eee4]">{slug}_@nftmail.box</span></p>
                   <p className="text-amber-300/80">Your NFT stays in your wallet — it is the key, not the asset held</p>
@@ -966,7 +968,7 @@ export default function OgNftMoltPage() {
           {step === 'select-agent' && ownershipVerified && nftPreview && (
             <div className="space-y-4">
               {/* NFT preview — shown immediately after ownership check */}
-              <div className="flex items-center gap-3 rounded-xl border border-emerald-500/25 bg-emerald-500/5 px-3 py-2.5">
+              <div className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 ${nftType === 'fakenormie' ? 'border-pink-500/30 bg-pink-500/5' : 'border-emerald-500/25 bg-emerald-500/5'}`}>
                 <div className="h-20 w-20 shrink-0 overflow-hidden rounded-lg border border-[rgba(176,128,92,0.3)] bg-black/30">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
@@ -977,12 +979,14 @@ export default function OgNftMoltPage() {
                   />
                 </div>
                 <div>
-                  <p className="text-[10px] font-semibold text-emerald-400">✓ Ownership confirmed</p>
+                  <p className={`text-[10px] font-semibold ${nftType === 'fakenormie' ? 'text-pink-400' : 'text-emerald-400'}`}>✓ Ownership confirmed</p>
                   {nftType === 'fakenormie' && primaryName ? (
                     <>
-                      <p className="text-sm font-bold text-[#f2eee4]">Paired {primaryName}.agent.gno</p>
-                      <p className="text-sm font-bold text-[#f2eee4]">{nftPreview.name}</p>
+                      <p className="text-[10px] text-pink-300 font-semibold">Paired with Agent beacon NFT</p>
+                      <p className="font-mono text-sm font-bold text-[#f2eee4]">{primaryName.replace(/\./g, '-')}.agent.gno</p>
+                      <p className="text-xs text-[var(--muted)]">{nftPreview.name}</p>
                       <p className="text-[10px] text-[var(--muted)]">Gnosis · token #{nftPreview.tokenId}</p>
+                      <Link href="/fakenormies" className="text-[10px] text-pink-400 hover:underline">FakeNormies ↗</Link>
                     </>
                   ) : (
                     <>
@@ -998,60 +1002,73 @@ export default function OgNftMoltPage() {
                   )}
                 </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* PRO Panel */}
-                <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/5 p-4 space-y-4">
-                  <div className="text-center">
-                    <div className="inline-flex items-center justify-center rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-bold text-emerald-300 mb-2">PRO</div>
-                    <p className="text-sm font-semibold text-[#f2eee4]">[name].nftmail.gno</p>
-                    <p className="text-lg font-bold text-emerald-300 mt-1">$10 USD</p>
-                    <p className="text-[10px] text-[var(--muted)]">Permanent NFT-governed email address</p>
+              {/* UPGRADE AGENT accordion */}
+              <div className="rounded-xl border border-fuchsia-500/30 bg-fuchsia-500/5 overflow-hidden">
+                <button
+                  onClick={() => setShowUpgradeOptions(v => !v)}
+                  className="w-full flex items-center justify-between px-4 py-3 text-sm font-bold text-fuchsia-300 hover:bg-fuchsia-500/10 transition"
+                >
+                  <span className="flex items-center gap-2">
+                    <span>⬆</span> UPGRADE AGENT
+                  </span>
+                  <span className="text-[10px] font-normal text-[var(--muted)]">{showUpgradeOptions ? '▲ collapse' : '▼ choose tier'}</span>
+                </button>
+                {showUpgradeOptions && (
+                  <div className="px-4 pb-4 grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-fuchsia-500/20">
+                    {/* PRO Panel */}
+                    <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/5 p-4 space-y-3 mt-4">
+                      <div className="text-center">
+                        <div className="inline-flex items-center justify-center rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-bold text-emerald-300 mb-2">PRO</div>
+                        <p className="text-sm font-semibold text-[#f2eee4]">[name].nftmail.gno</p>
+                        <p className="text-lg font-bold text-emerald-300 mt-1">$10 USD</p>
+                        <p className="text-[10px] text-[var(--muted)]">Permanent NFT-governed email address</p>
+                      </div>
+                      <ul className="space-y-1 text-[11px] text-[var(--muted)]">
+                        <li className="flex items-start gap-2"><span className="text-emerald-400">✓</span> Unlimited inbox storage</li>
+                        <li className="flex items-start gap-2"><span className="text-emerald-400">✓</span> Send 100 emails/day</li>
+                        <li className="flex items-start gap-2"><span className="text-emerald-400">✓</span> Gnosis Safe multi-sig</li>
+                        <li className="flex items-start gap-2"><span className="text-emerald-400">✓</span> Agent autonomies (HITL, Budget)</li>
+                        <li className="flex items-start gap-2"><span className="text-emerald-400">✓</span> On-chain identity verification</li>
+                        <li className="flex items-start gap-2"><span className="text-emerald-400">✓</span> Attach an agent &quot;brain&quot;</li>
+                        <li className="flex items-start gap-2"><span className="text-emerald-400">✓</span> BYO NFT molt</li>
+                        <li className="flex items-start gap-2"><span className="text-emerald-400">✓</span> Tradeable NFT</li>
+                        <li className="flex items-start gap-2"><span className="text-emerald-400">✓</span> 30-day history window</li>
+                      </ul>
+                      <button
+                        onClick={() => { setMoltTarget('new-agent'); setSelectedTier('pro'); setStep('confirm'); }}
+                        className="w-full rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 py-3 text-sm font-bold text-white transition hover:opacity-90"
+                      >
+                        Pay $USDC 10 to Pair NFT Pro
+                      </button>
+                    </div>
+                    {/* PREMIUM Panel */}
+                    <div className="rounded-xl border border-violet-500/40 bg-violet-500/5 p-4 space-y-3 mt-4">
+                      <div className="text-center">
+                        <div className="inline-flex items-center justify-center rounded-full bg-violet-500/20 px-3 py-1 text-xs font-bold text-violet-300 mb-2">PREMIUM</div>
+                        <p className="text-sm font-semibold text-[#f2eee4]">[name].nftmail.gno</p>
+                        <p className="text-lg font-bold text-violet-300 mt-1">$24 USD annual</p>
+                        <p className="text-[10px] text-[var(--muted)]">(or reverts to PRO)</p>
+                        <p className="text-[10px] text-[var(--muted)] mt-1">Sovereign email with Safe treasury</p>
+                      </div>
+                      <ul className="space-y-1 text-[11px] text-[var(--muted)]">
+                        <li className="flex items-start gap-2"><span className="text-violet-400">✓</span> Everything in PRO</li>
+                        <li className="flex items-start gap-2"><span className="text-violet-400">✓</span> Auto-forwarding</li>
+                        <li className="flex items-start gap-2"><span className="text-violet-400">✓</span> Disposable email</li>
+                        <li className="flex items-start gap-2"><span className="text-violet-400">✓</span> ghostmail.box alias</li>
+                        <li className="flex items-start gap-2"><span className="text-violet-400">✓</span> Send and receive attachments</li>
+                        <li className="flex items-start gap-2"><span className="text-violet-400">✓</span> Persistent history</li>
+                        <li className="flex items-start gap-2"><span className="text-violet-400">✓</span> Attach an agent &quot;brain&quot;</li>
+                        <li className="flex items-start gap-2"><span className="text-violet-400">✓</span> Transferable with governance</li>
+                      </ul>
+                      <button
+                        onClick={() => { setMoltTarget('new-agent'); setSelectedTier('premium'); setStep('confirm'); }}
+                        className="w-full rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 py-3 text-sm font-bold text-white transition hover:opacity-90"
+                      >
+                        Pay $USDC 24 to Pair NFT Premium
+                      </button>
+                    </div>
                   </div>
-                  <ul className="space-y-1 text-[11px] text-[var(--muted)]">
-                    <li className="flex items-start gap-2"><span className="text-emerald-400">✓</span> Unlimited inbox storage</li>
-                    <li className="flex items-start gap-2"><span className="text-emerald-400">✓</span> Send 100 emails/day</li>
-                    <li className="flex items-start gap-2"><span className="text-emerald-400">✓</span> Gnosis Safe multi-sig</li>
-                    <li className="flex items-start gap-2"><span className="text-emerald-400">✓</span> Agent autonomies (HITL, Budget)</li>
-                    <li className="flex items-start gap-2"><span className="text-emerald-400">✓</span> On-chain identity verification</li>
-                    <li className="flex items-start gap-2"><span className="text-emerald-400">✓</span> Attach an agent &quot;brain&quot;</li>
-                    <li className="flex items-start gap-2"><span className="text-emerald-400">✓</span> BYO NFT molt</li>
-                    <li className="flex items-start gap-2"><span className="text-emerald-400">✓</span> Tradeable NFT</li>
-                    <li className="flex items-start gap-2"><span className="text-emerald-400">✓</span> 30-day history window</li>
-                  </ul>
-                  <button
-                    onClick={() => { setMoltTarget('new-agent'); setSelectedTier('pro'); setStep('confirm'); }}
-                    className="w-full rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 py-3 text-sm font-bold text-white transition hover:opacity-90"
-                  >
-                    Pay $USDC 10 to Pair NFT Pro
-                  </button>
-                </div>
-
-                {/* PREMIUM Panel */}
-                <div className="rounded-xl border border-violet-500/40 bg-violet-500/5 p-4 space-y-4">
-                  <div className="text-center">
-                    <div className="inline-flex items-center justify-center rounded-full bg-violet-500/20 px-3 py-1 text-xs font-bold text-violet-300 mb-2">PREMIUM</div>
-                    <p className="text-sm font-semibold text-[#f2eee4]">[name].nftmail.gno</p>
-                    <p className="text-lg font-bold text-violet-300 mt-1">$24 USD annual</p>
-                    <p className="text-[10px] text-[var(--muted)]">(or reverts to PRO)</p>
-                    <p className="text-[10px] text-[var(--muted)] mt-1">Sovereign email with Safe treasury</p>
-                  </div>
-                  <ul className="space-y-1 text-[11px] text-[var(--muted)]">
-                    <li className="flex items-start gap-2"><span className="text-violet-400">✓</span> Everything in PRO</li>
-                    <li className="flex items-start gap-2"><span className="text-violet-400">✓</span> Auto-forwarding</li>
-                    <li className="flex items-start gap-2"><span className="text-violet-400">✓</span> Disposable email</li>
-                    <li className="flex items-start gap-2"><span className="text-violet-400">✓</span> ghostmail.box alias</li>
-                    <li className="flex items-start gap-2"><span className="text-violet-400">✓</span> Send and receive attachments</li>
-                    <li className="flex items-start gap-2"><span className="text-violet-400">✓</span> Persistent history</li>
-                    <li className="flex items-start gap-2"><span className="text-violet-400">✓</span> Attach an agent &quot;brain&quot;</li>
-                    <li className="flex items-start gap-2"><span className="text-violet-400">✓</span> Transferable with governance</li>
-                  </ul>
-                  <button
-                    onClick={() => { setMoltTarget('new-agent'); setSelectedTier('premium'); setStep('confirm'); }}
-                    className="w-full rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 py-3 text-sm font-bold text-white transition hover:opacity-90"
-                  >
-                    Pay $USDC 24 to Pair NFT Premium
-                  </button>
-                </div>
+                )}
               </div>
             </div>
           )}
