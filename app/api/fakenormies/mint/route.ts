@@ -232,6 +232,7 @@ export async function POST(req: NextRequest) {
     const workerUrl = process.env.NEXT_PUBLIC_WORKER_URL || 'https://nftmail-email-worker.richard-159.workers.dev';
     const webhookSecret = process.env.WEBHOOK_SECRET;
     if (webhookSecret) {
+      // Register profile in KV
       fetch(workerUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -249,6 +250,17 @@ export async function POST(req: NextRequest) {
             tier: 'basic',
             mintedAt: new Date().toISOString(),
           },
+        }),
+      }).catch(() => {});
+      // Seed tld: key so agent appears in listAgents → My Agents dashboard
+      fetch(workerUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'setTld',
+          secret: webhookSecret,
+          agentName: slug,
+          tld: 'fakenormie',
         }),
       }).catch(() => {});
     }

@@ -589,14 +589,20 @@ export default function OgNftMoltPage() {
           setError('FakeNormie contract not yet deployed — mint one from the sandbox on the Delegation page first.');
           setChecking(false); return;
         }
-        const { name, imageUrl } = await fetchErc721Image(FAKE_NORMIE_CONTRACT, tokenId);
-        const slug = name ? name.toLowerCase().replace(/\s+/g, '.').replace(/[^a-z0-9.]/g, '') : `fakenormie.${tokenId}`;
+        // Resolve slug from manifest (e.g. token 0 → super.normie)
+        const tokenNum = Number(tokenId);
+        let slug = `fakenormie${tokenNum}`;
+        try {
+          const mf = await fetch('/FakeNormies/manifest.json').then(r => r.json()) as { slugIndex: Record<string, number> };
+          const entry = Object.entries(mf.slugIndex).find(([, id]) => id === tokenNum);
+          if (entry) slug = entry[0];
+        } catch {}
         if (isFakeNormieReserved(slug, tokenId)) {
           setError(`The name "${slug}" is already reserved for another FakeNormie.`);
           setChecking(false); return;
         }
         setPrimaryName(slug);
-        preview = { type: 'other', tokenId, name: name || `FakeNormie #${tokenId}`, imageUrl, chain: 'gnosis' as any };
+        preview = { type: 'other', tokenId, name: `FakeNormie #${tokenNum} · ${slug}`, imageUrl: '/FakeNormies/FakeNormie.gif', chain: 'gnosis' as any };
       } else if (nftType === 'mooncat') {
         const { name, imageUrl } = await fetchMooncatImage(tokenId);
         preview = { type: 'mooncat', tokenId, name, imageUrl, chain: 'mainnet' };

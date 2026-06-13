@@ -1,9 +1,28 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePrivy } from '@privy-io/react-auth';
+import { createPublicClient, http, parseAbiItem, defineChain, type Address } from 'viem';
+
+const gnosis = defineChain({
+  id: 100,
+  name: 'Gnosis',
+  nativeCurrency: { name: 'xDAI', symbol: 'xDAI', decimals: 18 },
+  rpcUrls: { default: { http: ['https://rpc.gnosischain.com'] } },
+  blockExplorers: { default: { name: 'Gnosisscan', url: 'https://gnosisscan.io' } },
+});
+
+const FAKE_NORMIE_CONTRACT = (process.env.NEXT_PUBLIC_FAKE_NORMIE_CONTRACT || '0x1d6b9e2af40322d2311ff0df66dade4490ac4c29') as Address;
+
+const BALANCE_ABI = [{
+  name: 'balanceOf',
+  type: 'function',
+  inputs: [{ name: 'owner', type: 'address' }],
+  outputs: [{ name: '', type: 'uint256' }],
+  stateMutability: 'view',
+}] as const;
 
 interface MintResult {
   tokenId: number;
@@ -20,8 +39,42 @@ export default function FakeNormiesPage() {
   const [minting, setMinting] = useState(false);
   const [result, setResult] = useState<MintResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [existingTokenId, setExistingTokenId] = useState<number | null>(null);
+  const [existingSlug, setExistingSlug] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
 
   const wallet = user?.wallet?.address ?? null;
+
+  useEffect(() => {
+    if (!wallet) return;
+    setChecking(true);
+    const client = createPublicClient({ chain: gnosis, transport: http() });
+    client.readContract({
+      address: FAKE_NORMIE_CONTRACT,
+      abi: BALANCE_ABI,
+      functionName: 'balanceOf',
+      args: [wallet as Address],
+    }).then(async (balance) => {
+      if (balance > 0n) {
+        const logs = await client.getLogs({
+          address: FAKE_NORMIE_CONTRACT,
+          event: parseAbiItem('event AgentMinted(uint256 indexed tokenId, address indexed to)'),
+          args: { to: wallet as Address },
+          fromBlock: 0n,
+        });
+        const tid = logs.length > 0 ? Number(logs[0].args.tokenId) : 0;
+        setExistingTokenId(tid);
+        // Resolve slug from manifest
+        try {
+          const mf = await fetch('/FakeNormies/manifest.json').then(r => r.json()) as { slugIndex: Record<string, number> };
+          const entry = Object.entries(mf.slugIndex).find(([, id]) => id === tid);
+          setExistingSlug(entry ? entry[0] : `token${tid}`);
+        } catch {
+          setExistingSlug(`token${tid}`);
+        }
+      }
+    }).catch(() => {}).finally(() => setChecking(false));
+  }, [wallet]);
 
   async function handleClaim() {
     if (!wallet) return;
@@ -75,7 +128,7 @@ export default function FakeNormiesPage() {
                 <span className="mt-0.5 text-lg">👻</span>
                 <div>
                   <p className="font-semibold text-[#f2eee4]">Basic — Free</p>
-                  <p className="text-[#8a8a8a]">10 sends/day · 10 chat/day · demo delegation</p>
+                  <p className="text-[#8a8a8a]">10 emails included · then upgrade to continue</p>
                 </div>
               </div>
               <div className="flex items-start gap-3 px-4 py-3">
@@ -102,6 +155,49 @@ export default function FakeNormiesPage() {
               >
                 Connect Wallet
               </button>
+            ) : checking ? (
+              <div className="w-full rounded-xl border border-white/[0.07] bg-white/[0.03] px-6 py-3.5 text-sm text-[#555] text-center">
+                Checking wallet…
+              </div>
+            ) : existingTokenId !== null ? (
+              <div className="w-full flex flex-col gap-3">
+                <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/5 px-5 py-4 text-left">
+                  <p className="text-[10px] font-semibold tracking-widest text-emerald-400 uppercase mb-1">Your FakeNormie ✓</p>
+                  <p className="text-xl font-bold text-[#f2eee4] font-mono">
+                    {existingSlug ? `${existingSlug}@nftmail.box` : `FakeNormie #${existingTokenId}`}
+                  </p>
+                  <p className="mt-1 text-[11px] text-[#555]">Token #{existingTokenId} · Gnosis Chain</p>
+                </div>
+                <div className="rounded-xl border border-white/[0.07] bg-white/[0.03] px-4 py-4 text-left space-y-2">
+                  <p className="text-xs font-semibold text-[#f2eee4] mb-2">Agent actions</p>
+                  <a
+                    href={`https://nftmail.box/inbox/${existingSlug ?? `token${existingTokenId}`}`}
+                    target="_blank" rel="noopener noreferrer"
+                    className="flex items-center justify-between w-full rounded-lg border border-white/[0.07] bg-white/[0.03] px-3 py-2.5 text-xs text-[#f2eee4] hover:bg-white/[0.06] transition"
+                  >
+                    <span>Open Inbox</span><span className="text-[#555]">nftmail.box ↗</span>
+                  </a>
+                  <Link
+                    href={`/pair-nft`}
+                    className="flex items-center justify-between w-full rounded-lg border border-[rgba(0,163,255,0.25)] bg-[rgba(0,163,255,0.08)] px-3 py-2.5 text-xs text-[rgb(160,220,255)] hover:bg-[rgba(0,163,255,0.15)] transition"
+                  >
+                    <span>Pair NFT → Mint Agent ID</span><span className="text-[#555]">/pair-nft</span>
+                  </Link>
+                  <Link
+                    href="/agents?tab=mint"
+                    className="flex items-center justify-between w-full rounded-lg border border-white/[0.07] bg-white/[0.03] px-3 py-2.5 text-xs text-[#8a8a8a] hover:text-[#f2eee4] transition"
+                  >
+                    <span>Mint Agent ID</span><span className="text-[#555]">/agents</span>
+                  </Link>
+                  <a
+                    href={`https://gnosisscan.io/token/${FAKE_NORMIE_CONTRACT}?a=${wallet}`}
+                    target="_blank" rel="noopener noreferrer"
+                    className="flex items-center justify-between w-full rounded-lg border border-white/[0.07] bg-white/[0.03] px-3 py-2.5 text-xs text-[#8a8a8a] hover:text-[#f2eee4] transition"
+                  >
+                    <span>View on Gnosisscan</span><span className="text-[#555]">↗</span>
+                  </a>
+                </div>
+              </div>
             ) : (
               <button
                 onClick={handleClaim}

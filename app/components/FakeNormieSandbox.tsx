@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
 
 type MintState = 'idle' | 'minting' | 'minted' | 'already' | 'error';
@@ -16,6 +17,7 @@ interface FakeNormieSandboxProps {
 export function FakeNormieSandbox({ wide = false, onMinted }: FakeNormieSandboxProps) {
   const { authenticated, login } = usePrivy();
   const { wallets } = useWallets();
+  const router = useRouter();
   const connectedWallet =
     wallets.find(w => w.walletClientType !== 'privy')?.address ?? wallets[0]?.address ?? null;
 
@@ -42,6 +44,8 @@ export function FakeNormieSandbox({ wide = false, onMinted }: FakeNormieSandboxP
       setTokenId(tid);
       setState('minted');
       if (tid) onMinted?.(tid);
+      // Redirect to fakenormies page where user can see their agent
+      router.push('/fakenormies');
     } catch {
       setError('Network error — try again');
       setState('error');
