@@ -55,12 +55,18 @@ const GLOBAL_CAP = 500;
 let globalCount = 0;
 const mintedWallets = new Set<string>();
 
+// DISABLED: demo mint disabled to prevent duplicate mints. Flip to false to
+// re-enable. Typed as `boolean` (not literal `true`) so TypeScript keeps the
+// code below reachable for control-flow narrowing.
+const DEMO_MINT_DISABLED: boolean = true;
+
 export async function POST(req: NextRequest) {
-  // ── DISABLED: Demo mint endpoint disabled to prevent duplicate mints ─────────
-  return NextResponse.json(
-    { error: 'Demo mint disabled. Use /fakenormies page to mint.' },
-    { status: 503 }
-  );
+  if (DEMO_MINT_DISABLED) {
+    return NextResponse.json(
+      { error: 'Demo mint disabled. Use /fakenormies page to mint.' },
+      { status: 503 }
+    );
+  }
 
   // ── Guard: contract configured ──────────────────────────────────────────────
   if (!FAKE_NORMIE_CONTRACT || (FAKE_NORMIE_CONTRACT as string) === '') {
