@@ -56,6 +56,12 @@ let globalCount = 0;
 const mintedWallets = new Set<string>();
 
 export async function POST(req: NextRequest) {
+  // ── DISABLED: Demo mint endpoint disabled to prevent duplicate mints ─────────
+  return NextResponse.json(
+    { error: 'Demo mint disabled. Use /fakenormies page to mint.' },
+    { status: 503 }
+  );
+
   // ── Guard: contract configured ──────────────────────────────────────────────
   if (!FAKE_NORMIE_CONTRACT || (FAKE_NORMIE_CONTRACT as string) === '') {
     return NextResponse.json(

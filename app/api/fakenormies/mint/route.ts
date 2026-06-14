@@ -146,7 +146,11 @@ function buildTokenIdToSlug(): Record<number, string> {
 }
 const tokenIdToSlug = buildTokenIdToSlug();
 
+// In-memory lock to prevent race condition duplicate mints
+const pendingMints = new Set<string>();
+
 export async function POST(req: NextRequest) {
+  let wallet: string = '';
   try {
     const deployerKey = process.env.DEPLOYER_PRIVATE_KEY;
     if (!deployerKey) {
@@ -154,10 +158,19 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json() as { wallet?: string };
-    const wallet = body.wallet?.trim().toLowerCase();
+    wallet = body.wallet?.trim().toLowerCase() || '';
     if (!wallet || !/^0x[a-f0-9]{40}$/.test(wallet)) {
       return NextResponse.json({ error: 'Invalid wallet address' }, { status: 400 });
     }
+
+    // In-memory lock to prevent race condition duplicate mints
+    if (pendingMints.has(wallet)) {
+      return NextResponse.json(
+        { error: 'Mint already in progress for this wallet' },
+        { status: 429 }
+      );
+    }
+    pendingMints.add(wallet);
 
     const publicClient = createPublicClient({ chain: gnosis, transport: http() });
 
@@ -296,5 +309,7 @@ export async function POST(req: NextRequest) {
     const msg = err instanceof Error ? err.message : 'Mint failed';
     console.error('[fakenormies/mint]', err);
     return NextResponse.json({ error: msg }, { status: 500 });
+  } finally {
+    pendingMints.delete(wallet);
   }
 }

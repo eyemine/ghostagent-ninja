@@ -10,7 +10,6 @@ import { MercuryoButton } from '../components/MercuryoWidget';
 import { EmailAliasToggle } from '../components/EmailAliasToggle';
 import type { AgentRegistryEntry } from '../api/agents/route';
 import { generateNormieHandles } from '../services/agent-identity-router';
-import { FakeNormieSandbox } from '../components/FakeNormieSandbox';
 
 type NftType = 'ens' | 'normie' | 'chonk' | 'mooncat' | 'pownft' | 'fakenormie' | 'other';
 type Step = 'check' | 'select-agent' | 'confirm' | 'molting' | 'done' | 'error';
@@ -785,7 +784,7 @@ export default function OgNftMoltPage() {
           {/* NFT type picker */}
           <div>
             <label className="block text-[10px] font-semibold tracking-wider text-[var(--muted)] mb-2">NFT COLLECTION</label>
-            <div className="grid grid-cols-7 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
               {([
                 {k:'ens'     as NftType, l:'ENS\nName',       img:ICONS.ens},
                 {k:'normie'  as NftType, l:'NORMIES\nON ETH',  img:ICONS.normie},
@@ -796,11 +795,11 @@ export default function OgNftMoltPage() {
                 {k:'other'   as NftType, l:'OTHER\nERC-721',  img:ICONS.other},
               ]).map(opt => (
                 <button key={opt.k} onClick={() => { selectNftType(opt.k); setTokenId(''); }}
-                  className={`rounded-lg border p-3 font-semibold transition flex flex-col items-center justify-center gap-2 ${
+                  className={`rounded-lg border p-2 sm:p-3 font-semibold transition flex flex-col items-center justify-center gap-2 ${
                     nftType === opt.k ? 'border-fuchsia-500/50 bg-fuchsia-500/10 text-fuchsia-300' : 'border-[rgba(176,128,92,0.2)] bg-black/20 text-[var(--muted)] hover:text-[#f2eee4]'
                   }`}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={opt.img} alt={opt.l} className="w-24 h-24 rounded object-contain flex-shrink-0" />
+                  <img src={opt.img} alt={opt.l} className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 rounded object-contain flex-shrink-0" />
                   <span className="whitespace-pre-line leading-tight text-[10px] text-center">{opt.l}</span>
                 </button>
               ))}
@@ -948,13 +947,6 @@ export default function OgNftMoltPage() {
           )}
 
           {error && !ownershipVerified && <p className="text-xs text-red-400">{error}</p>}
-
-          {/* FakeNormie Sandbox — shown when fakenormie selected, below OG NFTs */}
-          {nftType === 'fakenormie' && step === 'check' && (
-            <FakeNormieSandbox
-              onMinted={(tid) => { setTokenId(tid); }}
-            />
-          )}
 
           {step === 'check' && nftType !== 'other' && (
             <button onClick={handleVerifyOwnership}

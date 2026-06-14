@@ -7,7 +7,6 @@ import { TermsCheckbox } from '../components/TermsCheckbox';
 import { MintAgentBundle } from '../components/MintAgentBundle';
 import { GenomeEditor } from '../components/GenomeEditor';
 import { defaultGenomeMetadata, type GenomeMetadata } from '../services/genome-metadata';
-import { FakeNormieSandbox } from '../components/FakeNormieSandbox';
 
 type Namespace = 'agent' | 'openclaw' | 'molt' | 'picoclaw' | 'vault' | 'nftmail';
 type VaultPath = 'premium' | 'ghost';
@@ -354,7 +353,6 @@ export default function MintTab() {
             );
           })}
         </div>
-        <FakeNormieSandbox wide />
       </div>
 
       {/* ── AGENT NAME ── */}
