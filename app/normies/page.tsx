@@ -11,10 +11,11 @@ const WORKER_URL = process.env.NEXT_PUBLIC_WORKER_URL || 'https://nftmail-email-
 
 const HEADER_IMG = '/FakeNormies/FakeNormie1.png';
 const NORMIE_CONTRACT = '0x9eb6e2025b64f340691e424b7fe7022ffde12438'; // Normies on Ethereum mainnet
+const NORMIES_BINDING_BASE = '0xde152afb7db5373f34876e1499fbd893a82dd336'; // Normies.art binding contract on Base
 const ETH_RPC = 'https://cloudflare-eth.com';
 
 interface Trait { trait_type: string; value: string; }
-interface NormieData { tokenId: number; raw: string; attributes: Trait[]; pixelOn: number | null; isAgent: boolean | null; }
+interface NormieData { tokenId: number; raw: string; attributes: Trait[]; pixelOn: number | null; isAgent: boolean | null; agentDelegate: string | null; }
 
 // Existing deployed GhostAgents available for live trust verification.
 const VERIFIED_AGENTS: Array<TrustTarget & { label: string }> = [
@@ -111,13 +112,15 @@ export default function NormiesPage() {
         pixelOn = (grid.match(/1/g) ?? []).length;
       }
       let isAgent: boolean | null = null;
+      let agentDelegate: string | null = null;
       if (canvasRes && canvasRes.ok) {
         try {
-          const canvas = (await canvasRes.json()) as { isAgent?: boolean };
+          const canvas = (await canvasRes.json()) as { isAgent?: boolean; delegate?: string };
           if (typeof canvas.isAgent === 'boolean') isAgent = canvas.isAgent;
+          if (typeof canvas.delegate === 'string' && canvas.delegate.startsWith('0x')) agentDelegate = canvas.delegate;
         } catch { /* canvas endpoint may not exist */ }
       }
-      setNormie({ tokenId: tid, raw: traits.raw, attributes: traits.attributes, pixelOn, isAgent });
+      setNormie({ tokenId: tid, raw: traits.raw, attributes: traits.attributes, pixelOn, isAgent, agentDelegate });
     } catch {
       setError('Normie not found or API error');
       setNormie(null);
@@ -171,13 +174,14 @@ export default function NormiesPage() {
     let cancelled = false;
     setAgentStatus('checking'); setRegisteredTarget(null);
     const handles = generateNormieHandles(normie.tokenId);
-    // Most likely names from molt: "Normie #N" → sanitize → "normie-N"
+    // Dotted form (normie.N) is the preferred identity name; hyphenated (normie-N) is the beacon subname.
     const candidates = Array.from(new Set([
+      `normie.${normie.tokenId}`,
       `normie-${normie.tokenId}`,
+      `normies.${normie.tokenId}`,
       `normies-${normie.tokenId}`,
       handles.ghostAgentName,
       handles.slug,
-      `${handles.slug}-normie`,
     ]));
     (async () => {
       for (const name of candidates) {
@@ -192,7 +196,8 @@ export default function NormiesPage() {
           const data = (await res.json()) as { erc8004?: { gnosis?: { agentId?: number } } };
           const agentId = data?.erc8004?.gnosis?.agentId;
           if (typeof agentId === 'number' && !cancelled) {
-            setRegisteredTarget({ label: `${name.replace(/\./g, '-')}.agent.gno`, agentName: name, agentId, chain: 'gnosis', webUrl: 'https://ghostagent.ninja' });
+            // Display name preserves dots (normie.100); beacon NFT subname is hyphenated (normie-100.agent.gno)
+            setRegisteredTarget({ label: name, agentName: name, agentId, chain: 'gnosis', webUrl: 'https://ghostagent.ninja' });
             setAgentStatus('registered');
             return;
           }
@@ -366,41 +371,77 @@ export default function NormiesPage() {
               </div>
             )}
 
-            {/* Per-Normie live ERC-8004 status */}
+            {/* Per-Normie identity panel — two tracks: Normies.art vs GhostAgent */}
             {normie && (
-              <div>
-                <h3 className="text-[10px] font-semibold tracking-widest text-[var(--muted)] uppercase mb-3">This Normie&apos;s Agent</h3>
-                {agentStatus === 'checking' && (
-                  <div className="rounded-xl border border-[rgba(176,128,92,0.25)] bg-black/30 px-4 py-3 text-xs text-[var(--muted)]">
-                    {normie.isAgent ? '🔥 Normie is awakened — checking ERC-8004 registration…' : 'Checking on-chain ERC-8004 registration…'}
+              <div className="space-y-3">
+                <h3 className="text-[10px] font-semibold tracking-widest text-[var(--muted)] uppercase">Normie #{normie.tokenId} Identity</h3>
+
+                {/* Track A: Normies.art Awakening (Base) */}
+                <div className={`rounded-xl border px-4 py-3.5 space-y-1.5 ${
+                  normie.isAgent === null ? 'border-[rgba(176,128,92,0.25)] bg-black/20'
+                  : normie.isAgent ? 'border-fuchsia-500/40 bg-fuchsia-500/[0.06]'
+                  : 'border-[rgba(176,128,92,0.2)] bg-black/20'
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold tracking-wider text-[var(--muted)] uppercase">A · Normies.art Awakening</span>
+                    <span className="text-[9px] font-mono text-[var(--muted)]">Base · proprietary</span>
                   </div>
-                )}
-                {agentStatus === 'unregistered' && normie.isAgent && (
-                  <div className="rounded-xl border border-fuchsia-500/30 bg-fuchsia-500/5 px-4 py-3 space-y-1.5">
-                    <p className="text-xs font-semibold text-fuchsia-300">🔥 Awakened on Normies.art — no GhostAgent ERC-8004 yet</p>
-                    <p className="text-[11px] text-[var(--muted)]">This Normie has an active agent binding on Normies.art but hasn&apos;t been minted into the ERC-8004 registry on Gnosis. {owned ? 'You can activate it via Mint Agent ID.' : 'The owner can register it as a GhostAgent.'}</p>
-                    {owned && (
-                      <a href={`/pair-nft?nft=normie&tokenId=${normie.tokenId}`} className="inline-block mt-1 rounded-lg bg-fuchsia-600/70 px-4 py-1.5 text-xs font-bold text-white hover:bg-fuchsia-600 transition">
-                        Register as GhostAgent →
-                      </a>
-                    )}
-                  </div>
-                )}
-                {agentStatus === 'unregistered' && !normie.isAgent && (
-                  <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3">
-                    <p className="text-xs font-semibold text-amber-300">Preview only — not yet activated</p>
-                    <p className="text-[11px] text-[var(--muted)] mt-0.5">Normie #{normie.tokenId} has no on-chain ERC-8004 agent yet. {owned ? 'Activate it' : 'The owner can activate it'} to register on Gnosis — then it verifies here automatically.</p>
-                  </div>
-                )}
-                {agentStatus === 'registered' && registeredTarget && (
-                  <>
-                    <div className="flex items-center gap-2 mb-2">
-                      {normie.isAgent && <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold border border-fuchsia-500/40 bg-fuchsia-500/10 text-fuchsia-300">🔥 Awakened</span>}
-                      <p className="text-xs text-emerald-300">✓ GhostAgent <span className="font-mono">{registeredTarget.label}</span> · ERC-8004 #{registeredTarget.agentId}</p>
+                  {normie.isAgent === null ? (
+                    <p className="text-xs text-[var(--muted)]">Checking Normies.art canvas…</p>
+                  ) : normie.isAgent ? (
+                    <div className="space-y-1">
+                      <p className="text-xs font-semibold text-fuchsia-300">🔥 Awakened — agent binding active on Base</p>
+                      {normie.agentDelegate && (
+                        <p className="text-[10px] font-mono text-[var(--muted)] break-all">Agent wallet: {normie.agentDelegate.slice(0, 10)}…{normie.agentDelegate.slice(-8)}</p>
+                      )}
+                      <p className="text-[10px] text-[var(--muted)]">
+                        Binding contract: <a href={`https://basescan.org/address/${NORMIES_BINDING_BASE}`} target="_blank" rel="noreferrer" className="text-fuchsia-400 hover:underline font-mono">{NORMIES_BINDING_BASE.slice(0, 10)}…↗</a>
+                      </p>
+                      <p className="text-[10px] text-[var(--muted)] mt-0.5">Closed ecosystem — interoperability limited to Normies.art platform.</p>
                     </div>
-                    <NormieTrustBadge target={registeredTarget} />
-                  </>
-                )}
+                  ) : (
+                    <p className="text-xs text-[var(--muted)]">Not awakened — no binding registered on Normies.art yet.</p>
+                  )}
+                </div>
+
+                {/* Track B: GhostAgent ERC-8004 (Gnosis, open standard) */}
+                <div className={`rounded-xl border px-4 py-3.5 space-y-1.5 ${
+                  agentStatus === 'registered' ? 'border-emerald-500/40 bg-emerald-500/[0.06]'
+                  : agentStatus === 'checking' ? 'border-[rgba(176,128,92,0.25)] bg-black/20'
+                  : 'border-amber-500/30 bg-amber-500/[0.04]'
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold tracking-wider text-[var(--muted)] uppercase">B · GhostAgent ERC-8004</span>
+                    <span className="text-[9px] font-mono text-[var(--muted)]">Gnosis · open standard</span>
+                  </div>
+                  {agentStatus === 'checking' && (
+                    <p className="text-xs text-[var(--muted)]">Checking ERC-8004 registry…</p>
+                  )}
+                  {agentStatus === 'registered' && registeredTarget && (
+                    <div className="space-y-2">
+                      <div>
+                        <p className="text-xs font-semibold text-emerald-300">✓ Registered — <span className="font-mono">{registeredTarget.label}</span> · ERC-8004 #{registeredTarget.agentId}</p>
+                        <p className="text-[10px] text-[var(--muted)] mt-0.5">Beacon NFT: <span className="font-mono">{registeredTarget.label.replace(/\./g, '-')}.agent.gno</span> · verifiable on any ERC-8004 oracle.</p>
+                      </div>
+                      <NormieTrustBadge target={registeredTarget} />
+                    </div>
+                  )}
+                  {agentStatus === 'unregistered' && (
+                    <div className="space-y-1.5">
+                      <p className="text-xs font-semibold text-amber-300">Not registered in ERC-8004 registry</p>
+                      <p className="text-[11px] text-[var(--muted)]">
+                        {normie.isAgent
+                          ? `This Normie is awakened on Normies.art (Track A) but hasn't been registered in the open ERC-8004 registry. ${owned ? 'Register it as a GhostAgent to make it cross-platform verifiable.' : 'The owner can register it as a GhostAgent.'}`
+                          : `Normie ${normie.tokenId} has no GhostAgent identity yet. ${owned ? 'Activate it to register on Gnosis.' : 'The owner can activate it as a GhostAgent.'}`}
+                      </p>
+                      {owned && (
+                        <a href={`/pair-nft?nft=normie&tokenId=${normie.tokenId}`} className="inline-block mt-1 rounded-lg bg-fuchsia-600/70 px-4 py-1.5 text-xs font-bold text-white hover:bg-fuchsia-600 transition">
+                          Register as GhostAgent →
+                        </a>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
