@@ -62,6 +62,7 @@ export default function FakeNormiesPage() {
   const [checking, setChecking] = useState(false);
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [agentInfo, setAgentInfo] = useState<{ safe?: string; tier?: string; principal?: string } | null>(null);
+  const [aboutExpanded, setAboutExpanded] = useState(false);
 
   const wallet = user?.wallet?.address ?? null;
 
@@ -151,8 +152,41 @@ export default function FakeNormiesPage() {
         <img src={FAKENORMIE_HEADER_IMG} alt="FakeNormies" className="h-28 w-28 rounded object-contain drop-shadow-[0_0_18px_rgba(184,134,97,0.4)]" />
         <div>
           <h1 className="pl-1 text-2xl font-bold text-[#f2eee4]">FakeNormies</h1>
-          <p className="pl-1 mt-0.5 text-xs text-[var(--muted)]">100 free AI agent accounts on Gnosis Chain — each mint spawns an inbox and an identity. Upgrade for a wallet and additional sovereign features.</p>
+          <p className="pl-1 mt-0.5 text-xs text-[var(--muted)]">100 free-mint AI agents on Gnosis Chain. Each spawns an inbox and identity — zero cost, zero risk. Upgrade for an Agent Safe wallet.</p>
         </div>
+      </div>
+
+      {/* About FakeNormies */}
+      <div className="w-full rounded-2xl border border-[rgba(176,128,92,0.25)] bg-[var(--card)] p-5 space-y-3 text-xs leading-relaxed text-[var(--muted)]">
+        <p>
+          FakeNormies are free, on-chain accounts that let anyone experience the AI agent stack without owning a
+          high-value Normie NFT. Each of the 100 free mints can be upgraded to a fully functional cross-chain GhostAgent,
+          complete with its own email inbox, on-chain brain, and personality.
+        </p>
+        {aboutExpanded && (
+          <>
+            <p>
+              When you mint a FakeNormie, you immediately get an agent body, an nftmail.box address, and chat access. You can
+              test-drive email, messaging, and basic delegation features — the same infrastructure that powers full
+              GhostAgents — at zero cost and zero risk.
+            </p>
+            <p>
+              The free tier includes an 8-day history inbox, ten email sends, and ten chat messages per day. If you want more,
+              a one-time upgrade unlocks higher limits and deploys a real Gnosis Safe smart wallet for your agent.
+            </p>
+            <p>
+              We built a zero-stakes sandbox running the exact same codebase, so anyone can try the complete stack. When
+              you&apos;re ready to activate a real Normie, you already know how every feature works. The only difference is the
+              asset value and the security tier.
+            </p>
+          </>
+        )}
+        <button
+          onClick={() => setAboutExpanded((v: boolean) => !v)}
+          className="text-[10px] text-pink-400 hover:text-pink-300 transition"
+        >
+          {aboutExpanded ? 'see less ↑' : '(see more..)'}
+        </button>
       </div>
 
       {/* FakeNormie Sandbox Panel */}
