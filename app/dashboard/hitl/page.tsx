@@ -33,13 +33,9 @@ export default function HITLPage() {
     }
 
     if (agentParam) {
-      fetch(WORKER_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'getAgentIdentity', agentName: agentParam }),
-      })
-        .then(r => r.json() as Promise<{ safe?: string }>)
-        .then(d => { if (d.safe) setSafeInput(d.safe); })
+      fetch(`/api/agent-lookup?q=${agentParam}`)
+        .then(r => r.json() as Promise<{ safeAddress?: string; safe?: string }>)
+        .then(d => { if (d.safeAddress || d.safe) setSafeInput(d.safeAddress ?? d.safe ?? ''); })
         .catch(() => {});
       return;
     }

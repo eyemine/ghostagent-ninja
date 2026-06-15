@@ -188,12 +188,8 @@ export default function AgentDetailPage() {
     if (!name) return;
     setLoading(true);
 
-    // 1. Worker: getAgentIdentity (response is top-level, not wrapped)
-    const identityP = fetch(WORKER_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'getAgentIdentity', agentName: name }),
-    })
+    // 1. API: getAgentIdentity via server route (avoids exposing worker secret)
+    const identityP = fetch(`/api/agent-lookup?q=${name}`)
       .then(r => r.json() as Promise<AgentIdentity & { error?: string }>)
       .then(d => d.error ? null : d)
       .catch(() => null);

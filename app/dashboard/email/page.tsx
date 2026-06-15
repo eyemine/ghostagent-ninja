@@ -42,14 +42,7 @@ export default function EmailDashboard() {
 
     const fetchAgents = async () => {
       try {
-        const res = await fetch(WORKER_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'listAgents',
-            safeAddress: user.wallet?.address,
-          }),
-        });
+        const res = await fetch('/api/agents');
 
         const data = await res.json();
         if (data.error) {
@@ -59,14 +52,7 @@ export default function EmailDashboard() {
         // Map to Agent interface with tier info
         const agentList: Agent[] = await Promise.all(
           (data.agents || []).map(async (name: string) => {
-            const profileRes = await fetch(WORKER_URL, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                action: 'getAgentProfile',
-                label: name,
-              }),
-            });
+            const profileRes = await fetch(`/api/agent-card?agent=${name}`);
             const profile = await profileRes.json();
             return {
               name,

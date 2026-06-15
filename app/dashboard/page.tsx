@@ -308,12 +308,7 @@ export default function DashboardHome() {
     loadingWallet.current = connectedWallet;
     setAgentEntries([]);   // triggers skeleton state
 
-    fetch(WORKER_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'listAgents' }),
-      signal: AbortSignal.timeout(10000),
-    })
+    fetch('/api/agents', { signal: AbortSignal.timeout(10000) })
       .then(r => r.ok ? r.json() as Promise<{ agents?: Array<{ name: string; tld: string | null }> }> : Promise.reject())
       .then((data) => {
         if (loadingWallet.current !== connectedWallet) return;
@@ -324,12 +319,7 @@ export default function DashboardHome() {
         // Independently resolve each agent — fill in cards as they arrive
         allAgents.forEach(async (a) => {
           try {
-            const idRes = await fetch(WORKER_URL, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ action: 'getAgentIdentity', agentName: a.name }),
-              signal: AbortSignal.timeout(5000),
-            });
+            const idRes = await fetch(`/api/agent-lookup?q=${a.name}`, { signal: AbortSignal.timeout(5000) });
             if (!idRes.ok) throw new Error('identity fetch failed');
             const identity = await idRes.json() as {
               onChainOwner?: string;

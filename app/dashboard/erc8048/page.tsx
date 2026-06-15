@@ -137,11 +137,7 @@ export default function Erc8048Dashboard() {
   // Resolve display name from worker
   useEffect(() => {
     if (!agentParam) return;
-    fetch(WORKER_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'getAgentIdentity', agentName: agentParam }),
-    })
+    fetch(`/api/agent-lookup?q=${agentParam}`)
       .then(r => r.json() as Promise<{ name?: string }>)
       .then(d => { if (d.name) setAgentName(d.name); })
       .catch(() => null);

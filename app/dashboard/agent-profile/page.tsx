@@ -55,11 +55,7 @@ export default function AgentProfilePage() {
   useEffect(() => {
     if (!agentName) { setAgent(null); return; }
     setAgentLoading(true);
-    fetch(WORKER_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'getAgentIdentity', agentName }),
-    })
+    fetch(`/api/agent-lookup?q=${agentName}`)
       .then(r => r.json() as Promise<{ name: string; safe?: string | null; identityNft?: { tld?: string | null } | null }>)
       .then(data => {
         setAgent({
@@ -78,12 +74,8 @@ export default function AgentProfilePage() {
     setLiveCard(null);
     try {
       const [profileRes, cardRes] = await Promise.all([
-        fetch(WORKER_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'getAgentProfile', agentName }),
-        }),
         fetch(`/api/agent-card?agent=${agentName}`),
+        fetch(`/api/agent-lookup?q=${agentName}`),
       ]);
       if (profileRes.ok) {
         const { profile: kv } = await profileRes.json() as { profile: Partial<AgentProfile> };
@@ -113,12 +105,11 @@ export default function AgentProfilePage() {
     setSaved(false);
     setError('');
     try {
-      const res = await fetch(WORKER_URL, {
+      const res = await fetch('/api/agent-profile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action:      'setAgentProfile',
-          agentName:   agent.name,
+          name:        agent.name,
           description: profile.description || undefined,
           webUrl:      profile.webUrl       || undefined,
           socialLinks: Object.fromEntries(

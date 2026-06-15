@@ -36,11 +36,7 @@ export default function InstallBrainPage() {
   useEffect(() => {
     if (!agentName || agentName.length < 2) { setTbaAddress(''); setSafeAddress(''); return; }
     setIdentityLoading(true);
-    fetch(WORKER_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'getAgentIdentity', agentName }),
-    })
+    fetch(`/api/agent-lookup?q=${agentName}`)
       .then(r => r.ok ? r.json() : null)
       .then((data: Record<string, unknown> | null) => {
         if (!data) return;
