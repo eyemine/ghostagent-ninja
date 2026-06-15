@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 const WORKER_URL     = process.env.NEXT_PUBLIC_WORKER_URL ?? 'https://nftmail-email-worker.richard-159.workers.dev';
+const WORKER_SECRET  = process.env.WORKER_SECRET ?? '';
 const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET ?? '';
 
 export async function POST(req: NextRequest) {
   const authHeader = req.headers.get('Authorization') ?? '';
   const secret     = authHeader.replace(/^Bearer\s+/, '') || (req.headers.get('X-Webhook-Secret') ?? '');
-  if (!WEBHOOK_SECRET || secret !== WEBHOOK_SECRET) {
+  if (!WORKER_SECRET || secret !== WORKER_SECRET) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
@@ -18,7 +19,8 @@ export async function POST(req: NextRequest) {
     const res  = await fetch(WORKER_URL, {
       method:  'POST',
       headers: {
-        'Content-Type':    'application/json',
+        'Content-Type':     'application/json',
+        'X-Worker-Secret':  WORKER_SECRET,
         'X-Webhook-Secret': WEBHOOK_SECRET,
       },
       body: JSON.stringify({

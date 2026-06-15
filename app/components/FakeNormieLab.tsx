@@ -298,7 +298,7 @@ export function FakeNormieLab() {
                 <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/5 p-4 space-y-3 mt-4">
                   <div className="text-center">
                     <div className="inline-flex items-center justify-center rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-bold text-emerald-300 mb-2">PRO</div>
-                    <p className="text-sm font-semibold text-[#f2eee4]">[name].nftmail.gno</p>
+                    <p className="text-sm font-semibold text-[#f2eee4]">{agentRef ? `${agentRef.replace(/\./g, '-')}.agent.gno` : '[name].agent.gno'}</p>
                     <p className="text-lg font-bold text-emerald-300 mt-1">$10 USD</p>
                     <p className="text-[10px] text-[var(--muted)]">Permanent NFT-governed email address</p>
                   </div>
@@ -320,7 +320,7 @@ export function FakeNormieLab() {
                 <div className="rounded-xl border border-violet-500/40 bg-violet-500/5 p-4 space-y-3 mt-4">
                   <div className="text-center">
                     <div className="inline-flex items-center justify-center rounded-full bg-violet-500/20 px-3 py-1 text-xs font-bold text-violet-300 mb-2">PREMIUM</div>
-                    <p className="text-sm font-semibold text-[#f2eee4]">[name].nftmail.gno</p>
+                    <p className="text-sm font-semibold text-[#f2eee4]">{agentRef ? `${agentRef.replace(/\./g, '-')}.agent.gno` : '[name].agent.gno'}</p>
                     <p className="text-lg font-bold text-violet-300 mt-1">$24 USD annual</p>
                     <p className="text-[10px] text-[var(--muted)]">(or reverts to PRO)</p>
                   </div>

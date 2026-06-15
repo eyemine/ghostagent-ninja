@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
@@ -480,6 +480,33 @@ export default function OgNftMoltPage() {
     if (connectedWallet && !ownerWallet) setOwnerWallet(connectedWallet);
   }, [connectedWallet, ownerWallet]);
 
+  // ── Pre-populate from URL params when coming from FakeNormie sandbox ──
+  const hasAutoPrefilled = useRef(false);
+  useEffect(() => {
+    if (hasAutoPrefilled.current) return;
+    const nft   = searchParams.get('nft');
+    const tid   = searchParams.get('tokenId');
+    const tier  = searchParams.get('tier');
+    if (nft === 'fakenormie' && tid) {
+      setNftType('fakenormie');
+      setPrimaryName('');
+      setCollectionName('');
+      setTokenId(tid);
+      setSelectedTier(tier === 'premium' ? 'premium' : 'pro');
+      hasAutoPrefilled.current = true;
+    }
+  }, [searchParams]);
+
+  // Auto-verify ownership for FakeNormie prefill (skip user click)
+  useEffect(() => {
+    if (!hasAutoPrefilled.current) return;
+    if (!tokenId || !ownerWallet || nftType !== 'fakenormie') return;
+    if (ownershipVerified || checking) return;
+    const timer = setTimeout(() => handleVerifyOwnership(), 0);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tokenId, ownerWallet, nftType, ownershipVerified, checking]);
+
   const resolvedContract = () => {
     if (nftType === 'ens') return ENS_CONTRACT;
     if (nftType === 'chonk') return CHONK_CONTRACT;
@@ -746,7 +773,7 @@ export default function OgNftMoltPage() {
                 <>
                   <p>✓ Gnosis mirror TBA deployed — your NFT&apos;s TBA becomes the Safe&apos;s sole key</p>
                   <p>✓ Gnosis Safe created — controlled exclusively by your NFT via its TBA</p>
-                  <p>✓ Beacon NFT <span className="font-mono text-[#f2eee4]">{slugH}.nftmail.gno</span> minted <span className="text-violet-300">to the Safe</span> (not your wallet)</p>
+                  <p>✓ Beacon NFT <span className="font-mono text-[#f2eee4]">{slugH}.agent.gno</span> minted <span className="text-violet-300">to the Safe</span> (not your wallet)</p>
                   <p>✓ Human inbox <span className="font-mono text-[#f2eee4]">{slug}@nftmail.box</span></p>
                   <p className="ml-3">+ Agent inbox <span className="font-mono text-[#f2eee4]">{slug}_@nftmail.box</span></p>
                   <p className="text-amber-300/80">Your NFT stays in your wallet — it is the key, not the asset held</p>
@@ -1014,7 +1041,7 @@ export default function OgNftMoltPage() {
                     <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/5 p-4 space-y-3 mt-4">
                       <div className="text-center">
                         <div className="inline-flex items-center justify-center rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-bold text-emerald-300 mb-2">PRO</div>
-                        <p className="text-sm font-semibold text-[#f2eee4]">[name].nftmail.gno</p>
+                        <p className="text-sm font-semibold text-[#f2eee4]">{nftType === 'fakenormie' ? '[name].agent.gno' : '[name].nftmail.gno'}</p>
                         <p className="text-lg font-bold text-emerald-300 mt-1">$10 USD</p>
                         <p className="text-[10px] text-[var(--muted)]">Permanent NFT-governed email address</p>
                       </div>
@@ -1040,7 +1067,7 @@ export default function OgNftMoltPage() {
                     <div className="rounded-xl border border-violet-500/40 bg-violet-500/5 p-4 space-y-3 mt-4">
                       <div className="text-center">
                         <div className="inline-flex items-center justify-center rounded-full bg-violet-500/20 px-3 py-1 text-xs font-bold text-violet-300 mb-2">PREMIUM</div>
-                        <p className="text-sm font-semibold text-[#f2eee4]">[name].nftmail.gno</p>
+                        <p className="text-sm font-semibold text-[#f2eee4]">{nftType === 'fakenormie' ? '[name].agent.gno' : '[name].nftmail.gno'}</p>
                         <p className="text-lg font-bold text-violet-300 mt-1">$24 USD annual</p>
                         <p className="text-[10px] text-[var(--muted)]">(or reverts to PRO)</p>
                         <p className="text-[10px] text-[var(--muted)] mt-1">Sovereign email with Safe treasury</p>
