@@ -60,7 +60,7 @@ async function triggerEvolveOnFundedWallet(tx: MercuryoTransaction): Promise<voi
   try {
     const res = await fetch(WORKER_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET },
+      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
       body: JSON.stringify({ action: 'getPendingUpgrade', walletAddress: wallet }),
     });
     const data = await res.json() as { pending: boolean; agentName?: string; tier?: string };
@@ -82,7 +82,7 @@ async function triggerEvolveOnFundedWallet(tx: MercuryoTransaction): Promise<voi
   try {
     await fetch(WORKER_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET },
+      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
       body: JSON.stringify({
         action:        'upgradeTier',
         name:          pending.agentName,
@@ -101,7 +101,7 @@ async function logToGlassBox(tx: MercuryoTransaction): Promise<void> {
   try {
     await fetch(WORKER_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET },
+      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
       body: JSON.stringify({
         action: 'auditLog',
         event:  'mercuryo_transaction_paid',

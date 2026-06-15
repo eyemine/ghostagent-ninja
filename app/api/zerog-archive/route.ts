@@ -11,7 +11,7 @@
  *      → returns { envelope: EncryptedEnvelope } (NO server-side decryption)
  *      → caller decrypts with their private key
  *
- * Protected by X-Webhook-Secret header.
+ * Protected by X-Worker-Secret header.
  *
  * Environment variables required:
  *   ZEROG_PRIVATE_KEY   — wallet private key with 0G A0GI balance for gas
@@ -98,7 +98,7 @@ function missingConfig() {
 }
 
 export async function POST(request: NextRequest) {
-  const secret = request.headers.get('X-Webhook-Secret') ?? '';
+  const secret = request.headers.get('X-Worker-Secret') ?? '';
   if (!WEBHOOK_SECRET || secret !== WEBHOOK_SECRET) return unauthorized();
   if (!ZEROG_PRIVATE_KEY) return missingConfig();
 
@@ -158,7 +158,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
-  const secret = request.headers.get('X-Webhook-Secret') ?? '';
+  const secret = request.headers.get('X-Worker-Secret') ?? '';
   if (!WEBHOOK_SECRET || secret !== WEBHOOK_SECRET) return unauthorized();
   if (!ZEROG_PRIVATE_KEY) return missingConfig();
 

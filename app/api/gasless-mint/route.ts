@@ -110,7 +110,7 @@ export async function POST(req: NextRequest) {
     try {
       const vRes  = await fetch(WORKER_URL, {
         method:  'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET },
+        headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
         body:    JSON.stringify({ action: 'validateCoupon', code: couponCode!.trim().toUpperCase(), tld: `${namespace}.gno` }),
         signal:  AbortSignal.timeout(8000),
       });
@@ -305,7 +305,7 @@ export async function POST(req: NextRequest) {
     // Blocks chonk676.agent.gno if chonk676.molt.gno is already minted.
     fetch(WORKER_URL, {
       method:  'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET },
+      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
       body:    JSON.stringify({ action: 'setTld', agentName: label, tld: `${namespace}.gno` }),
     }).catch(() => {});
 
@@ -313,7 +313,7 @@ export async function POST(req: NextRequest) {
     if (isCouponMint) {
       fetch(WORKER_URL, {
         method:  'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET },
+        headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
         body:    JSON.stringify({ action: 'redeemCoupon', code: couponCode!.trim().toUpperCase(), tld: `${namespace}.gno`, redeemedBy: owner }),
       }).catch(() => {});
     }

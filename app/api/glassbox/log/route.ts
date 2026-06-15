@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
   try {
     const res = await fetch(WORKER_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET },
+      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
       body: JSON.stringify({ action: 'getGlassBoxLog', agentName: name, tld }),
     });
     if (res.status === 404) return NextResponse.json({ entries: [] });
@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
 
     const res = await fetch(WORKER_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET },
+      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
       body: JSON.stringify({
         action: 'appendGlassBoxEntry',
         agentName: opts.agentName,
@@ -89,7 +89,7 @@ export async function PATCH(req: NextRequest) {
 
     const res = await fetch(WORKER_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET },
+      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
       body: JSON.stringify({
         action: 'setEnhancedLogging',
         agentName: name.toLowerCase(),

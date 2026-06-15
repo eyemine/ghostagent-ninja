@@ -245,7 +245,7 @@ export async function POST(req: NextRequest) {
         // Call worker to provision FID agent with privacy settings
         const provisionRes = await fetch(WORKER_URL, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WEBHOOK_SECRET },
+          headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WEBHOOK_SECRET },
           body: JSON.stringify({
             action: 'provisionFidAgent',
             fid,

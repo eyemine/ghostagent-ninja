@@ -38,14 +38,14 @@ async function scanChain(): Promise<Array<{name: string; agentId: number; owner:
 }
 
 async function getKvId(name: string): Promise<number | null> {
-  const res = await fetch(WORKER_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET }, body: JSON.stringify({ action: 'getAgentIdentity', name }) });
+  const res = await fetch(WORKER_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET }, body: JSON.stringify({ action: 'getAgentIdentity', name }) });
   if (!res.ok) return null;
   const data = await res.json() as { erc8004AgentId?: number };
   return data.erc8004AgentId ?? null;
 }
 
 async function setKvId(name: string, agentId: number, owner: string, uri: string): Promise<boolean> {
-  const res = await fetch(WORKER_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET }, body: JSON.stringify({ action: 'setErc8004AgentId', agentName: name, erc8004AgentId: agentId, agentURI: uri, chainId: 100, safeOwner: owner }) });
+  const res = await fetch(WORKER_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET }, body: JSON.stringify({ action: 'setErc8004AgentId', agentName: name, erc8004AgentId: agentId, agentURI: uri, chainId: 100, safeOwner: owner }) });
   return res.ok;
 }
 

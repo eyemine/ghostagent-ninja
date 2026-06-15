@@ -6,7 +6,7 @@ const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET ?? '';
 
 export async function POST(req: NextRequest) {
   const authHeader = req.headers.get('Authorization') ?? '';
-  const secret     = authHeader.replace(/^Bearer\s+/, '') || (req.headers.get('X-Webhook-Secret') ?? '');
+  const secret     = authHeader.replace(/^Bearer\s+/, '') || (req.headers.get('X-Worker-Secret') ?? '');
   if (!WORKER_SECRET || secret !== WORKER_SECRET) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
       method:  'POST',
       headers: {
         'Content-Type':     'application/json',
-        'X-Webhook-Secret': WEBHOOK_SECRET,
+        'X-Worker-Secret': WORKER_SECRET,
       },
       body: JSON.stringify({
         action:   'issueCoupon',

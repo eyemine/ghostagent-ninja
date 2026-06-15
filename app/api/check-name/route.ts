@@ -112,12 +112,12 @@ export async function GET(req: NextRequest) {
     const [identityRes, tldRes] = await Promise.all([
       fetch(WORKER_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET },
+        headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
         body: JSON.stringify({ action: 'getAgentIdentity', name }),
       }),
       fetch(WORKER_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET },
+        headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
         body: JSON.stringify({ action: 'getAgentTLD', localPart: name, parentTld: '' }),
       }),
     ]);

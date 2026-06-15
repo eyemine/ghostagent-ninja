@@ -7,7 +7,8 @@
  */
 
 const WORKER_URL = process.env.NEXT_PUBLIC_WORKER_URL || process.env.NFTMAIL_WORKER_URL || 'https://nftmail-email-worker.richard-159.workers.dev';
-const WORKER_SECRET = process.env.WORKER_SECRET || process.env.WEBHOOK_SECRET || '';
+// Router middleware checks X-Worker-Secret against env.WORKER_SECRET (the short 28-char secret)
+const WORKER_SECRET = process.env.WORKER_SECRET || '';
 const IDENTITY_REGISTRY = '0x8004A169FB4a3325136EB29fA0ceB6D2e539a432';
 const TREASURY_ADDRESS = '0xf251ca37a80200f7afeff398da0338f4c1f01249';
 const RPC_URL = process.env.GNOSIS_RPC_URL || 'https://rpc.gnosischain.com';

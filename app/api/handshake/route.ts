@@ -42,7 +42,7 @@ const WORKER_SECRET = process.env.WORKER_SECRET || process.env.WEBHOOK_SECRET ||
 async function kvGet(key: string): Promise<unknown> {
   const res = await fetch(WORKER_URL, {
     method:  'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET },
+    headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
     body:    JSON.stringify({ action: 'kvGet', key }),
   });
   const data = await res.json() as { value?: string };
@@ -52,7 +52,7 @@ async function kvGet(key: string): Promise<unknown> {
 async function kvPut(key: string, value: unknown): Promise<void> {
   await fetch(WORKER_URL, {
     method:  'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET },
+    headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
     body:    JSON.stringify({ action: 'kvPut', key, value: JSON.stringify(value) }),
   });
 }

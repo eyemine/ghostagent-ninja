@@ -119,7 +119,7 @@ export async function POST(req: NextRequest) {
     // Relay to Cloudflare Worker (stores in KV + Glass Box audit)
     const workerRes = await fetch(WORKER_URL, {
       method:  'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET },
+      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
       body: JSON.stringify({
         action:    'storeTradeIntent',
         agentName: agentName.toLowerCase(),
@@ -194,7 +194,7 @@ export async function POST(req: NextRequest) {
 
     const res = await fetch(WORKER_URL, {
       method:  'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET },
+      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
       body: JSON.stringify({
         action:    'listTradeIntents',
         agentName: agentName.toLowerCase(),
@@ -213,7 +213,7 @@ export async function POST(req: NextRequest) {
 
     const res = await fetch(WORKER_URL, {
       method:  'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET },
+      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
       body: JSON.stringify({
         action:     'getTradeIntent',
         intentHash,
@@ -263,7 +263,7 @@ export async function GET(req: NextRequest) {
 
   const res = await fetch(WORKER_URL, {
     method:  'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET },
+    headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
     body: JSON.stringify({
       action:     'getTradeIntent',
       intentHash,
