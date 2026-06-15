@@ -11,6 +11,7 @@ import { WORKER_URL } from '../../../utils/config';
 const WORKER_SECRET = process.env.WORKER_SECRET || process.env.WEBHOOK_SECRET || '';
 const ADMIN_SECRET = process.env.ADMIN_SECRET || process.env.WEBHOOK_SECRET || '';
 const IDENTITY_REGISTRY = '0x8004A169FB4a3325136EB29fA0ceB6D2e539a432';
+const TREASURY_ADDRESS = '0xf251Ca37a80200f7AfefF398DA0338f4C1f01249'.toLowerCase();
 
 const ABI = parseAbi([
   'function getAgent(uint256 agentId) view returns (address owner, string memory agentURI, uint256)',
@@ -28,6 +29,8 @@ async function scanChain(): Promise<Array<{name: string; agentId: number; owner:
       const match = uri.match(/agent=([^&]+)/);
       if (!match) continue;
       const agent = await client.readContract({ address: IDENTITY_REGISTRY, abi: ABI, functionName: 'getAgent', args: [BigInt(id)] });
+      // Only include agents registered by ghostagent.ninja treasury
+      if (agent[0].toLowerCase() !== TREASURY_ADDRESS) continue;
       found.push({ name: match[1], agentId: id, owner: agent[0] });
     } catch { /* skip */ }
   }
