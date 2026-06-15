@@ -39,6 +39,7 @@ interface AgentIdentity {
   originNft: string | null;
   mintedTokenId: number | null;
   onChainOwner: string | null;
+  principal: string | null;  // ERC-8226: human liable for agent actions
   tbaAddress: string | null;
   safe: string | null;
   accountTier: string;
@@ -277,6 +278,7 @@ export default function AgentPublicProfilePage() {
                   { label: 'TBA',        value: shortAddr(identity?.tbaAddress ?? null), href: identity?.tbaAddress ? `https://gnosisscan.io/address/${identity.tbaAddress}` : null },
                   { label: 'Safe',       value: identity?.safe ? shortAddr(identity.safe) : '—', href: identity?.safe ? `https://app.safe.global/home?safe=gno:${identity.safe}` : null },
                   { label: 'Owner',      value: shortAddr(identity?.onChainOwner ?? null), href: identity?.onChainOwner ? `https://gnosisscan.io/address/${identity.onChainOwner}` : null },
+                  { label: 'Principal',  value: shortAddr(identity?.principal ?? null), href: identity?.principal ? `https://gnosisscan.io/address/${identity.principal}` : null },
                 ].map((row) => (
                   <div key={row.label} className="flex items-center justify-between gap-4 text-[11px]">
                     <span className="text-[var(--muted)] shrink-0 w-24">{row.label}</span>

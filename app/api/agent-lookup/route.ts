@@ -181,7 +181,8 @@ export interface AgentIdentityGraph {
   // On-chain NFT identity
   originNft: string | null;       // e.g. "ghostagent.nftmail.gno"
   mintedTokenId: number | null;
-  onChainOwner: string | null;    // EOA wallet address
+  onChainOwner: string | null;    // EOA wallet address (NFT owner)
+  principal: string | null;        // ERC-8226: human liable for agent actions
 
   // Smart account layer
   tbaAddress: string | null;      // ERC-6551 TBA (derived from ecies key registration)
@@ -382,6 +383,7 @@ export async function GET(req: NextRequest) {
       originNft: resolved.originNft ?? null,
       mintedTokenId: resolved.mintedTokenId ?? null,
       onChainOwner: resolved.onChainOwner ?? null,
+      principal: resolved.principal ?? resolved.onChainOwner ?? null,
 
       tbaAddress,
       safe: resolved.safe ?? null,
