@@ -1006,7 +1006,7 @@ export default function OgNftMoltPage() {
                   <p className={`text-[10px] font-semibold ${nftType === 'fakenormie' ? 'text-pink-400' : 'text-emerald-400'}`}>✓ Ownership confirmed</p>
                   {nftType === 'fakenormie' && primaryName ? (
                     <>
-                      <p className="text-[10px] text-pink-300 font-semibold">Paired with Agent beacon NFT</p>
+                      <p className="text-[10px] text-pink-300 font-semibold">Basic tier — upgrade to mint beacon NFT</p>
                       <p className="font-mono text-sm font-bold text-[#f2eee4]">{primaryName.replace(/\./g, '-')}.agent.gno</p>
                       <p className="text-xs text-[var(--muted)]">{nftPreview.name}</p>
                       <p className="text-[10px] text-[var(--muted)]">Gnosis · token #{nftPreview.tokenId}</p>
