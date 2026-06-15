@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useWallets } from '@privy-io/react-auth';
 import Link from 'next/link';
-import FakeNormiesPage from '../fakenormies/page';
+import { FakeNormieLab } from '../components/FakeNormieLab';
 import { NormieTrustBadge, type TrustTarget } from '../components/NormieTrustBadge';
 import { generateNormieHandles } from '../services/agent-identity-router';
 
@@ -245,7 +245,7 @@ export default function NormiesPage() {
         </div>
 
         {tab === 'mint' ? (
-          <FakeNormiesPage />
+          <FakeNormieLab />
         ) : (
           <>
             {/* ID input */}
