@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 const WORKER_URL = process.env.NEXT_PUBLIC_WORKER_URL ?? 'https://nftmail-email-worker.richard-159.workers.dev';
+const WORKER_SECRET = process.env.WORKER_SECRET ?? '';
 
 export async function POST(req: NextRequest) {
   let body: { code?: string; tld?: string; path?: string };
@@ -15,7 +16,7 @@ export async function POST(req: NextRequest) {
   try {
     const res  = await fetch(WORKER_URL, {
       method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(WORKER_SECRET ? { 'X-Worker-Secret': WORKER_SECRET } : {}) },
       body:    JSON.stringify({ action: 'validateCoupon', code: code.trim().toUpperCase(), tld: tld ?? '', ...(path ? { path } : {}) }),
       signal:  AbortSignal.timeout(8000),
     });

@@ -29,6 +29,7 @@ import { deployGnosisTba } from '../../services/gnosis-tba';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://ghostagent.ninja';
 const NFTMAIL_WORKER_URL = process.env.NFTMAIL_WORKER_URL || 'https://nftmail-email-worker.richard-159.workers.dev';
+const WORKER_SECRET = process.env.WORKER_SECRET ?? '';
 
 const ALCHEMY_KEY = process.env.ALCHEMY_API_KEY ?? '';
 const ETH_RPC = ALCHEMY_KEY
@@ -114,12 +115,12 @@ async function verifyGenericOwnership(
   }
 }
 
-async function redeemCoupon(code: string): Promise<{ ok: boolean; error?: string }> {
+async function redeemCoupon(code: string, tld?: string): Promise<{ ok: boolean; error?: string }> {
   try {
     const res = await fetch(NFTMAIL_WORKER_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'redeemCoupon', code: code.toUpperCase() }),
+      headers: { 'Content-Type': 'application/json', ...(WORKER_SECRET ? { 'X-Worker-Secret': WORKER_SECRET } : {}) },
+      body: JSON.stringify({ action: 'redeemCoupon', code: code.toUpperCase(), ...(tld ? { tld } : {}) }),
     });
     return await res.json() as { ok: boolean; error?: string };
   } catch {
@@ -225,7 +226,7 @@ export async function POST(req: NextRequest) {
         targetNamespace,
         'Are they equal?': targetTld === targetNamespace 
       });
-      const couponResult = await redeemCoupon(couponCode!.trim());
+      const couponResult = await redeemCoupon(couponCode!.trim(), targetNamespace);
       console.log('COUPON RESULT:', couponResult);
       if (!couponResult.ok) {
         return NextResponse.json({ status: 'error', step: 'fee', error: couponResult.error ?? 'Coupon invalid or already used' }, { status: 402 });
