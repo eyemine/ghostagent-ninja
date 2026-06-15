@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
   try {
     const res = await fetch(WORKER_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+      headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET },
       body: JSON.stringify({ action: 'listMail', agentName: agent.toLowerCase(), cursor, limit }),
     });
 
@@ -49,7 +49,7 @@ export async function DELETE(req: NextRequest) {
   try {
     const res = await fetch(WORKER_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+      headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET },
       body: JSON.stringify({ action: 'deleteMail', agentName: agent.toLowerCase(), mailId: id }),
     });
 

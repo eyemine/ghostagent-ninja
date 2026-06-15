@@ -119,7 +119,7 @@ async function redeemCoupon(code: string, tld?: string): Promise<{ ok: boolean; 
   try {
     const res = await fetch(NFTMAIL_WORKER_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...(WORKER_SECRET ? { 'X-Worker-Secret': WORKER_SECRET } : {}) },
+      headers: { 'Content-Type': 'application/json', ...(WORKER_SECRET ? { 'X-Webhook-Secret': WORKER_SECRET } : {}) },
       body: JSON.stringify({ action: 'redeemCoupon', code: code.toUpperCase(), ...(tld ? { tld } : {}) }),
     });
     return await res.json() as { ok: boolean; error?: string };
@@ -269,7 +269,7 @@ export async function POST(req: NextRequest) {
       try {
         const identityRes = await fetch(NFTMAIL_WORKER_URL, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+          headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET },
           body: JSON.stringify({ action: 'getAgentIdentity', name: targetAgent }),
         });
         if (identityRes.ok) {
@@ -412,7 +412,7 @@ export async function POST(req: NextRequest) {
         await Promise.all([
           fetch(NFTMAIL_WORKER_URL, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+            headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET },
             body: JSON.stringify({
               action: 'createAlias', primaryName: finalPrimaryName, aliasLocalPart: humanLocalPart,
               collectionName: type, tokenId, ownerAddress: ownerWallet.toLowerCase(), displayEmail: 'human',
@@ -420,7 +420,7 @@ export async function POST(req: NextRequest) {
           }),
           fetch(NFTMAIL_WORKER_URL, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+            headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET },
             body: JSON.stringify({
               action: 'createAlias', primaryName: finalPrimaryName, aliasLocalPart: agentLocalPart,
               collectionName: type, tokenId, ownerAddress: ownerWallet.toLowerCase(), displayEmail: 'agent',
@@ -437,7 +437,7 @@ export async function POST(req: NextRequest) {
     try {
       await fetch(NFTMAIL_WORKER_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+        headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET },
         body: JSON.stringify({
           action: 'setTld',
           agentName: finalPrimaryName,
@@ -454,7 +454,7 @@ export async function POST(req: NextRequest) {
     try {
       await fetch(NFTMAIL_WORKER_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+        headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET },
         body: JSON.stringify({
           action: 'setPrincipal',
           agentName: finalPrimaryName,
@@ -471,7 +471,7 @@ export async function POST(req: NextRequest) {
       try {
         await fetch(NFTMAIL_WORKER_URL, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+          headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET },
           body: JSON.stringify({
             action: 'kvPut',
             key: `tba:${finalPrimaryName}`,
@@ -494,7 +494,7 @@ export async function POST(req: NextRequest) {
         await Promise.all([
           fetch(NFTMAIL_WORKER_URL, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+            headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET },
             body: JSON.stringify({
               action: 'registerSovereign',
               secret: webhookSecret,
@@ -507,7 +507,7 @@ export async function POST(req: NextRequest) {
           }),
           fetch(NFTMAIL_WORKER_URL, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+            headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET },
             body: JSON.stringify({
               action: 'registerSovereign',
               secret: webhookSecret,
@@ -532,7 +532,7 @@ export async function POST(req: NextRequest) {
       try {
         const eciesRes = await fetch(NFTMAIL_WORKER_URL, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+          headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET },
           body: JSON.stringify({
             action: 'upgradeNinjaTier',
             label: humanLocalPart,
@@ -605,7 +605,7 @@ export async function POST(req: NextRequest) {
       if (originImageUrl) {
         await fetch(NFTMAIL_WORKER_URL, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+          headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET },
           body: JSON.stringify({
             action: 'kvPut',
             key: `byo-origin-image:${finalPrimaryName}`,
@@ -652,7 +652,7 @@ export async function GET(req: NextRequest) {
     // Check alias record
     const aliasRes = await fetch(WORKER_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+      headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET },
       body: JSON.stringify({ action: 'getAlias', primaryName }),
     });
 

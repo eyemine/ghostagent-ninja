@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
   try {
     const res = await fetch(WORKER_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+      headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET },
       body: JSON.stringify({ action: 'getAlias', primaryName: primary }),
     });
     if (res.status === 404) {
@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
 
     const res = await fetch(WORKER_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+      headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET },
       body: JSON.stringify({
         action: 'createAlias',
         primaryName,
@@ -135,7 +135,7 @@ export async function PATCH(req: NextRequest) {
 
     const res = await fetch(WORKER_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+      headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET },
       body: JSON.stringify({
         action: 'setAliasDisplay',
         primaryName,

@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
     // Store in worker KV via existing worker action pattern
     const res = await fetch(WORKER_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+      headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET },
       body: JSON.stringify({
         action: 'setAgentConfig',
         agentName: agentName.toLowerCase(),
@@ -86,7 +86,7 @@ export async function GET(req: NextRequest) {
   try {
     const res = await fetch(WORKER_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+      headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET },
       body: JSON.stringify({
         action: 'getAgentConfig',
         agentName: agent.toLowerCase(),

@@ -94,7 +94,7 @@ export async function POST(req: NextRequest) {
     // Update nftmailgno:{slug} controller
     await fetch(workerUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+      headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET },
       body: JSON.stringify({
         action: 'setAgentRecord',
         secret: webhookSecret,
@@ -109,7 +109,7 @@ export async function POST(req: NextRequest) {
     // Update profile:{slug} owner
     await fetch(workerUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+      headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET },
       body: JSON.stringify({
         action: 'setAgentProfile',
         secret: webhookSecret,
@@ -130,7 +130,7 @@ export async function POST(req: NextRequest) {
     // Ensure tld: key present so agent appears in listAgents
     await fetch(workerUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+      headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET },
       body: JSON.stringify({
         action: 'setTld',
         secret: webhookSecret,

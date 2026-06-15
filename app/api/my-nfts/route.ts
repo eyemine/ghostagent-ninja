@@ -163,7 +163,7 @@ async function isAgentRegistered(name: string): Promise<boolean> {
   try {
     const res = await fetch(WORKER_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+      headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET },
       body: JSON.stringify({ action: 'getAcctTier', localPart: name, tld: '' }),
       signal: AbortSignal.timeout(4000),
     });
@@ -181,7 +181,7 @@ async function getAgentMeta(name: string): Promise<{ safeAddress: string | null;
   try {
     const res = await fetch(WORKER_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+      headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET },
       body: JSON.stringify({ action: 'getAgentIdentity', agentName: name }),
       signal: AbortSignal.timeout(4000),
     });
@@ -194,7 +194,7 @@ async function getAgentMeta(name: string): Promise<{ safeAddress: string | null;
     try {
       const imgRes = await fetch(WORKER_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+        headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET },
         body: JSON.stringify({ action: 'kvGet', key: `byo-origin-image:${name}` }),
         signal: AbortSignal.timeout(4000),
       });

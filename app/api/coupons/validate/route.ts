@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
   try {
     const res  = await fetch(WORKER_URL, {
       method:  'POST',
-      headers: { 'Content-Type': 'application/json', ...(WORKER_SECRET ? { 'X-Worker-Secret': WORKER_SECRET } : {}) },
+      headers: { 'Content-Type': 'application/json', ...(WORKER_SECRET ? { 'X-Webhook-Secret': WORKER_SECRET } : {}) },
       body:    JSON.stringify({ action: 'validateCoupon', code: code.trim().toUpperCase(), tld: tld ?? '', ...(path ? { path } : {}) }),
       signal:  AbortSignal.timeout(8000),
     });

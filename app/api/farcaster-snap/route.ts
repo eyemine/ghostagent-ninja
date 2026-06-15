@@ -12,7 +12,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 const WORKER_URL = process.env.NEXT_PUBLIC_WORKER_URL || 'https://nftmail-email-worker.richard-159.workers.dev';
-const WORKER_SECRET = process.env.WEBHOOK_SECRET || '';  // X-Worker-Secret for Hono auth guard
+const WORKER_SECRET = process.env.WEBHOOK_SECRET || '';  // X-Webhook-Secret for Hono auth guard
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://ghostagent.ninja';
 
 // Snap state is passed via the request body
@@ -187,7 +187,7 @@ export async function POST(req: NextRequest) {
         // Call worker to provision FID agent with privacy settings
         const provisionRes = await fetch(WORKER_URL, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+          headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET },
           body: JSON.stringify({
             action: 'provisionFidAgent',
             fid,

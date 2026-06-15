@@ -129,7 +129,7 @@ export async function POST(req: NextRequest) {
   // Check if account is already upgraded (skip payment if already PRO/PREMIUM)
   const tierCheckRes = await fetch(WORKER_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+    headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET },
     body: JSON.stringify({ action: 'checkSendLimit', agentName }),
   });
   const tierCheck = await tierCheckRes.json() as { tier?: string };
@@ -151,7 +151,7 @@ export async function POST(req: NextRequest) {
   // Link wallet
   const linkRes = await fetch(WORKER_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+    headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET },
     body: JSON.stringify({ action: 'linkWallet', fid, agentName, walletAddress }),
   });
   const linkData = await linkRes.json() as { status?: string; error?: string };
@@ -162,7 +162,7 @@ export async function POST(req: NextRequest) {
   // Upgrade tier in KV
   const upgradeRes = await fetch(WORKER_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+    headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET },
     body: JSON.stringify({ action: 'upgradeTier', name: agentName, tier: newTier, walletAddress: payment.fromWallet }),
   });
   const upgradeData = await upgradeRes.json() as { status?: string; newTier?: string; error?: string };
@@ -205,7 +205,7 @@ export async function POST(req: NextRequest) {
       // Update KV with beacon details
       await fetch(WORKER_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+        headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET },
         body: JSON.stringify({
           action: 'setBeaconNft',
           label: agentName,

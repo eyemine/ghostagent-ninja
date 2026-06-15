@@ -249,7 +249,7 @@ export async function POST(req: NextRequest) {
       // Register profile in KV
       fetch(workerUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+        headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET },
         body: JSON.stringify({
           action: 'setAgentProfile',
           secret: webhookSecret,
@@ -272,7 +272,7 @@ export async function POST(req: NextRequest) {
       // resolves an owner, so it gets dropped from the Dashboard "My Agents" ownership filter.
       fetch(workerUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+        headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET },
         body: JSON.stringify({
           action: 'setAgentRecord',
           secret: webhookSecret,
@@ -289,7 +289,7 @@ export async function POST(req: NextRequest) {
       // Seed tld: key so agent appears in listAgents → My Agents dashboard
       fetch(workerUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+        headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET },
         body: JSON.stringify({
           action: 'setTld',
           secret: webhookSecret,

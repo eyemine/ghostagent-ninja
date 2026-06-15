@@ -20,7 +20,6 @@ export async function POST(req: NextRequest) {
       method:  'POST',
       headers: {
         'Content-Type':     'application/json',
-        'X-Worker-Secret':  WORKER_SECRET,
         'X-Webhook-Secret': WEBHOOK_SECRET,
       },
       body: JSON.stringify({

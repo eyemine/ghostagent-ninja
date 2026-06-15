@@ -50,25 +50,25 @@ export async function GET(req: NextRequest) {
   const [kvRes, idRes, profileRes, byoRes] = await Promise.allSettled([
     fetch(WORKER_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+      headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET },
       body: JSON.stringify({ action: 'resolveAddress', name: `${agentName}_` }),
       signal: AbortSignal.timeout(5000),
     }),
     fetch(WORKER_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+      headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET },
       body: JSON.stringify({ action: 'getAgentIdentity', agentName }),
       signal: AbortSignal.timeout(5000),
     }),
     fetch(WORKER_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+      headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET },
       body: JSON.stringify({ action: 'getAgentProfile', agentName }),
       signal: AbortSignal.timeout(5000),
     }),
     fetch(WORKER_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+      headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET },
       body: JSON.stringify({ action: 'kvGet', key: `byo-origin-image:${agentName}` }),
       signal: AbortSignal.timeout(5000),
     }),
@@ -176,7 +176,7 @@ export async function GET(req: NextRequest) {
     try {
       const imgKv2 = await fetch(WORKER_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+        headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET },
         body: JSON.stringify({ action: 'kvGet', key: `byo-origin-image:${beaconName}` }),
         signal: AbortSignal.timeout(5000),
       });
@@ -212,7 +212,7 @@ export async function GET(req: NextRequest) {
             try {
               await fetch(WORKER_URL, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+                headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET },
                 body: JSON.stringify({
                   action: 'kvPut',
                   key: `byo-origin-image:${agentName}`,

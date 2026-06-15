@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
   try {
     const res = await fetch(WORKER_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+      headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET },
       body: JSON.stringify({ action: 'getVaultEvolution', clientName: name.toLowerCase() }),
     });
     if (res.status === 404) {
@@ -120,7 +120,7 @@ export async function POST(req: NextRequest) {
       // Register vault agent inbox in worker (agent tier = lite, 30-day)
       await fetch(WORKER_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+        headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET },
         body: JSON.stringify({
           action:   'upgradeTier',
           secret:   WEBHOOK_SECRET,
@@ -146,7 +146,7 @@ export async function POST(req: NextRequest) {
       try {
         const msgsRes = await fetch(WORKER_URL, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+          headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET },
           body: JSON.stringify({ action: 'kvGet', key: humanKey }),
         });
         const msgsData = await msgsRes.json() as { value?: string };
@@ -155,7 +155,7 @@ export async function POST(req: NextRequest) {
           // Copy messages to agent blind index key
           await fetch(WORKER_URL, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+            headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET },
             body: JSON.stringify({
               action: 'kvPut',
               key:    agentKey,
@@ -172,14 +172,14 @@ export async function POST(req: NextRequest) {
         // Migrate contacts list if present
         const contactsRes = await fetch(WORKER_URL, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+          headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET },
           body: JSON.stringify({ action: 'kvGet', key: `contacts:swarm.${name}` }),
         });
         const contactsData = await contactsRes.json() as { value?: string };
         if (contactsData.value) {
           await fetch(WORKER_URL, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+            headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET },
             body: JSON.stringify({
               action: 'kvPut',
               key:    `contacts:swarm.${name}_`,
@@ -230,7 +230,7 @@ async function kvGet<T>(key: string): Promise<T | null> {
   try {
     const res = await fetch(WORKER_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+      headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET },
       body: JSON.stringify({ action: 'kvGet', key }),
     });
     const data = await res.json() as { value?: string };
@@ -241,7 +241,7 @@ async function kvGet<T>(key: string): Promise<T | null> {
 async function kvPut(key: string, value: unknown): Promise<void> {
   await fetch(WORKER_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+    headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET },
     body: JSON.stringify({
       action: 'kvPut', key,
       value: JSON.stringify(value),

@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
   try {
     const res = await fetch(WORKER_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+      headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET },
       body: JSON.stringify({ action: 'getBeacon', name }),
     });
 
@@ -117,7 +117,7 @@ export async function POST(req: NextRequest) {
       try {
         const kvRes = await fetch(WORKER_URL, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+          headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET },
           body: JSON.stringify({
             action: 'setBeacon',
             secret: WEBHOOK_SECRET,

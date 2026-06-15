@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
   try {
     const res = await fetch(WORKER_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+      headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET },
       body: JSON.stringify({ action: 'getAcctTier', localPart: name, tld }),
     });
 
@@ -93,7 +93,7 @@ export async function POST(req: NextRequest) {
     try {
       const currentRes = await fetch(WORKER_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+        headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET },
         body: JSON.stringify({ action: 'getAcctTier', localPart: name, tld }),
       });
       if (currentRes.ok) {
@@ -117,7 +117,7 @@ export async function POST(req: NextRequest) {
     // Step 1: Update worker KV tier via upgradeTier action
     const tierRes = await fetch(WORKER_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+      headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET },
       body: JSON.stringify({
         action: 'upgradeNinjaTier',
         secret: WEBHOOK_SECRET,
@@ -216,7 +216,7 @@ export async function POST(req: NextRequest) {
         if (ipData && !ipData.error && ipData.fullDomain) {
           await fetch(WORKER_URL, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+            headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET },
             body: JSON.stringify({
               action: 'upgradeTier',
               secret: WEBHOOK_SECRET,

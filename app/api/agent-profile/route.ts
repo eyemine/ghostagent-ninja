@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
     // Call worker to set agent profile
     const res = await fetch(WORKER_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+      headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET },
       body: JSON.stringify({
         action: 'setAgentProfile',
         name: name.toLowerCase(),
