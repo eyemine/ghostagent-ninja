@@ -9,7 +9,7 @@ import { gnosis } from 'viem/chains';
 import { WORKER_URL } from '../../../utils/config';
 
 const WORKER_SECRET = process.env.WORKER_SECRET || process.env.WEBHOOK_SECRET || '';
-const ADMIN_SECRET = process.env.ADMIN_SECRET || process.env.WEBHOOK_SECRET || '';
+const ADMIN_SECRET = process.env.ADMIN_SECRET || process.env.WORKER_SECRET || process.env.WEBHOOK_SECRET || '';
 const IDENTITY_REGISTRY = '0x8004A169FB4a3325136EB29fA0ceB6D2e539a432';
 const TREASURY_ADDRESS = '0xf251Ca37a80200f7AfefF398DA0338f4C1f01249'.toLowerCase();
 
@@ -57,8 +57,13 @@ export async function POST(req: NextRequest) {
   console.log('[backfill-erc8004] Auth received length:', auth.length, 'ADMIN_SECRET length:', ADMIN_SECRET.length);
   console.log('[backfill-erc8004] Auth match:', auth === ADMIN_SECRET);
   
-  if (auth !== ADMIN_SECRET) {
-    return NextResponse.json({ error: 'Unauthorized', debug: { authLen: auth.length, adminLen: ADMIN_SECRET.length } }, { status: 401 });
+  const validSecrets = [
+    process.env.ADMIN_SECRET,
+    process.env.WORKER_SECRET,
+    process.env.WEBHOOK_SECRET,
+  ].filter(Boolean);
+  if (!auth || !validSecrets.includes(auth)) {
+    return NextResponse.json({ error: 'Unauthorized', debug: { authLen: auth.length, validLens: validSecrets.map(s => s!.length) } }, { status: 401 });
   }
   const dryRun = body.dryRun ?? false;
 
