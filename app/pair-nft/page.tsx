@@ -463,10 +463,11 @@ export default function OgNftMoltPage() {
     if (!couponCode.trim()) return;
     setCouponChecking(true); setCouponError(null); setCouponValid(false);
     try {
+      const targetTld = moltTarget === 'existing-agent' ? 'molt.gno' : 'agent.gno';
       const res = await fetch('/api/coupons/validate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: couponCode.trim() }),
+        body: JSON.stringify({ code: couponCode.trim(), tld: targetTld }),
       });
       const data = await res.json() as { valid: boolean; reason?: string };
       if (data.valid) { setCouponValid(true); }

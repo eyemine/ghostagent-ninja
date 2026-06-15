@@ -266,24 +266,31 @@ export default function FakeNormiesPage() {
             )}
           </div>
 
-          {/* CTA — only when not owned */}
-          {ownedTokenId === null && !result && (
-            <div className="space-y-2">
-              {!ready ? null : !authenticated ? (
-                <button onClick={login} className="w-full rounded-lg bg-fuchsia-600/80 px-4 py-3 text-sm font-bold text-white hover:bg-fuchsia-600 transition">
-                  Connect Wallet to Claim
-                </button>
-              ) : checking ? (
-                <div className="rounded-lg bg-gray-800/50 px-4 py-3 text-sm text-gray-300">Checking wallet…</div>
-              ) : (
-                <button onClick={handleClaim} disabled={minting} className="w-full rounded-lg bg-pink-600/80 px-4 py-3 text-sm font-bold text-white hover:bg-pink-600 transition disabled:opacity-50">
-                  {minting ? 'Minting on Gnosis Chain…' : 'Claim 1 free FakeNormie →'}
-                </button>
-              )}
-              {error && <p className="text-xs text-red-400 text-center">{error}</p>}
-              <p className="text-[10px] text-[#555] text-center">1 per wallet · gas sponsored by ghostagent.ninja</p>
-            </div>
-          )}
+          {/* CTA — disabled when already owned */}
+          <div className="space-y-2">
+            {!ready ? null : !authenticated ? (
+              <button onClick={login} className="w-full rounded-lg bg-fuchsia-600/80 px-4 py-3 text-sm font-bold text-white hover:bg-fuchsia-600 transition">
+                Connect Wallet to Claim
+              </button>
+            ) : checking ? (
+              <div className="rounded-lg bg-gray-800/50 px-4 py-3 text-sm text-gray-300">Checking wallet…</div>
+            ) : (
+              <button
+                onClick={handleClaim}
+                disabled={minting || ownedTokenId !== null}
+                className={`w-full rounded-lg px-4 py-3 text-sm font-bold transition disabled:opacity-50 disabled:cursor-not-allowed ${
+                  ownedTokenId !== null
+                    ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
+                    : 'bg-pink-600/80 text-white hover:bg-pink-600'
+                }`}
+                title={ownedTokenId !== null ? 'You already own a FakeNormie' : undefined}
+              >
+                {minting ? 'Minting on Gnosis Chain…' : ownedTokenId !== null ? '✓ FakeNormie Claimed' : 'Claim 1 free FakeNormie →'}
+              </button>
+            )}
+            {error && <p className="text-xs text-red-400 text-center">{error}</p>}
+            <p className="text-[10px] text-[#555] text-center">1 per wallet · gas sponsored by ghostagent.ninja</p>
+          </div>
 
           {/* Success state */}
           {result && (
