@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { WORKER_URL } from '../../../utils/config';
 
+const WORKER_SECRET = process.env.WORKER_SECRET || process.env.WEBHOOK_SECRET || '';
+
 
 /**
  * GET /api/swarm/coordinator?vault=acme
@@ -15,7 +17,7 @@ export async function GET(req: NextRequest) {
   try {
     const res = await fetch(WORKER_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
       body: JSON.stringify({ action: 'getCoordinatorState', vaultName: vault.toLowerCase(), section }),
     });
     if (res.status === 404) return NextResponse.json({ exists: false, vault, agents: [], tasks: [], rounds: [] });
@@ -48,7 +50,7 @@ export async function POST(req: NextRequest) {
     if (action === 'createConsensusRound') {
       const res = await fetch(WORKER_URL, {
         method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
         body: JSON.stringify({
           action:      'swarmConsensus',
           subAction:   'createRound',
@@ -68,7 +70,7 @@ export async function POST(req: NextRequest) {
     if (action === 'castVote') {
       const res = await fetch(WORKER_URL, {
         method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
         body: JSON.stringify({
           action:    'swarmConsensus',
           subAction: 'castVote',
@@ -87,7 +89,7 @@ export async function POST(req: NextRequest) {
     const ownerAddress = (body.walletAddress ?? body.ownerAddress ?? '') as string;
     const res = await fetch(WORKER_URL, {
       method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
       body: JSON.stringify({
         action:        'coordinatorAction',
         subAction:     action,

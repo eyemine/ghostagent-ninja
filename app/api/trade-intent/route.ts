@@ -29,6 +29,8 @@ import {
 import { postValidationResponse, hashPayload } from '../../services/erc8004-client';
 import { WORKER_URL } from '../../utils/config';
 
+const WORKER_SECRET = process.env.WORKER_SECRET || process.env.WEBHOOK_SECRET || '';
+
 
 // ERC-8004 Validation Registry addresses
 const VALIDATION_REGISTRIES = {
@@ -117,7 +119,7 @@ export async function POST(req: NextRequest) {
     // Relay to Cloudflare Worker (stores in KV + Glass Box audit)
     const workerRes = await fetch(WORKER_URL, {
       method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
       body: JSON.stringify({
         action:    'storeTradeIntent',
         agentName: agentName.toLowerCase(),
@@ -192,7 +194,7 @@ export async function POST(req: NextRequest) {
 
     const res = await fetch(WORKER_URL, {
       method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
       body: JSON.stringify({
         action:    'listTradeIntents',
         agentName: agentName.toLowerCase(),
@@ -211,7 +213,7 @@ export async function POST(req: NextRequest) {
 
     const res = await fetch(WORKER_URL, {
       method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
       body: JSON.stringify({
         action:     'getTradeIntent',
         intentHash,
@@ -261,7 +263,7 @@ export async function GET(req: NextRequest) {
 
   const res = await fetch(WORKER_URL, {
     method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
     body: JSON.stringify({
       action:     'getTradeIntent',
       intentHash,

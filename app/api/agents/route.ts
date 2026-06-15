@@ -13,6 +13,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { WORKER_URL } from '../../utils/config';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://ghostagent.ninja';
+const WORKER_SECRET = process.env.WORKER_SECRET || process.env.WEBHOOK_SECRET || '';
 
 export const dynamic = 'force-dynamic';
 
@@ -44,7 +45,7 @@ export async function GET(req: NextRequest) {
   try {
     const res = await fetch(WORKER_URL, {
       method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
       body:    JSON.stringify({ action: 'listAgents' }),
       next:    { revalidate: 60 },
     });

@@ -244,11 +244,12 @@ export async function POST(req: NextRequest) {
     // Register inbox in KV (non-fatal)
     const workerUrl = process.env.NEXT_PUBLIC_WORKER_URL || 'https://nftmail-email-worker.richard-159.workers.dev';
     const webhookSecret = process.env.WEBHOOK_SECRET;
+    const WORKER_SECRET = process.env.WORKER_SECRET || process.env.WEBHOOK_SECRET || '';
     if (webhookSecret) {
       // Register profile in KV
       fetch(workerUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
         body: JSON.stringify({
           action: 'setAgentProfile',
           secret: webhookSecret,
@@ -271,7 +272,7 @@ export async function POST(req: NextRequest) {
       // resolves an owner, so it gets dropped from the Dashboard "My Agents" ownership filter.
       fetch(workerUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
         body: JSON.stringify({
           action: 'setAgentRecord',
           secret: webhookSecret,
@@ -288,7 +289,7 @@ export async function POST(req: NextRequest) {
       // Seed tld: key so agent appears in listAgents → My Agents dashboard
       fetch(workerUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
         body: JSON.stringify({
           action: 'setTld',
           secret: webhookSecret,

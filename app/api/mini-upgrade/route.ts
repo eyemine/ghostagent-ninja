@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 const WORKER_URL = process.env.NFTMAIL_WORKER_URL || 'https://nftmail-email-worker.richard-159.workers.dev';
 const WEBHOOK_SECRET = process.env.NFTMAIL_WEBHOOK_SECRET || '';
+const WORKER_SECRET = process.env.WORKER_SECRET || process.env.WEBHOOK_SECRET || '';
 
 // Payment: USDC on Base (6 decimals)
 const BASE_RPC = 'https://mainnet.base.org';
@@ -128,7 +129,7 @@ export async function POST(req: NextRequest) {
   // Check if account is already upgraded (skip payment if already PRO/PREMIUM)
   const tierCheckRes = await fetch(WORKER_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
     body: JSON.stringify({ action: 'checkSendLimit', agentName }),
   });
   const tierCheck = await tierCheckRes.json() as { tier?: string };
@@ -150,7 +151,7 @@ export async function POST(req: NextRequest) {
   // Link wallet
   const linkRes = await fetch(WORKER_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
     body: JSON.stringify({ action: 'linkWallet', fid, agentName, walletAddress }),
   });
   const linkData = await linkRes.json() as { status?: string; error?: string };
@@ -161,7 +162,7 @@ export async function POST(req: NextRequest) {
   // Upgrade tier in KV
   const upgradeRes = await fetch(WORKER_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
     body: JSON.stringify({ action: 'upgradeTier', name: agentName, tier: newTier, walletAddress: payment.fromWallet }),
   });
   const upgradeData = await upgradeRes.json() as { status?: string; newTier?: string; error?: string };
@@ -204,7 +205,7 @@ export async function POST(req: NextRequest) {
       // Update KV with beacon details
       await fetch(WORKER_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
         body: JSON.stringify({
           action: 'setBeaconNft',
           label: agentName,

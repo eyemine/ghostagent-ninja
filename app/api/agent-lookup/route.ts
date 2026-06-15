@@ -23,6 +23,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { WORKER_URL } from '../../utils/config';
 import { getAgentBySafe } from '../../services/envio';
 
+const WORKER_SECRET = process.env.WORKER_SECRET || process.env.WEBHOOK_SECRET || '';
+
 
 // ── ERC-6551 TBA derivation ───────────────────────────────────────────────────
 const ERC6551_REGISTRY    = '0x000000006551c19487814612e58FE06813775758';
@@ -267,7 +269,7 @@ export async function GET(req: NextRequest) {
     // ── 1. resolveAddress from worker ─────────────────────────────────────
     const resolveRes = await fetch(WORKER_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
       body: JSON.stringify({ action: 'resolveAddress', name: lookupName }),
       signal: AbortSignal.timeout(6000),
     });
@@ -307,14 +309,14 @@ export async function GET(req: NextRequest) {
         // Beacon
         fetch(WORKER_URL, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
           body: JSON.stringify({ action: 'getBeacon', name }),
         }).then(r => r.json()),
 
         // Molt path
         fetch(WORKER_URL, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
           body: JSON.stringify({ action: 'getMoltPath', name }),
         }).then(r => r.json()),
 
@@ -328,7 +330,7 @@ export async function GET(req: NextRequest) {
         // BYO mirror TBA — stored in tba:{name} KV by byo-molt for Gnosis mirror TBA
         tbaAddress === null ? fetch(WORKER_URL, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
           body: JSON.stringify({ action: 'kvGet', key: `tba:${name}` }),
           signal: AbortSignal.timeout(3000),
         }).then(r => r.json()).catch(() => null) : Promise.resolve(null),

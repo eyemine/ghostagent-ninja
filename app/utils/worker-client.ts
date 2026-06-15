@@ -7,10 +7,10 @@
 
 import { WORKER_URL } from './config';
 
-const WORKER_SECRET = process.env.WEBHOOK_SECRET;
+const WORKER_SECRET = process.env.WORKER_SECRET || process.env.WEBHOOK_SECRET;
 
 if (!WORKER_SECRET) {
-  console.warn('WEBHOOK_SECRET not set - worker requests will fail');
+  console.warn('WORKER_SECRET not set - worker requests will fail');
 }
 
 interface WorkerRequestOptions {

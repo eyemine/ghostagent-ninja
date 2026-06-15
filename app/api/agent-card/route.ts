@@ -19,6 +19,8 @@ import {
 import { type SldKey } from '../../services/genome-metadata';
 import { WORKER_URL } from '../../utils/config';
 
+const WORKER_SECRET = process.env.WORKER_SECRET || process.env.WEBHOOK_SECRET || '';
+
 const CHAIN_IDS: Record<string, number> = {
   gnosis:      100,
   base:        8453,
@@ -48,25 +50,25 @@ export async function GET(req: NextRequest) {
   const [kvRes, idRes, profileRes, byoRes] = await Promise.allSettled([
     fetch(WORKER_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
       body: JSON.stringify({ action: 'resolveAddress', name: `${agentName}_` }),
       signal: AbortSignal.timeout(5000),
     }),
     fetch(WORKER_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
       body: JSON.stringify({ action: 'getAgentIdentity', agentName }),
       signal: AbortSignal.timeout(5000),
     }),
     fetch(WORKER_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
       body: JSON.stringify({ action: 'getAgentProfile', agentName }),
       signal: AbortSignal.timeout(5000),
     }),
     fetch(WORKER_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
       body: JSON.stringify({ action: 'kvGet', key: `byo-origin-image:${agentName}` }),
       signal: AbortSignal.timeout(5000),
     }),
@@ -174,7 +176,7 @@ export async function GET(req: NextRequest) {
     try {
       const imgKv2 = await fetch(WORKER_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
         body: JSON.stringify({ action: 'kvGet', key: `byo-origin-image:${beaconName}` }),
         signal: AbortSignal.timeout(5000),
       });
@@ -210,7 +212,7 @@ export async function GET(req: NextRequest) {
             try {
               await fetch(WORKER_URL, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
                 body: JSON.stringify({
                   action: 'kvPut',
                   key: `byo-origin-image:${agentName}`,

@@ -85,6 +85,7 @@ export async function POST(req: NextRequest) {
 
     const workerUrl = process.env.NEXT_PUBLIC_WORKER_URL || 'https://nftmail-email-worker.richard-159.workers.dev';
     const webhookSecret = process.env.WEBHOOK_SECRET;
+    const WORKER_SECRET = process.env.WORKER_SECRET || process.env.WEBHOOK_SECRET || '';
 
     if (!webhookSecret) {
       return NextResponse.json({ error: 'Worker secret not configured' }, { status: 503 });
@@ -93,7 +94,7 @@ export async function POST(req: NextRequest) {
     // Update nftmailgno:{slug} controller
     await fetch(workerUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
       body: JSON.stringify({
         action: 'setAgentRecord',
         secret: webhookSecret,
@@ -108,7 +109,7 @@ export async function POST(req: NextRequest) {
     // Update profile:{slug} owner
     await fetch(workerUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
       body: JSON.stringify({
         action: 'setAgentProfile',
         secret: webhookSecret,
@@ -129,7 +130,7 @@ export async function POST(req: NextRequest) {
     // Ensure tld: key present so agent appears in listAgents
     await fetch(workerUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
       body: JSON.stringify({
         action: 'setTld',
         secret: webhookSecret,

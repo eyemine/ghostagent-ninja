@@ -4,6 +4,8 @@ import { mainnet, gnosis } from 'viem/chains';
 import { getAllCollections } from '../../services/collection-registry';
 import { WORKER_URL } from '../../utils/config';
 
+const WORKER_SECRET = process.env.WORKER_SECRET || process.env.WEBHOOK_SECRET || '';
+
 // Flat set of all reserved words derived from collection registry at module load.
 // Includes ENS-reserved prefixes like 'chonk', 'atom', 'punk', 'punks', etc.
 const COLLECTION_RESERVED: Set<string> = new Set(
@@ -110,12 +112,12 @@ export async function GET(req: NextRequest) {
     const [identityRes, tldRes] = await Promise.all([
       fetch(WORKER_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
         body: JSON.stringify({ action: 'getAgentIdentity', name }),
       }),
       fetch(WORKER_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
         body: JSON.stringify({ action: 'getAgentTLD', localPart: name, parentTld: '' }),
       }),
     ]);

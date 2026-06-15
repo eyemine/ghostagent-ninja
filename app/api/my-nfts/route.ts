@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 const GNOSIS_RPC = 'https://rpc.gnosischain.com';
 const WORKER_URL = process.env.NEXT_PUBLIC_WORKER_URL ?? 'https://nftmail-email-worker.richard-159.workers.dev';
+const WORKER_SECRET = process.env.WORKER_SECRET || process.env.WEBHOOK_SECRET || '';
 
 // For ERC-6551 TBAs: call owner() to find the controlling EOA
 async function tbaOwner(address: string): Promise<string | null> {
@@ -162,7 +163,7 @@ async function isAgentRegistered(name: string): Promise<boolean> {
   try {
     const res = await fetch(WORKER_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
       body: JSON.stringify({ action: 'getAcctTier', localPart: name, tld: '' }),
       signal: AbortSignal.timeout(4000),
     });
@@ -180,7 +181,7 @@ async function getAgentMeta(name: string): Promise<{ safeAddress: string | null;
   try {
     const res = await fetch(WORKER_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
       body: JSON.stringify({ action: 'getAgentIdentity', agentName: name }),
       signal: AbortSignal.timeout(4000),
     });
@@ -193,7 +194,7 @@ async function getAgentMeta(name: string): Promise<{ safeAddress: string | null;
     try {
       const imgRes = await fetch(WORKER_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
         body: JSON.stringify({ action: 'kvGet', key: `byo-origin-image:${name}` }),
         signal: AbortSignal.timeout(4000),
       });

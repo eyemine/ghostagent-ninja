@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { WORKER_URL } from '../../utils/config';
 
+const WORKER_SECRET = process.env.WORKER_SECRET || process.env.WEBHOOK_SECRET || '';
+
 
 export interface AliasRecord {
   primary: string;          // e.g. "paymastr_"  (agent local-part)
@@ -25,7 +27,7 @@ export async function GET(req: NextRequest) {
   try {
     const res = await fetch(WORKER_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
       body: JSON.stringify({ action: 'getAlias', primaryName: primary }),
     });
     if (res.status === 404) {
@@ -74,7 +76,7 @@ export async function POST(req: NextRequest) {
 
     const res = await fetch(WORKER_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
       body: JSON.stringify({
         action: 'createAlias',
         primaryName,
@@ -133,7 +135,7 @@ export async function PATCH(req: NextRequest) {
 
     const res = await fetch(WORKER_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
       body: JSON.stringify({
         action: 'setAliasDisplay',
         primaryName,

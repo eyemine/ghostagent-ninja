@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { WORKER_URL } from '../../../utils/config';
 
+const WORKER_SECRET = process.env.WORKER_SECRET || process.env.WEBHOOK_SECRET || '';
+
 /**
  * /api/agent/budget
  *
@@ -29,7 +31,7 @@ interface BudgetState {
 async function readBudget(agent: string): Promise<BudgetState> {
   const res = await fetch(`${WORKER_URL}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
     body: JSON.stringify({ action: 'getBudget', agentName: agent }),
   });
   if (res.ok) {
@@ -59,7 +61,7 @@ function defaultState(agent: string): BudgetState {
 async function writeBudget(agent: string, state: BudgetState): Promise<void> {
   await fetch(`${WORKER_URL}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
     body: JSON.stringify({ action: 'setBudget', agentName: agent, budget: state }),
   }).catch(() => {});
 }

@@ -57,6 +57,7 @@ const ENS_ABI = [{
 }] as const;
 
 const WORKER_URL = process.env.NEXT_PUBLIC_WORKER_URL ?? 'https://nftmail-email-worker.richard-159.workers.dev';
+const WORKER_SECRET = process.env.WORKER_SECRET || process.env.WEBHOOK_SECRET || '';
 
 // Namespaces eligible for gasless treasury-sponsored minting (coupon extends this to all)
 const GASLESS_NAMESPACES = ['picoclaw', 'agent', 'nftmail', 'molt', 'openclaw', 'vault'] as const;
@@ -109,7 +110,7 @@ export async function POST(req: NextRequest) {
     try {
       const vRes  = await fetch(WORKER_URL, {
         method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
         body:    JSON.stringify({ action: 'validateCoupon', code: couponCode!.trim().toUpperCase(), tld: `${namespace}.gno` }),
         signal:  AbortSignal.timeout(8000),
       });
@@ -304,7 +305,7 @@ export async function POST(req: NextRequest) {
     // Blocks chonk676.agent.gno if chonk676.molt.gno is already minted.
     fetch(WORKER_URL, {
       method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
       body:    JSON.stringify({ action: 'setTld', agentName: label, tld: `${namespace}.gno` }),
     }).catch(() => {});
 
@@ -312,7 +313,7 @@ export async function POST(req: NextRequest) {
     if (isCouponMint) {
       fetch(WORKER_URL, {
         method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
         body:    JSON.stringify({ action: 'redeemCoupon', code: couponCode!.trim().toUpperCase(), tld: `${namespace}.gno`, redeemedBy: owner }),
       }).catch(() => {});
     }
