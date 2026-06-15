@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { WORKER_URL } from '../../../utils/config';
 
+const WORKER_SECRET = process.env.WORKER_SECRET || process.env.WEBHOOK_SECRET || '';
+
 /**
  * POST /api/mail/register-key
  * Called after agent mint to register the agent's P-256 encryption pubkey
@@ -50,7 +52,7 @@ export async function POST(req: NextRequest) {
     // Store in worker KV via existing worker action pattern
     const res = await fetch(WORKER_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
       body: JSON.stringify({
         action: 'setAgentConfig',
         agentName: agentName.toLowerCase(),
@@ -84,7 +86,7 @@ export async function GET(req: NextRequest) {
   try {
     const res = await fetch(WORKER_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
       body: JSON.stringify({
         action: 'getAgentConfig',
         agentName: agent.toLowerCase(),

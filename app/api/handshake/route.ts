@@ -35,13 +35,14 @@ import { WORKER_URL } from '../../utils/config';
 
 const LIGHTHOUSE_UPLOAD = 'https://node.lighthouse.storage/api/v0/add';
 const LIGHTHOUSE_GATEWAY = 'https://gateway.lighthouse.storage/ipfs';
+const WORKER_SECRET = process.env.WORKER_SECRET || process.env.WEBHOOK_SECRET || '';
 
 // ─── KV helpers ───────────────────────────────────────────────────────────────
 
 async function kvGet(key: string): Promise<unknown> {
   const res = await fetch(WORKER_URL, {
     method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
     body:    JSON.stringify({ action: 'kvGet', key }),
   });
   const data = await res.json() as { value?: string };
@@ -51,7 +52,7 @@ async function kvGet(key: string): Promise<unknown> {
 async function kvPut(key: string, value: unknown): Promise<void> {
   await fetch(WORKER_URL, {
     method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
     body:    JSON.stringify({ action: 'kvPut', key, value: JSON.stringify(value) }),
   });
 }

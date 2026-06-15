@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { WORKER_URL } from '../../../utils/config';
 
+const WORKER_SECRET = process.env.WORKER_SECRET || process.env.WEBHOOK_SECRET || '';
+
 /**
  * GET /api/mail/inbox?agent=alice&cursor=<cursor>&limit=20
  * Returns list of stored mail for an agent from INBOX_KV via the worker.
@@ -18,7 +20,7 @@ export async function GET(req: NextRequest) {
   try {
     const res = await fetch(WORKER_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
       body: JSON.stringify({ action: 'listMail', agentName: agent.toLowerCase(), cursor, limit }),
     });
 
@@ -47,7 +49,7 @@ export async function DELETE(req: NextRequest) {
   try {
     const res = await fetch(WORKER_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
       body: JSON.stringify({ action: 'deleteMail', agentName: agent.toLowerCase(), mailId: id }),
     });
 

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { buildGlassBoxEntry, type LogOptions } from '../../../services/glassbox-xmtp-logger';
 import { WORKER_URL } from '../../../utils/config';
 
+const WORKER_SECRET = process.env.WORKER_SECRET || process.env.WEBHOOK_SECRET || '';
+
 
 /**
  * GET /api/glassbox/log?name=alice&tld=openclaw.gno
@@ -16,7 +18,7 @@ export async function GET(req: NextRequest) {
   try {
     const res = await fetch(WORKER_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
       body: JSON.stringify({ action: 'getGlassBoxLog', agentName: name, tld }),
     });
     if (res.status === 404) return NextResponse.json({ entries: [] });
@@ -49,7 +51,7 @@ export async function POST(req: NextRequest) {
 
     const res = await fetch(WORKER_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
       body: JSON.stringify({
         action: 'appendGlassBoxEntry',
         agentName: opts.agentName,
@@ -87,7 +89,7 @@ export async function PATCH(req: NextRequest) {
 
     const res = await fetch(WORKER_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
       body: JSON.stringify({
         action: 'setEnhancedLogging',
         agentName: name.toLowerCase(),

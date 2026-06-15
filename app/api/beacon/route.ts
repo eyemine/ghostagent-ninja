@@ -17,6 +17,7 @@ import { WORKER_URL } from '../../utils/config';
 
 
 const WEBHOOK_SECRET = process.env.NFTMAIL_WEBHOOK_SECRET || '';
+const WORKER_SECRET = process.env.WORKER_SECRET || process.env.WEBHOOK_SECRET || '';
 const LIGHTHOUSE_API_KEY = process.env.LIGHTHOUSE_API_KEY;
 
 // ── GET /api/beacon?name=paymastr ────────────────────────────────────────────
@@ -30,7 +31,7 @@ export async function GET(req: NextRequest) {
   try {
     const res = await fetch(WORKER_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
       body: JSON.stringify({ action: 'getBeacon', name }),
     });
 
@@ -116,7 +117,7 @@ export async function POST(req: NextRequest) {
       try {
         const kvRes = await fetch(WORKER_URL, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
           body: JSON.stringify({
             action: 'setBeacon',
             secret: WEBHOOK_SECRET,
