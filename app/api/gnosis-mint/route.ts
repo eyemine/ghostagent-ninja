@@ -163,11 +163,14 @@ export async function POST(req: NextRequest) {
 
     // ─── Mint on Gnosis via treasury wallet ───
     const tbaSalt = `0x${'0'.repeat(64)}` as `0x${string}`;
+    // Fetch nonce explicitly (include pending mempool) to avoid collision when treasury sends multiple txs concurrently
+    const nonce = await gnosisPublic.getTransactionCount({ address: account.address, blockTag: 'pending' });
     const hash = await gnosisWallet.writeContract({
       address: registrarContract,
       abi: MintSubnameABI,
       functionName: 'mintSubname',
       args: [label, ownerWallet as Address, ipaMetaBytes, tbaSalt],
+      nonce,
     });
 
     const receipt = await Promise.race([
