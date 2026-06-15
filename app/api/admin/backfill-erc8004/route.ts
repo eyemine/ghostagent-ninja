@@ -52,7 +52,14 @@ async function setKvId(name: string, agentId: number, owner: string, uri: string
 export async function POST(req: NextRequest) {
   const body = await req.json() as { dryRun?: boolean; agentNames?: string[]; secret?: string };
   const auth = req.headers.get('authorization')?.replace('Bearer ', '') ?? body?.secret ?? '';
-  if (auth !== ADMIN_SECRET) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  
+  // Debug: log lengths to diagnose auth mismatch (don't log actual secrets)
+  console.log('[backfill-erc8004] Auth received length:', auth.length, 'ADMIN_SECRET length:', ADMIN_SECRET.length);
+  console.log('[backfill-erc8004] Auth match:', auth === ADMIN_SECRET);
+  
+  if (auth !== ADMIN_SECRET) {
+    return NextResponse.json({ error: 'Unauthorized', debug: { authLen: auth.length, adminLen: ADMIN_SECRET.length } }, { status: 401 });
+  }
   const dryRun = body.dryRun ?? false;
 
   const chainAgents = await scanChain();
