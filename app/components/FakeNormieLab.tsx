@@ -168,135 +168,124 @@ export function FakeNormieLab() {
         </button>
       </div>
 
-      {/* ── Pre-mint: full-width CTA ── */}
-      {!isOwned && (
-        <div className="rounded-2xl border border-pink-500/30 bg-pink-500/5 p-5 space-y-4">
-          <div className="mx-auto w-full max-w-xs relative aspect-square overflow-hidden border border-white/10 bg-black/40">
-            <Image src="/FakeNormies/FakeNormie.gif" alt="FakeNormie" fill className="object-contain" unoptimized />
+      {/* ── Two-column layout — always rendered ── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        {/* Left column: image */}
+        <div className="rounded-2xl border border-[rgba(176,128,92,0.25)] bg-[var(--card)] p-5 space-y-3">
+          <div className="aspect-square w-full overflow-hidden rounded-xl border border-white/10 bg-black/40">
+            <Image
+              src={mintedImg ?? '/FakeNormies/FakeNormie.gif'}
+              alt={isOwned ? `FakeNormie #${ownedTokenId}` : 'FakeNormie'}
+              width={400}
+              height={400}
+              className="h-full w-full object-contain"
+              unoptimized
+            />
           </div>
-          {!ready ? null : !authenticated ? (
-            <button
-              onClick={login}
-              className="w-full rounded-lg bg-fuchsia-600/80 px-4 py-3 text-sm font-bold text-white hover:bg-fuchsia-600 transition"
-            >
-              Connect Wallet to Claim
-            </button>
-          ) : checking ? (
-            <div className="rounded-lg bg-gray-800/50 px-4 py-3 text-sm text-gray-300">Checking wallet…</div>
-          ) : (
-            <button
-              onClick={handleClaim}
-              disabled={minting}
-              className="w-full rounded-lg bg-pink-600/80 px-4 py-3 text-sm font-bold text-white hover:bg-pink-600 transition disabled:opacity-50"
-            >
-              {minting ? 'Minting on Gnosis Chain…' : 'Claim 1 free FakeNormie →'}
-            </button>
+          <div className="rounded-lg border border-[rgba(176,128,92,0.2)] bg-black/30 px-3 py-2">
+            <p className="text-[9px] font-semibold tracking-wider text-[var(--muted)] mb-0.5">NFTMAIL.BOX ADDRESS</p>
+            <p className="font-mono text-xs text-pink-300 break-all">
+              {isOwned ? `${agentRef}@nftmail.box` : '—'}
+            </p>
+          </div>
+          {result && (
+            <a href={result.inboxUrl} target="_blank" rel="noopener noreferrer"
+              className="block text-center text-[11px] text-sky-400 hover:underline">
+              Open agent inbox →
+            </a>
           )}
-          {error && <p className="text-xs text-red-400 text-center">{error}</p>}
-          <p className="text-[10px] text-[#555] text-center">1 per wallet · gas sponsored by ghostagent.ninja</p>
         </div>
-      )}
 
-      {/* ── Owned: two-column layout matching Normie Preview ── */}
-      {isOwned && (
-        <>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {/* Left column: image + email badge */}
-            <div className="rounded-2xl border border-[rgba(176,128,92,0.25)] bg-[var(--card)] p-5 space-y-3">
-              <div className="aspect-square w-full overflow-hidden rounded-xl border border-white/10 bg-black/40">
-                <Image
-                  src={mintedImg ?? '/FakeNormies/FakeNormie.gif'}
-                  alt={`FakeNormie #${ownedTokenId}`}
-                  width={400}
-                  height={400}
-                  className="h-full w-full object-contain"
-                  unoptimized
-                />
+        {/* Right column: identity card + CTA or actions */}
+        <div className="space-y-4">
+          <div className="rounded-2xl border border-[rgba(176,128,92,0.25)] bg-[var(--card)] p-5">
+            <div className="flex items-center justify-between mb-3 flex-wrap gap-1.5">
+              <h2 className="text-lg font-bold text-[#f2eee4]">
+                {isOwned ? `FakeNormie #${ownedTokenId}` : 'FakeNormie'}
+              </h2>
+              <div className="flex items-center gap-1.5">
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold border border-pink-500/30 bg-pink-500/10 text-pink-300">FakeNormie</span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold border border-amber-500/30 bg-amber-500/10 text-amber-300">Basic GhostAgent</span>
               </div>
-              {/* nftmail.box address */}
-              <div className="rounded-lg border border-[rgba(176,128,92,0.2)] bg-black/30 px-3 py-2">
-                <p className="text-[9px] font-semibold tracking-wider text-[var(--muted)] mb-0.5">NFTMAIL.BOX ADDRESS</p>
-                <p className="font-mono text-xs text-pink-300 break-all">{agentRef}@nftmail.box</p>
+            </div>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-[11px]">
+              <div>
+                <p className="text-[9px] font-semibold tracking-wider text-[var(--muted)] mb-0.5">AGENT</p>
+                <p className="font-mono text-[#f2eee4]">{isOwned ? agentRef : '—'}</p>
               </div>
-              {result && (
-                <a href={result.inboxUrl} target="_blank" rel="noopener noreferrer"
-                  className="block text-center text-[11px] text-sky-400 hover:underline">
-                  Open agent inbox →
-                </a>
+              <div>
+                <p className="text-[9px] font-semibold tracking-wider text-[var(--muted)] mb-0.5">SLD</p>
+                <p className="font-mono text-pink-300">{isOwned ? 'agent.gno' : '—'}</p>
+              </div>
+              <div>
+                <p className="text-[9px] font-semibold tracking-wider text-[var(--muted)] mb-0.5">TIER</p>
+                <p className="font-semibold text-amber-300 capitalize">{isOwned ? (agentInfo?.tier ?? 'basic') : '—'}</p>
+              </div>
+              <div>
+                <p className="text-[9px] font-semibold tracking-wider text-[var(--muted)] mb-0.5">CHAIN</p>
+                <p className="font-mono text-[#f2eee4]">Gnosis</p>
+              </div>
+              {agentInfo?.safe && (
+                <div className="col-span-2">
+                  <p className="text-[9px] font-semibold tracking-wider text-[var(--muted)] mb-0.5">SAFE</p>
+                  <p className="font-mono text-[#f2eee4]">{agentInfo.safe.slice(0, 10)}…{agentInfo.safe.slice(-8)}</p>
+                </div>
+              )}
+              {agentInfo?.principal && (
+                <div className="col-span-2">
+                  <p className="text-[9px] font-semibold tracking-wider text-[var(--muted)] mb-0.5">PRINCIPAL</p>
+                  <p className="font-mono text-[#f2eee4]">{agentInfo.principal.slice(0, 10)}…{agentInfo.principal.slice(-8)}</p>
+                </div>
               )}
             </div>
-
-            {/* Right column: identity + actions */}
-            <div className="space-y-4">
-              {/* Identity card */}
-              <div className="rounded-2xl border border-[rgba(176,128,92,0.25)] bg-[var(--card)] p-5">
-                <div className="flex items-center justify-between mb-3 flex-wrap gap-1.5">
-                  <h2 className="text-lg font-bold text-[#f2eee4]">FakeNormie #{ownedTokenId}</h2>
-                  <div className="flex items-center gap-1.5">
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold border border-pink-500/30 bg-pink-500/10 text-pink-300">FakeNormie</span>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold border border-amber-500/30 bg-amber-500/10 text-amber-300">Basic GhostAgent</span>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-[11px]">
-                  <div>
-                    <p className="text-[9px] font-semibold tracking-wider text-[var(--muted)] mb-0.5">AGENT</p>
-                    <p className="font-mono text-[#f2eee4]">{agentRef}</p>
-                  </div>
-                  <div>
-                    <p className="text-[9px] font-semibold tracking-wider text-[var(--muted)] mb-0.5">SLD</p>
-                    <p className="font-mono text-pink-300">agent.gno</p>
-                  </div>
-                  <div>
-                    <p className="text-[9px] font-semibold tracking-wider text-[var(--muted)] mb-0.5">TIER</p>
-                    <p className="font-semibold text-amber-300 capitalize">{agentInfo?.tier ?? 'basic'}</p>
-                  </div>
-                  <div>
-                    <p className="text-[9px] font-semibold tracking-wider text-[var(--muted)] mb-0.5">CHAIN</p>
-                    <p className="font-mono text-[#f2eee4]">Gnosis</p>
-                  </div>
-                  {agentInfo?.safe && (
-                    <div className="col-span-2">
-                      <p className="text-[9px] font-semibold tracking-wider text-[var(--muted)] mb-0.5">SAFE</p>
-                      <p className="font-mono text-[#f2eee4]">{agentInfo.safe.slice(0, 10)}…{agentInfo.safe.slice(-8)}</p>
-                    </div>
-                  )}
-                  {agentInfo?.principal && (
-                    <div className="col-span-2">
-                      <p className="text-[9px] font-semibold tracking-wider text-[var(--muted)] mb-0.5">PRINCIPAL</p>
-                      <p className="font-mono text-[#f2eee4]">{agentInfo.principal.slice(0, 10)}…{agentInfo.principal.slice(-8)}</p>
-                    </div>
-                  )}
-                </div>
-                <div className="mt-3 pt-3 border-t border-[rgba(176,128,92,0.15)] flex gap-3">
-                  <Link href={`/agent/${agentRef}`} className="text-[11px] text-sky-400 hover:underline">Agent page →</Link>
-                </div>
+            {isOwned && (
+              <div className="mt-3 pt-3 border-t border-[rgba(176,128,92,0.15)] flex gap-3">
+                <Link href={`/agent/${agentRef}`} className="text-[11px] text-sky-400 hover:underline">Agent page →</Link>
               </div>
-
-              {/* ACTIONS FOR bar */}
-              <div className="rounded-2xl border border-[rgba(176,128,92,0.25)] bg-[var(--card)] px-5 py-4">
-                <div className="mb-3 flex items-center gap-3">
-                  <span className="text-[10px] font-semibold tracking-widest text-[var(--muted)]">ACTIONS FOR</span>
-                  <span className="rounded-full bg-amber-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-amber-300 ring-1 ring-amber-500/20">
-                    {agentRef}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 overflow-x-auto pb-1">
-                  {agentActions(agentRef).map(action => (
-                    <Link
-                      key={action.key}
-                      href={action.href}
-                      className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition shrink-0 ${action.color}`}
-                    >
-                      {action.label}
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            </div>
+            )}
           </div>
 
-          {/* UPGRADE accordion — full width below the two columns */}
-          <div className="rounded-2xl border border-fuchsia-500/30 bg-fuchsia-500/5 overflow-hidden">
+          {/* CTA — only when not owned */}
+          {!isOwned && (
+            <div className="space-y-2">
+              {!ready ? null : !authenticated ? (
+                <button onClick={login} className="w-full rounded-lg bg-fuchsia-600/80 px-4 py-3 text-sm font-bold text-white hover:bg-fuchsia-600 transition">
+                  Connect Wallet to Claim
+                </button>
+              ) : checking ? (
+                <div className="rounded-lg bg-gray-800/50 px-4 py-3 text-sm text-gray-300">Checking wallet…</div>
+              ) : (
+                <button onClick={handleClaim} disabled={minting} className="w-full rounded-lg bg-pink-600/80 px-4 py-3 text-sm font-bold text-white hover:bg-pink-600 transition disabled:opacity-50">
+                  {minting ? 'Minting on Gnosis Chain…' : 'Claim 1 free FakeNormie →'}
+                </button>
+              )}
+              {error && <p className="text-xs text-red-400 text-center">{error}</p>}
+              <p className="text-[10px] text-[#555] text-center">1 per wallet · gas sponsored by ghostagent.ninja</p>
+            </div>
+          )}
+
+          {/* ACTIONS FOR — only when owned */}
+          {isOwned && (
+            <div className="rounded-2xl border border-[rgba(176,128,92,0.25)] bg-[var(--card)] px-5 py-4">
+              <div className="mb-3 flex items-center gap-3">
+                <span className="text-[10px] font-semibold tracking-widest text-[var(--muted)]">ACTIONS FOR</span>
+                <span className="rounded-full bg-amber-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-amber-300 ring-1 ring-amber-500/20">{agentRef}</span>
+              </div>
+              <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                {agentActions(agentRef).map(action => (
+                  <Link key={action.key} href={action.href} className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition shrink-0 ${action.color}`}>
+                    {action.label}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* UPGRADE accordion — full width, only when owned */}
+      {isOwned && (
+        <div className="rounded-2xl border border-fuchsia-500/30 bg-fuchsia-500/5 overflow-hidden">
             <button
               onClick={() => setShowUpgrade(v => !v)}
               className="w-full flex items-center justify-between px-5 py-3 text-sm font-bold text-fuchsia-300 hover:bg-fuchsia-500/10 transition"
@@ -353,7 +342,6 @@ export function FakeNormieLab() {
               </div>
             )}
           </div>
-        </>
       )}
     </div>
   );
