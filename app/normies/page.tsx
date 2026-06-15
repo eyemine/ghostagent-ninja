@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useWallets } from '@privy-io/react-auth';
 import Link from 'next/link';
-import { FakeNormieSandbox } from '../components/FakeNormieSandbox';
+import FakeNormiesPage from '../fakenormies/page';
 import { NormieTrustBadge, type TrustTarget } from '../components/NormieTrustBadge';
 import { generateNormieHandles } from '../services/agent-identity-router';
 
@@ -238,19 +238,14 @@ export default function NormiesPage() {
               onClick={() => setTab('mint')}
               className={`rounded-xl border px-4 py-4 text-left transition ${tab === 'mint' ? 'border-pink-500/50 bg-pink-500/10' : 'border-[rgba(176,128,92,0.2)] bg-black/20 hover:border-pink-500/30'}`}
             >
-              <p className={`text-sm font-bold ${tab === 'mint' ? 'text-pink-300' : 'text-[#f2eee4]'}`}>Mint FakeNormie</p>
-              <p className="text-[11px] text-[var(--muted)] mt-0.5">Free demo NFT on Gnosis — unverified sandbox tier.</p>
+              <p className={`text-sm font-bold ${tab === 'mint' ? 'text-pink-300' : 'text-[#f2eee4]'}`}>FakeNormie Lab</p>
+              <p className="text-[11px] text-[var(--muted)] mt-0.5">Free mint NFT on Gnosis – Basic GhostAgent tier</p>
             </button>
           </div>
         </div>
 
         {tab === 'mint' ? (
-          <>
-            <FakeNormieSandbox />
-            <p className="text-center text-xs text-[var(--muted)]">
-              <Link href="/fakenormies" className="text-pink-400 hover:underline">More about FakeNormies minting</Link>
-            </p>
-          </>
+          <FakeNormiesPage />
         ) : (
           <>
             {/* ID input */}
