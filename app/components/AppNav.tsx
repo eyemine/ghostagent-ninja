@@ -7,9 +7,9 @@ import { useState } from 'react';
 const NAV = [
   { href: '/dashboard', label: 'Dashboard' },
   { href: '/pair-nft', label: 'Pair My NFT' },
-  { href: '/normies', label: 'Normies' },
   { href: '/dashboard/delegate', label: 'NFT Delegation' },
   { href: '/agents?tab=mint', label: 'Mint Agent ID' },
+  { href: '/normies', label: 'Normies' },
   // { href: '/dashboard/marketplace', label: 'Marketplace' }, // hidden — placeholder content, build with real agents later
   { href: '/docs', label: 'Docs' },
   { href: '/about', label: 'About' },

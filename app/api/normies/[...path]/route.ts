@@ -20,20 +20,17 @@ export async function GET(
       return NextResponse.json({ error: `Normies API ${res.status}` }, { status: res.status });
     }
 
-    const contentType = res.headers.get('content-type') ?? 'application/json';
-
-    if (contentType.includes('svg') || contentType.includes('image')) {
-      const buffer = await res.arrayBuffer();
-      return new NextResponse(buffer, {
-        headers: {
-          'Content-Type': contentType,
-          'Cache-Control': 'public, max-age=3600',
-        },
-      });
-    }
-
-    const data = (await res.json()) as unknown;
-    return NextResponse.json(data);
+    // Pass through the body with the upstream content-type. Normies serves
+    // JSON (/traits), images (/image.png|svg), and plain text (/pixels) — so
+    // we must not assume JSON or res.json() throws on the text/binary routes.
+    const contentType = res.headers.get('content-type') ?? 'application/octet-stream';
+    const buffer = await res.arrayBuffer();
+    return new NextResponse(buffer, {
+      headers: {
+        'Content-Type': contentType,
+        'Cache-Control': 'public, max-age=3600',
+      },
+    });
   } catch {
     return NextResponse.json({ error: 'Failed to reach Normies API' }, { status: 502 });
   }

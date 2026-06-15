@@ -388,10 +388,10 @@ export async function GET(req: NextRequest) {
       accountTier: resolved.accountTier ?? 'basic',
       tld: resolved.tld ?? null,
       // BYO dot-format agents: GNS name is the beacon NFT (e.g. atom-158.agent.gno)
-      // Native agents: name.tld (e.g. ghostagent.agent.gno)
+      // Native agents: name with dots replaced by hyphens + TLD (e.g. normie-100.agent.gno, NOT normie.100.agent.gno)
       gnsName: name.includes('.')
         ? (resolved.originNft ?? null)
-        : (resolved.tld ? `${name}.${resolved.tld}` : null),
+        : (resolved.tld ? `${name.replace(/\./g, '-')}.${resolved.tld}` : null),
       isPublic: resolved.isPublic ?? false,
       canSend: resolved.canSend ?? false,
       expiresAt: resolved.expiresAt ?? null,

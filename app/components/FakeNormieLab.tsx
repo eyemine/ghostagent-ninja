@@ -196,7 +196,7 @@ export function FakeNormieLab() {
           )}
         </div>
 
-        {/* Right column: identity card + CTA or actions */}
+        {/* Right column: identity card + CTA */}
         <div className="space-y-4">
           <div className="rounded-2xl border border-[rgba(176,128,92,0.25)] bg-[var(--card)] p-5">
             <div className="flex items-center justify-between mb-3 flex-wrap gap-1.5">
@@ -263,25 +263,25 @@ export function FakeNormieLab() {
               <p className="text-[10px] text-[#555] text-center">1 per wallet · gas sponsored by ghostagent.ninja</p>
             </div>
           )}
-
-          {/* ACTIONS FOR — only when owned */}
-          {isOwned && (
-            <div className="rounded-2xl border border-[rgba(176,128,92,0.25)] bg-[var(--card)] px-5 py-4">
-              <div className="mb-3 flex items-center gap-3">
-                <span className="text-[10px] font-semibold tracking-widest text-[var(--muted)]">ACTIONS FOR</span>
-                <span className="rounded-full bg-amber-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-amber-300 ring-1 ring-amber-500/20">{agentRef}</span>
-              </div>
-              <div className="flex items-center gap-2 overflow-x-auto pb-1">
-                {agentActions(agentRef).map(action => (
-                  <Link key={action.key} href={action.href} className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition shrink-0 ${action.color}`}>
-                    {action.label}
-                  </Link>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       </div>
+
+      {/* ACTIONS FOR — full width, only when owned */}
+      {isOwned && (
+        <div className="rounded-2xl border border-[rgba(176,128,92,0.25)] bg-[var(--card)] px-5 py-4">
+          <div className="mb-3 flex items-center gap-3">
+            <span className="text-[10px] font-semibold tracking-widest text-[var(--muted)]">ACTIONS FOR</span>
+            <span className="rounded-full bg-amber-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-amber-300 ring-1 ring-amber-500/20">{agentRef}</span>
+          </div>
+          <div className="flex items-center gap-2 overflow-x-auto pb-1">
+            {agentActions(agentRef).map(action => (
+              <Link key={action.key} href={action.href} className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition shrink-0 ${action.color}`}>
+                {action.label}
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* UPGRADE accordion — full width, only when owned */}
       {isOwned && (

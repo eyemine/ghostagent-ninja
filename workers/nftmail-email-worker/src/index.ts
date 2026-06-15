@@ -5179,7 +5179,7 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
             return corsify(Response.json({ error: `${label} is already registered`, status: 'already_registered' }, { status: 409 }), request);
           }
 
-          const originNft: string = (email as any).originNft || `${label}.agent.gno`;
+          const originNft: string = (email as any).originNft || `${label.replace(/\./g, '-')}.agent.gno`;
           const legacyIdentity: string | null = (email as any).legacyIdentity || null;
           const mintedTokenId: number | null = (email as any).mintedTokenId || null;
           const privacyTier: string = (email as any).privacyTier || 'exposed';

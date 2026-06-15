@@ -277,7 +277,10 @@ export async function POST(req: NextRequest) {
           secret: webhookSecret,
           agentName: slug,
           controller: wallet,
-          originNft: `${slug}.fakenormie`,
+          // Beacon NFT GNS name uses hyphens, not dots, so it resolves as a single
+          // subname under agent.gno (super-normie.agent.gno) — NOT super.normie.fakenormie.
+          // The worker uses this as gnsName/identityNft.name and derives the SLD from it.
+          originNft: `${slug.replace(/\./g, '-')}.agent.gno`,
           mintedTokenId: tokenId,
           registrar: FAKENORMIES_ADDRESS,
         }),

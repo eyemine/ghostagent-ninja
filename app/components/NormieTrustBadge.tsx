@@ -74,7 +74,7 @@ export function NormieTrustBadge({ target }: { target: TrustTarget }) {
     setResolve(null); setA2a(null); setMcp(null);
 
     const get = async (qs: string) => {
-      const res = await fetch(`/api/trust?${qs}`);
+      const res = await fetch(`/api/trust?${qs}`, { signal: AbortSignal.timeout(14000) });
       return (await res.json()) as Record<string, unknown>;
     };
 
@@ -154,16 +154,14 @@ export function NormieTrustBadge({ target }: { target: TrustTarget }) {
             <span className={`text-lg font-bold ${scoreColor}`}>{trustScore}<span className="text-xs text-zinc-600">/100</span></span>
           </div>
 
-          {resolve?.explorerUrl && (
-            <a
-              href={resolve.explorerUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="mt-2 inline-block text-[11px] text-fuchsia-400 hover:underline"
-            >
-              View on-chain identity ↗
-            </a>
-          )}
+          <a
+            href={`https://notapaperclip.red/?chain=${encodeURIComponent(target.chain)}&agentId=${target.agentId}`}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-2 inline-block text-[11px] text-fuchsia-400 hover:underline"
+          >
+            Verify on notapaperclip.red ↗
+          </a>
         </>
       )}
     </div>

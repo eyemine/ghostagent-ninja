@@ -8,6 +8,7 @@ import { keccak256, toHex, createWalletClient, custom, parseUnits } from 'viem';
 import { base, mainnet } from 'viem/chains';
 import { MercuryoButton } from '../components/MercuryoWidget';
 import { EmailAliasToggle } from '../components/EmailAliasToggle';
+import { FakeNormieSandbox } from '../components/FakeNormieSandbox';
 import type { AgentRegistryEntry } from '../api/agents/route';
 import { generateNormieHandles } from '../services/agent-identity-router';
 
@@ -1257,6 +1258,11 @@ export default function OgNftMoltPage() {
             <Link href="/dashboard/marketplace" className="flex-1 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 py-2.5 text-center text-sm font-bold text-white transition hover:opacity-90">View in Marketplace →</Link>
           </div>
         </div>
+      )}
+
+      {/* FakeNormie Sandbox — bottom panel when FakeNormie collection is selected */}
+      {nftType === 'fakenormie' && (step === 'check' || step === 'select-agent') && (
+        <FakeNormieSandbox />
       )}
 
       {/* Error */}
