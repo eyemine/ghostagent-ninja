@@ -42,7 +42,7 @@ const NFT_CONTRACTS: Record<string, { contract: string; rpc: string; chain: stri
   pownft:     { contract: '0x9abb7bddc43fa67c76a62d8c016513827f59be1b', rpc: ETH_RPC, chain: 'mainnet' },
   normie:     { contract: '0x9eb6e2025b64f340691e424b7fe7022ffde12438', rpc: ETH_RPC, chain: 'mainnet' },
   mooncat:    { contract: '0xc3f733ca98e0dad0386979eb96fb1722a1a05e69', rpc: ETH_RPC, chain: 'mainnet' },
-  fakenormie: { contract: process.env.FAKE_NORMIE_CONTRACT ?? '', rpc: 'https://rpc.gnosischain.com', chain: 'gnosis' },
+  fakenormie: { contract: process.env.NEXT_PUBLIC_FAKE_NORMIE_CONTRACT || process.env.FAKE_NORMIE_CONTRACT || '', rpc: 'https://rpc.gnosischain.com', chain: 'gnosis' },
 };
 
 // Source chain IDs for Gnosis-side mirror TBA derivation
@@ -193,8 +193,8 @@ export async function POST(req: NextRequest) {
 
     // ── Step 1: Verify NFT ownership ──
     const nftConfig = NFT_CONTRACTS[type];
-    const contract = nftConfig?.contract ?? contractAddress;
-    const rpc = nftConfig?.rpc ?? 'https://ethereum.publicnode.com';
+    const contract = nftConfig?.contract || contractAddress;
+    const rpc = nftConfig?.rpc || 'https://ethereum.publicnode.com';
     if (!contract) {
       return NextResponse.json({ error: 'Missing contract address for NFT type' }, { status: 400 });
     }
