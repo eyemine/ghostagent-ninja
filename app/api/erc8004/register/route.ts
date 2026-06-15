@@ -34,6 +34,8 @@ import {
 import { type SldKey } from '../../../services/genome-metadata';
 import { WORKER_URL } from '../../../utils/config';
 
+const WORKER_SECRET = process.env.WORKER_SECRET || process.env.WEBHOOK_SECRET || '';
+
 const VIEM_CHAINS: Record<string, Chain> = {
   gnosis,
   base,
@@ -256,7 +258,7 @@ export async function POST(req: NextRequest) {
       try {
         const kvRes = await fetch(WORKER_URL, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
           body: JSON.stringify({
             action:         'setErc8004AgentId',
             agentName,
@@ -357,7 +359,7 @@ export async function GET(req: NextRequest) {
   try {
     const kvRes = await fetch(WORKER_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
       body: JSON.stringify({ action: 'getAgentStatus', localPart: agentName }),
     });
     if (!kvRes.ok) {
