@@ -50,10 +50,9 @@ async function setKvId(name: string, agentId: number, owner: string, uri: string
 }
 
 export async function POST(req: NextRequest) {
-  const auth = req.headers.get('authorization')?.replace('Bearer ', '');
+  const body = await req.json() as { dryRun?: boolean; agentNames?: string[]; secret?: string };
+  const auth = req.headers.get('authorization')?.replace('Bearer ', '') ?? body?.secret ?? '';
   if (auth !== ADMIN_SECRET) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-  const body = await req.json() as { dryRun?: boolean; agentNames?: string[] };
   const dryRun = body.dryRun ?? false;
 
   const chainAgents = await scanChain();
