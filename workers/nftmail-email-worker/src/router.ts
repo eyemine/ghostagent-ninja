@@ -52,7 +52,9 @@ export function createApp(handlers: RouterHandlers) {
     const workerSecret = c.env.WORKER_SECRET;
     if (workerSecret) {
       const provided = c.req.header('X-Worker-Secret');
-      if (provided !== workerSecret) {
+      const authHeader = c.req.header('Authorization') || '';
+      const bearerToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+      if (provided !== workerSecret && bearerToken !== workerSecret) {
         return c.json(
           { error: 'Unauthorized - Invalid or missing X-Worker-Secret header' },
           401
