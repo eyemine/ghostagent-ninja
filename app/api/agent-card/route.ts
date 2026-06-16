@@ -45,9 +45,11 @@ export async function GET(req: NextRequest) {
 
   const sldFallback: SldKey = VALID_SLDS.includes(sldParam as SldKey) ? (sldParam as SldKey) : 'agent';
 
-  // Fetch all 4 KV sources in parallel — they are independent of each other
-  const beaconName = agentName;
-  const [kvRes, idRes, profileRes, byoRes] = await Promise.allSettled([
+  // beaconName = hyphen variant (for GNS subname / legacy KV keys)
+  const beaconName = agentName.replace(/\./g, '-');
+
+  // Fetch resolveAddress + BYO image for dot name in parallel
+  const [kvRes, byoRes] = await Promise.allSettled([
     fetch(WORKER_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
@@ -57,22 +59,39 @@ export async function GET(req: NextRequest) {
     fetch(WORKER_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
-      body: JSON.stringify({ action: 'getAgentIdentity', agentName }),
-      signal: AbortSignal.timeout(5000),
-    }),
-    fetch(WORKER_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
-      body: JSON.stringify({ action: 'getAgentProfile', agentName }),
-      signal: AbortSignal.timeout(5000),
-    }),
-    fetch(WORKER_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
       body: JSON.stringify({ action: 'kvGet', key: `byo-origin-image:${agentName}` }),
       signal: AbortSignal.timeout(5000),
     }),
   ]);
+
+  // Tolerant identity/profile lookup: D1/KV may store under dot OR hyphen.
+  // Try dot (canonical) first, hyphen fallback — pick the one that returns data.
+  async function fetchIdentity(name: string) {
+    return fetch(WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+      body: JSON.stringify({ action: 'getAgentIdentity', agentName: name }),
+      signal: AbortSignal.timeout(5000),
+    });
+  }
+  async function fetchProfile(name: string) {
+    return fetch(WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+      body: JSON.stringify({ action: 'getAgentProfile', agentName: name }),
+      signal: AbortSignal.timeout(5000),
+    });
+  }
+
+  const [idDot, idHyphen] = await Promise.all([fetchIdentity(agentName), fetchIdentity(beaconName)]);
+  const idDotText = await idDot.text().catch(() => '');
+  const idHyphenText = await idHyphen.text().catch(() => '');
+  const idResText = idDotText || idHyphenText;
+
+  const [profileDot, profileHyphen] = await Promise.all([fetchProfile(agentName), fetchProfile(beaconName)]);
+  const profileDotText = await profileDot.text().catch(() => '');
+  const profileHyphenText = await profileHyphen.text().catch(() => '');
+  const profileResText = profileDotText || profileHyphenText;
 
   // Process: TLD / SLD
   let sld: SldKey = sldFallback;
@@ -89,9 +108,9 @@ export async function GET(req: NextRequest) {
 
   // Process: ERC-8004 registrations
   let allRegistrations: Erc8004Registration[] = [];
-  if (idRes.status === 'fulfilled' && idRes.value.ok) {
+  if (idResText) {
     try {
-      const idData = await idRes.value.json() as Record<string, unknown>;
+      const idData = JSON.parse(idResText) as Record<string, unknown>;
       const erc8004 = idData?.erc8004 as Record<string, { agentId?: number; chainId?: number }> | undefined;
       if (erc8004) {
         const registryMain = ERC8004_ADDRESSES.mainnet.identityRegistry;
@@ -115,9 +134,9 @@ export async function GET(req: NextRequest) {
   }
 
   // Process: agent profile overrides
-  if (profileRes.status === 'fulfilled' && profileRes.value.ok) {
+  if (profileResText) {
     try {
-      const { profile } = await profileRes.value.json() as { profile: Record<string, unknown> };
+      const { profile } = JSON.parse(profileResText) as { profile: Record<string, unknown> };
       if (profile.description && typeof profile.description === 'string') {
         regFile = { ...regFile, description: profile.description };
       }

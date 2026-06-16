@@ -242,11 +242,13 @@ function normaliseQuery(q: string): { name: string; isAgent: boolean } {
   const withoutDomain = q.replace(/@nftmail\.box$/i, '').trim().toLowerCase();
   // Strip TLD suffixes (.agent.gno, .molt.gno, .nftmail.gno, .openclaw.gno, .picoclaw.gno, .vault.gno)
   const withoutTld = withoutDomain.replace(/\.(agent|molt|nftmail|openclaw|picoclaw|vault)\.gno$/i, '');
-  // Convert dots to hyphens to match KV storage format (chonk.676 → chonk-676)
-  const normalized = withoutTld.replace(/\./g, '-');
-  // Strip trailing underscore to get base name
-  const isAgent = normalized.endsWith('_');
-  const name = isAgent ? normalized.slice(0, -1) : normalized;
+  // CANONICAL RULE: dots are the email/agent-reference delimiter and are preserved
+  // as-minted (e.g. chonk.681, fake.normie, ghostagent-og.cast). Hyphens are used
+  // ONLY for the on-chain GNS beacon subname (chonk-681.agent.gno) because .gno
+  // subnames cannot contain dots. We therefore do NOT rewrite dots→hyphens here.
+  // Strip trailing underscore to get base name.
+  const isAgent = withoutTld.endsWith('_');
+  const name = isAgent ? withoutTld.slice(0, -1) : withoutTld;
   return { name, isAgent };
 }
 
@@ -263,23 +265,61 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Empty name after normalisation' }, { status: 400 });
   }
 
-  // Always resolve as agent_ first (the underscore suffix path)
-  const lookupName = `${name}_`;
+  // Candidate base names, in priority order:
+  //   1. as-minted / dot-canonical (e.g. chonk.681) — the correct format per our rule
+  //   2. legacy dots→hyphens (e.g. chonk-681) — transition fallback for records that
+  //      were mis-written with hyphen KV/D1 labels between Jun 3–16 2026.
+  // We do NOT mutate data here; this just tolerates both formats during migration.
+  const candidateBases = Array.from(new Set([name, name.replace(/\./g, '-')]));
 
   try {
-    // ── 1. resolveAddress from worker ─────────────────────────────────────
-    const resolveRes = await fetch(WORKER_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
-      body: JSON.stringify({ action: 'resolveAddress', name: lookupName }),
-      signal: AbortSignal.timeout(6000),
-    });
+    // ── 1. resolveAddress from worker — try each candidate format in parallel ──
+    const settled = await Promise.all(candidateBases.map(async (base) => {
+      try {
+        const r = await fetch(WORKER_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+          body: JSON.stringify({ action: 'resolveAddress', name: `${base}_` }),
+          signal: AbortSignal.timeout(6000),
+        });
+        return { base, data: r.ok ? await r.json() as any : null };
+      } catch {
+        return { base, data: null };
+      }
+    }));
 
-    if (!resolveRes.ok) {
-      return NextResponse.json({ error: `Worker error: ${resolveRes.status}` }, { status: 502 });
+    // The controller/owner EOA is the authoritative ownership signal (the dashboard
+    // compares it to the connected wallet). The agent's Safe is NOT — it's the agent's
+    // own treasury, never the connecting wallet. So prefer a record bearing onChainOwner
+    // or principal when choosing the primary.
+    const hasController = (d: any) => !!(d?.onChainOwner || d?.principal);
+    const existing = settled.filter(s => s.data?.exists);
+
+    // Pick the primary record: controller-bearing first, else first existing, else any
+    // worker response (so non-existent names still return availability info).
+    const primary =
+      existing.find(s => hasController(s.data)) ??
+      existing[0] ??
+      settled.find(s => s.data);
+    if (!primary || !primary.data) {
+      return NextResponse.json({ error: 'Worker error or agent not found' }, { status: 502 });
     }
 
-    const resolved = await resolveRes.json() as any;
+    // MERGE both candidates — data is split across dot/hyphen records during migration
+    // (e.g. chonk.9534: controller lives in hyphen, safe + tier live in dot). Primary's
+    // non-null fields win; the secondary backfills any gaps so the graph is complete.
+    const secondary = existing.find(s => s !== primary)?.data ?? null;
+    let resolved: any = primary.data;
+    if (secondary) {
+      resolved = { ...secondary };
+      for (const [k, v] of Object.entries(primary.data)) {
+        if (v !== null && v !== undefined) resolved[k] = v;
+      }
+      resolved.exists = primary.data.exists || secondary.exists;
+    }
+    // The format that resolved — use this for KV-keyed enrichment (beacon/molt/tba)
+    // so we read from the same namespace the primary record was written under.
+    const resolvedBase = primary.base;
 
     // ── 2–4. Parallel: beacon CID + molt path + TBA derivation ───────────
     let beaconCid: string | null = null;
@@ -300,8 +340,8 @@ export async function GET(req: NextRequest) {
 
       // mintedTokenId from KV; fall back to KNOWN_TOKEN_IDS for pre-seeded agents
       let mintedTokenId: number | null = resolved.mintedTokenId ?? null;
-      if (mintedTokenId === null && KNOWN_TOKEN_IDS[name]) {
-        mintedTokenId = KNOWN_TOKEN_IDS[name].tokenId;
+      if (mintedTokenId === null && KNOWN_TOKEN_IDS[resolvedBase]) {
+        mintedTokenId = KNOWN_TOKEN_IDS[resolvedBase].tokenId;
       }
 
       const needsTbaDerivation = tbaAddress === null && mintedTokenId !== null;
@@ -311,14 +351,14 @@ export async function GET(req: NextRequest) {
         fetch(WORKER_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
-          body: JSON.stringify({ action: 'getBeacon', name }),
+          body: JSON.stringify({ action: 'getBeacon', name: resolvedBase }),
         }).then(r => r.json()),
 
         // Molt path
         fetch(WORKER_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
-          body: JSON.stringify({ action: 'getMoltPath', name }),
+          body: JSON.stringify({ action: 'getMoltPath', name: resolvedBase }),
         }).then(r => r.json()),
 
         // TBA derivation — read impl from registrar on-chain, try old registrars if needed
@@ -332,7 +372,7 @@ export async function GET(req: NextRequest) {
         tbaAddress === null ? fetch(WORKER_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
-          body: JSON.stringify({ action: 'kvGet', key: `tba:${name}` }),
+          body: JSON.stringify({ action: 'kvGet', key: `tba:${resolvedBase}` }),
           signal: AbortSignal.timeout(3000),
         }).then(r => r.json()).catch(() => null) : Promise.resolve(null),
       ]);
