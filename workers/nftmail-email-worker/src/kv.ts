@@ -137,6 +137,75 @@ export class DenoKVStore implements KVStore {
   }
 }
 
+// ─── Redis adapter (Hetzner / bare metal target) ─────────────────────────────
+//
+// Usage (Node/Bun entry point):
+//   import { RedisKVStore } from './kv.ts';
+//   import Redis from 'ioredis';
+//   const redis = new Redis({ host: '127.0.0.1', port: 6379 });
+//   const store = new RedisKVStore(redis);
+//
+// Key layout: same as Cloudflare — flat string keys, no prefix mangling.
+
+export class RedisKVStore implements KVStore {
+  constructor(private readonly redis: { get: Function; set: Function; del: Function; scan: Function; quit?: Function }) {}
+
+  async get(key: string): Promise<string | null> {
+    const value = await this.redis.get(key);
+    return value === null || value === undefined ? null : String(value);
+  }
+
+  async getJson<T = unknown>(key: string): Promise<T | null> {
+    const raw = await this.get(key);
+    if (raw === null) return null;
+    try { return JSON.parse(raw) as T; } catch { return null; }
+  }
+
+  async put(key: string, value: string, opts?: KVPutOptions): Promise<void> {
+    const args: (string | number)[] = [key, value];
+    if (opts?.expirationTtl) {
+      args.push('EX', Math.floor(opts.expirationTtl));
+    } else if (opts?.expiration) {
+      const ttl = Math.floor(opts.expiration - Date.now() / 1000);
+      if (ttl > 0) args.push('EX', ttl);
+    }
+    await this.redis.set(...args);
+  }
+
+  async putJson(key: string, value: unknown, opts?: KVPutOptions): Promise<void> {
+    return this.put(key, JSON.stringify(value), opts);
+  }
+
+  async delete(key: string): Promise<void> {
+    await this.redis.del(key);
+  }
+
+  async list(opts: { prefix: string; cursor?: string; limit?: number }): Promise<KVListResult> {
+    const limit = opts.limit ?? 1000;
+    const keys: KVListResult['keys'] = [];
+    let cursor = opts.cursor ?? '0';
+    let scanned = 0;
+
+    while (scanned < limit) {
+      const result = await this.redis.scan(cursor, 'MATCH', `${opts.prefix}*`, 'COUNT', Math.min(100, limit - scanned));
+      cursor = result[0];
+      const batch = result[1] as string[];
+      for (const name of batch) {
+        keys.push({ name });
+      }
+      scanned += batch.length;
+      if (cursor === '0') break;
+      if (keys.length >= limit) break;
+    }
+
+    return {
+      keys,
+      list_complete: cursor === '0',
+      cursor: cursor === '0' ? undefined : cursor,
+    };
+  }
+}
+
 // ─── In-memory adapter (unit tests / local dev) ──────────────────────────────
 
 export class MemoryKVStore implements KVStore {

@@ -1680,7 +1680,7 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
                 }, { status: 500 }), request);
               }
             }
-            return await handleMailgunPayload(mgEmail, env, request);
+            return await handleMailgunPayload(mgEmail, env, request, ctx);
           }
 
           // Any non-JSON body that isn't clearly our app's JSON shape is a Mailgun raw email.
@@ -1705,7 +1705,7 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
               strippedText: bodyText,
             };
             console.log(`[rfc822] recipient=${mgEmail['recipient']} sender=${mgEmail['sender']} subject="${String(mgEmail['subject']).slice(0, 50)}"`);
-            return await handleMailgunPayload(mgEmail, env, request);
+            return await handleMailgunPayload(mgEmail, env, request, ctx);
           }
 
           throw parseErr;
@@ -2706,12 +2706,13 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
                 if (c !== controller && s !== controller) return;
                 
                 const isAgent = name.endsWith('.agent');
-                const isAlias = name.endsWith('_');
                 
-                // Track base agents (without _) to later add their aliases
-                if (!isAlias && !isAgent) {
-                  ownedBaseNames.add(name);
-                }
+                // Skip .agent suffix routing keys — not user-facing inboxes
+                // NOTE: names ending with _ ARE real agent inboxes (e.g. chonk.681_) — do NOT filter them
+                if (isAgent) return;
+                
+                // Track base names to later synthesise _ alias if needed
+                ownedBaseNames.add(name);
                 
                 // TLD: prefer record's tld field, then tld: KV key, then parse from origin_nft
                 const recordTld: string | null = g.tld || null;
@@ -2754,44 +2755,30 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
               } catch { /* skip malformed */ }
             }));
             
-            // Add aliases for owned base agents (e.g., rgbanksy owns rgbanksy_)
-            // Only for lite (lite) tier or above — basic (basic) does not get a _ alias
-            for (const baseName of ownedBaseNames) {
-              const tierRaw = await env.INBOX_KV.get(`acct-tier:${baseName}`);
-              if (tierRaw) {
-                try {
-                  const tierData = JSON.parse(tierRaw) as { tier?: string };
-                  if (tierData.tier === 'basic') continue;
-                } catch { /* malformed tier — skip alias */ continue; }
-              }
-              const aliasName = `${baseName}_`;
-              // Check if alias already exists or has its own nftmailgno record
-              const aliasRaw = await env.INBOX_KV.get(`nftmailgno:${aliasName}`);
-              if (!aliasRaw) {
-                // Add the alias with inherited properties from base agent
-                const baseRaw = await env.INBOX_KV.get(`nftmailgno:${baseName}`);
-                if (baseRaw) {
-                  try {
-                    const g = JSON.parse(baseRaw);
-                    let tld = g.tld || null;
-                    if (!tld && g.origin_nft) {
-                      const dotIdx = (g.origin_nft as string).indexOf('.');
-                      if (dotIdx > 0) tld = (g.origin_nft as string).slice(dotIdx + 1);
-                    }
-                    tld = tld || 'nftmail.gno';
-                    results.push({
-                      name: aliasName,
-                      email: `${aliasName}@nftmail.box`,
-                      gnoName: g.origin_nft || `${baseName}.${tld}`,
-                      tld,
-                      tokenId: null, // Aliases don't have their own token
-                      isAgent: false, // Aliases are not .agent type
-                    });
-                  } catch { /* skip malformed */ }
+            // Deduplicate: same agent stored under dot/hyphen/underscore variants during migration.
+            // Normalize separators (collapse . and - to _) excluding known social TLDs.
+            function normNameForDedup(n: string): string {
+              const base = n.replace(/_+$/, '');
+              for (const tld of ['.cast', '.fid', '.eth', '.base', '.gno']) {
+                if (base.endsWith(tld)) {
+                  return base.slice(0, -tld.length).replace(/[._-]/g, '_') + tld;
                 }
               }
+              return base.replace(/-/g, '_');
             }
-            return corsify(Response.json({ names: results, total: results.length }), request);
+            const deduped = new Map<string, typeof results[0]>();
+            for (const r of results) {
+              const norm = normNameForDedup(r.name);
+              const existing = deduped.get(norm);
+              if (!existing) {
+                deduped.set(norm, r);
+              } else if (r.name.includes('_') && !existing.name.includes('_')) {
+                // Prefer underscore format (canonical) over dot/hyphen variants
+                deduped.set(norm, r);
+              }
+            }
+            const dedupedResults = Array.from(deduped.values());
+            return corsify(Response.json({ names: dedupedResults, total: dedupedResults.length }), request);
           } catch (e: any) {
             return corsify(Response.json({ error: e?.message ?? 'listNftmailByController failed' }, { status: 500 }), request);
           }
@@ -4591,7 +4578,7 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
             }
           }
 
-          return await handleMailgunPayload(email as unknown as Record<string, unknown>, env, request);
+          return await handleMailgunPayload(email as unknown as Record<string, unknown>, env, request, ctx);
         }
 
         // --- Molt Upgrade: Register a Zoho Seat for a human ---
@@ -5755,6 +5742,55 @@ Mint a BYO NFT on nftmail.box to claim this tier.
             const err = await mgRes.text();
             console.log('[sendOutbound] Mailgun error:', mgRes.status, err.slice(0, 200));
             return corsify(Response.json({ error: `Mailgun error: ${err.slice(0, 100)}` }, { status: 502 }), request);
+          }
+          // ── Internal delivery shortcut for @nftmail.box recipients ────────────
+          // Bypasses MX round-trip — writes directly to recipient KV inbox.
+          // Belt-and-braces: also shadow-writes to D1 for non-basic agents so
+          // getInbox (D1-first path) returns the message immediately.
+          const toNorm = to.toLowerCase().trim();
+          if (toNorm.endsWith('@nftmail.box')) {
+            const recipLocal = toNorm.slice(0, -'@nftmail.box'.length);
+            try {
+              const recipTierRaw = await env.INBOX_KV.get(`acct-tier:${recipLocal}`);
+              if (recipTierRaw) {
+                const recipTier: string = (JSON.parse(recipTierRaw) as { tier?: string }).tier || 'basic';
+                const ttlMap: Record<string, number> = { basic: 8 * 86400, lite: 30 * 86400, professional: 365 * 86400, vault: 365 * 86400 };
+                const recipTtl = ttlMap[recipTier] ?? 8 * 86400;
+                const internalTs = Date.now();
+                const internalBlindId = `blind-${internalTs}-${crypto.randomUUID().slice(0, 8)}`;
+                const internalEnvelope = JSON.stringify({
+                  type: 'human-cleartext', encrypted: false,
+                  payload: { from: `${agentName}@nftmail.box`, to: `${recipLocal}@nftmail.box`, subject, body, timestamp: internalTs },
+                  receivedAt: internalTs, channel: 'internal',
+                });
+                await env.INBOX_KV.put(`blind:${recipLocal}:${internalBlindId}`, internalEnvelope, { expirationTtl: recipTtl });
+                await updateBlindIndex(env, recipLocal, internalBlindId, '', recipTtl);
+                // Shadow-write to D1 for LITE+ agents so getInbox D1-first path finds it
+                if (recipTier !== 'basic' && env.NFTMAIL_DB) {
+                  try {
+                    const d1 = new D1Store(env.NFTMAIL_DB);
+                    await d1.insertEmail({
+                      agent_label: recipLocal,
+                      blind_id: internalBlindId,
+                      domain_prefix: '',
+                      encrypted_blob: internalEnvelope,
+                      sender_hash: null,
+                      subject_hash: null,
+                      received_at: internalTs,
+                      read: 0,
+                      frozen: 0,
+                      surge_allocation: null,
+                      ttl_expires_at: internalTs + recipTtl * 1000,
+                    });
+                  } catch (d1Err) {
+                    console.error('[sendOutbound] D1 shadow write failed (non-fatal):', d1Err);
+                  }
+                }
+                console.log(`[sendOutbound] internal delivery → ${recipLocal} (tier:${recipTier})`);
+              }
+            } catch (e) {
+              console.error('[sendOutbound] internal delivery failed (non-fatal):', e);
+            }
           }
           await env.INBOX_KV.put(`acct-tier:${agentName}`, JSON.stringify(tierData));
           return corsify(Response.json({ status: 'sent', sendsRemaining: sendsRemainingOut }), request);
