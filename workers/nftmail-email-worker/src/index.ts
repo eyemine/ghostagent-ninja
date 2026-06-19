@@ -2692,8 +2692,9 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
           try {
             const listed = await env.INBOX_KV.list({ prefix: 'nftmailgno:' });
             const results: { name: string; email: string; gnoName: string; tld: string; tokenId: number | null; isAgent: boolean }[] = [];
-            const ownedBaseNames = new Set<string>();
-            
+            const explicitBaseNames = new Set<string>();
+            const aliasRecords: { name: string; baseName: string; g: any; tld: string; gnoName: string }[] = [];
+
             await Promise.all(listed.keys.map(async (k) => {
               const name = k.name.replace(/^nftmailgno:/, '');
               const raw = await env.INBOX_KV.get(k.name);
@@ -2704,16 +2705,19 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
                 const s = (g.safe || '').toLowerCase();
                 // Match on controller field OR safe address
                 if (c !== controller && s !== controller) return;
-                
+
                 const isAgent = name.endsWith('.agent');
-                
+                const isAlias = name.endsWith('_');
+
                 // Skip .agent suffix routing keys — not user-facing inboxes
                 // NOTE: names ending with _ ARE real agent inboxes (e.g. chonk.681_) — do NOT filter them
                 if (isAgent) return;
-                
-                // Track base names to later synthesise _ alias if needed
-                ownedBaseNames.add(name);
-                
+
+                // Track base names that are already explicitly registered as separate KV records
+                if (!isAlias) {
+                  explicitBaseNames.add(name);
+                }
+
                 // TLD: prefer record's tld field, then tld: KV key, then parse from origin_nft
                 const recordTld: string | null = g.tld || null;
                 let tld = recordTld;
@@ -2752,19 +2756,41 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
                   tokenId: g.minted_tokenId || null,
                   isAgent,
                 });
+
+                // Remember alias records so we can synthesise the base human account afterwards
+                if (isAlias) {
+                  aliasRecords.push({ name, baseName, g, tld, gnoName });
+                }
               } catch { /* skip malformed */ }
             }));
-            
+
+            // Synthesise the base human account (e.g. ghostagent@nftmail.box) for any agent alias
+            // (e.g. ghostagent_@nftmail.box) when the base name is NOT already an explicit KV record.
+            // Both share the same NFT and controller, but they are distinct inboxes.
+            for (const alias of aliasRecords) {
+              if (explicitBaseNames.has(alias.baseName)) continue;
+              const already = results.find(r => r.name === alias.baseName);
+              if (already) continue;
+              results.push({
+                name: alias.baseName,
+                email: `${alias.baseName}@nftmail.box`,
+                gnoName: alias.gnoName,
+                tld: alias.tld,
+                tokenId: alias.g.minted_tokenId || null,
+                isAgent: false,
+              });
+            }
+
             // Deduplicate: same agent stored under dot/hyphen/underscore variants during migration.
             // Normalize separators (collapse . and - to _) excluding known social TLDs.
+            // Preserve trailing underscores so base names and their _ aliases stay distinct.
             function normNameForDedup(n: string): string {
-              const base = n.replace(/_+$/, '');
               for (const tld of ['.cast', '.fid', '.eth', '.base', '.gno']) {
-                if (base.endsWith(tld)) {
-                  return base.slice(0, -tld.length).replace(/[._-]/g, '_') + tld;
+                if (n.endsWith(tld)) {
+                  return n.slice(0, -tld.length).replace(/[.-]/g, '_') + tld;
                 }
               }
-              return base.replace(/-/g, '_');
+              return n.replace(/[.-]/g, '_');
             }
             const deduped = new Map<string, typeof results[0]>();
             for (const r of results) {
@@ -2772,8 +2798,9 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
               const existing = deduped.get(norm);
               if (!existing) {
                 deduped.set(norm, r);
-              } else if (r.name.includes('_') && !existing.name.includes('_')) {
-                // Prefer underscore format (canonical) over dot/hyphen variants
+              } else if (r.name.includes('_') && !existing.name.includes('_') && !norm.endsWith('_')) {
+                // Prefer underscore format (canonical) over dot/hyphen variants, but only for
+                // variants that are not the trailing-_ alias of a base name.
                 deduped.set(norm, r);
               }
             }
@@ -6463,6 +6490,54 @@ Mint a BYO NFT on nftmail.box to claim this tier.
               sessionId,
               ...(memoryCap !== null ? { cap: memoryCap } : {}),
             });
+
+            // If premium/ghost tier, dual-write to the new structured memory tables
+            if (agentTier === 'premium' || agentTier === 'ghost') {
+              try {
+                const recordId = typeof entry.id === 'string' ? entry.id : crypto.randomUUID();
+                
+                const source = (entry.source || 'manual') as import('./d1').MemorySource;
+                const kind = (entry.kind || 'raw') as import('./d1').MemoryKind;
+                const scope = (entry.scope || 'long-term') as import('./d1').MemoryScope;
+                const instance = entry.instance || null;
+                const lineageParentId = entry.lineageParentId || entry.lineage_parent_id || null;
+                
+                let contentHash: string | null = null;
+                try {
+                  const encoder = new TextEncoder();
+                  const data = encoder.encode(content);
+                  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+                  const hashArray = Array.from(new Uint8Array(hashBuffer));
+                  contentHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+                } catch (hashErr) {
+                  console.error('[setMemory] Content hashing failed:', hashErr);
+                }
+
+                const now = Date.now();
+                await d1.insertMemoryRecord({
+                  id: recordId,
+                  agent_label: agentName,
+                  source,
+                  instance,
+                  kind,
+                  scope,
+                  content_hash: contentHash,
+                  created_at: now,
+                  updated_at: now,
+                  lineage_parent_id: lineageParentId,
+                });
+
+                await d1.insertMemoryChunk({
+                  id: `${recordId}:0`,
+                  record_id: recordId,
+                  chunk_index: 0,
+                  content,
+                });
+              } catch (structuredErr) {
+                console.error('[setMemory] Failed to write structured memory:', structuredErr);
+              }
+            }
+
             appended++;
           }
           return corsify(Response.json({
