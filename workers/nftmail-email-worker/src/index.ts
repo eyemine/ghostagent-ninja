@@ -2781,6 +2781,26 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
               });
             }
 
+            // Synthesise the agent alias (e.g. ghostagent_@nftmail.box) for any base account that has
+            // a TLD record but no explicit alias record. This fixes FakeNormie / BYO agents where the
+            // base name was registered but the underscore alias was never written.
+            const explicitAliasNames = new Set(aliasRecords.map(a => a.name));
+            for (const r of results) {
+              if (r.isAgent || r.name.endsWith('_')) continue;
+              const aliasName = `${r.name}_`;
+              if (explicitAliasNames.has(aliasName)) continue;
+              const already = results.find(x => x.name === aliasName);
+              if (already) continue;
+              results.push({
+                name: aliasName,
+                email: `${aliasName}@nftmail.box`,
+                gnoName: r.gnoName,
+                tld: r.tld,
+                tokenId: r.tokenId,
+                isAgent: true,
+              });
+            }
+
             // Deduplicate: same agent stored under dot/hyphen/underscore variants during migration.
             // Normalize separators (collapse . and - to _) excluding known social TLDs.
             // Preserve trailing underscores so base names and their _ aliases stay distinct.

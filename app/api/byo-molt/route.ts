@@ -251,12 +251,15 @@ export async function POST(req: NextRequest) {
     const beaconLabel = type === 'ens' ? displayLabel : type === 'fakenormie' ? cleanName.replace(/\./g, '-') : `${beaconPrefix}-${displayLabel}`;
 
     // Calculate humanLocalPart early - needed for Safe creation saltNonce
-    // Use hyphens (not dots) so KV keys match the read-time normalisation (chonk-676 not chonk.676)
+    // CANONICAL RULE: the email local-part + KV/D1 label use DOTS (the delimiter),
+    // e.g. chonk.676@nftmail.box, super.normie@nftmail.box. Hyphens are reserved
+    // exclusively for the GNS beacon subname (beaconLabel above) because .gno
+    // subnames cannot contain dots. Do NOT hyphenate the email/label here.
     const humanLocalPart = type === 'ens'
       ? (nftName ?? `ens-${tokenId.slice(0, 8)}`)
       : type === 'fakenormie'
-        ? cleanName.replace(/\./g, '-')  // e.g. "super.normie" → "super-normie@nftmail.box"
-        : `${emailPrefix}-${displayLabel}`;
+        ? cleanName  // e.g. "super.normie" → super.normie@nftmail.box (dots preserved)
+        : `${emailPrefix}.${displayLabel}`;
 
     // Safe address and TBA address for new-agent molts (set during beacon/Safe step)
     let safeAddress: string | null = null;
@@ -390,9 +393,10 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Step 4: Register aliases (both human + agent emails) ──
-    // Human HITL email: chonk-123@nftmail.box (hyphen separator, no underscore)
-    // Agent A2A email:  chonk-123_@nftmail.box (hyphen separator, trailing underscore)
+    // Human HITL email: chonk.123@nftmail.box (dot delimiter, no underscore)
+    // Agent A2A email:  chonk.123_@nftmail.box (dot delimiter, trailing underscore)
     // ENS: eyemine@nftmail.box / eyemine_@nftmail.box
+    // (The beacon NFT subname chonk-123.agent.gno uses hyphens — see beaconLabel.)
     const agentLocalPart = `${humanLocalPart}_`;
     const humanEmail = `${humanLocalPart}@nftmail.box`;
     const agentEmail = `${agentLocalPart}@nftmail.box`;
@@ -519,6 +523,34 @@ export async function POST(req: NextRequest) {
             }),
           }),
         ]);
+
+        // Also store TBA directly on the nftmailgno record so public agent lookups show it
+        if (tbaAddress) {
+          await Promise.all([
+            fetch(NFTMAIL_WORKER_URL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+              body: JSON.stringify({
+                action: 'setAgentRecord',
+                secret: webhookSecret,
+                agentName: humanLocalPart,
+                tba: tbaAddress,
+                ...(safeAddress ? { safe: safeAddress } : {}),
+              }),
+            }),
+            fetch(NFTMAIL_WORKER_URL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+              body: JSON.stringify({
+                action: 'setAgentRecord',
+                secret: webhookSecret,
+                agentName: agentLocalPart,
+                tba: tbaAddress,
+                ...(safeAddress ? { safe: safeAddress } : {}),
+              }),
+            }),
+          ]);
+        }
       } catch {
         // Non-fatal
       }

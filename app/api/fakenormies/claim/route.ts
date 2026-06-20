@@ -82,6 +82,7 @@ export async function POST(req: NextRequest) {
     const slug = tokenIdToSlug[tokenId] ?? `token${tokenId}`;
     const humanEmail = `${slug}@nftmail.box`;
     const agentEmail = `${slug}_@nftmail.box`;
+    const beaconLabel = slug.replace(/\./g, '-');
 
     const workerUrl = process.env.NEXT_PUBLIC_WORKER_URL || 'https://nftmail-email-worker.richard-159.workers.dev';
     const webhookSecret = process.env.WEBHOOK_SECRET;
@@ -91,7 +92,54 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Worker secret not configured' }, { status: 503 });
     }
 
-    // Update nftmailgno:{slug} controller
+    // ── Read existing KV records so we do not overwrite an upgrade ─────────
+    async function kvGet(key: string) {
+      try {
+        const r = await fetch(workerUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+          body: JSON.stringify({ action: 'kvGet', key }),
+        });
+        if (!r.ok) return null;
+        const d = await r.json() as { value?: string | null };
+        return d.value ?? null;
+      } catch { return null; }
+    }
+
+    const [existingGnoRaw, existingTierRaw, existingTldRaw, existingTbaRaw] = await Promise.all([
+      kvGet(`nftmailgno:${slug}`),
+      kvGet(`acct-tier:${slug}`),
+      kvGet(`tld:${slug}`),
+      kvGet(`tba:${slug}`),
+    ]);
+
+    let existingGno: Record<string, unknown> = {};
+    let existingTier: Record<string, unknown> = {};
+    let existingTbaKv: Record<string, unknown> = {};
+    try { if (existingGnoRaw) existingGno = JSON.parse(existingGnoRaw); } catch {}
+    try { if (existingTierRaw) existingTier = JSON.parse(existingTierRaw); } catch {}
+    try { if (existingTbaRaw) existingTbaKv = JSON.parse(existingTbaRaw); } catch {}
+    const existingTld = existingTldRaw && existingTldRaw !== 'null' ? existingTldRaw : null;
+
+    // Detect whether this agent has already been upgraded (BYO molt / Pro / Premium)
+    const existingTierName = String(existingTier.tier || 'basic').toLowerCase();
+    const isUpgraded = existingTierName !== 'basic' || (existingTld && existingTld !== 'fakenormie');
+    const hasRealBeacon = existingGno.origin_nft && !String(existingGno.origin_nft).endsWith('.fakenormie');
+
+    // Repair legacy wrong data: tier is upgraded but TLD/origin still point to fakenormie
+    const targetTld = isUpgraded
+      ? (existingTld && existingTld !== 'fakenormie' ? existingTld : 'agent.gno')
+      : (existingTld ?? 'fakenormie');
+    const targetOriginNft = isUpgraded
+      ? (hasRealBeacon ? existingGno.origin_nft : `${beaconLabel}.agent.gno`)
+      : `${slug}.fakenormie`;
+    const targetTier = isUpgraded ? existingTierName : 'basic';
+    const targetSafe = isUpgraded ? (existingTier.safe || existingGno.safe || null) : null;
+    const targetTba = isUpgraded
+      ? (existingGno.tba || existingTbaKv.tbaAddress || null)
+      : null;
+
+    // Update nftmailgno:{slug} controller + identity (preserve upgrade data)
     await fetch(workerUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
@@ -100,20 +148,56 @@ export async function POST(req: NextRequest) {
         secret: webhookSecret,
         agentName: slug,
         controller: wallet,
-        originNft: `${slug}.fakenormie`,
+        originNft: targetOriginNft,
         mintedTokenId: tokenId,
         registrar: FAKENORMIES_ADDRESS,
+        ...(targetTba ? { tba: targetTba } : {}),
       }),
     });
 
-    // Update profile:{slug} owner
+    // Also ensure the agent alias record (slug_) exists so it appears in the nftmail dashboard
+    const agentAlias = `${slug}_`;
+    const existingAlias = await kvGet(`nftmailgno:${agentAlias}`);
+    if (!existingAlias) {
+      await fetch(workerUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+        body: JSON.stringify({
+          action: 'setAgentRecord',
+          secret: webhookSecret,
+          agentName: agentAlias,
+          controller: wallet,
+          originNft: targetOriginNft,
+          mintedTokenId: tokenId,
+          registrar: FAKENORMIES_ADDRESS,
+          ...(targetTba ? { tba: targetTba } : {}),
+        }),
+      });
+    }
+
+    // If upgraded, also repair the tier/safe record
+    if (isUpgraded && (targetTier !== 'basic' || targetSafe)) {
+      await fetch(workerUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+        body: JSON.stringify({
+          action: 'setAgentRecord',
+          secret: webhookSecret,
+          agentName: slug,
+          tier: targetTier,
+          ...(targetSafe ? { safe: targetSafe } : {}),
+        }),
+      });
+    }
+
+    // Update agentprofile:{slug} (agentName is the correct param, not name)
     await fetch(workerUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
       body: JSON.stringify({
         action: 'setAgentProfile',
         secret: webhookSecret,
-        name: slug,
+        agentName: slug,
         profile: {
           email: humanEmail,
           agentEmail,
@@ -121,13 +205,13 @@ export async function POST(req: NextRequest) {
           contractAddress: FAKENORMIES_ADDRESS,
           chain: 'gnosis',
           owner: wallet,
-          tier: 'basic',
+          tier: targetTier,
           claimedAt: new Date().toISOString(),
         },
       }),
     });
 
-    // Ensure tld: key present so agent appears in listAgents
+    // Ensure tld: key is present and correct for listAgents
     await fetch(workerUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
@@ -135,11 +219,20 @@ export async function POST(req: NextRequest) {
         action: 'setTld',
         secret: webhookSecret,
         agentName: slug,
-        tld: 'fakenormie',
+        tld: targetTld,
       }),
     });
 
-    return NextResponse.json({ success: true, slug, humanEmail, agentEmail });
+    return NextResponse.json({
+      success: true,
+      slug,
+      humanEmail,
+      agentEmail,
+      tier: targetTier,
+      tld: targetTld,
+      originNft: targetOriginNft,
+      ...(targetSafe ? { safe: targetSafe } : {}),
+    });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Claim failed';
     console.error('[fakenormies/claim]', err);

@@ -346,7 +346,7 @@ export async function GET(req: NextRequest) {
 
       const needsTbaDerivation = tbaAddress === null && mintedTokenId !== null;
 
-      const [beaconResult, moltResult, tbaResult, tbaKvResult] = await Promise.allSettled([
+      const [beaconResult, moltResult, tbaKvResult, tbaResult] = await Promise.allSettled([
         // Beacon
         fetch(WORKER_URL, {
           method: 'POST',
@@ -361,20 +361,22 @@ export async function GET(req: NextRequest) {
           body: JSON.stringify({ action: 'getMoltPath', name: resolvedBase }),
         }).then(r => r.json()),
 
-        // TBA derivation — read impl from registrar on-chain, try old registrars if needed
-        needsTbaDerivation ? (() => {
-          const sld = (resolved.tld as string | undefined)?.split('.')?.[0] ?? 'nftmail';
-          const registrar = SLD_REGISTRARS[sld] ?? SLD_REGISTRARS['nftmail'];
-          return deriveTbaWithFallback(mintedTokenId!, registrar, sld);
-        })() : Promise.resolve(null),
-
         // BYO mirror TBA — stored in tba:{name} KV by byo-molt for Gnosis mirror TBA
+        // Prefer this over derivation because derivation uses the registrar at mint time
+        // and may be wrong after registrar migrations.
         tbaAddress === null ? fetch(WORKER_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
           body: JSON.stringify({ action: 'kvGet', key: `tba:${resolvedBase}` }),
           signal: AbortSignal.timeout(3000),
         }).then(r => r.json()).catch(() => null) : Promise.resolve(null),
+
+        // TBA derivation — read impl from registrar on-chain, try old registrars if needed
+        needsTbaDerivation ? (() => {
+          const sld = (resolved.tld as string | undefined)?.split('.')?.[0] ?? 'nftmail';
+          const registrar = SLD_REGISTRARS[sld] ?? SLD_REGISTRARS['nftmail'];
+          return deriveTbaWithFallback(mintedTokenId!, registrar, sld);
+        })() : Promise.resolve(null),
       ]);
 
       if (beaconResult.status === 'fulfilled') {
@@ -395,11 +397,7 @@ export async function GET(req: NextRequest) {
         }
       }
 
-      if (tbaResult.status === 'fulfilled' && tbaResult.value !== null) {
-        tbaAddress = tbaResult.value as string | null;
-      }
-
-      // BYO mirror TBA fallback — use tba:{name} KV if still not found
+      // Prefer KV-stored TBA (BYO mirror or explicit set) over derivation
       if (tbaAddress === null && tbaKvResult.status === 'fulfilled' && tbaKvResult.value) {
         try {
           const kvVal = (tbaKvResult.value as any)?.value;
@@ -408,6 +406,11 @@ export async function GET(req: NextRequest) {
             if (parsed.tbaAddress) tbaAddress = parsed.tbaAddress;
           }
         } catch { /* non-fatal */ }
+      }
+
+      // Fallback: derive from registrar if no KV TBA available
+      if (tbaAddress === null && tbaResult.status === 'fulfilled' && tbaResult.value !== null) {
+        tbaAddress = tbaResult.value as string | null;
       }
     }
 
