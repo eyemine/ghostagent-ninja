@@ -47,9 +47,11 @@ export async function GET(req: NextRequest) {
 
   // beaconName = hyphen variant (for GNS subname / legacy KV keys)
   const beaconName = agentName.replace(/\./g, '-');
+  // dotName = dot variant (for canonical KV keys / localparts)
+  const dotName = agentName.replace(/-/g, '.');
 
-  // Fetch resolveAddress + BYO image for dot name in parallel
-  const [kvRes, byoRes] = await Promise.allSettled([
+  // Fetch resolveAddress + BYO image for dot and hyphen names in parallel
+  const [kvRes, byoRes, byoResFallback] = await Promise.allSettled([
     fetch(WORKER_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
@@ -60,6 +62,12 @@ export async function GET(req: NextRequest) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
       body: JSON.stringify({ action: 'kvGet', key: `byo-origin-image:${agentName}` }),
+      signal: AbortSignal.timeout(5000),
+    }),
+    fetch(WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+      body: JSON.stringify({ action: 'kvGet', key: `byo-origin-image:${beaconName !== agentName ? beaconName : dotName}` }),
       signal: AbortSignal.timeout(5000),
     }),
   ]);
@@ -185,28 +193,21 @@ export async function GET(req: NextRequest) {
     } catch { /* Non-fatal */ }
   }
 
-  // ENS fallback: if nftType is 'ens' but no imageUrl stored, use ENS avatar API (no tokenId needed)
-  if (!originImageUrl && byoNftType === 'ens') {
-    originImageUrl = `https://metadata.ens.domains/mainnet/avatar/${agentName}.eth`;
-  }
-
-  // Hyphen-format fallback for BYO image (only if dot-format returned nothing)
-  if (!originImageUrl && beaconName !== agentName) {
+  // Fallback to pre-fetched dot/hyphen alternate if primary returned nothing
+  if (!originImageUrl && byoResFallback.status === 'fulfilled' && byoResFallback.value.ok) {
     try {
-      const imgKv2 = await fetch(WORKER_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
-        body: JSON.stringify({ action: 'kvGet', key: `byo-origin-image:${beaconName}` }),
-        signal: AbortSignal.timeout(5000),
-      });
-      if (imgKv2.ok) {
-        const { value: value2 } = await imgKv2.json() as { value?: string | null };
-        if (value2) {
-          const parsed2 = JSON.parse(value2) as { imageUrl?: string };
-          if (parsed2.imageUrl) originImageUrl = parsed2.imageUrl;
-        }
+      const { value } = await byoResFallback.value.json() as { value?: string | null };
+      if (value) {
+        const parsed = JSON.parse(value) as { imageUrl?: string; nftType?: string };
+        if (parsed.imageUrl) originImageUrl = parsed.imageUrl;
+        if (parsed.nftType) byoNftType = parsed.nftType;
       }
     } catch { /* Non-fatal */ }
+  }
+
+  // ENS fallback: if nftType is 'ens' but no imageUrl stored, use ENS avatar API (no tokenId needed)
+  if (!originImageUrl && byoNftType === 'ens') {
+    originImageUrl = `https://metadata.ens.domains/mainnet/avatar/${agentName.replace(/-/g, '.')}.eth`;
   }
 
   if (originImageUrl) {
@@ -249,6 +250,27 @@ export async function GET(req: NextRequest) {
         // Non-fatal
       }
     }
+  }
+
+  // Enrich response with metadata fields for notapaperclip.red / dashboard compatibility.
+  // These are not part of the ERC-8004 spec but are read by the OSINT footprint Phase 0.
+  const regFileExt = regFile as unknown as Record<string, unknown>;
+  regFileExt.tld = `${sld}.gno`;
+  if (idResText) {
+    try {
+      const idExtra = JSON.parse(idResText) as Record<string, unknown>;
+      // tld: prefer getAgentIdentity (reads tld:{name} KV directly) over resolveAddress-derived sld
+      const idTld = idExtra?.tld as string | undefined;
+      if (idTld) {
+        const idSld = idTld.split('.')[0] as SldKey;
+        if (VALID_SLDS.includes(idSld)) regFileExt.tld = idTld;
+      }
+      if (idExtra?.accountTier) regFileExt.tier = idExtra.accountTier;
+      const safeAddr = (idExtra?.safe ?? idExtra?.safeAddress) as string | undefined;
+      if (safeAddr) { regFileExt.safe = safeAddr; regFileExt.safeAddress = safeAddr; }
+      const tbaAddr = idExtra?.tbaAddress as string | undefined;
+      if (tbaAddr) regFileExt.tbaAddress = tbaAddr;
+    } catch { /* non-fatal */ }
   }
 
   // Content negotiation: browsers get a human-readable agent profile page;
