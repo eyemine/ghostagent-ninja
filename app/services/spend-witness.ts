@@ -2,7 +2,7 @@
  * spend-witness.ts
  *
  * Defines the recomputable spend witness used to gate advanceCursor() draws
- * on an ERC-1833 metering cursor.
+ * on an ERC-8312 metering cursor (formerly referenced as ERC-1833).
  *
  * Witness shape (matches babyblueviper1 BIP340Verifier on Sepolia):
  *   - artifact_hash = sha256(canonical_json(bound_inputs))
@@ -23,7 +23,7 @@
  *       Do not place mainnet value behind this until that review completes.
  */
 
-import { schnorr }          from '@noble/curves/secp256k1';
+import { schnorr }          from '@noble/curves/secp256k1.js';
 import { sha256 }           from '@noble/hashes/sha256';
 import { encodeAbiParameters } from 'viem';
 
@@ -32,7 +32,7 @@ import { encodeAbiParameters } from 'viem';
 /** The bound inputs that define a single spend draw. All fields are strings
  *  for canonical JSON stability — numbers must NOT be passed as JS numbers. */
 export interface SpendWitnessInputs {
-  cursorId:    string;   // ERC-1833 cursor contract address (checksummed 0x…)
+  cursorId:    string;   // ERC-8312 cursor contract address (checksummed 0x…)
   safeAddress: string;   // Agent Safe address (checksummed 0x…)
   payee:       string;   // Payment destination address (checksummed 0x…)
   amountWei:   string;   // Decimal string, e.g. "500000000000000"
@@ -127,7 +127,7 @@ export function packSpendWitness(
   // 5. ABI-encode for advanceCursor(witness) calldata
   const calldata = encodeAbiParameters(
     [{ type: 'bytes32' }, { type: 'bytes32' }, { type: 'bytes32' }, { type: 'bytes' }],
-    [px as `0x${string}`, rx as `0x${string}`, s as `0x${string}`, preimage],
+    [px as `0x${string}`, rx as `0x${string}`, s as `0x${string}`, bytesToHex(preimage)],
   );
 
   return { inputs, artifactHash, preimage, px: px as `0x${string}`, rx: rx as `0x${string}`, s: s as `0x${string}`, calldata };
