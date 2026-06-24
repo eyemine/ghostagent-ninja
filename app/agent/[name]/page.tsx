@@ -90,8 +90,12 @@ export default function AgentPublicProfilePage() {
       .catch(() => {});
   }, [name]);
 
-  // Derive SLD from card name e.g. "ghostagent.molt.gno" → "molt"
-  const sldFromName = card?.name?.split('.')?.[1] ?? null;
+  // Derive SLD — prefer identity.tld (from agent-lookup/KV) over card.name extraction.
+  // Parsing card.name is fragile for agents whose name contains dots (e.g. super.normie).
+  const sldFromTld  = identity?.tld ? (identity.tld.split('.')[0] ?? null) : null;
+  const _nameParts  = (card?.name ?? '').split('.');
+  const sldFromCard = _nameParts.length >= 3 ? _nameParts[_nameParts.length - 2] : (_nameParts[1] ?? null);
+  const sldFromName = (sldFromTld && SLD_META[sldFromTld]) ? sldFromTld : sldFromCard;
   const sldMeta = SLD_META[sldFromName ?? ''] ?? SLD_META['nftmail'];
   const privacyMeta = PRIVACY_META[identity?.privacyTier ?? 'exposed'];
   const agentId = card?.registrations?.[0]?.agentId ?? null;
@@ -118,7 +122,7 @@ export default function AgentPublicProfilePage() {
           </Link>
           {authenticated ? (
             <Link
-              href={`/dashboard/agent/${name}?sld=${card?.name?.split('.')?.[1] ?? ''}`}
+              href={`/dashboard/agent/${name}?sld=${sldFromName ?? ''}`}
               className="rounded-lg border border-[rgba(176,128,92,0.35)] bg-[rgba(176,128,92,0.08)] px-3 py-1.5 text-[11px] font-semibold text-[#d4a96a] transition hover:bg-[rgba(176,128,92,0.15)]"
             >
               Owner View →

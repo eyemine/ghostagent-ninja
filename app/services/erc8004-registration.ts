@@ -198,7 +198,7 @@ export function buildErc8004RegistrationFile(params: {
   } = params;
 
   const visual    = SLD_VISUAL[sld];
-  const fullName  = `${agentName}.${sld}.${tld}`;
+  const fullName  = `${agentName.replace(/\./g, '-')}.${sld}.${tld}`;
   const agentEmail = `${agentName}_@nftmail.box`;
   const agentWeb   = `https://ghostagent.ninja/agent/${agentName}`;
   const resolvedImageCid = imageCid ?? visual.imageCid;
