@@ -19,6 +19,7 @@ import { createPublicClient, http } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { baseSepolia, gnosis } from 'viem/chains';
 import { recordSpend } from './budget-tracker';
+import { packSpendWitness, deriveSpendNonce, type SpendWitnessInputs } from './spend-witness';
 
 // ─── Factory ──────────────────────────────────────────────────────────────────
 
@@ -60,6 +61,8 @@ export interface SafeModuleConfig {
   agentName?:        string;                // for KV spend recording after payment
   dailyBudgetModule?: `0x${string}`;       // DailyBudgetModule address (skip check if omitted)
   hitlModule?:        `0x${string}`;       // HumanInTheLoopModule address (skip check if omitted)
+  cursorId?:          `0x${string}`;       // ERC-1833 cursor address (when deployed)
+  agentPrivateKey?:   `0x${string}`;       // agent execution key for BIP-340 witness signing
   gnosisRpc?:         string;
 }
 
@@ -171,7 +174,34 @@ export function createSafeAwareX402Fetch(
       return new Response(JSON.stringify({ error: 'BUDGET_EXCEEDED', reason: preAuth.reason, remaining: preAuth.remainingWei?.toString() }), { status: 402, headers: { 'content-type': 'application/json' } });
     }
 
-    // Pre-auth passed — delegate to x402 fetch (it will re-request and auto-pay)
+    // Pre-auth passed — construct the spend witness for advanceCursor bundling.
+    // When the ERC-1833 cursor is deployed, this calldata slots into the Safe tx bundle:
+    //   [advanceCursor(witness), DailyBudgetModule.execTransaction(), actualPayment]
+    if (safeConfig.cursorId && safeConfig.agentPrivateKey && amountWei > 0n) {
+      try {
+        const sessionId = probe.headers.get('x-payment-session') ?? Date.now().toString();
+        const payeeAddr = probe.headers.get('x-payment-destination') ?? '0x0000000000000000000000000000000000000000';
+        const nonce     = deriveSpendNonce(safeConfig.safeAddress, payeeAddr, amountWei.toString(), sessionId);
+        const inputs: SpendWitnessInputs = {
+          cursorId:    safeConfig.cursorId,
+          safeAddress: safeConfig.safeAddress,
+          payee:       payeeAddr,
+          amountWei:   amountWei.toString(),
+          nonce,
+          chainId:     '100',
+        };
+        const witness = packSpendWitness(inputs, safeConfig.agentPrivateKey);
+        console.log('[x402] spend witness ready for advanceCursor:', {
+          artifactHash: witness.artifactHash,
+          px:           witness.px,
+          calldataLen:  witness.calldata.length,
+        });
+      } catch (err) {
+        console.warn('[x402] witness construction failed (non-fatal):', err);
+      }
+    }
+
+    // Delegate to x402 fetch (it will re-request and auto-pay)
     const result = await baseX402Fetch(input, init);
 
     // Post-payment: sync KV budget tracker so dashboard stays current
