@@ -50,7 +50,12 @@ export interface SpendWitness {
   rx:           `0x${string}`;
   /** BIP-340 signature s scalar (32 bytes, hex) */
   s:            `0x${string}`;
-  /** abi.encode(px, rx, s, preimage) — passed to advanceCursor(witness) */
+  /**
+   * abi.encode(px, rx, s, cursorId, nonce, payee, safeAddress)
+   * Typed draw fields — no preimage bytes on the wire.
+   * The cursor rebuilds the canonical preimage from these fields + amountWei
+   * (from the draw) + chainId (block.chainid) and requires sha256(rebuilt) == sigId.
+   */
   calldata:     `0x${string}`;
 }
 
@@ -124,10 +129,29 @@ export function packSpendWitness(
   const pubkeyBytes = schnorr.getPublicKey(privKeyBytes); // 32 bytes, x-only
   const px = bytesToHex(pubkeyBytes);
 
-  // 5. ABI-encode for advanceCursor(witness) calldata
+  // 5. ABI-encode for advanceCursor(receiptProof) calldata.
+  // Format: abi.encode(px, rx, s, cursorId, nonce, payee, safeAddress)
+  // The preimage is NOT on the wire — the cursor reconstructs it on-chain from
+  // these typed fields plus amountWei (draw amount) and chainId (block.chainid).
   const calldata = encodeAbiParameters(
-    [{ type: 'bytes32' }, { type: 'bytes32' }, { type: 'bytes32' }, { type: 'bytes' }],
-    [px as `0x${string}`, rx as `0x${string}`, s as `0x${string}`, bytesToHex(preimage)],
+    [
+      { type: 'bytes32' },  // px
+      { type: 'bytes32' },  // rx
+      { type: 'bytes32' },  // s
+      { type: 'address' },  // cursorId
+      { type: 'bytes32' },  // nonce
+      { type: 'address' },  // payee
+      { type: 'address' },  // safeAddress
+    ],
+    [
+      px          as `0x${string}`,
+      rx          as `0x${string}`,
+      s           as `0x${string}`,
+      inputs.cursorId    as `0x${string}`,
+      inputs.nonce       as `0x${string}`,
+      inputs.payee       as `0x${string}`,
+      inputs.safeAddress as `0x${string}`,
+    ],
   );
 
   return { inputs, artifactHash, preimage, px: px as `0x${string}`, rx: rx as `0x${string}`, s: s as `0x${string}`, calldata };
