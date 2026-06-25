@@ -207,6 +207,71 @@ export function deriveSpendNonce(
   return bytesToHex(sha256(input));
 }
 
+// ── AdvanceWitness (ERC-8312 cursor call) ──────────────────────────────────────
+
+export interface LeafConfig {
+  scopeId: `0x${string}`;   // keccak256(label), e.g. keccak256("default")
+  subCap:  bigint;           // budget ceiling in wei
+  asset:   `0x${string}`;   // 0x0 for native xDAI
+  issuer:  `0x${string}`;   // 32-byte x-only BIP-340 pubkey (px)
+}
+
+/**
+ * Build the calldata for advanceCursor(bytes32 id, bytes encodedWitness).
+ *
+ * @param cursorScopeId  keccak256 of the cursor name — the `id` passed to register() and advanceCursor()
+ * @param leaf           The registered Leaf struct (must match what was registered)
+ * @param capProof       Merkle proof; empty array for single-leaf registration
+ * @param witness        SpendWitness produced by packSpendWitness()
+ * @returns              Full calldata bytes for the advanceCursor() call
+ */
+export function buildAdvanceWitnessCalldata(
+  cursorScopeId: `0x${string}`,
+  leaf:          LeafConfig,
+  capProof:      `0x${string}`[],
+  witness:       SpendWitness,
+): `0x${string}` {
+  const amount    = BigInt(witness.inputs.amountWei);
+  const receiptId = witness.inputs.nonce as `0x${string}`; // 32-byte nonce = draw-once nullifier
+
+  const encodedWitness = encodeAbiParameters(
+    [
+      {
+        type: 'tuple',
+        components: [
+          {
+            name: 'leaf', type: 'tuple',
+            components: [
+              { name: 'scopeId', type: 'bytes32' },
+              { name: 'subCap',  type: 'uint256' },
+              { name: 'asset',   type: 'address' },
+              { name: 'issuer',  type: 'bytes32' },
+            ],
+          },
+          { name: 'capProof',     type: 'bytes32[]' },
+          { name: 'amount',       type: 'uint256'   },
+          { name: 'receiptId',    type: 'bytes32'   },
+          { name: 'receiptProof', type: 'bytes'     },
+        ],
+      },
+    ],
+    [
+      {
+        leaf:         { scopeId: leaf.scopeId, subCap: leaf.subCap, asset: leaf.asset, issuer: leaf.issuer },
+        capProof,
+        amount,
+        receiptId,
+        receiptProof: witness.calldata,
+      },
+    ],
+  );
+
+  return encodeAbiParameters(
+    [{ name: 'id', type: 'bytes32' }, { name: 'encodedWitness', type: 'bytes' }],
+    [cursorScopeId, encodedWitness],
+  );
+}
+
 // ── Issuer key extraction ──────────────────────────────────────────────────────
 
 /**
