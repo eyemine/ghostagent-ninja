@@ -19,10 +19,10 @@ export default function PrivacyPage() {
     <div className="min-h-screen bg-[var(--background)] pt-14">
       <div className="mx-auto max-w-3xl px-6 py-12 text-[#c8bfb0]">
         <h1 className="mb-2 text-2xl font-bold text-[#f2eee4]">Privacy Policy</h1>
-        <p className="mb-8 text-xs text-[var(--muted)]">Effective: 9 March 2026 · Last revised: 10 March 2026 · GhostAgent.ninja (operated by Eyemine Pty Ltd, Victoria, Australia)</p>
+        <p className="mb-8 text-xs text-[var(--muted)]">Effective: 9 March 2026 · Last revised: 18 June 2026 · GhostAgent.ninja (operated by Ghost Agent Pty Ltd, Victoria, Australia)</p>
 
         <Section title="1. Overview">
-          <p>GhostAgent.ninja respects your privacy. This Privacy Policy explains how we collect, use, store, and disclose information when you use the Platform. We operate under the <strong>Australian Privacy Act 1988 (Cth)</strong> and the Australian Privacy Principles (APPs).</p>
+          <p>GhostAgent.ninja respects your privacy. This Privacy Policy explains how we collect, use, store, and disclose information when you use the Platform. <strong>Ghost Agent Pty Ltd</strong> is an Australian company operating under the <strong>Australian Privacy Act 1988 (Cth)</strong> and the Australian Privacy Principles (APPs). Where applicable to EU residents, we also comply with GDPR requirements as they apply to non-EU data controllers. Contact us at <a href="mailto:ghostagent@nftmail.box" className="text-[#b0805c] underline hover:text-[#ffca92]">ghostagent@nftmail.box</a> for any privacy enquiries.</p>
           <p>Because GhostAgent.ninja is built on public blockchains, some data you submit is <strong>permanently public and cannot be deleted</strong>. This is inherent to blockchain technology and is not within our control once a transaction is confirmed.</p>
         </Section>
 
@@ -75,7 +75,7 @@ export default function PrivacyPage() {
         <Section title="5. Disclosure of Information">
           <p>We may disclose your information to:</p>
           <ul className="ml-4 list-disc space-y-1">
-            <li><strong>Service providers</strong> who assist in operating the Platform (Privy for auth, Alchemy/Infura for RPC, Lighthouse for IPFS pinning, Cloudflare for CDN/Workers) — all subject to confidentiality obligations</li>
+            <li><strong>Service providers</strong> who assist in operating the Platform (Privy for auth, Alchemy/Infura for RPC, Lighthouse for IPFS pinning, hosting and CDN providers) — all subject to confidentiality obligations. Our current infrastructure providers are listed in Section 8.</li>
             <li><strong>Blockchain networks</strong> — on-chain data is public by design</li>
             <li><strong>Law enforcement or regulators</strong> if required by applicable law</li>
             <li><strong>Successors</strong> in the event of a merger, acquisition, or asset sale, with notice to users</li>
@@ -96,8 +96,10 @@ export default function PrivacyPage() {
           <p>On-chain data is permanent and cannot be deleted. Off-chain platform data is retained for as long as your account is active or as needed to provide services. You may request deletion of off-chain data by contacting us — we will action requests within 30 days where technically feasible.</p>
         </Section>
 
-        <Section title="8. Security">
-          <p>We implement reasonable technical and organisational measures to protect your data including TLS encryption, access controls, and Cloudflare-managed edge security. However, no system is completely secure. You are responsible for securing your own private keys and wallet credentials — we cannot recover lost wallets or keys.</p>
+        <Section title="8. Infrastructure &amp; Security">
+          <p>We implement reasonable technical and organisational measures to protect your data including TLS encryption in transit and access controls. <strong>Current hosting:</strong> front-end on Netlify (US); API/worker layer on Cloudflare Workers (global edge). We are migrating core infrastructure to self-hosted servers in Germany (Hetzner) for enhanced data sovereignty — this section will be updated when that migration is complete.</p>
+          <p><strong>nftmail.box email service:</strong> Email content is stored in encrypted key-value storage. Messages in blind inboxes are encrypted at rest using ECIES (secp256k1) keyed to your wallet's public key — we cannot read those messages. Message metadata (sender, recipient, timestamp) is visible to us for routing. We do not sell email content or use it for advertising.</p>
+          <p>No system is completely secure. You are responsible for your own private keys — we cannot recover lost wallets or keys.</p>
         </Section>
 
         <Section title="9. Cookies & Analytics">
@@ -112,11 +114,11 @@ export default function PrivacyPage() {
             <li>Request deletion of off-chain personal information (subject to legal and technical limitations)</li>
             <li>Complain about a breach of the APPs to the Office of the Australian Information Commissioner (OAIC)</li>
           </ul>
-          <p>To exercise these rights, contact us at <a href="mailto:privacy@ghostagent.ninja" className="text-[#b0805c] underline hover:text-[#ffca92]">privacy@ghostagent.ninja</a>.</p>
+          <p>To exercise these rights, contact us at <a href="mailto:ghostagent@nftmail.box" className="text-[#b0805c] underline hover:text-[#ffca92]">ghostagent@nftmail.box</a>. We will respond within 30 days.</p>
         </Section>
 
         <Section title="11. International Transfers">
-          <p>Your data may be processed in servers located outside Australia (including the United States and European Union) by our service providers. We take reasonable steps to ensure overseas recipients handle your data consistently with the APPs.</p>
+          <p>Your data may be processed in servers located outside Australia. Current locations include the United States (Netlify, Cloudflare edge) and Germany (planned Hetzner migration). We take reasonable steps to ensure overseas recipients handle your data consistently with the APPs. When our infrastructure migrates to Hetzner (Germany/EU), your primary data location will shift to Germany — a jurisdiction with strong data protection laws under GDPR. We will notify users of this change when it occurs.</p>
         </Section>
 
         <Section title="12. Data Breach Response (APP 11)">
@@ -128,7 +130,7 @@ export default function PrivacyPage() {
             <li><strong>(d)</strong> WE WILL COOPERATE FULLY WITH ANY OAIC INVESTIGATION</li>
           </ul>
           <p>We take reasonable steps under APP 11 to protect personal information from misuse, interference, loss, and unauthorised access. Note that on-chain data cannot be deleted or altered following a breach — this is an inherent limitation of blockchain technology.</p>
-          <p>To report a suspected data breach: <a href="mailto:privacy@ghostagent.ninja" className="text-[#b0805c] underline hover:text-[#ffca92]">privacy@ghostagent.ninja</a></p>
+          <p>To report a suspected data breach: <a href="mailto:ghostagent@nftmail.box" className="text-[#b0805c] underline hover:text-[#ffca92]">ghostagent@nftmail.box</a></p>
         </Section>
 
         <Section title="13. Children">
@@ -140,7 +142,7 @@ export default function PrivacyPage() {
         </Section>
 
         <Section title="15. Contact & Complaints">
-          <p>Privacy enquiries: <a href="mailto:privacy@ghostagent.ninja" className="text-[#b0805c] underline hover:text-[#ffca92]">privacy@ghostagent.ninja</a><br />Eyemine Pty Ltd, Victoria, Australia</p>
+          <p>Privacy enquiries: <a href="mailto:ghostagent@nftmail.box" className="text-[#b0805c] underline hover:text-[#ffca92]">ghostagent@nftmail.box</a><br />Ghost Agent Pty Ltd, Victoria, Australia</p>
           <p>If you are unsatisfied with our response, you may lodge a complaint with the <strong>Office of the Australian Information Commissioner (OAIC)</strong> at <a href="https://www.oaic.gov.au" target="_blank" rel="noopener noreferrer" className="text-[#b0805c] underline hover:text-[#ffca92]">oaic.gov.au</a>. As a Victorian-based company, we also recognise the <strong>Office of the Victorian Information Commissioner (OVIC)</strong> as a relevant oversight body for Victorian public sector matters, though the Platform is operated as a private entity under federal privacy law.</p>
         </Section>
       </div>

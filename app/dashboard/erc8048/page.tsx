@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { fetchSovereignSidecarMatrix, fetchTokenIdsForWallet } from '../../services/envio';
-import { encodeStringValue, KNOWN_KEYS } from '../../services/erc8048-publisher';
+import { encodeStringValue, decodeStringValue, KNOWN_KEYS, MANDATE_OPTIONS, getSubCapFromMandate, CURSOR_CONTRACT, CURSOR_CHIADO_RPC, CURSOR_ISSUER, CURSOR_ABI, REGISTRY_ABI } from '../../services/erc8048-publisher';
 import type { TokenSidecarState } from '../../types/indexer';
 
 const REGISTRY = process.env.NEXT_PUBLIC_ERC8048_REGISTRY ?? '0x0106341056a8790f4b924c380ed5B81B2a062bCE';
@@ -16,7 +16,7 @@ const WORKER_URL = process.env.NEXT_PUBLIC_WORKER_URL ?? 'https://nftmail-email-
 const VERIFIED_COLLECTIONS: Record<string, {
   label: string;
   contract: `0x${string}`;
-  chain: 'base' | 'ethereum';
+  chain: 'base' | 'ethereum' | 'gnosis';
   pattern: RegExp;
   imageUrl: (tokenId: string) => string;
 }> = {
@@ -55,6 +55,13 @@ const VERIFIED_COLLECTIONS: Record<string, {
     chain: 'base',
     pattern: /^dxterm[._](\d+)/i,
     imageUrl: (id) => `https://base-mainnet.g.alchemy.com/nft/v3/${ALCHEMY_KEY}/getNFTMetadata?contractAddress=0x41dc69132cce31fcbf6755c84538ca268520246f&tokenId=${id}`,
+  },
+  fakenormie: {
+    label: 'FakeNormie',
+    contract: '0x1d6b9e2af40322d2311ff0df66dade4490ac4c29',
+    chain: 'gnosis',
+    pattern: /^__never__$/,
+    imageUrl: (id) => `/FakeNormies/SVGS/${String(parseInt(id)).padStart(2, '0')}.svg`,
   },
 };
 
@@ -114,9 +121,16 @@ export default function Erc8048Dashboard() {
   const { ready, authenticated, login } = usePrivy();
   const { wallets } = useWallets();
   const searchParams = useSearchParams();
-  const agentParam = searchParams.get('agent') ?? '';
+  const agentParam      = searchParams.get('agent')      ?? '';
+  const collectionParam = searchParams.get('collection') ?? '';
+  const tokenIdParam    = searchParams.get('tokenId')    ?? '';
 
-  const pairedNft = useMemo(() => detectPairedNft(agentParam), [agentParam]);
+  const pairedNft = useMemo(() => {
+    if (collectionParam && VERIFIED_COLLECTIONS[collectionParam]) {
+      return { key: collectionParam as VerifiedCollectionKey, tokenId: tokenIdParam, collection: VERIFIED_COLLECTIONS[collectionParam] };
+    }
+    return detectPairedNft(agentParam);
+  }, [agentParam, collectionParam, tokenIdParam]);
 
   const [nftImage, setNftImage] = useState<string | null>(null);
   const [agentName, setAgentName] = useState<string>(agentParam);
@@ -132,7 +146,102 @@ export default function Erc8048Dashboard() {
   const [publishStatus, setPublishStatus] = useState<string | null>(null);
   const [publishError, setPublishError] = useState<string | null>(null);
 
+  const [cursorMandate, setCursorMandate] = useState<string>('');
+  const [pendingMandate, setPendingMandate] = useState<string>('worker');
+  const [leafSpent, setLeafSpent] = useState<bigint | null>(null);
+  const [cursorRegistered, setCursorRegistered] = useState(false);
+  const [loadingCursor, setLoadingCursor] = useState(false);
+  const [applyingCeiling, setApplyingCeiling] = useState(false);
+  const [ceilingStatus, setCeilingStatus] = useState<string | null>(null);
+  const [ceilingError, setCeilingError] = useState<string | null>(null);
+
   const userAddress = useMemo(() => wallets[0]?.address ?? '', [wallets]);
+
+  const loadCursorState = useCallback(async () => {
+    if (!pairedNft || !tokenIdInput) return;
+    setLoadingCursor(true);
+    try {
+      const { createPublicClient, http, keccak256 } = await import('viem');
+      const { gnosis } = await import('viem/chains');
+      const chiado = {
+        id: 10200, name: 'Gnosis Chiado',
+        nativeCurrency: { name: 'Chiado xDAI', symbol: 'xDAI', decimals: 18 },
+        rpcUrls: { default: { http: [CURSOR_CHIADO_RPC] } },
+      } as const;
+      const gnosisClient = createPublicClient({ chain: gnosis, transport: http() });
+      const chiadoClient = createPublicClient({ chain: chiado, transport: http(CURSOR_CHIADO_RPC) });
+      const mandateBytes = await gnosisClient.readContract({
+        address: REGISTRY as `0x${string}`,
+        abi: REGISTRY_ABI,
+        functionName: 'metadata',
+        args: [BigInt(tokenIdInput), 'cursor[mandate]'],
+      }).catch(() => '0x' as `0x${string}`);
+      const mandate = mandateBytes && mandateBytes !== '0x' ? decodeStringValue(mandateBytes as string) : '';
+      setCursorMandate(mandate);
+      if (mandate) setPendingMandate(mandate);
+      const scopeKey = `erc8048:${pairedNft.key}:${tokenIdInput}`;
+      const scopeBytes = new TextEncoder().encode(scopeKey);
+      const cursorScopeId = keccak256(scopeBytes) as `0x${string}`;
+      const [capRoot, spent] = await Promise.all([
+        chiadoClient.readContract({ address: CURSOR_CONTRACT, abi: CURSOR_ABI, functionName: 'capabilityRoot', args: [cursorScopeId] }).catch(() => '0x0000000000000000000000000000000000000000000000000000000000000000' as `0x${string}`),
+        chiadoClient.readContract({ address: CURSOR_CONTRACT, abi: CURSOR_ABI, functionName: 'leafSpent',      args: [cursorScopeId] }).catch(() => 0n),
+      ]);
+      const nullRoot = '0x0000000000000000000000000000000000000000000000000000000000000000';
+      setCursorRegistered(capRoot !== nullRoot);
+      setLeafSpent(spent as bigint);
+    } catch { /* non-fatal */ } finally {
+      setLoadingCursor(false);
+    }
+  }, [pairedNft, tokenIdInput]);
+
+  useEffect(() => {
+    if (!authenticated || !tokenIdInput || !pairedNft) return;
+    void loadCursorState();
+  }, [authenticated, tokenIdInput, pairedNft, loadCursorState]);
+
+  async function handleApplyCeiling() {
+    if (!pairedNft || !tokenIdInput) return;
+    setApplyingCeiling(true);
+    setCeilingStatus(null);
+    setCeilingError(null);
+    try {
+      const { createWalletClient, createPublicClient, custom, keccak256, encodeAbiParameters, http } = await import('viem');
+      const chiado = {
+        id: 10200, name: 'Gnosis Chiado',
+        nativeCurrency: { name: 'Chiado xDAI', symbol: 'xDAI', decimals: 18 },
+        rpcUrls: { default: { http: [CURSOR_CHIADO_RPC] } },
+      } as const;
+      const provider = (window as unknown as { ethereum?: unknown }).ethereum;
+      if (!provider) throw new Error('No wallet provider');
+      const walletClient = createWalletClient({ chain: chiado, transport: custom(provider as Parameters<typeof custom>[0]) });
+      await walletClient.addChain({ chain: chiado }).catch(() => null);
+      await walletClient.switchChain({ id: 10200 });
+      const [account] = await walletClient.requestAddresses();
+      const subCap = getSubCapFromMandate(pendingMandate);
+      const leafScopeId = keccak256(new TextEncoder().encode('default')) as `0x${string}`;
+      const ZERO_ADDR = '0x0000000000000000000000000000000000000000' as `0x${string}`;
+      const leafEncoded = encodeAbiParameters(
+        [{type:'bytes32'},{type:'uint256'},{type:'address'},{type:'bytes32'}],
+        [leafScopeId, subCap, ZERO_ADDR, CURSOR_ISSUER],
+      );
+      const capRoot = keccak256(leafEncoded) as `0x${string}`;
+      const scopeKey = `erc8048:${pairedNft.key}:${tokenIdInput}`;
+      const cursorScopeId = keccak256(new TextEncoder().encode(scopeKey)) as `0x${string}`;
+      const txHash = await walletClient.writeContract({
+        address: CURSOR_CONTRACT, abi: CURSOR_ABI,
+        functionName: 'register', args: [cursorScopeId, capRoot],
+        account, chain: chiado,
+      });
+      setCeilingStatus(`Registered: ${txHash}`);
+      const pubClient = createPublicClient({ chain: chiado, transport: http(CURSOR_CHIADO_RPC) });
+      await pubClient.waitForTransactionReceipt({ hash: txHash });
+      void loadCursorState();
+    } catch (err) {
+      setCeilingError(err instanceof Error ? err.message : 'Transaction failed');
+    } finally {
+      setApplyingCeiling(false);
+    }
+  }
 
   // Resolve display name from worker
   useEffect(() => {
@@ -155,11 +264,12 @@ export default function Erc8048Dashboard() {
     setLoadError(null);
     try {
       const contract = pairedNft.collection.contract;
-      const ids = await fetchTokenIdsForWallet(
-        userAddress,
-        contract,
-        pairedNft.collection.chain === 'base' ? 'https://mainnet.base.org' : 'https://eth.llamarpc.com',
-      );
+      const rpc = pairedNft.collection.chain === 'gnosis'
+        ? 'https://rpc.gnosischain.com'
+        : pairedNft.collection.chain === 'base'
+        ? 'https://mainnet.base.org'
+        : 'https://eth.llamarpc.com';
+      const ids = await fetchTokenIdsForWallet(userAddress, contract, rpc);
       if (ids.length === 0) {
         setSidecars([]);
       } else {
@@ -292,6 +402,92 @@ export default function Erc8048Dashboard() {
                 Pair with Named Identity →
               </a>
             </div>
+          </div>
+        </div>
+      )}
+
+      {pairedNft && authenticated && (
+        <div className="mb-6 rounded-xl border border-violet-500/30 bg-violet-500/8 p-5">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <h2 className="font-mono text-sm font-bold text-violet-300">ERC-8312 Spending Mandate</h2>
+              <p className="mt-0.5 font-mono text-xs text-slate-500">On-chain session ceiling · Chiado testnet</p>
+            </div>
+            <button onClick={() => void loadCursorState()} disabled={loadingCursor} className="rounded border border-slate-700 bg-slate-800 px-3 py-1.5 font-mono text-xs text-slate-300 transition hover:bg-slate-700 disabled:opacity-50">
+              {loadingCursor ? 'Reading...' : 'Refresh'}
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            {/* Current state */}
+            <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-4 font-mono text-xs">
+              <div className="mb-3 text-slate-400">Current cursor state</div>
+              <div className="mb-2 flex items-center gap-2">
+                <span className="text-slate-500">Mandate:</span>
+                {cursorMandate
+                  ? <span className="rounded bg-violet-900/60 px-2 py-0.5 text-violet-300">{MANDATE_OPTIONS.find(m => m.value === cursorMandate)?.label ?? cursorMandate}</span>
+                  : <span className="text-slate-600">Not declared</span>}
+              </div>
+              <div className="mb-3 flex items-center gap-2">
+                <span className="text-slate-500">Leaf:</span>
+                {cursorRegistered
+                  ? <span className="rounded bg-emerald-900/60 px-2 py-0.5 text-emerald-400">registered</span>
+                  : <span className="rounded bg-slate-800 px-2 py-0.5 text-slate-500">unregistered</span>}
+              </div>
+              {cursorRegistered && leafSpent !== null && cursorMandate && (() => {
+                const subCap = getSubCapFromMandate(cursorMandate);
+                const pct = subCap > 0n ? Number((leafSpent * 10000n) / subCap) / 100 : 0;
+                const spentEth = (Number(leafSpent) / 1e18).toFixed(6);
+                const capEth   = (Number(subCap)    / 1e18).toFixed(3);
+                return (
+                  <div>
+                    <div className="mb-1 flex justify-between text-slate-400">
+                      <span>{spentEth} xDAI spent</span>
+                      <span>{capEth} xDAI ceiling</span>
+                    </div>
+                    <div className="h-2 w-full overflow-hidden rounded-full bg-slate-800">
+                      <div className={`h-full rounded-full transition-all ${pct > 80 ? 'bg-red-500' : pct > 50 ? 'bg-amber-500' : 'bg-emerald-500'}`} style={{ width: `${Math.min(pct, 100)}%` }} />
+                    </div>
+                    <div className="mt-1 text-right text-slate-600">{pct.toFixed(1)}% consumed</div>
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* Apply new ceiling */}
+            <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-4 font-mono text-xs">
+              <div className="mb-3 text-slate-400">Register new ceiling on Chiado</div>
+              <div className="mb-3">
+                <label className="mb-1 block text-slate-500">Select mandate</label>
+                <select
+                  value={pendingMandate}
+                  onChange={e => setPendingMandate(e.target.value)}
+                  className="w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-white outline-none focus:border-violet-500"
+                >
+                  {MANDATE_OPTIONS.map(m => (
+                    <option key={m.value} value={m.value}>{m.label} — {m.subCapLabel}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="mb-3 border-t border-slate-800 pt-3 text-slate-600">
+                <div>Contract: <span className="text-slate-500">{CURSOR_CONTRACT.slice(0,10)}…</span></div>
+                <div>Chain: <span className="text-slate-500">Chiado (10200)</span></div>
+                <div className="mt-1 text-amber-600/80">Registers immutable leaf — wallet switches to Chiado</div>
+              </div>
+              <button
+                onClick={() => void handleApplyCeiling()}
+                disabled={applyingCeiling}
+                className="w-full rounded bg-violet-700 py-2 font-bold text-white transition hover:bg-violet-600 disabled:opacity-50"
+              >
+                {applyingCeiling ? 'Registering...' : 'Apply Ceiling'}
+              </button>
+              {ceilingStatus && <div className="mt-3 break-all rounded border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-emerald-300">{ceilingStatus}</div>}
+              {ceilingError  && <div className="mt-3 rounded border border-red-500/30 bg-red-500/10 px-3 py-2 text-red-300">{ceilingError}</div>}
+            </div>
+          </div>
+
+          <div className="mt-3 border-t border-slate-800 pt-3 font-mono text-xs text-slate-600">
+            To declare your mandate on-chain: use the Sidecar Registry Toolkit above to commit <span className="text-slate-500">cursor[mandate]</span>, then click Apply Ceiling to register the immutable spending leaf.
           </div>
         </div>
       )}

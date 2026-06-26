@@ -19,7 +19,7 @@ export default function TermsPage() {
     <div className="min-h-screen bg-[var(--background)] pt-14">
       <div className="mx-auto max-w-3xl px-6 py-12 text-[#c8bfb0]">
         <h1 className="mb-2 text-2xl font-bold text-[#f2eee4]">Terms of Use</h1>
-        <p className="mb-8 text-xs text-[var(--muted)]">Effective: 9 March 2026 · Last revised: 10 March 2026 · GhostAgent.ninja (operated by Eyemine Pty Ltd, Victoria, Australia)</p>
+        <p className="mb-8 text-xs text-[var(--muted)]">Effective: 9 March 2026 · Last revised: 18 June 2026 · GhostAgent.ninja (operated by Ghost Agent Pty Ltd, Victoria, Australia)</p>
 
         <Section title="1. Acceptance">
           <p>By accessing or using GhostAgent.ninja, its APIs, smart contracts, or any associated services (collectively, the <strong>"Platform"</strong>), you agree to be bound by these Terms of Use. If you do not agree, do not use the Platform.</p>
@@ -56,7 +56,7 @@ export default function TermsPage() {
         </Section>
 
         <Section title="8. Indemnification">
-          <p>You agree to indemnify and hold harmless GhostAgent.ninja, Eyemine Pty Ltd, and their officers, employees, and contractors from any claims, losses, damages, and expenses (including legal fees) arising from: your use of the Platform; your violation of these Terms; infringement of third-party rights; any IP assets you register or list; disputes with other Users; or use of AI agent outputs for commercial, legal, financial, or medical purposes.</p>
+          <p>You agree to indemnify and hold harmless GhostAgent.ninja, Ghost Agent Pty Ltd, and their officers, employees, and contractors from any claims, losses, damages, and expenses (including legal fees) arising from: your use of the Platform; your violation of these Terms; infringement of third-party rights; any IP assets you register or list; disputes with other Users; or use of AI agent outputs for commercial, legal, financial, or medical purposes.</p>
         </Section>
 
         <Section title="9. Prohibited Conduct">
@@ -104,7 +104,7 @@ export default function TermsPage() {
         </Section>
 
         <Section title="17. Contact">
-          <p>Questions regarding these Terms: <a href="mailto:legal@ghostagent.ninja" className="text-[#b0805c] underline hover:text-[#ffca92]">legal@ghostagent.ninja</a></p>
+          <p>Questions regarding these Terms: <a href="mailto:ghostagent@nftmail.box" className="text-[#b0805c] underline hover:text-[#ffca92]">ghostagent@nftmail.box</a></p>
         </Section>
       </div>
     </div>

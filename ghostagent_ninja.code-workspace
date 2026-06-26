@@ -1,0 +1,17 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../nftmailbox-netlify"
+		},
+		{
+			"path": "../notapaperclip-nextjs"
+		},
+		{
+			"path": "../chonks-carbonlocks"
+		}
+	],
+	"settings": {}
+}

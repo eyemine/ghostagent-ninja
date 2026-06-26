@@ -111,10 +111,54 @@ async function getKvId(name) {
   } catch { return null; }
 }
 
+// Known canonical TLDs — do not guess for these
+const KNOWN_TLDS = {
+  ghostagent: 'molt.gno',
+  eyemine:    'nftmail.gno',
+  victor:     'openclaw.gno',
+};
+
+function guessTld(name) {
+  if (KNOWN_TLDS[name]) return KNOWN_TLDS[name];
+  if (['super.normie', 'rare.normie'].includes(name)) return 'fakenormie';
+  if (name.includes('-')) return 'fakenormie';   // chonk-601, chonk-9534, chonk-697
+  if (name.includes('.')) return 'picoclaw.gno'; // atom.158, chonk.676, chonk.681 etc
+  return 'picoclaw.gno';                          // chonk676 etc
+}
+
+async function setTld(name, tld) {
+  const res = await fetch(WORKER_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+    body: JSON.stringify({ action: 'setTld', agentName: name, tld }),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    console.error(`         setTld ERROR ${res.status}: ${text}`);
+  }
+  return res.ok;
+}
+
+async function getTld(name) {
+  // Always use known TLDs for canonical agents
+  if (KNOWN_TLDS[name]) return KNOWN_TLDS[name];
+  try {
+    const res = await fetch(WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+      body: JSON.stringify({ action: 'getAgentIdentity', agentName: name }),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    // tld is nested at data.identityNft.tld, not top-level
+    return data.identityNft?.tld ?? null;
+  } catch { return null; }
+}
+
 async function setKvId(name, agentId, owner, uri) {
   const res = await fetch(WORKER_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': WORKER_SECRET },
+    headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
     body: JSON.stringify({ action: 'setErc8004AgentId', agentName: name, erc8004AgentId: agentId, agentURI: uri, chainId: 100, safeOwner: owner }),
   });
   if (!res.ok) {
@@ -174,11 +218,18 @@ async function main() {
   console.log(`Found ${agents.length} agents owned by treasury wallet:\n`);
 
   for (const agent of agents) {
-    console.log(`  ${dryRun ? 'DRY    ' : 'WRITE  '} ${agent.name} — agentId #${agent.agentId}`);
+    const tld = await getTld(agent.name);
+    const needsTld = !tld;
+    const guessedTld = guessTld(agent.name);
+    console.log(`  ${dryRun ? 'DRY    ' : 'WRITE  '} ${agent.name} — agentId #${agent.agentId}  tld:${tld ?? `MISSING → will set ${guessedTld}`}`);
 
     if (!dryRun) {
       const ok = await setKvId(agent.name, agent.agentId, agent.owner, agent.uri);
-      console.log(`         → ${ok ? '✓ stored' : '✗ FAILED'}`);
+      console.log(`         → erc8004: ${ok ? '✓ stored' : '✗ FAILED'}`);
+      if (needsTld) {
+        const tldOk = await setTld(agent.name, guessedTld);
+        console.log(`         → tld:    ${tldOk ? `✓ ${guessedTld}` : '✗ FAILED'}`);
+      }
     }
   }
 

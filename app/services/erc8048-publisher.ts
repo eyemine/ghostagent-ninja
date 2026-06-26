@@ -1,15 +1,53 @@
 /**
  * ERC-8048 Publisher
  * Encodes metadata entries and prepares calldata for GhostAgentMetadataRegistry.
- * Keys: endpoint[a2a], endpoint[mcp], skills/primary, agent-binding
+ * Keys: endpoint[a2a], endpoint[mcp], skills/primary, agent-binding, cursor[mandate]
  */
 
 export const KNOWN_KEYS = [
-  { key: 'endpoint[a2a]',  label: 'A2A Endpoint',  hint: 'e.g. ghostagent_@nftmail.box' },
-  { key: 'endpoint[mcp]',  label: 'MCP Server',     hint: 'e.g. https://mcp.ghostagent.ninja' },
-  { key: 'skills/primary', label: 'Primary Skill',  hint: 'e.g. accounting' },
-  { key: 'skills/tools',   label: 'Tools',          hint: 'comma-separated tool names' },
-  { key: 'agent-binding',  label: 'Agent Binding',  hint: 'ERC-8048 binding hex (advanced)' },
+  { key: 'endpoint[a2a]',   label: 'A2A Endpoint',      hint: 'e.g. ghostagent_@nftmail.box' },
+  { key: 'endpoint[mcp]',   label: 'MCP Server',         hint: 'e.g. https://mcp.ghostagent.ninja' },
+  { key: 'skills/primary',  label: 'Primary Skill',      hint: 'e.g. accounting' },
+  { key: 'skills/tools',    label: 'Tools',              hint: 'comma-separated tool names' },
+  { key: 'agent-binding',   label: 'Agent Binding',      hint: 'ERC-8048 binding hex (advanced)' },
+  { key: 'cursor[mandate]', label: 'Spending Mandate',   hint: 'restricted | worker | executive' },
+] as const;
+
+export const MANDATE_OPTIONS = [
+  { value: 'restricted', label: '🛡 Safe Mode',         subCapLabel: '0.001 xDAI / session' },
+  { value: 'worker',     label: '🛠 Autonomous Worker', subCapLabel: '0.02 xDAI / session'  },
+  { value: 'executive',  label: '🚀 DeFi Executive',    subCapLabel: '0.10 xDAI / session'  },
+] as const;
+
+export function getSubCapFromMandate(mandate: string): bigint {
+  switch (mandate) {
+    case 'restricted': return    1_000_000_000_000n;
+    case 'worker':     return   20_000_000_000_000n;
+    case 'executive':  return  100_000_000_000_000n;
+    default:           return    1_000_000_000_000n;
+  }
+}
+
+export const CURSOR_CONTRACT  = '0x5235249f1409a315349036af4ea914a9efdb7cbf' as const;
+export const CURSOR_CHIADO_RPC = 'https://rpc.chiado.gnosis.gateway.fm' as const;
+export const CURSOR_ISSUER    = '0x00b51441f05717e0321ac6c72271989bffd07a8a12c1364ccc51119c6ff46a80c5' as `0x${string}`;
+
+export const CURSOR_ABI = [
+  {
+    name: 'register', type: 'function', stateMutability: 'nonpayable',
+    inputs:  [{ name: 'id', type: 'bytes32' }, { name: 'capRoot', type: 'bytes32' }],
+    outputs: [],
+  },
+  {
+    name: 'capabilityRoot', type: 'function', stateMutability: 'view',
+    inputs:  [{ name: 'id', type: 'bytes32' }],
+    outputs: [{ name: '', type: 'bytes32' }],
+  },
+  {
+    name: 'leafSpent', type: 'function', stateMutability: 'view',
+    inputs:  [{ name: 'id', type: 'bytes32' }],
+    outputs: [{ name: '', type: 'uint256' }],
+  },
 ] as const;
 
 export type KnownKey = typeof KNOWN_KEYS[number]['key'];

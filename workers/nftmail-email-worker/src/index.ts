@@ -2159,6 +2159,23 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
           // Fallback to D1 tier only when KV acct-tier is absent
           if (accountTier === 'basic' && _d1Row?.tier) accountTier = _d1Row.tier;
 
+          // ── SLD-based tier overrides ──
+          // picoclaw.gno = basic email tier (even with Safe + ERC-8004)
+          // vault.gno = premium (always premium regardless of parity)
+          const sldFromOrigin = originNft ? originNft.split('.').slice(-2)[0] : null;
+          if (sldFromOrigin === 'picoclaw') {
+            accountTier = 'basic';
+          } else if (sldFromOrigin === 'vault') {
+            accountTier = 'premium';
+          }
+
+          // ── Tier from beacon token ID parity (odd=Lite, even=Premium) ──
+          // Applies to agents with GNS beacon NFTs when KV tier is basic/unset
+          // SLD overrides take precedence over parity
+          if (tokenId !== null && (accountTier === 'basic' || !acctTierRaw)) {
+            accountTier = (tokenId % 2 === 1) ? 'lite' : 'premium';
+          }
+
           // Parse TBA address (tba: key set by byo-molt or retrofit-tba)
           let tbaAddress: string | null = null;
           let byoTba: { tbaAddress: string; sourceChainId: number; nftType: string; tokenId: string } | null = null;
@@ -6822,6 +6839,23 @@ Mint a BYO NFT on nftmail.box to claim this tier.
               } catch {}
             }
 
+            // ── SLD-based tier overrides ──
+            // picoclaw.gno = basic email tier (even with Safe + ERC-8004)
+            // vault.gno = premium (always premium regardless of parity)
+            const sldFromOrigin = sGnoOriginNft ? sGnoOriginNft.split('.').slice(-2)[0] : null;
+            if (sldFromOrigin === 'picoclaw') {
+              sAccountTier = 'basic';
+            } else if (sldFromOrigin === 'vault') {
+              sAccountTier = 'premium';
+            }
+
+            // ── Tier from beacon token ID parity (odd=Lite, even=Premium) ──
+            // Applies to agents with GNS beacon NFTs when KV tier is basic/unset
+            // SLD overrides take precedence over parity
+            if (sGnoMintedTokenId !== null && (sAccountTier === 'basic' || !sAcctTier)) {
+              sAccountTier = (sGnoMintedTokenId % 2 === 1) ? 'lite' : 'premium';
+            }
+
             // sHasMessages intentionally excluded: blind-index is written by the agent stream
             // under the stripped agentName key — we must not treat that as sovereign account creation.
             // Only explicit provisioning signals count: social reg, ECIES key, Zoho seat, on-chain mint.
@@ -7037,6 +7071,23 @@ Mint a BYO NFT on nftmail.box to claim this tier.
               expiresAt = td.expires_at || null;
               if (!isAlias) canSend = true; // send limit enforced by checkAndIncrementSendCount
             } catch {}
+          }
+
+          // ── SLD-based tier overrides ──
+          // picoclaw.gno = basic email tier (even with Safe + ERC-8004)
+          // vault.gno = premium (always premium regardless of parity)
+          const sldFromOrigin = originNft ? originNft.split('.').slice(-2)[0] : null;
+          if (sldFromOrigin === 'picoclaw') {
+            accountTier = 'basic';
+          } else if (sldFromOrigin === 'vault') {
+            accountTier = 'premium';
+          }
+
+          // ── Tier from beacon token ID parity (odd=Lite, even=Premium) ──
+          // Applies to agents with GNS beacon NFTs when KV tier is basic/unset
+          // SLD overrides take precedence over parity
+          if (mintedTokenId !== null && (accountTier === 'basic' || !effectiveAcctTierRaw)) {
+            accountTier = (mintedTokenId % 2 === 1) ? 'lite' : 'premium';
           }
 
           // If agent doesn't exist, show availability

@@ -26,7 +26,21 @@ const WORKER_URL = process.env.NEXT_PUBLIC_WORKER_URL || 'https://nftmail-email-
 const WORKER_SECRET = process.env.WORKER_SECRET || '';
 const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || '';
 
-const TIER_NAMES = { 0: 'basic', 1: 'pro', 2: 'premium' };
+const TIER_NAMES    = { 0: 'basic', 1: 'pro', 2: 'premium' };
+const TIER_MANDATE  = { 0: 'restricted', 1: 'worker', 2: 'executive' };
+
+const ERC8048_REGISTRY = '0x0106341056a8790f4b924c380ed5B81B2a062bCE';
+const ERC8048_ABI = [{
+  name: 'setMetadata', type: 'function', stateMutability: 'nonpayable',
+  inputs: [{ name: 'tokenId', type: 'uint256' }, { name: 'key', type: 'string' }, { name: 'value', type: 'bytes' }],
+  outputs: [],
+}];
+
+function encodeStringValue(value) {
+  const bytes = new TextEncoder().encode(value);
+  const hex = Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+  return `0x${hex}`;
+}
 
 const setTierABI = [
   {
@@ -124,6 +138,21 @@ async function main() {
       }
     } else if (!WEBHOOK_SECRET) {
       console.warn(`⚠️  WEBHOOK_SECRET not set — KV not synced. Run: node scripts/set-agent-tier.mjs ${slug} ${TIER_NAMES[parseInt(tier)]}`);
+    }
+
+    // ── Write cursor[mandate] to ERC-8048 sidecar registry ──────────────────
+    const mandate = TIER_MANDATE[parseInt(tier)] ?? 'restricted';
+    try {
+      const mandateHash = await walletClient.writeContract({
+        address: ERC8048_REGISTRY,
+        abi: ERC8048_ABI,
+        functionName: 'setMetadata',
+        args: [BigInt(tokenId), 'cursor[mandate]', encodeStringValue(mandate)],
+      });
+      await publicClient.waitForTransactionReceipt({ hash: mandateHash });
+      console.log(`✅ ERC-8048 cursor[mandate] set: #${tokenId} → ${mandate} (${mandateHash})`);
+    } catch (err) {
+      console.warn(`⚠️  ERC-8048 cursor[mandate] write failed (non-fatal):`, err.message);
     }
   } catch (error) {
     console.error('Error:', error.message);

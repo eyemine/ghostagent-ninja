@@ -5,7 +5,9 @@ import { useWallets } from '@privy-io/react-auth';
 import Link from 'next/link';
 import { FakeNormieLab } from '../components/FakeNormieLab';
 import { NormieTrustBadge, type TrustTarget } from '../components/NormieTrustBadge';
+import { WitnessChamber } from '../components/WitnessChamber';
 import { generateNormieHandles } from '../services/agent-identity-router';
+import { MANDATE_OPTIONS } from '../services/erc8048-publisher';
 
 const WORKER_URL = process.env.NEXT_PUBLIC_WORKER_URL || 'https://nftmail-email-worker.richard-159.workers.dev';
 
@@ -461,6 +463,75 @@ export default function NormiesPage() {
               </div>
               <NormieTrustBadge target={trustAgent} />
             </div>
+
+            {/* ── Agent Security Demo — sandboxed for nervous Normie holders ── */}
+            <div className="rounded-2xl border border-[rgba(176,128,92,0.2)] bg-black/20 overflow-hidden">
+              <div className="px-5 py-4 border-b border-[rgba(176,128,92,0.12)]">
+                <p className="text-[9px] font-semibold tracking-[0.18em] text-[var(--muted)] uppercase mb-1">Agent Security Demo</p>
+                <p className="text-xs text-[var(--muted)] leading-relaxed">
+                  Before activating your real Normie, try the full agent lifecycle risk-free.
+                  FakeNormie #1 has a live spending mandate — watch the cursor enforce it on-chain, then claim your own sandbox agent.
+                </p>
+              </div>
+
+              <div className="p-5 space-y-5">
+                {/* Step 1 — Witness Chamber */}
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-violet-700 font-mono text-[10px] font-bold text-white">1</span>
+                    <span className="text-xs font-bold text-[#f2eee4]">Witness Chamber</span>
+                    <span className="text-[11px] text-[var(--muted)]">— live cursor, no wallet needed</span>
+                  </div>
+                  <WitnessChamber compact />
+                </div>
+
+                {/* Step 2 — Policy Factory */}
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-pink-700 font-mono text-[10px] font-bold text-white">2</span>
+                    <span className="text-xs font-bold text-[#f2eee4]">Policy Factory</span>
+                    <span className="text-[11px] text-[var(--muted)]">— claim a free sandbox agent</span>
+                  </div>
+                  <div className="rounded-xl border border-[rgba(176,128,92,0.2)] bg-black/30 p-4 flex items-start justify-between gap-4 flex-wrap">
+                    <p className="text-[11px] text-[var(--muted)] leading-relaxed max-w-sm">
+                      Mint a free FakeNormie (gas-sponsored) and run the mandate flow yourself before committing your real Normie NFT.
+                    </p>
+                    <button
+                      onClick={() => setTab('mint')}
+                      className="shrink-0 rounded-lg bg-pink-700/80 px-4 py-2 text-xs font-bold text-white hover:bg-pink-700 transition"
+                    >
+                      Get a FakeNormie →
+                    </button>
+                  </div>
+                </div>
+
+                {/* Step 3 — Enforcement Lock */}
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-700 font-mono text-[10px] font-bold text-white">3</span>
+                    <span className="text-xs font-bold text-[#f2eee4]">Enforcement Lock</span>
+                    <span className="text-[11px] text-[var(--muted)]">— declare a mandate, register the ceiling</span>
+                  </div>
+                  <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      {MANDATE_OPTIONS.map(m => (
+                        <div key={m.value} className="rounded-lg border border-[rgba(176,128,92,0.18)] bg-black/30 p-3 font-mono text-[11px]">
+                          <div className="font-bold text-[#f2eee4] mb-0.5">{m.label}</div>
+                          <div className="text-[var(--muted)]">{m.subCapLabel}</div>
+                        </div>
+                      ))}
+                    </div>
+                    <Link
+                      href="/dashboard/erc8048?collection=fakenormie"
+                      className="inline-block rounded-lg border border-emerald-500/35 bg-emerald-500/10 px-4 py-2 text-[11px] font-bold text-emerald-300 hover:bg-emerald-500/20 transition"
+                    >
+                      Open Mandate Dashboard →
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            </div>
+
           </>
         )}
       </div>

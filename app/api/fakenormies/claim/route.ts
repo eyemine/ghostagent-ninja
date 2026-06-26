@@ -211,6 +211,22 @@ export async function POST(req: NextRequest) {
       }),
     });
 
+    // Store FakeNormies IPFS SVG image so agent-card shows correct NFT image (byo-origin-image:{slug})
+    const FN_SVG_BASE = 'https://ipfs.io/ipfs/bafybeibn726tei6kue2ixjqfyeiefjnlvd5wm3cc6r76qqwixebvqlfaga';
+    const svgFilename = String(tokenId).padStart(2, '0') + '.svg';
+    const fnImageUrl = `${FN_SVG_BASE}/${svgFilename}`;
+    fetch(workerUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+      body: JSON.stringify({
+        action: 'kvPut',
+        key: `byo-origin-image:${slug}`,
+        value: JSON.stringify({ imageUrl: fnImageUrl, nftType: 'fakenormie', tokenId: String(tokenId), storedAt: Date.now() }),
+        ownerAddress: wallet,
+        webhookSecret,
+      }),
+    }).catch(() => {/* non-fatal */});
+
     // Ensure tld: key is present and correct for listAgents
     await fetch(workerUrl, {
       method: 'POST',
