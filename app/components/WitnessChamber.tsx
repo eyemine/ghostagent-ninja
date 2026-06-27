@@ -249,7 +249,7 @@ export function WitnessChamber({ compact = false, terminal = false, initialToken
 
           <div className="mt-auto pt-2 border-t border-zinc-800">
             <button
-              onClick={() => void poll()}
+              onClick={() => void poll(token)}
               className="w-full rounded border border-zinc-700 bg-zinc-800 py-1.5 text-[10px] text-zinc-400 hover:text-white hover:border-violet-500/50 transition"
             >
               ↻ force poll
@@ -371,7 +371,7 @@ export function WitnessChamber({ compact = false, terminal = false, initialToken
       <div className="mt-3 flex items-center justify-between">
         <span className="font-mono text-[10px] text-[var(--muted)] opacity-50">Live · polls every 12s · Chiado testnet</span>
         <button
-          onClick={() => void poll()}
+          onClick={() => void poll(token)}
           className="rounded border border-[rgba(176,128,92,0.2)] bg-black/30 px-2.5 py-1 font-mono text-[10px] text-[var(--muted)] hover:text-white transition"
         >
           ↻ refresh
