@@ -267,7 +267,7 @@ export default function NormiesPage() {
                 <span className="text-xs font-bold text-[#f2eee4]">Witness Chamber</span>
                 <span className="text-[11px] text-[var(--muted)]">— live spend cursor on FakeNormie #1, no wallet needed</span>
               </div>
-              <WitnessChamber compact />
+              <WitnessChamber terminal />
             </div>
             {/* Step 2 */}
             <div>
