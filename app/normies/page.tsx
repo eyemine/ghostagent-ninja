@@ -94,6 +94,7 @@ export default function NormiesPage() {
   const [trustAgent, setTrustAgent] = useState<(TrustTarget & { label: string })>(VERIFIED_AGENTS[0]);
   const [agentStatus, setAgentStatus] = useState<'idle' | 'checking' | 'registered' | 'unregistered'>('idle');
   const [registeredTarget, setRegisteredTarget] = useState<(TrustTarget & { label: string }) | null>(null);
+  const [normiesBinding, setNormiesBinding] = useState<{ agentId: string; registeredBy: string; txHash: string; blockNumber: string } | null | 'loading' | 'none'>('none');
 
   const fetchNormie = useCallback(async (rawId: string) => {
     const tid = parseInt(rawId, 10);
@@ -141,6 +142,26 @@ export default function NormiesPage() {
       setLoading(false);
     }
   }, []);
+
+  // Normies.art ERC-8004 binding check
+  useEffect(() => {
+    if (!normie) { setNormiesBinding('none'); return; }
+    let cancelled = false;
+    setNormiesBinding('loading');
+    fetch(`/api/normies/agents/binding/${normie.tokenId}`, { signal: AbortSignal.timeout(8000) })
+      .then(r => r.ok ? r.json() : null)
+      .then((d: { binding?: { agentId?: string; registeredBy?: string; txHash?: string; blockNumber?: string } | null } | null) => {
+        if (cancelled) return;
+        const b = d?.binding;
+        if (b?.agentId) {
+          setNormiesBinding({ agentId: b.agentId, registeredBy: b.registeredBy ?? '', txHash: b.txHash ?? '', blockNumber: b.blockNumber ?? '' });
+        } else {
+          setNormiesBinding(null);
+        }
+      })
+      .catch(() => { if (!cancelled) setNormiesBinding(null); });
+    return () => { cancelled = true; };
+  }, [normie]);
 
   // Ownership check via ownerOf(tokenId) on Ethereum mainnet
   useEffect(() => {
@@ -464,14 +485,36 @@ export default function NormiesPage() {
                   )}
                 </div>
 
-                {/* Track B: Normies.art Awakening (proprietary, Base) */}
-                <div className="rounded-xl border border-[rgba(176,128,92,0.2)] bg-black/20 px-4 py-3.5 space-y-1.5">
+                {/* Track B: Normies.art ERC-8004 binding (Ethereum mainnet) */}
+                <div className={`rounded-xl border px-4 py-3.5 space-y-1.5 ${
+                  normiesBinding === 'loading' ? 'border-[rgba(176,128,92,0.25)] bg-black/20'
+                  : normiesBinding && normiesBinding !== 'none' ? 'border-fuchsia-500/40 bg-fuchsia-500/[0.05]'
+                  : 'border-[rgba(176,128,92,0.2)] bg-black/20'
+                }`}>
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold tracking-wider text-[var(--muted)] uppercase">B · Normies.art Awakening</span>
-                    <span className="text-[9px] font-mono text-[var(--muted)]">Base · proprietary</span>
+                    <span className="text-[10px] font-bold tracking-wider text-[var(--muted)] uppercase">B · Normies.art ERC-8004</span>
+                    <span className="text-[9px] font-mono text-[var(--muted)]">Ethereum · normies.art</span>
                   </div>
-                  <p className="text-xs text-[var(--muted)]">Normies.art does not expose a per-token awakening API. Check your agent binding status directly at <a href="https://normies.art" target="_blank" rel="noreferrer" className="text-fuchsia-400 hover:underline">normies.art ↗</a>.</p>
-                  <p className="text-[10px] text-[var(--muted)] opacity-60">Closed ecosystem — interoperability limited to the Normies.art platform.</p>
+                  {normiesBinding === 'loading' && (
+                    <p className="text-xs text-[var(--muted)]">Checking ERC-8004 binding…</p>
+                  )}
+                  {normiesBinding === 'none' && (
+                    <p className="text-xs text-[var(--muted)]">Enter a Normie ID above to check its ERC-8004 binding.</p>
+                  )}
+                  {normiesBinding === null && (
+                    <div className="space-y-1">
+                      <p className="text-xs text-amber-300 font-semibold">Not registered as an ERC-8004 agent on Normies.art</p>
+                      <p className="text-[10px] text-[var(--muted)]">This Normie has not been bound to an ERC-8004 agent on <a href="https://normies.art" target="_blank" rel="noreferrer" className="text-fuchsia-400 hover:underline">normies.art ↗</a>.</p>
+                    </div>
+                  )}
+                  {normiesBinding && typeof normiesBinding === 'object' && (
+                    <div className="space-y-1">
+                      <p className="text-xs font-semibold text-fuchsia-300">✓ Bound — ERC-8004 agent #{normiesBinding.agentId}</p>
+                      <p className="text-[10px] font-mono text-[var(--muted)] break-all">Registered by: {normiesBinding.registeredBy.slice(0, 10)}…{normiesBinding.registeredBy.slice(-8)}</p>
+                      <p className="text-[10px] text-[var(--muted)]">Block: {normiesBinding.blockNumber} · <a href={`https://etherscan.io/tx/${normiesBinding.txHash}`} target="_blank" rel="noreferrer" className="text-fuchsia-400 hover:underline font-mono">tx ↗</a></p>
+                      <p className="text-[10px] text-[var(--muted)] opacity-60">Proprietary binding — not interoperable with the open ERC-8004 registry on Gnosis.</p>
+                    </div>
+                  )}
                 </div>
 
                 {/* Track C: GhostAgent ERC-8004 (Gnosis, open standard) */}

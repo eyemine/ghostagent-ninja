@@ -186,7 +186,7 @@ export function WitnessChamber({ compact = false, terminal = false, initialToken
                   : 'border-zinc-800 bg-zinc-900 text-zinc-500 hover:border-zinc-600 hover:text-zinc-300'
               }`}
             >
-              <div className="relative h-4 w-4 shrink-0 overflow-hidden rounded">
+              <div className="relative h-8 w-8 shrink-0 overflow-hidden rounded">
                 <Image src={svgPath(t)} alt={`#${t}`} fill className="object-contain" unoptimized />
               </div>
               #{t}
@@ -205,7 +205,7 @@ export function WitnessChamber({ compact = false, terminal = false, initialToken
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg border border-zinc-700 bg-black">
+            <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-lg border border-zinc-700 bg-black">
               <Image src={svgPath(token)} alt={`FakeNormie #${token}`} fill className="object-contain p-1" unoptimized />
             </div>
             <div>
