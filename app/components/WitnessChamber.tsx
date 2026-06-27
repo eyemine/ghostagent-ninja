@@ -7,10 +7,17 @@ import {
   getSubCapFromMandate, decodeStringValue, MANDATE_OPTIONS,
 } from '../services/erc8048-publisher';
 
-const REGISTRY   = process.env.NEXT_PUBLIC_ERC8048_REGISTRY ?? '0x0106341056a8790f4b924c380ed5B81B2a062bCE';
-const DEMO_TOKEN = 1;
-const DEMO_SCOPE = `erc8048:fakenormie:${DEMO_TOKEN}`;
-const NULL_ROOT  = '0x0000000000000000000000000000000000000000000000000000000000000000';
+const REGISTRY  = process.env.NEXT_PUBLIC_ERC8048_REGISTRY ?? '0x0106341056a8790f4b924c380ed5B81B2a062bCE';
+const NULL_ROOT = '0x0000000000000000000000000000000000000000000000000000000000000000';
+
+const DEMO_TOKENS = [0, 1, 2, 3, 4, 5];
+
+function svgPath(token: number) {
+  return `/FakeNormies/SVGS/${String(token).padStart(2, '0')}.svg`;
+}
+function demoScope(token: number) {
+  return `erc8048:fakenormie:${token}`;
+}
 
 interface CursorState {
   mandate: string;
@@ -49,18 +56,20 @@ function MeterBar({ spent, cap }: { spent: bigint; cap: bigint }) {
   );
 }
 
-export function WitnessChamber({ compact = false, terminal = false }: { compact?: boolean; terminal?: boolean }) {
+export function WitnessChamber({ compact = false, terminal = false, initialToken = 0 }: { compact?: boolean; terminal?: boolean; initialToken?: number }) {
+  const [token, setToken] = useState(initialToken);
   const [cursor, setCursor] = useState<CursorState | null>(null);
   const [loading, setLoading] = useState(true);
   const [auditLog, setAuditLog] = useState<AuditLine[]>([]);
   const logRef = useRef<HTMLDivElement>(null);
 
   const appendLog = useCallback((lines: AuditLine[]) => {
-    setAuditLog(prev => [...prev, ...lines].slice(-60));
+    setAuditLog(prev => [...prev, ...lines].slice(-80));
   }, []);
 
-  const poll = useCallback(async () => {
-    if (terminal) appendLog([{ ts: ts(), text: '── poll ──────────────────────────────', kind: 'dim' }]);
+  const poll = useCallback(async (t: number) => {
+    const scope = demoScope(t);
+    if (terminal) appendLog([{ ts: ts(), text: `── token #${t} ────────────────────────────`, kind: 'dim' }]);
     try {
       const { createPublicClient, http, keccak256 } = await import('viem');
       const { gnosis } = await import('viem/chains');
@@ -72,18 +81,18 @@ export function WitnessChamber({ compact = false, terminal = false }: { compact?
       const gClient = createPublicClient({ chain: gnosis, transport: http() });
       const cClient = createPublicClient({ chain: chiado, transport: http(CURSOR_CHIADO_RPC) });
 
-      if (terminal) appendLog([{ ts: ts(), text: `[ERC-8048] reading cursor[mandate] · token ${DEMO_TOKEN} · Gnosis`, kind: 'info' }]);
+      if (terminal) appendLog([{ ts: ts(), text: `[ERC-8048] reading cursor[mandate] · token ${t} · Gnosis`, kind: 'info' }]);
       const mandateBytes = await gClient.readContract({
         address: REGISTRY as `0x${string}`, abi: REGISTRY_ABI,
-        functionName: 'metadata', args: [BigInt(DEMO_TOKEN), 'cursor[mandate]'],
+        functionName: 'metadata', args: [BigInt(t), 'cursor[mandate]'],
       }).catch(() => '0x' as `0x${string}`);
       const mandate = mandateBytes && mandateBytes !== '0x'
         ? decodeStringValue(mandateBytes as string) : 'worker';
       if (terminal) appendLog([{ ts: ts(), text: `[ERC-8048] mandate = "${mandate}"`, kind: 'ok' }]);
 
-      const scopeId = keccak256(new TextEncoder().encode(DEMO_SCOPE)) as `0x${string}`;
+      const scopeId = keccak256(new TextEncoder().encode(scope)) as `0x${string}`;
       if (terminal) appendLog([
-        { ts: ts(), text: `[ERC-8312] scope  = ${DEMO_SCOPE}`, kind: 'info' },
+        { ts: ts(), text: `[ERC-8312] scope  = ${scope}`, kind: 'info' },
         { ts: ts(), text: `[ERC-8312] scopeId = ${scopeId.slice(0, 18)}…`, kind: 'dim' },
         { ts: ts(), text: `[ERC-8312] reading capabilityRoot + leafSpent · Chiado`, kind: 'info' },
       ]);
@@ -107,8 +116,8 @@ export function WitnessChamber({ compact = false, terminal = false }: { compact?
         } else {
           appendLog([
             { ts: ts(), text: `[ERC-8312] capRoot = NULL_ROOT (not registered)`, kind: 'warn' },
-            { ts: ts(), text: `[VERDICT] no leaf registered for scope ${DEMO_SCOPE}`, kind: 'warn' },
-            { ts: ts(), text: `  → mint a FakeNormie + run upgrade script to activate`, kind: 'dim' },
+            { ts: ts(), text: `[VERDICT] no leaf registered for scope ${scope}`, kind: 'warn' },
+            { ts: ts(), text: `  → upgrade this token to activate cursor leaf`, kind: 'dim' },
           ]);
         }
       }
@@ -129,21 +138,29 @@ export function WitnessChamber({ compact = false, terminal = false }: { compact?
     }
   }, [terminal, appendLog]);
 
+  // Re-poll when token changes
   useEffect(() => {
+    setLoading(true);
+    setCursor(null);
     if (terminal) {
-      appendLog([
-        { ts: ts(), text: `WitnessChamber v2 — ERC-8312 enforcement monitor`, kind: 'dim' },
-        { ts: ts(), text: `agent  : FakeNormie #${DEMO_TOKEN}`, kind: 'info' },
-        { ts: ts(), text: `scope  : ${DEMO_SCOPE}`, kind: 'info' },
-        { ts: ts(), text: `cursor : ${CURSOR_CONTRACT.slice(0, 18)}… (Chiado)`, kind: 'info' },
-        { ts: ts(), text: `registry: ${REGISTRY.slice(0, 18)}… (Gnosis)`, kind: 'info' },
-        { ts: ts(), text: `polling every 12s…`, kind: 'dim' },
-      ]);
+      appendLog([{ ts: ts(), text: `── switched to FakeNormie #${token} ──────────────`, kind: 'dim' }]);
     }
-    void poll();
-    const iv = setInterval(() => void poll(), 12000);
+    void poll(token);
+    const iv = setInterval(() => void poll(token), 12000);
     return () => clearInterval(iv);
-  }, [poll, terminal, appendLog]);
+  }, [token, poll, terminal, appendLog]);
+
+  // Init banner (once, on mount)
+  useEffect(() => {
+    if (!terminal) return;
+    appendLog([
+      { ts: ts(), text: `WitnessChamber v2 — ERC-8312 enforcement monitor`, kind: 'dim' },
+      { ts: ts(), text: `cursor : ${CURSOR_CONTRACT.slice(0, 18)}… (Chiado)`, kind: 'info' },
+      { ts: ts(), text: `registry: ${REGISTRY.slice(0, 18)}… (Gnosis)`, kind: 'info' },
+      { ts: ts(), text: `tokens available: ${DEMO_TOKENS.join(', ')}`, kind: 'dim' },
+    ]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [terminal]);
 
   useEffect(() => {
     if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
@@ -154,7 +171,31 @@ export function WitnessChamber({ compact = false, terminal = false }: { compact?
   /* ── Terminal (3-column) mode ── */
   if (terminal) {
     return (
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 rounded-2xl border border-zinc-800 bg-zinc-950 p-3 font-mono text-zinc-300">
+      <div className="rounded-2xl border border-zinc-800 bg-zinc-950 font-mono text-zinc-300 overflow-hidden">
+
+        {/* Token picker strip */}
+        <div className="flex items-center gap-1 px-3 py-2 border-b border-zinc-800 bg-zinc-900/50">
+          <span className="text-[9px] text-zinc-600 uppercase tracking-widest mr-2">Token</span>
+          {DEMO_TOKENS.map(t => (
+            <button
+              key={t}
+              onClick={() => setToken(t)}
+              className={`flex items-center gap-1.5 rounded border px-2 py-1 text-[10px] font-bold transition ${
+                token === t
+                  ? 'border-violet-500/60 bg-violet-500/15 text-violet-300'
+                  : 'border-zinc-800 bg-zinc-900 text-zinc-500 hover:border-zinc-600 hover:text-zinc-300'
+              }`}
+            >
+              <div className="relative h-4 w-4 shrink-0 overflow-hidden rounded">
+                <Image src={svgPath(t)} alt={`#${t}`} fill className="object-contain" unoptimized />
+              </div>
+              #{t}
+            </button>
+          ))}
+          <div className="ml-auto text-[9px] text-zinc-700">live · 12s · Chiado</div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 p-3">
 
         {/* Col 1 — Agent Status */}
         <div className="flex flex-col gap-3 rounded-xl border border-zinc-800 bg-zinc-900 p-4">
@@ -165,11 +206,11 @@ export function WitnessChamber({ compact = false, terminal = false }: { compact?
 
           <div className="flex items-center gap-3">
             <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg border border-zinc-700 bg-black">
-              <Image src="/FakeNormies/SVGS/01.svg" alt="FakeNormie #1" fill className="object-contain p-1" unoptimized />
+              <Image src={svgPath(token)} alt={`FakeNormie #${token}`} fill className="object-contain p-1" unoptimized />
             </div>
             <div>
-              <div className="text-xs font-bold text-white">FakeNormie #1</div>
-              <div className="text-[10px] text-zinc-500">token {DEMO_TOKEN} · ERC-8048</div>
+              <div className="text-xs font-bold text-white">FakeNormie #{token}</div>
+              <div className="text-[10px] text-zinc-500">token {token} · ERC-8048</div>
             </div>
           </div>
 
@@ -185,6 +226,10 @@ export function WitnessChamber({ compact = false, terminal = false }: { compact?
             <div className="flex justify-between">
               <span className="text-zinc-500">ceiling</span>
               <span className="text-zinc-300">{mandateMeta?.subCapLabel ?? '—'}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-zinc-500">scope</span>
+              <span className="text-zinc-600 text-[10px]">{demoScope(token)}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-zinc-500">cursor leaf</span>
@@ -249,14 +294,14 @@ export function WitnessChamber({ compact = false, terminal = false }: { compact?
               <div className="text-2xl">🔒</div>
               <div className="text-[11px] text-amber-400 font-bold">Leaf not registered</div>
               <div className="text-[10px] text-zinc-600 leading-relaxed">
-                This demo agent&apos;s cursor scope has no capabilityRoot on Chiado yet.
-                <br />FakeNormie #1 is un-upgraded (wallet holds #0 + super.normie).
+                No capabilityRoot on Chiado for FakeNormie #{token}.
+                <br />Try another token or upgrade this one via the mandate dashboard.
               </div>
             </div>
           )}
 
           <div className="mt-auto pt-2 border-t border-zinc-800 text-[10px] text-zinc-600">
-            scope: <span className="text-zinc-500">{DEMO_SCOPE}</span>
+            scope: <span className="text-zinc-500">{demoScope(token)}</span>
           </div>
         </div>
 
@@ -285,6 +330,7 @@ export function WitnessChamber({ compact = false, terminal = false }: { compact?
           </div>
         </div>
 
+        </div>{/* end grid */}
       </div>
     );
   }
@@ -294,11 +340,11 @@ export function WitnessChamber({ compact = false, terminal = false }: { compact?
     <div className={`rounded-2xl border border-violet-500/25 bg-violet-500/5 ${compact ? 'p-4' : 'p-5'}`}>
       <div className="mb-4 flex items-start gap-4">
         <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl border border-[rgba(176,128,92,0.25)] bg-black/40">
-          <Image src="/FakeNormies/SVGS/01.svg" alt="FakeNormie #1" fill className="object-contain p-1" unoptimized />
+          <Image src={svgPath(token)} alt={`FakeNormie #${token}`} fill className="object-contain p-1" unoptimized />
         </div>
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="font-mono text-sm font-bold text-[#f2eee4]">FakeNormie #1</span>
+            <span className="font-mono text-sm font-bold text-[#f2eee4]">FakeNormie #{token}</span>
             <span className="rounded border border-violet-500/30 bg-violet-500/10 px-1.5 py-0.5 font-mono text-[10px] text-violet-300">Demo Agent</span>
             {cursor?.registered && (
               <span className="rounded border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 font-mono text-[10px] text-emerald-400">cursor active</span>
