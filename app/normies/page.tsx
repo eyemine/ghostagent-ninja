@@ -13,11 +13,10 @@ const WORKER_URL = process.env.NEXT_PUBLIC_WORKER_URL || 'https://nftmail-email-
 
 const HEADER_IMG = '/FakeNormies/FakeNormie1.png';
 const NORMIE_CONTRACT = '0x9eb6e2025b64f340691e424b7fe7022ffde12438'; // Normies on Ethereum mainnet
-const NORMIES_BINDING_BASE = '0xde152afb7db5373f34876e1499fbd893a82dd336'; // Normies.art binding contract on Base
 const ETH_RPC = 'https://cloudflare-eth.com';
 
 interface Trait { trait_type: string; value: string; }
-interface NormieData { tokenId: number; raw: string; attributes: Trait[]; pixelOn: number | null; isAgent: boolean | null; agentDelegate: string | null; }
+interface NormieData { tokenId: number; raw: string; attributes: Trait[]; pixelOn: number | null; hasLegendaryCanvas: boolean | null; ownerAddress: string | null; }
 
 // Existing deployed GhostAgents available for live trust verification.
 const VERIFIED_AGENTS: Array<TrustTarget & { label: string }> = [
@@ -101,10 +100,11 @@ export default function NormiesPage() {
     if (Number.isNaN(tid) || tid < 0 || tid > 9999) { setError('Enter a valid Normie ID (0–9999)'); return; }
     setLoading(true); setError(null); setOwned(null);
     try {
-      const [traitsRes, pixelsRes, canvasRes] = await Promise.all([
+      const [traitsRes, pixelsRes, legendaryRes, ownerRes] = await Promise.all([
         fetch(`/api/normies/normie/${tid}/traits`),
         fetch(`/api/normies/normie/${tid}/pixels`),
-        fetch(`/api/normies/normie/${tid}/canvas`).then(r => r.ok ? r : null).catch(() => null),
+        fetch(`/api/normies/normie/${tid}/legendary-canvas`).then(r => r.ok ? r : null).catch(() => null),
+        fetch(`/api/normies/normie/${tid}/owner`).then(r => r.ok ? r : null).catch(() => null),
       ]);
       if (!traitsRes.ok) throw new Error('traits');
       const traits = (await traitsRes.json()) as { raw: string; attributes: Trait[] };
@@ -113,19 +113,27 @@ export default function NormiesPage() {
         const grid = await pixelsRes.text();
         pixelOn = (grid.match(/1/g) ?? []).length;
       }
-      let isAgent: boolean | null = null;
-      let agentDelegate: string | null = null;
-      if (canvasRes) {
+      let hasLegendaryCanvas: boolean | null = null;
+      let ownerAddress: string | null = null;
+      if (legendaryRes) {
         try {
-          const ct = canvasRes.headers.get('content-type') ?? '';
+          const ct = legendaryRes.headers.get('content-type') ?? '';
           if (ct.includes('application/json')) {
-            const canvas = (await canvasRes.json()) as { isAgent?: boolean; delegate?: string };
-            if (typeof canvas.isAgent === 'boolean') isAgent = canvas.isAgent;
-            if (typeof canvas.delegate === 'string' && canvas.delegate.startsWith('0x')) agentDelegate = canvas.delegate;
+            const lc = (await legendaryRes.json()) as { artistTraits?: unknown[] };
+            hasLegendaryCanvas = Array.isArray(lc.artistTraits) && lc.artistTraits.length > 0;
           }
-        } catch { /* canvas endpoint may not exist */ }
+        } catch { /* non-fatal */ }
       }
-      setNormie({ tokenId: tid, raw: traits.raw, attributes: traits.attributes, pixelOn, isAgent, agentDelegate });
+      if (ownerRes) {
+        try {
+          const ct = ownerRes.headers.get('content-type') ?? '';
+          if (ct.includes('application/json')) {
+            const od = (await ownerRes.json()) as { owner?: string };
+            if (typeof od.owner === 'string' && od.owner.startsWith('0x')) ownerAddress = od.owner.toLowerCase();
+          }
+        } catch { /* non-fatal */ }
+      }
+      setNormie({ tokenId: tid, raw: traits.raw, attributes: traits.attributes, pixelOn, hasLegendaryCanvas, ownerAddress });
     } catch {
       setError('Normie not found or API error');
       setNormie(null);
@@ -364,11 +372,8 @@ export default function NormiesPage() {
                       <h2 className="text-lg font-bold text-[#f2eee4]">Normie #{normie.tokenId}</h2>
                       <div className="flex items-center gap-1.5">
                         <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold border border-emerald-500/30 bg-emerald-500/10 text-emerald-300">Real Normie</span>
-                        {normie.isAgent === true && (
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold border border-fuchsia-500/40 bg-fuchsia-500/10 text-fuchsia-300">🔥 Awakened</span>
-                        )}
-                        {normie.isAgent === false && (
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold border border-amber-500/30 bg-amber-500/10 text-amber-300">💤 Dormant</span>
+                        {normie.hasLegendaryCanvas === true && (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold border border-fuchsia-500/40 bg-fuchsia-500/10 text-fuchsia-300">🎨 Legendary Canvas</span>
                         )}
                       </div>
                     </div>
@@ -438,42 +443,45 @@ export default function NormiesPage() {
               <div className="space-y-3">
                 <h3 className="text-[10px] font-semibold tracking-widest text-[var(--muted)] uppercase">Normie #{normie.tokenId} Identity</h3>
 
-                {/* Track A: Normies.art Awakening (Base) */}
+                {/* Track A: Normies NFT on-chain holder (Ethereum mainnet) */}
                 <div className={`rounded-xl border px-4 py-3.5 space-y-1.5 ${
-                  normie.isAgent === null ? 'border-[rgba(176,128,92,0.25)] bg-black/20'
-                  : normie.isAgent ? 'border-fuchsia-500/40 bg-fuchsia-500/[0.06]'
-                  : 'border-[rgba(176,128,92,0.2)] bg-black/20'
+                  normie.ownerAddress ? 'border-cyan-500/30 bg-cyan-500/[0.04]' : 'border-[rgba(176,128,92,0.2)] bg-black/20'
                 }`}>
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold tracking-wider text-[var(--muted)] uppercase">A · Normies.art Awakening</span>
-                    <span className="text-[9px] font-mono text-[var(--muted)]">Base · proprietary</span>
+                    <span className="text-[10px] font-bold tracking-wider text-[var(--muted)] uppercase">A · Normies NFT Holder</span>
+                    <span className="text-[9px] font-mono text-[var(--muted)]">Ethereum · on-chain</span>
                   </div>
-                  {normie.isAgent === null ? (
-                    <p className="text-xs text-[var(--muted)]">Normies.art canvas API unavailable — awakening status unknown.</p>
-                  ) : normie.isAgent ? (
+                  {normie.ownerAddress ? (
                     <div className="space-y-1">
-                      <p className="text-xs font-semibold text-fuchsia-300">🔥 Awakened — agent binding active on Base</p>
-                      {normie.agentDelegate && (
-                        <p className="text-[10px] font-mono text-[var(--muted)] break-all">Agent wallet: {normie.agentDelegate.slice(0, 10)}…{normie.agentDelegate.slice(-8)}</p>
-                      )}
-                      <p className="text-[10px] text-[var(--muted)]">
-                        Binding contract: <a href={`https://basescan.org/address/${NORMIES_BINDING_BASE}`} target="_blank" rel="noreferrer" className="text-fuchsia-400 hover:underline font-mono">{NORMIES_BINDING_BASE.slice(0, 10)}…↗</a>
-                      </p>
-                      <p className="text-[10px] text-[var(--muted)] mt-0.5">Closed ecosystem — interoperability limited to Normies.art platform.</p>
+                      <p className="text-xs font-semibold text-cyan-300">✓ On-chain owner verified</p>
+                      <p className="text-[10px] font-mono text-[var(--muted)] break-all">Owner: {normie.ownerAddress.slice(0, 10)}…{normie.ownerAddress.slice(-8)}</p>
+                      {owned === true && <p className="text-[10px] text-emerald-400">↳ Connected wallet is the owner</p>}
+                      {owned === false && <p className="text-[10px] text-amber-400">↳ Connected wallet is not the owner</p>}
+                      {normie.hasLegendaryCanvas && <p className="text-[10px] text-fuchsia-300">🎨 Has Legendary Canvas artist traits</p>}
                     </div>
                   ) : (
-                    <p className="text-xs text-[var(--muted)]">Not awakened — no binding registered on Normies.art yet.</p>
+                    <p className="text-xs text-[var(--muted)]">Owner lookup pending — connect wallet or check Etherscan.</p>
                   )}
                 </div>
 
-                {/* Track B: GhostAgent ERC-8004 (Gnosis, open standard) */}
+                {/* Track B: Normies.art Awakening (proprietary, Base) */}
+                <div className="rounded-xl border border-[rgba(176,128,92,0.2)] bg-black/20 px-4 py-3.5 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold tracking-wider text-[var(--muted)] uppercase">B · Normies.art Awakening</span>
+                    <span className="text-[9px] font-mono text-[var(--muted)]">Base · proprietary</span>
+                  </div>
+                  <p className="text-xs text-[var(--muted)]">Normies.art does not expose a per-token awakening API. Check your agent binding status directly at <a href="https://normies.art" target="_blank" rel="noreferrer" className="text-fuchsia-400 hover:underline">normies.art ↗</a>.</p>
+                  <p className="text-[10px] text-[var(--muted)] opacity-60">Closed ecosystem — interoperability limited to the Normies.art platform.</p>
+                </div>
+
+                {/* Track C: GhostAgent ERC-8004 (Gnosis, open standard) */}
                 <div className={`rounded-xl border px-4 py-3.5 space-y-1.5 ${
                   agentStatus === 'registered' ? 'border-emerald-500/40 bg-emerald-500/[0.06]'
                   : agentStatus === 'checking' ? 'border-[rgba(176,128,92,0.25)] bg-black/20'
                   : 'border-amber-500/30 bg-amber-500/[0.04]'
                 }`}>
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold tracking-wider text-[var(--muted)] uppercase">B · GhostAgent ERC-8004</span>
+                    <span className="text-[10px] font-bold tracking-wider text-[var(--muted)] uppercase">C · GhostAgent ERC-8004</span>
                     <span className="text-[9px] font-mono text-[var(--muted)]">Gnosis · open standard</span>
                   </div>
                   {agentStatus === 'checking' && (
@@ -492,9 +500,7 @@ export default function NormiesPage() {
                     <div className="space-y-1.5">
                       <p className="text-xs font-semibold text-amber-300">Not registered in ERC-8004 registry</p>
                       <p className="text-[11px] text-[var(--muted)]">
-                        {normie.isAgent
-                          ? `This Normie is awakened on Normies.art (Track A) but hasn't been registered in the open ERC-8004 registry. ${owned ? 'Register it as a GhostAgent to make it cross-platform verifiable.' : 'The owner can register it as a GhostAgent.'}`
-                          : `Normie ${normie.tokenId} has no GhostAgent identity yet. ${owned ? 'Activate it to register on Gnosis.' : 'The owner can activate it as a GhostAgent.'}`}
+                        {`Normie ${normie.tokenId} has no GhostAgent identity yet. ${owned ? 'Activate it to register on Gnosis.' : 'The owner can activate it as a GhostAgent.'}`}
                       </p>
                       {owned && (
                         <a href={`/pair-nft?nft=normie&tokenId=${normie.tokenId}`} className="inline-block mt-1 rounded-lg bg-fuchsia-600/70 px-4 py-1.5 text-xs font-bold text-white hover:bg-fuchsia-600 transition">
