@@ -85,7 +85,7 @@ export default function NormiesPage() {
   const { wallets } = useWallets();
   const wallet = wallets[0]?.address ?? null;
 
-  const [tab, setTab] = useState<'mint' | 'preview'>('preview');
+  const [tab, setTab] = useState<'mint' | 'preview' | 'demo'>('preview');
   const [id, setId] = useState('');
   const [normie, setNormie] = useState<NormieData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -104,7 +104,7 @@ export default function NormiesPage() {
       const [traitsRes, pixelsRes, canvasRes] = await Promise.all([
         fetch(`/api/normies/normie/${tid}/traits`),
         fetch(`/api/normies/normie/${tid}/pixels`),
-        fetch(`/api/normies/normie/${tid}/canvas`).catch(() => null),
+        fetch(`/api/normies/normie/${tid}/canvas`).then(r => r.ok ? r : null).catch(() => null),
       ]);
       if (!traitsRes.ok) throw new Error('traits');
       const traits = (await traitsRes.json()) as { raw: string; attributes: Trait[] };
@@ -115,11 +115,14 @@ export default function NormiesPage() {
       }
       let isAgent: boolean | null = null;
       let agentDelegate: string | null = null;
-      if (canvasRes && canvasRes.ok) {
+      if (canvasRes) {
         try {
-          const canvas = (await canvasRes.json()) as { isAgent?: boolean; delegate?: string };
-          if (typeof canvas.isAgent === 'boolean') isAgent = canvas.isAgent;
-          if (typeof canvas.delegate === 'string' && canvas.delegate.startsWith('0x')) agentDelegate = canvas.delegate;
+          const ct = canvasRes.headers.get('content-type') ?? '';
+          if (ct.includes('application/json')) {
+            const canvas = (await canvasRes.json()) as { isAgent?: boolean; delegate?: string };
+            if (typeof canvas.isAgent === 'boolean') isAgent = canvas.isAgent;
+            if (typeof canvas.delegate === 'string' && canvas.delegate.startsWith('0x')) agentDelegate = canvas.delegate;
+          }
         } catch { /* canvas endpoint may not exist */ }
       }
       setNormie({ tokenId: tid, raw: traits.raw, attributes: traits.attributes, pixelOn, isAgent, agentDelegate });
@@ -228,7 +231,7 @@ export default function NormiesPage() {
         {/* Dual selection panel */}
         <div className="rounded-2xl border border-[rgba(176,128,92,0.25)] bg-[var(--card)] p-4 space-y-3">
           <div className="text-xs font-semibold tracking-[0.18em] text-[var(--muted)]">IF YOU HAVENT MADE IT, FAKE IT!</div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <button
               onClick={() => setTab('preview')}
               className={`rounded-xl border px-4 py-4 text-left transition ${tab === 'preview' ? 'border-fuchsia-500/50 bg-fuchsia-500/10' : 'border-[rgba(176,128,92,0.2)] bg-black/20 hover:border-fuchsia-500/30'}`}
@@ -243,11 +246,73 @@ export default function NormiesPage() {
               <p className={`text-sm font-bold ${tab === 'mint' ? 'text-pink-300' : 'text-[#f2eee4]'}`}>FakeNormie Lab</p>
               <p className="text-[11px] text-[var(--muted)] mt-0.5">Free mint NFT on Gnosis – Basic GhostAgent tier</p>
             </button>
+            <button
+              onClick={() => setTab('demo')}
+              className={`rounded-xl border px-4 py-4 text-left transition ${tab === 'demo' ? 'border-violet-500/50 bg-violet-500/10' : 'border-[rgba(176,128,92,0.2)] bg-black/20 hover:border-violet-500/30'}`}
+            >
+              <p className={`text-sm font-bold ${tab === 'demo' ? 'text-violet-300' : 'text-[#f2eee4]'}`}>Agent Security Demo</p>
+              <p className="text-[11px] text-[var(--muted)] mt-0.5">Live spend cursor — try before committing your real Normie.</p>
+            </button>
           </div>
         </div>
 
         {tab === 'mint' ? (
           <FakeNormieLab />
+        ) : tab === 'demo' ? (
+          <div className="space-y-5">
+            {/* Step 1 */}
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-violet-700 font-mono text-[10px] font-bold text-white">1</span>
+                <span className="text-xs font-bold text-[#f2eee4]">Witness Chamber</span>
+                <span className="text-[11px] text-[var(--muted)]">— live spend cursor on FakeNormie #1, no wallet needed</span>
+              </div>
+              <WitnessChamber compact />
+            </div>
+            {/* Step 2 */}
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-pink-700 font-mono text-[10px] font-bold text-white">2</span>
+                <span className="text-xs font-bold text-[#f2eee4]">Policy Factory</span>
+                <span className="text-[11px] text-[var(--muted)]">— claim your own free sandbox agent</span>
+              </div>
+              <div className="rounded-xl border border-[rgba(176,128,92,0.2)] bg-black/30 p-4 flex items-start justify-between gap-4 flex-wrap">
+                <p className="text-[11px] text-[var(--muted)] leading-relaxed max-w-sm">
+                  Mint a free FakeNormie (gas-sponsored on Gnosis) and run the mandate flow yourself — before committing your real Normie NFT.
+                </p>
+                <button
+                  onClick={() => setTab('mint')}
+                  className="shrink-0 rounded-lg bg-pink-700/80 px-4 py-2 text-xs font-bold text-white hover:bg-pink-700 transition"
+                >
+                  Get a FakeNormie →
+                </button>
+              </div>
+            </div>
+            {/* Step 3 */}
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-700 font-mono text-[10px] font-bold text-white">3</span>
+                <span className="text-xs font-bold text-[#f2eee4]">Enforcement Lock</span>
+                <span className="text-[11px] text-[var(--muted)]">— declare a mandate, register the on-chain ceiling</span>
+              </div>
+              <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  {MANDATE_OPTIONS.map(m => (
+                    <div key={m.value} className="rounded-lg border border-[rgba(176,128,92,0.18)] bg-black/30 p-3 font-mono text-[11px]">
+                      <div className="font-bold text-[#f2eee4] mb-0.5">{m.label}</div>
+                      <div className="text-[var(--muted)]">{m.subCapLabel}</div>
+                    </div>
+                  ))}
+                </div>
+                <Link
+                  href="/dashboard/erc8048?collection=fakenormie"
+                  className="inline-block rounded-lg border border-emerald-500/35 bg-emerald-500/10 px-4 py-2 text-[11px] font-bold text-emerald-300 hover:bg-emerald-500/20 transition"
+                >
+                  Open Mandate Dashboard →
+                </Link>
+              </div>
+            </div>
+          </div>
         ) : (
           <>
             {/* ID input */}
@@ -384,7 +449,7 @@ export default function NormiesPage() {
                     <span className="text-[9px] font-mono text-[var(--muted)]">Base · proprietary</span>
                   </div>
                   {normie.isAgent === null ? (
-                    <p className="text-xs text-[var(--muted)]">Checking Normies.art canvas…</p>
+                    <p className="text-xs text-[var(--muted)]">Normies.art canvas API unavailable — awakening status unknown.</p>
                   ) : normie.isAgent ? (
                     <div className="space-y-1">
                       <p className="text-xs font-semibold text-fuchsia-300">🔥 Awakened — agent binding active on Base</p>
@@ -462,74 +527,6 @@ export default function NormiesPage() {
                 ))}
               </div>
               <NormieTrustBadge target={trustAgent} />
-            </div>
-
-            {/* ── Agent Security Demo — sandboxed for nervous Normie holders ── */}
-            <div className="rounded-2xl border border-[rgba(176,128,92,0.2)] bg-black/20 overflow-hidden">
-              <div className="px-5 py-4 border-b border-[rgba(176,128,92,0.12)]">
-                <p className="text-[9px] font-semibold tracking-[0.18em] text-[var(--muted)] uppercase mb-1">Agent Security Demo</p>
-                <p className="text-xs text-[var(--muted)] leading-relaxed">
-                  Before activating your real Normie, try the full agent lifecycle risk-free.
-                  FakeNormie #1 has a live spending mandate — watch the cursor enforce it on-chain, then claim your own sandbox agent.
-                </p>
-              </div>
-
-              <div className="p-5 space-y-5">
-                {/* Step 1 — Witness Chamber */}
-                <div>
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-violet-700 font-mono text-[10px] font-bold text-white">1</span>
-                    <span className="text-xs font-bold text-[#f2eee4]">Witness Chamber</span>
-                    <span className="text-[11px] text-[var(--muted)]">— live cursor, no wallet needed</span>
-                  </div>
-                  <WitnessChamber compact />
-                </div>
-
-                {/* Step 2 — Policy Factory */}
-                <div>
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-pink-700 font-mono text-[10px] font-bold text-white">2</span>
-                    <span className="text-xs font-bold text-[#f2eee4]">Policy Factory</span>
-                    <span className="text-[11px] text-[var(--muted)]">— claim a free sandbox agent</span>
-                  </div>
-                  <div className="rounded-xl border border-[rgba(176,128,92,0.2)] bg-black/30 p-4 flex items-start justify-between gap-4 flex-wrap">
-                    <p className="text-[11px] text-[var(--muted)] leading-relaxed max-w-sm">
-                      Mint a free FakeNormie (gas-sponsored) and run the mandate flow yourself before committing your real Normie NFT.
-                    </p>
-                    <button
-                      onClick={() => setTab('mint')}
-                      className="shrink-0 rounded-lg bg-pink-700/80 px-4 py-2 text-xs font-bold text-white hover:bg-pink-700 transition"
-                    >
-                      Get a FakeNormie →
-                    </button>
-                  </div>
-                </div>
-
-                {/* Step 3 — Enforcement Lock */}
-                <div>
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-700 font-mono text-[10px] font-bold text-white">3</span>
-                    <span className="text-xs font-bold text-[#f2eee4]">Enforcement Lock</span>
-                    <span className="text-[11px] text-[var(--muted)]">— declare a mandate, register the ceiling</span>
-                  </div>
-                  <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 space-y-3">
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                      {MANDATE_OPTIONS.map(m => (
-                        <div key={m.value} className="rounded-lg border border-[rgba(176,128,92,0.18)] bg-black/30 p-3 font-mono text-[11px]">
-                          <div className="font-bold text-[#f2eee4] mb-0.5">{m.label}</div>
-                          <div className="text-[var(--muted)]">{m.subCapLabel}</div>
-                        </div>
-                      ))}
-                    </div>
-                    <Link
-                      href="/dashboard/erc8048?collection=fakenormie"
-                      className="inline-block rounded-lg border border-emerald-500/35 bg-emerald-500/10 px-4 py-2 text-[11px] font-bold text-emerald-300 hover:bg-emerald-500/20 transition"
-                    >
-                      Open Mandate Dashboard →
-                    </Link>
-                  </div>
-                </div>
-              </div>
             </div>
 
           </>
