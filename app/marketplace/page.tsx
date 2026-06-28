@@ -47,7 +47,7 @@ const TYPE_COLOR: Record<string, string> = {
 };
 
 const SAFE_TRANSFER_ABI = [{
-  name: 'safeTransferFrom',
+  name: 'transferFrom',
   type: 'function',
   stateMutability: 'nonpayable',
   inputs: [
@@ -164,17 +164,19 @@ async function erc721Transfer(
 
   const [account] = await walletClient.requestAddresses();
 
-  const txHash = await walletClient.writeContract({
-    address: contract as `0x${string}`,
-    abi: SAFE_TRANSFER_ABI,
-    functionName: 'safeTransferFrom',
-    args: [from as `0x${string}`, to as `0x${string}`, BigInt(tokenId)],
-    account,
-    chain,
-  });
-
   const rpc = chainId === 100 ? GNOSIS_RPC : chainId === 8453 ? BASE_RPC : 'https://ethereum.publicnode.com';
   const pubClient = createPublicClient({ chain, transport: http(rpc) });
+
+  // Simulate first to get a proper revert reason instead of "Internal JSON-RPC error"
+  const { request } = await pubClient.simulateContract({
+    address: contract as `0x${string}`,
+    abi: SAFE_TRANSFER_ABI,
+    functionName: 'transferFrom',
+    args: [from as `0x${string}`, to as `0x${string}`, BigInt(tokenId)],
+    account,
+  });
+
+  const txHash = await walletClient.writeContract(request);
   await pubClient.waitForTransactionReceipt({ hash: txHash });
   return txHash;
 }
