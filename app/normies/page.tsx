@@ -513,6 +513,14 @@ export default function NormiesPage() {
                       <p className="text-[10px] font-mono text-[var(--muted)] break-all">Registered by: {normiesBinding.registeredBy.slice(0, 10)}…{normiesBinding.registeredBy.slice(-8)}</p>
                       <p className="text-[10px] text-[var(--muted)]">Block: {normiesBinding.blockNumber} · <a href={`https://etherscan.io/tx/${normiesBinding.txHash}`} target="_blank" rel="noreferrer" className="text-fuchsia-400 hover:underline font-mono">tx ↗</a></p>
                       <p className="text-[10px] text-[var(--muted)] opacity-60">Proprietary binding — not interoperable with the open ERC-8004 registry on Gnosis.</p>
+                      <a
+                        href={`https://notapaperclip.red/osint?agent=${normiesBinding.agentId}&chain=ethereum`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 rounded-lg border border-fuchsia-500/30 bg-fuchsia-500/10 px-3 py-1 text-[10px] font-semibold text-fuchsia-300 hover:bg-fuchsia-500/20 transition mt-1"
+                      >
+                        🔍 OSINT on notapaperclip.red ↗
+                      </a>
                     </div>
                   )}
                 </div>
