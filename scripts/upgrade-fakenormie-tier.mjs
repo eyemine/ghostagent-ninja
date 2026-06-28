@@ -6,7 +6,7 @@
  * expiry: timestamp (only for premium tier, 0 for permanent)
  */
 
-import { createWalletClient, createPublicClient, http } from 'viem';
+import { createWalletClient, createPublicClient, http, keccak256, encodeAbiParameters } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { gnosis } from 'viem/chains';
 import { readFileSync } from 'fs';
@@ -40,6 +40,22 @@ function encodeStringValue(value) {
   const bytes = new TextEncoder().encode(value);
   const hex = Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
   return `0x${hex}`;
+}
+
+function getSubCap(mandate) {
+  switch (mandate) {
+    case 'restricted': return 1_000_000_000_000n;
+    case 'worker':     return 20_000_000_000_000n;
+    case 'executive':  return 100_000_000_000_000n;
+    default:           return 1_000_000_000_000n;
+  }
+}
+
+function computeAgreementHash(scopeId, mandate, subCap, ownerAddress, targetSafe) {
+  return keccak256(encodeAbiParameters(
+    [{ type: 'bytes32' }, { type: 'string' }, { type: 'uint256' }, { type: 'address' }, { type: 'address' }],
+    [scopeId, mandate, subCap, ownerAddress, targetSafe]
+  ));
 }
 
 const setTierABI = [
@@ -140,19 +156,38 @@ async function main() {
       console.warn(`⚠️  WEBHOOK_SECRET not set — KV not synced. Run: node scripts/set-agent-tier.mjs ${slug} ${TIER_NAMES[parseInt(tier)]}`);
     }
 
-    // ── Write cursor[mandate] to ERC-8048 sidecar registry ──────────────────
+    // ── Write cursor[mandate] + cursor[agreement_hash] to ERC-8048 sidecar ──
     const mandate = TIER_MANDATE[parseInt(tier)] ?? 'restricted';
     try {
-      const mandateHash = await walletClient.writeContract({
+      const mandateTx = await walletClient.writeContract({
         address: ERC8048_REGISTRY,
         abi: ERC8048_ABI,
         functionName: 'setMetadata',
         args: [BigInt(tokenId), 'cursor[mandate]', encodeStringValue(mandate)],
       });
-      await publicClient.waitForTransactionReceipt({ hash: mandateHash });
-      console.log(`✅ ERC-8048 cursor[mandate] set: #${tokenId} → ${mandate} (${mandateHash})`);
+      await publicClient.waitForTransactionReceipt({ hash: mandateTx });
+      console.log(`✅ ERC-8048 cursor[mandate] set: #${tokenId} → ${mandate} (${mandateTx})`);
+
+      // Compute ERC-8001-style agreementHash: keccak256(abi.encode(scopeId, mandate, subCap, owner, targetSafe))
+      const scopeId = keccak256(new TextEncoder().encode(`erc8048:fakenormie:${tokenId}`));
+      const subCap  = getSubCap(mandate);
+      const owner   = account.address;
+      const safe    = process.env.TARGET_SAFE ?? process.argv[5] ?? owner;
+      const agreementHash = computeAgreementHash(scopeId, mandate, subCap, owner, safe);
+      console.log(`   scopeId        = ${scopeId}`);
+      console.log(`   subCap         = ${subCap} wei`);
+      console.log(`   agreementHash  = ${agreementHash}`);
+
+      const hashTx = await walletClient.writeContract({
+        address: ERC8048_REGISTRY,
+        abi: ERC8048_ABI,
+        functionName: 'setMetadata',
+        args: [BigInt(tokenId), 'cursor[agreement_hash]', encodeStringValue(agreementHash)],
+      });
+      await publicClient.waitForTransactionReceipt({ hash: hashTx });
+      console.log(`✅ ERC-8048 cursor[agreement_hash] set: #${tokenId} (${hashTx})`);
     } catch (err) {
-      console.warn(`⚠️  ERC-8048 cursor[mandate] write failed (non-fatal):`, err.message);
+      console.warn(`⚠️  ERC-8048 metadata write failed (non-fatal):`, err.message);
     }
   } catch (error) {
     console.error('Error:', error.message);
