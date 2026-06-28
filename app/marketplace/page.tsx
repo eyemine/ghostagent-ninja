@@ -164,7 +164,8 @@ async function erc721Transfer(
 
   const [account] = await walletClient.requestAddresses();
 
-  const rpc = chainId === 100 ? GNOSIS_RPC : chainId === 8453 ? BASE_RPC : 'https://ethereum.publicnode.com';
+  // Use a more reliable RPC for simulation — Gnosis public RPC fails eth_estimateGas
+  const rpc = chainId === 100 ? 'https://gnosis-rpc.publicnode.com' : chainId === 8453 ? BASE_RPC : 'https://ethereum.publicnode.com';
   const pubClient = createPublicClient({ chain, transport: http(rpc) });
 
   // Simulate first to get a proper revert reason instead of "Internal JSON-RPC error"
@@ -176,7 +177,8 @@ async function erc721Transfer(
     account,
   });
 
-  const txHash = await walletClient.writeContract(request);
+  // Pass explicit gas to bypass eth_estimateGas (Gnosis public RPC returns -32603 on estimation)
+  const txHash = await walletClient.writeContract({ ...request, gas: 120_000n });
   await pubClient.waitForTransactionReceipt({ hash: txHash });
   return txHash;
 }
