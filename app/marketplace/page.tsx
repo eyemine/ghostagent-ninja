@@ -23,15 +23,32 @@ const SAFE_TRANSFER_ABI = [{
   outputs: [],
 }] as const;
 
-const OWNER_OF_ABI = [{
-  name: 'ownerOf',
-  type: 'function',
-  stateMutability: 'view',
-  inputs: [{ name: 'tokenId', type: 'uint256' }],
-  outputs: [{ name: '', type: 'address' }],
-}] as const;
+// ── Alchemy: get Chonks owned by wallet ─────────────────────────────────────
+async function fetchOwnedChonks(owner: string): Promise<{ tokenId: number; name: string; imageUrl: string }[]> {
+  if (!ALCHEMY_KEY) return [];
+  const url = `https://base-mainnet.g.alchemy.com/nft/v3/${ALCHEMY_KEY}/getNFTsForOwner?owner=${owner}&contractAddresses[]=${CHONK_CONTRACT}&withMetadata=true&pageSize=100`;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return [];
+    const data = await res.json() as {
+      ownedNfts?: { tokenId?: string; name?: string; image?: { pngUrl?: string; cachedUrl?: string; contentType?: string } }[];
+    };
+    return (data.ownedNfts ?? []).map(n => {
+      const tokenId = parseInt(n.tokenId ?? '0', 16);
+      const isVideo = n.image?.contentType?.startsWith('video/');
+      const imageUrl = isVideo
+        ? (n.image?.pngUrl ?? n.image?.cachedUrl ?? '')
+        : (n.image?.cachedUrl ?? n.image?.pngUrl ?? '');
+      return { tokenId, name: n.name ?? `Chonk #${tokenId}`, imageUrl };
+    });
+  } catch {
+    return [];
+  }
+}
+
 
 const FAKENORMIE_TOKENS = [0, 1, 2, 3, 4, 5, 6, 7];
+const ALCHEMY_KEY = process.env.NEXT_PUBLIC_ALCHEMY_API_KEY ?? '';
 
 const NS_COLOR: Record<string, string> = {
   'molt.gno':     'text-violet-300 bg-violet-500/10',
@@ -44,6 +61,12 @@ const NS_COLOR: Record<string, string> = {
 const TIER_RANK: Record<string, number> = {
   premium: 3, pro: 2, lite: 2, ghost: 4, basic: 0,
 };
+
+interface ChonkToken {
+  tokenId: number;
+  name: string;
+  imageUrl: string;
+}
 
 interface AgentProfile {
   name: string;
@@ -287,12 +310,41 @@ function AgentCard({ agent, onTransfer }: { agent: AgentProfile; onTransfer: (t:
   );
 }
 
+// ── Chonk card ───────────────────────────────────────────────────────────────
+function ChonkCard({ chonk, onTransfer, walletAddress }: { chonk: ChonkToken; onTransfer: (t: TransferState) => void; walletAddress: string }) {
+  return (
+    <div className="flex flex-col justify-between rounded-2xl border border-fuchsia-500/20 bg-fuchsia-500/5 p-4 transition hover:brightness-110">
+      <div>
+        <div className="relative mx-auto h-24 w-24 overflow-hidden rounded-xl border border-fuchsia-500/20 bg-black">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={chonk.imageUrl} alt={chonk.name} className="h-full w-full object-cover" onError={e => { (e.target as HTMLImageElement).src = '/ghost-logo.png'; }} />
+        </div>
+        <p className="mt-2.5 text-center text-xs font-semibold text-[#f2eee4]">{chonk.name}</p>
+        <p className="text-center text-[10px] text-[var(--muted)]">Token #{chonk.tokenId} · Base</p>
+        <div className="mt-1.5 flex justify-center">
+          <span className="rounded-full bg-fuchsia-500/10 px-2 py-0.5 text-[9px] font-semibold text-fuchsia-300">Chonk</span>
+        </div>
+      </div>
+      <button
+        onClick={() => onTransfer({ contract: CHONK_CONTRACT, tokenId: chonk.tokenId, chainId: 8453, label: chonk.name, imageUrl: chonk.imageUrl })}
+        className="mt-3 w-full rounded-lg border py-2 text-[11px] font-semibold transition"
+        style={{ color: 'rgb(176,128,92)', borderColor: 'rgba(176,128,92,0.4)', background: 'rgba(176,128,92,0.08)' }}
+      >
+        Send / Transfer →
+      </button>
+    </div>
+  );
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default function MarketplacePage() {
   const [agents, setAgents]           = useState<AgentProfile[]>([]);
   const [agentsLoading, setAgentsLoading] = useState(true);
+  const [chonks, setChonks]           = useState<ChonkToken[]>([]);
+  const [chonksLoading, setChonksLoading] = useState(false);
+  const [walletAddress, setWalletAddress] = useState('');
   const [transfer, setTransfer]       = useState<TransferState | null>(null);
-  const [section, setSection]         = useState<'all' | 'fakenormie' | 'agents'>('all');
+  const [section, setSection]         = useState<'all' | 'fakenormie' | 'chonk' | 'agents'>('all');
 
   const loadAgents = useCallback(async () => {
     setAgentsLoading(true);
@@ -318,7 +370,27 @@ export default function MarketplacePage() {
 
   useEffect(() => { void loadAgents(); }, [loadAgents]);
 
+  async function connectAndLoadChonks() {
+    const provider = (window as unknown as { ethereum?: unknown }).ethereum;
+    if (!provider) { alert('No wallet detected — install MetaMask or use a Web3 browser.'); return; }
+    try {
+      const { createWalletClient, custom } = await import('viem');
+      const { base } = await import('viem/chains');
+      const wc = createWalletClient({ chain: base, transport: custom(provider as Parameters<typeof custom>[0]) });
+      const [addr] = await wc.requestAddresses();
+      setWalletAddress(addr);
+      setChonksLoading(true);
+      const owned = await fetchOwnedChonks(addr);
+      setChonks(owned);
+    } catch (e: unknown) {
+      console.error('Chonk load failed:', e);
+    } finally {
+      setChonksLoading(false);
+    }
+  }
+
   const showFN     = section === 'all' || section === 'fakenormie';
+  const showChonks = section === 'all' || section === 'chonk';
   const showAgents = section === 'all' || section === 'agents';
 
   return (
@@ -334,7 +406,7 @@ export default function MarketplacePage() {
 
       {/* Section filter */}
       <div className="flex gap-2 flex-wrap">
-        {([['all', 'All'], ['fakenormie', 'FakeNormies'], ['agents', 'Agent IDs']] as const).map(([v, l]) => (
+        {([['all', 'All'], ['fakenormie', 'FakeNormies'], ['chonk', 'Chonks'], ['agents', 'Agent IDs']] as const).map(([v, l]) => (
           <button
             key={v}
             onClick={() => setSection(v)}
@@ -362,6 +434,57 @@ export default function MarketplacePage() {
               <FakeNormieCard key={id} tokenId={id} onTransfer={setTransfer} />
             ))}
           </div>
+        </section>
+      )}
+
+      {/* ── Chonks ── */}
+      {showChonks && (
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-sm font-bold text-[#f2eee4]">Chonks</h2>
+              <p className="text-[11px] text-[var(--muted)]">ERC-721 on Base · governing NFT = agent ownership</p>
+            </div>
+            {walletAddress && !chonksLoading && (
+              <span className="rounded-full border border-fuchsia-500/20 px-2.5 py-0.5 text-[10px] text-fuchsia-300">
+                {chonks.length} owned
+              </span>
+            )}
+          </div>
+
+          {!walletAddress ? (
+            <div className="rounded-2xl border border-dashed border-fuchsia-500/20 p-8 text-center space-y-3">
+              <p className="text-sm text-[var(--muted)]">Connect your wallet to see Chonks you own on Base</p>
+              <button
+                onClick={() => void connectAndLoadChonks()}
+                className="rounded-xl border px-5 py-2 text-xs font-semibold transition"
+                style={{ color: 'rgb(176,128,92)', borderColor: 'rgba(176,128,92,0.4)', background: 'rgba(176,128,92,0.1)' }}
+              >
+                Connect Wallet
+              </button>
+            </div>
+          ) : chonksLoading ? (
+            <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-4">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="h-48 rounded-2xl border border-fuchsia-500/10 bg-black/20 animate-pulse" />
+              ))}
+            </div>
+          ) : chonks.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-fuchsia-500/20 p-8 text-center space-y-2">
+              <p className="text-sm text-[var(--muted)]">
+                No Chonks found at <code className="text-[10px] text-fuchsia-300">{walletAddress.slice(0,6)}…{walletAddress.slice(-4)}</code> on Base.
+              </p>
+              <button onClick={() => void connectAndLoadChonks()} className="text-xs text-[#b0805c] hover:underline">
+                Try another wallet →
+              </button>
+            </div>
+          ) : (
+            <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-4">
+              {chonks.map(c => (
+                <ChonkCard key={c.tokenId} chonk={c} walletAddress={walletAddress} onTransfer={setTransfer} />
+              ))}
+            </div>
+          )}
         </section>
       )}
 
@@ -405,6 +528,7 @@ export default function MarketplacePage() {
         <p className="text-xs font-semibold text-[#f2eee4]">How transfers work</p>
         <ul className="space-y-1 text-[11px] text-[var(--muted)]">
           <li>• <strong className="text-[#f2eee4]">FakeNormies</strong> — ERC-721 <code className="text-[10px] text-[#b0805c]">safeTransferFrom</code> direct on Gnosis. Connect wallet, enter recipient address, confirm.</li>
+          <li>• <strong className="text-[#f2eee4]">Chonks</strong> — ERC-721 on Base. Transferring the Chonk transfers the governing NFT and therefore the associated agent identity. Connect wallet → select Chonk → enter recipient.</li>
           <li>• <strong className="text-[#f2eee4]">Agent IDs (.gno subnames)</strong> — transferred via Gnosis Safe signer change. Click &quot;Enquire&quot; to contact the owner via their agent&apos;s nftmail address.</li>
           <li>• All transfers are at 0 xDAI cost by default — price is negotiated off-platform.</li>
         </ul>
