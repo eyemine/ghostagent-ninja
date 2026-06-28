@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import XMTPBadge from '../components/XMTPBadge';
 
 const WORKER_URL = process.env.NEXT_PUBLIC_WORKER_URL || 'https://nftmail-email-worker.richard-159.workers.dev';
 
@@ -10,8 +11,40 @@ const FAKENORMIE_CONTRACT  = '0x1d6b9e2af40322d2311ff0df66dade4490ac4c29';
 const CHONK_CONTRACT       = '0x07152bfde079b5319e5308C43fB1DBc9C76CB4f9';
 const ENS_CONTRACT         = '0x57f1887a8BF19b14fC0dF6Fd9B2acc9Af147eA85';
 const POWNFT_CONTRACT      = '0x9abb7bddc43fa67c76a62d8c016513827f59be1b';
+const DXTERMINAL_CONTRACT  = '0x41dc69132cce31fcbf6755c84538ca268520246f';
 const GNOSIS_RPC           = 'https://rpc.gnosischain.com';
 const BASE_RPC             = 'https://mainnet.base.org';
+
+// FakeNormie on-chain data — token 0 is the only awakened agent so far
+// token 7 (Rare Normie) is held in a different wallet — transfer disabled unless you own it
+interface FNToken {
+  tokenId: number;
+  name: string;
+  slug: string;
+  type: 'Normie' | 'Agent' | 'Alien' | 'Cat' | 'Human';
+  tier: string;
+  isAgent: boolean;   // has an awakened ERC-8004 agent
+  xmtp: boolean;
+}
+
+const FAKENORMIE_DATA: FNToken[] = [
+  { tokenId: 0, name: 'Super Normie #00', slug: 'super.normie', type: 'Normie', tier: 'Standard', isAgent: true,  xmtp: true  },
+  { tokenId: 1, name: 'Mad Normie #01',   slug: 'mad.normie',   type: 'Normie', tier: 'Standard', isAgent: false, xmtp: false },
+  { tokenId: 2, name: 'Iron Agent #02',   slug: 'iron.agent',   type: 'Agent',  tier: 'Advanced', isAgent: false, xmtp: false },
+  { tokenId: 3, name: 'Sir Alien #03',    slug: 'sir.alien',    type: 'Alien',  tier: 'Experimental', isAgent: false, xmtp: false },
+  { tokenId: 4, name: 'Rotten Agent #04', slug: 'rotten.agent', type: 'Agent',  tier: 'Advanced', isAgent: false, xmtp: false },
+  { tokenId: 5, name: 'Hot Normie #05',   slug: 'hot.normie',   type: 'Normie', tier: 'Standard', isAgent: false, xmtp: false },
+  { tokenId: 6, name: 'Deaf Agent #06',   slug: 'deaf.agent',   type: 'Agent',  tier: 'Advanced', isAgent: false, xmtp: false },
+  { tokenId: 7, name: 'Rare Normie #07',  slug: 'rare.normie',  type: 'Normie', tier: 'Standard', isAgent: false, xmtp: false },
+];
+
+const TYPE_COLOR: Record<string, string> = {
+  Normie: 'text-zinc-300 bg-zinc-500/10 ring-zinc-500/20',
+  Agent:  'text-violet-300 bg-violet-500/10 ring-violet-500/20',
+  Alien:  'text-emerald-300 bg-emerald-500/10 ring-emerald-500/20',
+  Cat:    'text-amber-300 bg-amber-500/10 ring-amber-500/20',
+  Human:  'text-blue-300 bg-blue-500/10 ring-blue-500/20',
+};
 
 const SAFE_TRANSFER_ABI = [{
   name: 'safeTransferFrom',
@@ -52,12 +85,28 @@ async function fetchOwnedNFTs(owner: string, contract: string, chain: 'base' | '
 }
 
 // ── Alchemy: get Chonks owned by wallet ─────────────────────────────────────
-const fetchOwnedChonks  = (owner: string) => fetchOwnedNFTs(owner, CHONK_CONTRACT, 'base');
-const fetchOwnedEns     = (owner: string) => fetchOwnedNFTs(owner, ENS_CONTRACT, 'eth');
-const fetchOwnedPownft  = (owner: string) => fetchOwnedNFTs(owner, POWNFT_CONTRACT, 'eth');
+const fetchOwnedChonks    = (owner: string) => fetchOwnedNFTs(owner, CHONK_CONTRACT, 'base');
+const fetchOwnedEns       = (owner: string) => fetchOwnedNFTs(owner, ENS_CONTRACT, 'eth');
+const fetchOwnedPownft    = (owner: string) => fetchOwnedNFTs(owner, POWNFT_CONTRACT, 'eth');
+const fetchOwnedDxTerminal = (owner: string) => fetchOwnedNFTs(owner, DXTERMINAL_CONTRACT, 'base');
+
+// ── ownerOf on Gnosis for FakeNormies ────────────────────────────────────────
+async function gnosisOwnerOf(contract: string, tokenId: number): Promise<string | null> {
+  try {
+    const tokenIdHex = BigInt(tokenId).toString(16).padStart(64, '0');
+    const res = await fetch(GNOSIS_RPC, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_call', params: [{ to: contract, data: '0x6352211e' + tokenIdHex }, 'latest'] }),
+    });
+    const data = await res.json() as { result?: string };
+    if (!data.result || data.result === '0x') return null;
+    return ('0x' + data.result.slice(26)).toLowerCase();
+  } catch { return null; }
+}
 
 
-const FAKENORMIE_TOKENS = [0, 1, 2, 3, 4, 5, 6, 7];
+// FAKENORMIE_TOKENS kept for legacy references (now use FAKENORMIE_DATA)
+const FAKENORMIE_TOKENS = FAKENORMIE_DATA.map(t => t.tokenId);
 const ALCHEMY_KEY = process.env.NEXT_PUBLIC_ALCHEMY_API_KEY ?? '';
 
 const NS_COLOR: Record<string, string> = {
@@ -238,38 +287,102 @@ function TransferModal({ item, onClose }: { item: TransferState; onClose: () => 
   );
 }
 
-// ── FakeNormie card ───────────────────────────────────────────────────────────
-function FakeNormieCard({ tokenId, onTransfer }: { tokenId: number; onTransfer: (t: TransferState) => void }) {
-  const padded   = String(tokenId).padStart(2, '0');
-  const svgPath  = `/FakeNormies/SVGS/${padded}.svg`;
-  const metaUrl  = `/api/nft-metadata/fakenormie/${tokenId}`;
-  const [name, setName] = useState(`FakeNormie #${padded}`);
+// ── FakeNormie card — ItemCard style ─────────────────────────────────────────
+function FakeNormieCard({
+  token, connectedWallet, onTransfer,
+}: {
+  token: FNToken;
+  connectedWallet: string;
+  onTransfer: (t: TransferState) => void;
+}) {
+  const padded  = String(token.tokenId).padStart(2, '0');
+  const svgPath = `/FakeNormies/SVGS/${padded}.svg`;
+  const [owner, setOwner] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch(metaUrl).then(r => r.ok ? r.json() : null).then((d: { name?: string } | null) => {
-      if (d?.name) setName(d.name);
-    }).catch(() => {});
-  }, [metaUrl]);
+    gnosisOwnerOf(FAKENORMIE_CONTRACT, token.tokenId).then(setOwner);
+  }, [token.tokenId]);
+
+  const isOwned = connectedWallet
+    ? owner?.toLowerCase() === connectedWallet.toLowerCase()
+    : owner !== null; // if no wallet connected, show button (modal will prompt)
+
+  const typeColor = TYPE_COLOR[token.type] ?? 'text-zinc-300 bg-zinc-500/10 ring-zinc-500/20';
 
   return (
-    <div className="flex flex-col justify-between rounded-2xl border border-[rgba(176,128,92,0.2)] bg-black/20 p-4 transition hover:brightness-110">
+    <div className="flex flex-col justify-between rounded-2xl border border-[rgba(176,128,92,0.2)] bg-black/20 p-5 transition hover:brightness-110">
       <div>
-        <div className="relative mx-auto h-24 w-24 overflow-hidden rounded-xl border border-[rgba(176,128,92,0.2)] bg-black">
-          <Image src={svgPath} alt={name} fill className="object-contain p-1" unoptimized />
+        {/* Title row */}
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="text-sm font-semibold text-[#f2eee4]">{token.name}</h3>
+              <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold text-[rgb(160,220,255)] bg-[rgba(0,163,255,0.1)]">NFT</span>
+            </div>
+            <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+              <span className="text-xs text-[var(--muted)]">{token.slug}</span>
+              <span className="rounded px-1.5 py-0.5 text-[10px] font-medium text-amber-300 bg-amber-500/10">agent.gno</span>
+            </div>
+          </div>
+          {token.isAgent && (
+            <span className="shrink-0 rounded-full bg-[rgba(176,128,92,0.12)] px-2 py-0.5 text-[9px] font-semibold text-[#b0805c] ring-1 ring-[rgba(176,128,92,0.25)]">
+              Awakened
+            </span>
+          )}
         </div>
-        <p className="mt-2.5 text-center text-xs font-semibold text-[#f2eee4]">{name}</p>
-        <p className="text-center text-[10px] text-[var(--muted)]">Token #{tokenId} · Gnosis</p>
-        <div className="mt-1.5 flex justify-center">
-          <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[9px] font-semibold text-amber-300">FakeNormie</span>
+
+        {/* NFT image */}
+        <div className="mt-3 h-16 w-16 overflow-hidden rounded-xl border border-[rgba(176,128,92,0.25)] bg-black">
+          <Image src={svgPath} alt={token.name} width={64} height={64} className="object-contain p-0.5" unoptimized />
+        </div>
+
+        {/* Badge row */}
+        <div className="mt-2.5 flex flex-wrap gap-1.5">
+          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-semibold ring-1 ${typeColor}`}>
+            {token.type}
+          </span>
+          <span className="inline-flex items-center rounded-full bg-white/[0.04] px-2 py-0.5 text-[9px] font-semibold ring-1 ring-current/20 text-sky-300">
+            🔍 Glass Box
+          </span>
+          {token.isAgent && (
+            <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-[9px] font-semibold text-emerald-300 ring-1 ring-emerald-500/20">
+              ERC-8004 ✓
+            </span>
+          )}
+          {token.xmtp && <XMTPBadge variant="enabled" />}
+        </div>
+
+        <p className="mt-3 text-xs leading-relaxed text-[var(--muted)]">
+          {token.isAgent
+            ? `Awakened FakeNormie agent. ERC-8004 identity live at ${token.slug}.agent.gno. Transferring this NFT transfers the agent.`
+            : `FakeNormie ${token.type.toLowerCase()} NFT. Transferring sends the governing identity NFT to the new owner.`}
+        </p>
+      </div>
+
+      {/* Footer */}
+      <div className="mt-4 border-t border-[rgba(176,128,92,0.2)] pt-3 space-y-2">
+        <div className="flex items-center gap-2 text-[10px]">
+          <span className="rounded-full px-2 py-0.5 font-semibold ring-1 bg-zinc-500/10 text-zinc-300 ring-zinc-500/20">
+            {token.tier} tier
+          </span>
+          <span className="text-[var(--muted)]">Gnosis Chain</span>
+        </div>
+        <div className="flex items-center justify-between">
+          <div className="text-right">
+            <div className="text-sm font-semibold text-[#f2eee4]">0 xDAI</div>
+            <div className="text-[10px] text-[var(--muted)]">free transfer</div>
+          </div>
+          <button
+            onClick={() => onTransfer({ contract: FAKENORMIE_CONTRACT, tokenId: token.tokenId, chainId: 100, label: token.name, imageUrl: svgPath })}
+            disabled={connectedWallet ? !isOwned : false}
+            title={connectedWallet && !isOwned ? 'Not in your connected wallet' : undefined}
+            className="rounded-lg border px-3 py-1.5 text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed"
+            style={{ color: 'rgb(176,128,92)', borderColor: 'rgba(176,128,92,0.4)', background: 'rgba(176,128,92,0.1)' }}
+          >
+            Send →
+          </button>
         </div>
       </div>
-      <button
-        onClick={() => onTransfer({ contract: FAKENORMIE_CONTRACT, tokenId, chainId: 100, label: name, imageUrl: svgPath })}
-        className="mt-3 w-full rounded-lg border py-2 text-[11px] font-semibold transition"
-        style={{ color: 'rgb(176,128,92)', borderColor: 'rgba(176,128,92,0.4)', background: 'rgba(176,128,92,0.08)' }}
-      >
-        Send / Transfer →
-      </button>
     </div>
   );
 }
@@ -399,10 +512,12 @@ export default function MarketplacePage() {
   const [ensLoading, setEnsLoading]   = useState(false);
   const [pownft, setPownft]           = useState<OwnedNFT[]>([]);
   const [pownftLoading, setPownftLoading] = useState(false);
+  const [dxTerminal, setDxTerminal]   = useState<OwnedNFT[]>([]);
+  const [dxLoading, setDxLoading]     = useState(false);
   const [walletAddress, setWalletAddress] = useState('');
   const [ethWalletAddress, setEthWalletAddress] = useState('');
   const [transfer, setTransfer]       = useState<TransferState | null>(null);
-  const [section, setSection]         = useState<'all' | 'fakenormie' | 'chonk' | 'ens' | 'pownft' | 'agents'>('all');
+  const [section, setSection]         = useState<'all' | 'fakenormie' | 'chonk' | 'ens' | 'pownft' | 'dxterminal' | 'agents'>('all');
 
   const loadAgents = useCallback(async () => {
     setAgentsLoading(true);
@@ -438,12 +553,18 @@ export default function MarketplacePage() {
       const [addr] = await wc.requestAddresses();
       setWalletAddress(addr);
       setChonksLoading(true);
-      const owned = await fetchOwnedChonks(addr);
-      setChonks(owned);
+      setDxLoading(true);
+      const [ownedChonks, ownedDx] = await Promise.all([
+        fetchOwnedChonks(addr),
+        fetchOwnedDxTerminal(addr),
+      ]);
+      setChonks(ownedChonks);
+      setDxTerminal(ownedDx);
     } catch (e: unknown) {
-      console.error('Chonk load failed:', e);
+      console.error('Base wallet load failed:', e);
     } finally {
       setChonksLoading(false);
+      setDxLoading(false);
     }
   }
 
@@ -466,26 +587,29 @@ export default function MarketplacePage() {
     }
   }
 
-  const showFN     = section === 'all' || section === 'fakenormie';
-  const showChonks = section === 'all' || section === 'chonk';
-  const showEns    = section === 'all' || section === 'ens';
-  const showPownft = section === 'all' || section === 'pownft';
-  const showAgents = section === 'all' || section === 'agents';
+  const showFN       = section === 'all' || section === 'fakenormie';
+  const showChonks   = section === 'all' || section === 'chonk';
+  const showEns      = section === 'all' || section === 'ens';
+  const showPownft   = section === 'all' || section === 'pownft';
+  const showDx       = section === 'all' || section === 'dxterminal';
+  const showAgents   = section === 'all' || section === 'agents';
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10 space-y-10">
 
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-[#f2eee4]">Marketplace</h1>
-        <p className="mt-1 text-sm text-[var(--muted)]">
-          Send, transfer, or enquire about GhostAgent NFTs. No listing fees — free transfers direct on-chain.
-        </p>
+      {/* Header — matches NFT Delegation styling */}
+      <div className="flex items-center gap-3">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/collection-icons/GhostVault.png" alt="" className="h-28 w-28 object-contain drop-shadow-[0_0_18px_rgba(184,134,97,0.4)]" />
+        <div>
+          <h1 className="pl-1 text-2xl font-bold text-[#f2eee4]">Marketplace</h1>
+          <p className="mt-0.5 pl-1 text-xs text-[var(--muted)]">Buy bodies, send NFTs &amp; transfer agents on Gnosis, Base &amp; Ethereum</p>
+        </div>
       </div>
 
       {/* Section filter */}
       <div className="flex gap-2 flex-wrap">
-        {([['all', 'All'], ['fakenormie', 'FakeNormies'], ['chonk', 'Chonks'], ['ens', 'ENS'], ['pownft', 'POWNFT'], ['agents', 'Agent IDs']] as const).map(([v, l]) => (
+        {([['all', 'All'], ['fakenormie', 'FakeNormies'], ['chonk', 'Chonks'], ['ens', 'ENS'], ['pownft', 'POWNFT'], ['dxterminal', 'DX Terminal'], ['agents', 'Agent IDs']] as const).map(([v, l]) => (
           <button
             key={v}
             onClick={() => setSection(v)}
@@ -508,9 +632,9 @@ export default function MarketplacePage() {
               {FAKENORMIE_TOKENS.length} minted
             </span>
           </div>
-          <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-4">
-            {FAKENORMIE_TOKENS.map(id => (
-              <FakeNormieCard key={id} tokenId={id} onTransfer={setTransfer} />
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {FAKENORMIE_DATA.map(token => (
+              <FakeNormieCard key={token.tokenId} token={token} connectedWallet={walletAddress || ethWalletAddress} onTransfer={setTransfer} />
             ))}
           </div>
         </section>
@@ -598,6 +722,35 @@ export default function MarketplacePage() {
             chainId={1}
             contract={POWNFT_CONTRACT}
             onConnect={() => void connectEthWallet(setPownftLoading, setPownft, fetchOwnedPownft)}
+            onTransfer={setTransfer}
+          />
+        </section>
+      )}
+
+      {/* ── DX Terminal ── */}
+      {showDx && (
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-sm font-bold text-[#f2eee4]">DX Terminal</h2>
+              <p className="text-[11px] text-[var(--muted)]">ERC-721 on Base · governing NFT = agent ownership</p>
+            </div>
+            {walletAddress && !dxLoading && (
+              <span className="rounded-full border border-cyan-500/20 px-2.5 py-0.5 text-[10px] text-cyan-300">
+                {dxTerminal.length} owned
+              </span>
+            )}
+          </div>
+          <WalletNFTSection
+            chainLabel="Base"
+            accentClass={{ border: 'border-cyan-500/20', bg: 'bg-cyan-500/5', text: 'text-cyan-300', dashed: 'border-cyan-500/20', pulse: 'border-cyan-500/10' }}
+            walletAddress={walletAddress}
+            loading={dxLoading}
+            items={dxTerminal}
+            collectionLabel="DX Terminal"
+            chainId={8453}
+            contract={DXTERMINAL_CONTRACT}
+            onConnect={() => void connectBaseWallet()}
             onTransfer={setTransfer}
           />
         </section>
