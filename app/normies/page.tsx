@@ -279,8 +279,8 @@ export default function NormiesPage() {
               onClick={() => setTab('demo')}
               className={`rounded-xl border px-4 py-4 text-left transition ${tab === 'demo' ? 'border-violet-500/50 bg-violet-500/10' : 'border-[rgba(176,128,92,0.2)] bg-black/20 hover:border-violet-500/30'}`}
             >
-              <p className={`text-sm font-bold ${tab === 'demo' ? 'text-violet-300' : 'text-[#f2eee4]'}`}>Agent Security Demo</p>
-              <p className="text-[11px] text-[var(--muted)] mt-0.5">Live spend cursor — try before committing your real Normie.</p>
+              <p className={`text-sm font-bold ${tab === 'demo' ? 'text-violet-300' : 'text-[#f2eee4]'}`}>Cross-chain Budget Cursors</p>
+              <p className="text-[11px] text-[var(--muted)] mt-0.5">ERC-8048 mandate enforcement + ERC-8312 Chiado spend monitoring.</p>
             </button>
           </div>
         </div>
