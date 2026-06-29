@@ -123,8 +123,11 @@ export async function POST(req: NextRequest) {
 
     // Detect whether this agent has already been upgraded (BYO molt / Pro / Premium)
     const existingTierName = String(existingTier.tier || 'basic').toLowerCase();
-    const isUpgraded = existingTierName !== 'basic' || (existingTld && existingTld !== 'fakenormie');
     const hasRealBeacon = existingGno.origin_nft && !String(existingGno.origin_nft).endsWith('.fakenormie');
+    const hasPaidTld    = existingTld && existingTld !== 'fakenormie' && existingTld !== 'null';
+    // Tier alone is insufficient — a stale KV value (e.g. from a test upgrade script run)
+    // must be corroborated by a non-fakenormie TLD or a real beacon origin NFT.
+    const isUpgraded = hasPaidTld || (existingTierName !== 'basic' && !!hasRealBeacon);
 
     // Repair legacy wrong data: tier is upgraded but TLD/origin still point to fakenormie
     const targetTld = isUpgraded

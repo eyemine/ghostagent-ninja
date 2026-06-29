@@ -3,12 +3,14 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import Image from 'next/image';
 import {
-  CURSOR_CONTRACT, CURSOR_CHIADO_RPC, CURSOR_ABI, REGISTRY_ABI,
+  CURSOR_CONTRACT, CURSOR_CHIADO_RPC, CURSOR_ABI, CURSOR_ISSUER, REGISTRY_ABI,
   getSubCapFromMandate, decodeStringValue, MANDATE_OPTIONS,
 } from '../services/erc8048-publisher';
 
-const REGISTRY  = process.env.NEXT_PUBLIC_ERC8048_REGISTRY ?? '0x0106341056a8790f4b924c380ed5B81B2a062bCE';
-const NULL_ROOT = '0x0000000000000000000000000000000000000000000000000000000000000000';
+const REGISTRY       = process.env.NEXT_PUBLIC_ERC8048_REGISTRY ?? '0x0106341056a8790f4b924c380ed5B81B2a062bCE';
+const NULL_ROOT      = '0x0000000000000000000000000000000000000000000000000000000000000000';
+const CHIADO_EXPLORER = 'https://gnosis-chiado.blockscout.com';
+const GNOSIS_EXPLORER = 'https://gnosisscan.io';
 
 const DEMO_TOKENS = [0, 1, 2, 3, 4, 5];
 
@@ -27,12 +29,66 @@ interface CursorState {
   capRoot: string;
   scopeId: string;
   pollCount: number;
+  registerTxHash?: string;
+  drawTxHash?: string;
+  drawAmountWei?: bigint;
+  drawBlock?: number;
 }
 
 interface AuditLine {
   ts: string;
   text: string;
   kind: 'info' | 'ok' | 'warn' | 'dim';
+}
+
+function BscLink({ href, children, className = '' }: { href: string; children: React.ReactNode; className?: string }) {
+  return (
+    <a href={href} target="_blank" rel="noopener noreferrer"
+       className={`underline decoration-dotted underline-offset-2 transition hover:opacity-80 ${className}`}>
+      {children}
+    </a>
+  );
+}
+
+async function fetchBlockscoutProof(scopeId: string): Promise<{ registerTxHash?: string; drawTxHash?: string; drawAmountWei?: bigint; drawBlock?: number }> {
+  try {
+    const res = await fetch(
+      `${CHIADO_EXPLORER}/api/v2/addresses/${CURSOR_CONTRACT}/transactions?filter=to`,
+      { signal: AbortSignal.timeout(6000) },
+    );
+    if (!res.ok) return {};
+    const data = await res.json() as {
+      items: Array<{
+        hash: string;
+        input?: string;
+        block_number?: number;
+        decoded_input?: {
+          method_call?: string;
+          parameters?: Array<{ name: string; value: string }>;
+        };
+      }>;
+    };
+    const needle = scopeId.slice(2).toLowerCase();
+    let registerTxHash: string | undefined;
+    let drawTxHash: string | undefined;
+    let drawAmountWei: bigint | undefined;
+    let drawBlock: number | undefined;
+    for (const tx of data.items ?? []) {
+      if (!tx.input?.toLowerCase().includes(needle)) continue;
+      const method = (tx.decoded_input?.method_call ?? '').toLowerCase();
+      if (method.startsWith('register') && !registerTxHash) {
+        registerTxHash = tx.hash;
+      } else if (!drawTxHash) {
+        drawTxHash = tx.hash;
+        drawBlock = tx.block_number;
+        const amtParam = tx.decoded_input?.parameters?.find(
+          p => p.name === 'amount' || p.name === 'amountWei' || p.name === 'draw',
+        );
+        if (amtParam) { try { drawAmountWei = BigInt(amtParam.value); } catch { /* ok */ } }
+      }
+    }
+    return { registerTxHash, drawTxHash, drawAmountWei, drawBlock };
+  } catch { return {}; }
 }
 
 function ts() {
@@ -105,12 +161,17 @@ export function WitnessChamber({ compact = false, terminal = false, initialToken
       const registered = (capRoot as string) !== NULL_ROOT;
       const subCap = getSubCapFromMandate(mandate);
 
+      // Fetch Blockscout tx proofs (non-blocking — only on first poll per token)
+      const proof = await fetchBlockscoutProof(scopeId);
+
       if (terminal) {
         if (registered) {
           appendLog([
             { ts: ts(), text: `[ERC-8312] capRoot = ${(capRoot as string).slice(0, 18)}…`, kind: 'ok' },
             { ts: ts(), text: `[ERC-8312] leafSpent = ${(Number(spent as bigint) / 1e18).toFixed(6)} xDAI`, kind: 'ok' },
             { ts: ts(), text: `[ERC-8312] subCap = ${(Number(subCap) / 1e18).toFixed(3)} xDAI`, kind: 'ok' },
+            ...(proof.registerTxHash ? [{ ts: ts(), text: `[ERC-8312] register() → ${CHIADO_EXPLORER}/tx/${proof.registerTxHash}`, kind: 'ok' as const }] : []),
+            ...(proof.drawTxHash     ? [{ ts: ts(), text: `[ERC-8312] draw()     → ${CHIADO_EXPLORER}/tx/${proof.drawTxHash}`,     kind: 'ok' as const }] : []),
             { ts: ts(), text: `[VERDICT] cursor leaf ACTIVE · ceiling enforced`, kind: 'ok' },
           ]);
         } else {
@@ -130,6 +191,10 @@ export function WitnessChamber({ compact = false, terminal = false, initialToken
         capRoot: capRoot as string,
         scopeId,
         pollCount: (prev?.pollCount ?? 0) + 1,
+        registerTxHash: proof.registerTxHash ?? prev?.registerTxHash,
+        drawTxHash:     proof.drawTxHash     ?? prev?.drawTxHash,
+        drawAmountWei:  proof.drawAmountWei  ?? prev?.drawAmountWei,
+        drawBlock:      proof.drawBlock      ?? prev?.drawBlock,
       }));
     } catch (e) {
       if (terminal) appendLog([{ ts: ts(), text: `[ERROR] ${e instanceof Error ? e.message : 'rpc error'}`, kind: 'warn' }]);
@@ -167,6 +232,20 @@ export function WitnessChamber({ compact = false, terminal = false, initialToken
   }, [auditLog]);
 
   const mandateMeta = MANDATE_OPTIONS.find(m => m.value === cursor?.mandate);
+  const [verifyOpen, setVerifyOpen] = useState(false);
+  const [recomputeResult, setRecomputeResult] = useState<string | null>(null);
+
+  async function runRecompute() {
+    if (!cursor?.scopeId || !cursor.drawAmountWei) { setRecomputeResult('⚠ no draw recorded yet — recompute requires a draw tx'); return; }
+    try {
+      const { keccak256, encodeAbiParameters, parseAbiParameters } = await import('viem');
+      const preimage = keccak256(encodeAbiParameters(
+        parseAbiParameters('bytes32, uint256, uint256'),
+        [cursor.scopeId as `0x${string}`, cursor.drawAmountWei, 10200n],
+      ));
+      setRecomputeResult(preimage);
+    } catch (e) { setRecomputeResult(`error: ${e instanceof Error ? e.message : String(e)}`); }
+  }
 
   /* ── Terminal (3-column) mode ── */
   if (terminal) {
@@ -193,10 +272,8 @@ export function WitnessChamber({ compact = false, terminal = false, initialToken
             </button>
           ))}
           <div className="ml-auto flex items-center gap-3">
-            <a
-              href={`/dashboard/erc8048?collection=fakenormie&tokenId=${token}`}
-              className="text-[9px] text-violet-500 hover:text-violet-300 transition font-semibold"
-            >
+            <a href={`/dashboard/erc8048?collection=fakenormie&tokenId=${token}`}
+               className="text-[9px] text-violet-500 hover:text-violet-300 transition font-semibold">
               Mandate Dashboard ↗
             </a>
             <span className="text-[9px] text-zinc-700">live · 12s · Chiado</span>
@@ -205,11 +282,14 @@ export function WitnessChamber({ compact = false, terminal = false, initialToken
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 p-3">
 
-        {/* Col 1 — Agent Status */}
+        {/* Col 1 — Agent Genesis */}
         <div className="flex flex-col gap-3 rounded-xl border border-zinc-800 bg-zinc-900 p-4">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-bold tracking-widest text-zinc-500 uppercase">Agent Genesis</span>
-            <span className="rounded border border-zinc-700 bg-zinc-800 px-1.5 py-0.5 text-[9px] text-zinc-400">Gnosis + Chiado</span>
+            <BscLink href={`${GNOSIS_EXPLORER}/token/${process.env.NEXT_PUBLIC_FAKE_NORMIE_CONTRACT ?? '0x1d6b9e2af40322d2311ff0df66dade4490ac4c29'}/instance/${token}`}
+                     className="rounded border border-zinc-700 bg-zinc-800 px-1.5 py-0.5 text-[9px] text-zinc-400">
+              Gnosis ↗
+            </BscLink>
           </div>
 
           <div className="flex items-center gap-3">
@@ -239,14 +319,28 @@ export function WitnessChamber({ compact = false, terminal = false, initialToken
               <span className="text-zinc-500">scope</span>
               <span className="text-zinc-600 text-[10px]">{demoScope(token)}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-zinc-500">cursor leaf</span>
+            <div className="flex justify-between items-center">
+              <span className="text-zinc-500">registered</span>
               {loading ? (
                 <span className="text-zinc-600">…</span>
+              ) : cursor?.registerTxHash ? (
+                <BscLink href={`${CHIADO_EXPLORER}/tx/${cursor.registerTxHash}`} className="text-emerald-400 text-[10px]">
+                  ✓ register() ↗
+                </BscLink>
               ) : cursor?.registered ? (
                 <span className="text-emerald-400">ACTIVE</span>
               ) : (
                 <span className="text-amber-400">NOT REGISTERED</span>
+              )}
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-zinc-500">last draw</span>
+              {cursor?.drawTxHash ? (
+                <BscLink href={`${CHIADO_EXPLORER}/tx/${cursor.drawTxHash}`} className="text-sky-400 text-[10px]">
+                  advanceCursor() ↗{cursor.drawBlock ? ` #${cursor.drawBlock}` : ''}
+                </BscLink>
+              ) : (
+                <span className="text-zinc-600 text-[10px]">{loading ? '…' : 'none yet'}</span>
               )}
             </div>
             <div className="flex justify-between">
@@ -265,11 +359,14 @@ export function WitnessChamber({ compact = false, terminal = false, initialToken
           </div>
         </div>
 
-        {/* Col 2 — Spend Meter */}
+        {/* Col 2 — Spend Meter + Verify panel */}
         <div className="flex flex-col gap-3 rounded-xl border border-zinc-800 bg-zinc-900 p-4">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-bold tracking-widest text-zinc-500 uppercase">Spend Meter</span>
-            <span className="rounded border border-zinc-700 bg-zinc-800 px-1.5 py-0.5 text-[9px] text-zinc-400">ERC-8312</span>
+            <BscLink href={`${CHIADO_EXPLORER}/address/${CURSOR_CONTRACT}?tab=read_contract`}
+                     className="rounded border border-zinc-700 bg-zinc-800 px-1.5 py-0.5 text-[9px] text-zinc-400">
+              ERC-8312 ↗
+            </BscLink>
           </div>
 
           {loading ? (
@@ -281,9 +378,12 @@ export function WitnessChamber({ compact = false, terminal = false, initialToken
             <>
               <MeterBar spent={cursor.leafSpent} cap={cursor.subCap} />
               <div className="space-y-1.5 text-[11px] pt-1">
-                <div className="flex justify-between">
-                  <span className="text-zinc-500">spent</span>
-                  <span className="text-zinc-200">{(Number(cursor.leafSpent) / 1e18).toFixed(6)} xDAI</span>
+                <div className="flex justify-between items-center">
+                  <span className="text-zinc-500">leafSpent</span>
+                  <BscLink href={`${CHIADO_EXPLORER}/address/${CURSOR_CONTRACT}?tab=read_contract`}
+                           className="text-zinc-200 hover:text-sky-300">
+                    {(Number(cursor.leafSpent) / 1e18).toFixed(6)} xDAI ↗
+                  </BscLink>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-zinc-500">remaining</span>
@@ -295,6 +395,55 @@ export function WitnessChamber({ compact = false, terminal = false, initialToken
                   <span className="text-zinc-500">capRoot</span>
                   <span className="text-zinc-500 text-[10px]">{cursor.capRoot.slice(0, 10)}…</span>
                 </div>
+                {cursor.drawAmountWei !== undefined && (
+                  <div className="flex justify-between">
+                    <span className="text-zinc-500">draw amount</span>
+                    <span className="text-zinc-300">{cursor.drawAmountWei.toString()} wei</span>
+                  </div>
+                )}
+              </div>
+
+              {/* ── Verify / Recompute panel ── */}
+              <div className="mt-1 rounded-lg border border-zinc-700/50 bg-black/30">
+                <button
+                  onClick={() => setVerifyOpen(v => !v)}
+                  className="flex w-full items-center justify-between px-3 py-2 text-[10px] text-zinc-400 hover:text-zinc-200 transition"
+                >
+                  <span className="font-bold tracking-widest uppercase">▶ Verify (recompute preimage)</span>
+                  <span className="text-zinc-600">{verifyOpen ? '▲' : '▼'}</span>
+                </button>
+                {verifyOpen && (
+                  <div className="border-t border-zinc-800 px-3 pb-3 pt-2 space-y-2 text-[10px]">
+                    <div className="space-y-1 text-zinc-500">
+                      <div><span className="text-zinc-400">scopeId</span> <span className="text-zinc-600 break-all">{cursor.scopeId}</span></div>
+                      <div><span className="text-zinc-400">amountWei</span> <span className="text-zinc-300">{cursor.drawAmountWei?.toString() ?? '— (no draw tx yet)'}</span></div>
+                      <div><span className="text-zinc-400">chainId</span> <span className="text-zinc-300">10200 (Chiado)</span></div>
+                      <div><span className="text-zinc-400">issuer</span> <span className="text-zinc-600 break-all text-[9px]">{CURSOR_ISSUER}</span></div>
+                    </div>
+                    <div className="text-zinc-600 leading-relaxed">
+                      preimage = keccak256(abi.encode(scopeId, amountWei, chainId))
+                    </div>
+                    {recomputeResult && (
+                      <div className="rounded bg-zinc-900 p-2 break-all text-[9px] text-emerald-400">
+                        {recomputeResult}
+                      </div>
+                    )}
+                    <button
+                      onClick={() => void runRecompute()}
+                      className="w-full rounded border border-zinc-600 bg-zinc-800 py-1.5 text-[10px] text-zinc-300 hover:text-white hover:border-violet-500/60 transition"
+                    >
+                      Recompute in browser
+                    </button>
+                    <div className="pt-1 space-y-1 border-t border-zinc-800/50">
+                      <div className="text-zinc-600 text-[9px]">Oracle attestation (weaker — assertion by notapaperclip.red):</div>
+                      <a href="https://notapaperclip.red" target="_blank" rel="noopener noreferrer"
+                         className="block text-sky-600 hover:text-sky-400 text-[9px] transition">
+                        notapaperclip.red ↗ — signed verdict, not a recompute
+                      </a>
+                      <div className="text-zinc-600 text-[9px]">Recompute (stronger — you derive the preimage from chain data, no trust required).</div>
+                    </div>
+                  </div>
+                )}
               </div>
             </>
           ) : (
@@ -316,7 +465,10 @@ export function WitnessChamber({ compact = false, terminal = false, initialToken
         {/* Col 3 — Audit Log */}
         <div className="flex flex-col rounded-xl border border-zinc-800 bg-black p-4">
           <div className="flex items-center justify-between mb-2 pb-2 border-b border-zinc-800">
-            <span className="text-[10px] font-bold tracking-widest text-zinc-500 uppercase">Chiado Audit Log</span>
+            <BscLink href={`${CHIADO_EXPLORER}/address/${CURSOR_CONTRACT}`}
+                     className="text-[10px] font-bold tracking-widest text-zinc-500 uppercase hover:text-zinc-300">
+              Chiado Audit Log ↗
+            </BscLink>
             <span className="text-[9px] text-zinc-700">live · 12s</span>
           </div>
           <div
@@ -325,16 +477,30 @@ export function WitnessChamber({ compact = false, terminal = false, initialToken
           >
             {auditLog.length === 0 ? (
               <div className="text-zinc-700 italic pt-8 text-center">initialising…</div>
-            ) : auditLog.map((line, i) => (
-              <div key={i} className={
-                line.kind === 'ok'   ? 'text-emerald-400' :
-                line.kind === 'warn' ? 'text-amber-400' :
-                line.kind === 'dim'  ? 'text-zinc-700' :
-                'text-zinc-400'
-              }>
-                <span className="text-zinc-700 mr-1.5">{line.ts}</span>{line.text}
-              </div>
-            ))}
+            ) : auditLog.map((line, i) => {
+              // Linkify Blockscout URLs in log lines
+              const bscMatch = line.text.match(/(https:\/\/gnosis-chiado\.blockscout\.com\/\S+)/);
+              return (
+                <div key={i} className={
+                  line.kind === 'ok'   ? 'text-emerald-400' :
+                  line.kind === 'warn' ? 'text-amber-400' :
+                  line.kind === 'dim'  ? 'text-zinc-700' :
+                  'text-zinc-400'
+                }>
+                  <span className="text-zinc-700 mr-1.5">{line.ts}</span>
+                  {bscMatch ? (
+                    <>
+                      {line.text.slice(0, line.text.indexOf(bscMatch[1]))}
+                      <a href={bscMatch[1]} target="_blank" rel="noopener noreferrer"
+                         className="underline decoration-dotted hover:opacity-80">
+                        {bscMatch[1].replace('https://gnosis-chiado.blockscout.com', 'bscout')
+                          .replace(/\/tx\//, '/tx/').slice(0, 40)}…
+                      </a>
+                    </>
+                  ) : line.text}
+                </div>
+              );
+            })}
           </div>
         </div>
 
