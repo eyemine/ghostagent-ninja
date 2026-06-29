@@ -129,10 +129,14 @@ export default function Erc8048Dashboard() {
   const tokenIdParam    = searchParams.get('tokenId')    ?? '';
 
   const pairedNft = useMemo(() => {
+    // Agent name pattern takes priority (e.g. chonk.9534 → Chonk collection)
+    const detected = detectPairedNft(agentParam);
+    if (detected) return detected;
+    // Fall back to explicit collection param (e.g. ENS agents with ?collection=fakenormie)
     if (collectionParam && VERIFIED_COLLECTIONS[collectionParam]) {
       return { key: collectionParam as VerifiedCollectionKey, tokenId: tokenIdParam, collection: VERIFIED_COLLECTIONS[collectionParam] };
     }
-    return detectPairedNft(agentParam);
+    return null;
   }, [agentParam, collectionParam, tokenIdParam]);
 
   const [nftImage, setNftImage] = useState<string | null>(null);
@@ -352,7 +356,7 @@ export default function Erc8048Dashboard() {
   if (!ready) return null;
 
   // ── Gate: only paired legacy NFT agents may use this page ────────────────
-  if (agentParam && !pairedNft && !collectionParam) {
+  if (agentParam && !pairedNft) {
     return (
       <div className="min-h-screen bg-slate-950 p-6 text-white lg:p-8">
         <Link href={`/dashboard/agent/${agentParam}`} className="text-xs text-slate-500 transition hover:text-slate-300">← {agentParam}</Link>
