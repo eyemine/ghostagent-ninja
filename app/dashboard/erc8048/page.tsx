@@ -255,11 +255,13 @@ export default function Erc8048Dashboard() {
       .catch(() => null);
   }, [agentParam]);
 
-  // Load NFT image for paired collection
+  // Load NFT image — for fakenormie use tokenIdInput (URL param may be empty)
   useEffect(() => {
     if (!pairedNft) return;
-    fetchNftImage(pairedNft.key, pairedNft.tokenId).then(img => setNftImage(img));
-  }, [pairedNft]);
+    const id = pairedNft.key === 'fakenormie' ? tokenIdInput : pairedNft.tokenId;
+    if (!id && id !== '0') return;
+    fetchNftImage(pairedNft.key, id).then(img => setNftImage(img));
+  }, [pairedNft, tokenIdInput]);
 
   const loadMatrix = useCallback(async () => {
     if (!pairedNft || !userAddress) return;
@@ -272,7 +274,27 @@ export default function Erc8048Dashboard() {
         : pairedNft.collection.chain === 'base'
         ? 'https://mainnet.base.org'
         : 'https://eth.llamarpc.com';
-      const ids = await fetchTokenIdsForWallet(userAddress, contract, rpc);
+      let ids: number[];
+      if (pairedNft.key === 'fakenormie') {
+        // FakeNormies is ERC721 (not Enumerable) — check ownerOf for known token IDs 0-6
+        const FAKENORMIE_IDS = [0, 1, 2, 3, 4, 5, 6];
+        const checks = await Promise.allSettled(FAKENORMIE_IDS.map(async (id) => {
+          const padded = id.toString(16).padStart(64, '0');
+          const res = await fetch(rpc, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_call', params: [{ to: contract, data: '0x6352211e' + padded }, 'latest'] }),
+          });
+          const data = await res.json() as { result?: string };
+          if (!data.result || data.result === '0x') return null;
+          const owner = ('0x' + data.result.slice(26)).toLowerCase();
+          return owner === userAddress.toLowerCase() ? id : null;
+        }));
+        ids = checks
+          .map(r => r.status === 'fulfilled' ? r.value : null)
+          .filter((v): v is number => v !== null);
+      } else {
+        ids = await fetchTokenIdsForWallet(userAddress, contract, rpc);
+      }
       if (ids.length === 0) {
         setSidecars([]);
       } else {

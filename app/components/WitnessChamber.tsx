@@ -192,7 +192,15 @@ export function WitnessChamber({ compact = false, terminal = false, initialToken
               #{t}
             </button>
           ))}
-          <div className="ml-auto text-[9px] text-zinc-700">live · 12s · Chiado</div>
+          <div className="ml-auto flex items-center gap-3">
+            <a
+              href={`/dashboard/erc8048?collection=fakenormie&tokenId=${token}`}
+              className="text-[9px] text-violet-500 hover:text-violet-300 transition font-semibold"
+            >
+              Mandate Dashboard ↗
+            </a>
+            <span className="text-[9px] text-zinc-700">live · 12s · Chiado</span>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 p-3">
