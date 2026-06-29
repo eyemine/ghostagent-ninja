@@ -129,14 +129,16 @@ export default function Erc8048Dashboard() {
   const tokenIdParam    = searchParams.get('tokenId')    ?? '';
 
   const pairedNft = useMemo(() => {
-    // Agent name pattern takes priority (e.g. chonk.9534 → Chonk collection)
     const detected = detectPairedNft(agentParam);
-    if (detected) return detected;
-    // Fall back to explicit collection param (e.g. ENS agents with ?collection=fakenormie)
+    // Auto-detection wins only when it captured a real token ID (e.g. chonk.9534 → "9534")
+    // Names like super.normie match the normie suffix but have no ID — fall through to collectionParam
+    if (detected?.tokenId) return detected;
+    // Explicit collection param overrides ID-less name detection (e.g. ENS/GhostAgent + ?collection=fakenormie)
     if (collectionParam && VERIFIED_COLLECTIONS[collectionParam]) {
       return { key: collectionParam as VerifiedCollectionKey, tokenId: tokenIdParam, collection: VERIFIED_COLLECTIONS[collectionParam] };
     }
-    return null;
+    // Last resort: use detection result even without a token ID (e.g. bare ?agent=super.normie, no collection)
+    return detected;
   }, [agentParam, collectionParam, tokenIdParam]);
 
   const [nftImage, setNftImage] = useState<string | null>(null);
