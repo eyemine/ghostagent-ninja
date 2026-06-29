@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePrivy } from '@privy-io/react-auth';
-import { createPublicClient, http, parseAbiItem, defineChain, type Address } from 'viem';
+import { createPublicClient, http, defineChain, type Address } from 'viem';
 
 const gnosis = defineChain({
   id: 100,
@@ -73,13 +73,17 @@ export function FakeNormieLab() {
       args: [wallet as Address],
     }).then(async (balance) => {
       if (balance > 0n) {
-        const logs = await client.getLogs({
-          address: FAKE_NORMIE_CONTRACT,
-          event: parseAbiItem('event AgentMinted(uint256 indexed tokenId, address indexed to)'),
-          args: { to: wallet as Address },
-          fromBlock: 0n,
-        });
-        const tid = logs.length > 0 ? Number(logs[0].args.tokenId) : 0;
+        // Use ownerOf for IDs 0-6 — log scan misses transferred tokens
+        const OWNER_OF_ABI = [{ name: 'ownerOf', type: 'function', inputs: [{ name: 'tokenId', type: 'uint256' }], outputs: [{ name: '', type: 'address' }], stateMutability: 'view' }] as const;
+        const checks = await Promise.allSettled(
+          [0, 1, 2, 3, 4, 5, 6].map(id =>
+            client.readContract({ address: FAKE_NORMIE_CONTRACT, abi: OWNER_OF_ABI, functionName: 'ownerOf', args: [BigInt(id)] })
+              .then(owner => owner.toLowerCase() === wallet.toLowerCase() ? id : null)
+              .catch(() => null)
+          )
+        );
+        const tid = checks.map(r => r.status === 'fulfilled' ? r.value : null).find(v => v !== null) ?? null;
+        if (tid === null) { setChecking(false); return; }
         setExistingTokenId(tid);
         try {
           const mf = await fetch('/FakeNormies/manifest.json').then(r => r.json()) as { slugIndex: Record<string, number> };
