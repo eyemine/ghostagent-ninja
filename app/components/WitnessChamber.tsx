@@ -31,7 +31,6 @@ interface CursorState {
   pollCount: number;
   registerTxHash?: string;
   drawTxHash?: string;
-  drawAmountWei?: bigint;
   drawBlock?: number;
 }
 
@@ -50,7 +49,13 @@ function BscLink({ href, children, className = '' }: { href: string; children: R
   );
 }
 
-async function fetchBlockscoutProof(scopeId: string): Promise<{ registerTxHash?: string; drawTxHash?: string; drawAmountWei?: bigint; drawBlock?: number }> {
+// Known method selectors for the (unverified) ERC-8312 cursor contract on Chiado.
+// register(bytes32,bytes32) → 0x2f926732
+// draw/advanceCursor (bytes32,bytes) → 0x8c02477a
+const SEL_REGISTER = '0x2f926732';
+const SEL_DRAW     = '0x8c02477a';
+
+async function fetchBlockscoutProof(scopeId: string): Promise<{ registerTxHash?: string; drawTxHash?: string; drawBlock?: number }> {
   try {
     const res = await fetch(
       `${CHIADO_EXPLORER}/api/v2/addresses/${CURSOR_CONTRACT}/transactions?filter=to`,
@@ -60,34 +65,26 @@ async function fetchBlockscoutProof(scopeId: string): Promise<{ registerTxHash?:
     const data = await res.json() as {
       items: Array<{
         hash: string;
-        input?: string;
+        method?: string;
+        raw_input?: string;
         block_number?: number;
-        decoded_input?: {
-          method_call?: string;
-          parameters?: Array<{ name: string; value: string }>;
-        };
       }>;
     };
     const needle = scopeId.slice(2).toLowerCase();
     let registerTxHash: string | undefined;
     let drawTxHash: string | undefined;
-    let drawAmountWei: bigint | undefined;
     let drawBlock: number | undefined;
     for (const tx of data.items ?? []) {
-      if (!tx.input?.toLowerCase().includes(needle)) continue;
-      const method = (tx.decoded_input?.method_call ?? '').toLowerCase();
-      if (method.startsWith('register') && !registerTxHash) {
+      if (!tx.raw_input?.toLowerCase().includes(needle)) continue;
+      const sel = (tx.method ?? tx.raw_input?.slice(0, 10) ?? '').toLowerCase();
+      if (sel === SEL_REGISTER && !registerTxHash) {
         registerTxHash = tx.hash;
-      } else if (!drawTxHash) {
+      } else if (sel === SEL_DRAW && !drawTxHash) {
         drawTxHash = tx.hash;
         drawBlock = tx.block_number;
-        const amtParam = tx.decoded_input?.parameters?.find(
-          p => p.name === 'amount' || p.name === 'amountWei' || p.name === 'draw',
-        );
-        if (amtParam) { try { drawAmountWei = BigInt(amtParam.value); } catch { /* ok */ } }
       }
     }
-    return { registerTxHash, drawTxHash, drawAmountWei, drawBlock };
+    return { registerTxHash, drawTxHash, drawBlock };
   } catch { return {}; }
 }
 
@@ -193,7 +190,6 @@ export function WitnessChamber({ compact = false, terminal = false, initialToken
         pollCount: (prev?.pollCount ?? 0) + 1,
         registerTxHash: proof.registerTxHash ?? prev?.registerTxHash,
         drawTxHash:     proof.drawTxHash     ?? prev?.drawTxHash,
-        drawAmountWei:  proof.drawAmountWei  ?? prev?.drawAmountWei,
         drawBlock:      proof.drawBlock      ?? prev?.drawBlock,
       }));
     } catch (e) {
@@ -236,15 +232,7 @@ export function WitnessChamber({ compact = false, terminal = false, initialToken
   const [recomputeResult, setRecomputeResult] = useState<string | null>(null);
 
   async function runRecompute() {
-    if (!cursor?.scopeId || !cursor.drawAmountWei) { setRecomputeResult('⚠ no draw recorded yet — recompute requires a draw tx'); return; }
-    try {
-      const { keccak256, encodeAbiParameters, parseAbiParameters } = await import('viem');
-      const preimage = keccak256(encodeAbiParameters(
-        parseAbiParameters('bytes32, uint256, uint256'),
-        [cursor.scopeId as `0x${string}`, cursor.drawAmountWei, 10200n],
-      ));
-      setRecomputeResult(preimage);
-    } catch (e) { setRecomputeResult(`error: ${e instanceof Error ? e.message : String(e)}`); }
+    setRecomputeResult('⚠ contract unverified — amountWei is inside the bytes payload, not a top-level param. Inspect the raw draw tx to extract it, then recompute manually: keccak256(abi.encode(scopeId, amountWei, 10200))');
   }
 
   /* ── Terminal (3-column) mode ── */
@@ -395,12 +383,6 @@ export function WitnessChamber({ compact = false, terminal = false, initialToken
                   <span className="text-zinc-500">capRoot</span>
                   <span className="text-zinc-500 text-[10px]">{cursor.capRoot.slice(0, 10)}…</span>
                 </div>
-                {cursor.drawAmountWei !== undefined && (
-                  <div className="flex justify-between">
-                    <span className="text-zinc-500">draw amount</span>
-                    <span className="text-zinc-300">{cursor.drawAmountWei.toString()} wei</span>
-                  </div>
-                )}
               </div>
 
               {/* ── Verify / Recompute panel ── */}
@@ -416,7 +398,16 @@ export function WitnessChamber({ compact = false, terminal = false, initialToken
                   <div className="border-t border-zinc-800 px-3 pb-3 pt-2 space-y-2 text-[10px]">
                     <div className="space-y-1 text-zinc-500">
                       <div><span className="text-zinc-400">scopeId</span> <span className="text-zinc-600 break-all">{cursor.scopeId}</span></div>
-                      <div><span className="text-zinc-400">amountWei</span> <span className="text-zinc-300">{cursor.drawAmountWei?.toString() ?? '— (no draw tx yet)'}</span></div>
+                      <div>
+                        <span className="text-zinc-400">amountWei</span>{' '}
+                        {cursor.drawTxHash ? (
+                          <BscLink href={`${CHIADO_EXPLORER}/tx/${cursor.drawTxHash}?tab=raw_trace`} className="text-amber-500 text-[9px]">
+                            — contract unverified; inspect raw tx ↗
+                          </BscLink>
+                        ) : (
+                          <span className="text-zinc-600">— (no draw tx found)</span>
+                        )}
+                      </div>
                       <div><span className="text-zinc-400">chainId</span> <span className="text-zinc-300">10200 (Chiado)</span></div>
                       <div><span className="text-zinc-400">issuer</span> <span className="text-zinc-600 break-all text-[9px]">{CURSOR_ISSUER}</span></div>
                     </div>
