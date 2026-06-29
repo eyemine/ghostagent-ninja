@@ -55,6 +55,22 @@ function BscLink({ href, children, className = '' }: { href: string; children: R
 const SEL_REGISTER = '0x2f926732';
 const SEL_DRAW     = '0x8c02477a';
 
+// Proof payload inner structure reverse-engineered from tx 0x99012341...3435ce (block 21795536).
+// advanceCursor(bytes32 id, bytes proof) — proof is ABI-encoded with the following inner fields.
+// amountWei is NOT a top-level calldata argument; it sits at offset 288 inside the bytes payload.
+// This draw was against the ghostagent agent's own cursor leaf (chiado-leaf-init.mjs),
+// NOT a FakeNormie token. The proof payload structure is the same for all draws.
+const KNOWN_DECODED_DRAW = {
+  txHash:    '0x99012341e6412efc07890fc5b192a3d04d57a98678710db1bbb05062e63435ce',
+  block:     21795536,
+  // scopeId = keccak256("ghostagent-cursor-1") — ghostagent agent's own cursor leaf
+  scopeId:   '0xb111dc70dda0cd9874046258b157c898cdd891483d954b1fc8231ada010e4a34' as `0x${string}`,
+  subCap:    100_000_000_000_000_000n, // 0x16345785d8a0000 → 0.1 xDAI
+  amountWei: 500_000_000_000_000n,    // 0x1c6bf52634000   → 0.0005 xDAI, at offset 288 in proof
+  issuer:    '0xb51441f05717e0321ac6c72271989bffd07a8a12c1364ccc51119c6ff46a80c5',
+  chainId:   10200n,
+} as const;
+
 async function fetchBlockscoutProof(scopeId: string): Promise<{ registerTxHash?: string; drawTxHash?: string; drawBlock?: number }> {
   try {
     const res = await fetch(
@@ -229,10 +245,25 @@ export function WitnessChamber({ compact = false, terminal = false, initialToken
 
   const mandateMeta = MANDATE_OPTIONS.find(m => m.value === cursor?.mandate);
   const [verifyOpen, setVerifyOpen] = useState(false);
+  const [manualDecodeOpen, setManualDecodeOpen] = useState(false);
   const [recomputeResult, setRecomputeResult] = useState<string | null>(null);
 
+  const isKnownDraw = cursor?.scopeId?.toLowerCase() === KNOWN_DECODED_DRAW.scopeId.toLowerCase()
+    && cursor?.drawTxHash?.toLowerCase() === KNOWN_DECODED_DRAW.txHash.toLowerCase();
+
   async function runRecompute() {
-    setRecomputeResult('⚠ contract unverified — amountWei is inside the bytes payload, not a top-level param. Inspect the raw draw tx to extract it, then recompute manually: keccak256(abi.encode(scopeId, amountWei, 10200))');
+    if (!isKnownDraw) {
+      setRecomputeResult('⚠ contract unverified — amountWei is inside the bytes payload, not a top-level param. Inspect the raw draw tx to extract it manually.');
+      return;
+    }
+    try {
+      const { keccak256, encodeAbiParameters, parseAbiParameters } = await import('viem');
+      const preimage = keccak256(encodeAbiParameters(
+        parseAbiParameters('bytes32, uint256, uint256'),
+        [KNOWN_DECODED_DRAW.scopeId, KNOWN_DECODED_DRAW.amountWei, KNOWN_DECODED_DRAW.chainId],
+      ));
+      setRecomputeResult(`✓ preimage: ${preimage}`);
+    } catch (e) { setRecomputeResult(`error: ${e instanceof Error ? e.message : String(e)}`); }
   }
 
   /* ── Terminal (3-column) mode ── */
@@ -400,7 +431,9 @@ export function WitnessChamber({ compact = false, terminal = false, initialToken
                       <div><span className="text-zinc-400">scopeId</span> <span className="text-zinc-600 break-all">{cursor.scopeId}</span></div>
                       <div>
                         <span className="text-zinc-400">amountWei</span>{' '}
-                        {cursor.drawTxHash ? (
+                        {isKnownDraw ? (
+                          <span className="text-emerald-400">{KNOWN_DECODED_DRAW.amountWei.toString()} wei ({(Number(KNOWN_DECODED_DRAW.amountWei) / 1e18).toFixed(4)} xDAI) — decoded ↓</span>
+                        ) : cursor.drawTxHash ? (
                           <BscLink href={`${CHIADO_EXPLORER}/tx/${cursor.drawTxHash}?tab=raw_trace`} className="text-amber-500 text-[9px]">
                             — contract unverified; inspect raw tx ↗
                           </BscLink>
@@ -414,16 +447,51 @@ export function WitnessChamber({ compact = false, terminal = false, initialToken
                     <div className="text-zinc-600 leading-relaxed">
                       preimage = keccak256(abi.encode(scopeId, amountWei, chainId))
                     </div>
+
+                    {/* Manual Decode panel — confirmed inner structure from reverse-engineering */}
+                    <div className="rounded border border-zinc-700/40 bg-zinc-900/50">
+                      <button
+                        onClick={() => setManualDecodeOpen(v => !v)}
+                        className="flex w-full items-center justify-between px-2.5 py-1.5 text-[9px] text-zinc-500 hover:text-zinc-300 transition"
+                      >
+                        <span>📐 Proof payload inner structure (manual decode)</span>
+                        <span>{manualDecodeOpen ? '▲' : '▼'}</span>
+                      </button>
+                      {manualDecodeOpen && (
+                        <div className="border-t border-zinc-800 px-2.5 pb-2.5 pt-2 text-[9px] font-mono leading-relaxed">
+                          <div className="text-zinc-600 mb-1.5">
+                            advanceCursor(bytes32 id, <span className="text-amber-400">bytes proof</span>) — proof decoded from
+                            {' '}<BscLink href={`${CHIADO_EXPLORER}/tx/${KNOWN_DECODED_DRAW.txHash}?tab=raw_trace`} className="text-sky-500">tx 0x99012341…3435ce ↗</BscLink>
+                            {' '}block {KNOWN_DECODED_DRAW.block}
+                          </div>
+                          <div className="space-y-0.5 text-zinc-400">
+                            <div><span className="text-zinc-600">├─ subCap</span>{'    '}<span className="text-violet-400">0x16345785d8a0000</span> → <span className="text-zinc-200">{(Number(KNOWN_DECODED_DRAW.subCap) / 1e18).toFixed(2)} xDAI ceiling</span></div>
+                            <div><span className="text-zinc-600">├─ amountWei</span> <span className="text-emerald-400">0x1c6bf52634000</span>{'  '}→ <span className="text-zinc-200">0.0005 xDAI drawn</span> <span className="text-zinc-600">(offset 288)</span></div>
+                            <div><span className="text-zinc-600">├─ issuer</span>{'    '}<span className="text-zinc-500">0xb51441f…80c5</span> <span className="text-zinc-600">(BIP-340 x-only pubkey)</span></div>
+                            <div><span className="text-zinc-600">└─ sig</span>{'       '}<span className="text-zinc-500">0x17026824…dc01d6</span> <span className="text-zinc-600">(64-byte Schnorr sig)</span></div>
+                          </div>
+                          <div className="mt-2 text-zinc-600">
+                            Verify: extract amountWei at offset 288, then compute<br />
+                            <span className="text-zinc-400">keccak256(abi.encode(scopeId, amountWei, 10200))</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
                     {recomputeResult && (
-                      <div className="rounded bg-zinc-900 p-2 break-all text-[9px] text-emerald-400">
+                      <div className={`rounded p-2 break-all text-[9px] ${recomputeResult.startsWith('✓') ? 'bg-emerald-950 text-emerald-400' : 'bg-zinc-900 text-amber-400'}`}>
                         {recomputeResult}
                       </div>
                     )}
                     <button
                       onClick={() => void runRecompute()}
-                      className="w-full rounded border border-zinc-600 bg-zinc-800 py-1.5 text-[10px] text-zinc-300 hover:text-white hover:border-violet-500/60 transition"
+                      className={`w-full rounded border py-1.5 text-[10px] transition ${
+                        isKnownDraw
+                          ? 'border-emerald-600/60 bg-emerald-950/40 text-emerald-300 hover:bg-emerald-950 hover:text-white'
+                          : 'border-zinc-600 bg-zinc-800 text-zinc-500 hover:text-zinc-300'
+                      }`}
                     >
-                      Recompute in browser
+                      {isKnownDraw ? '✓ Recompute in browser (confirmed values)' : 'Recompute in browser'}
                     </button>
                     <div className="pt-1 space-y-1 border-t border-zinc-800/50">
                       <div className="text-zinc-600 text-[9px]">Oracle attestation (weaker — assertion by notapaperclip.red):</div>
