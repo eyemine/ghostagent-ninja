@@ -399,7 +399,7 @@ export default function Erc8048Dashboard() {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={nftImage ?? '/ghost-logo.png'}
-              alt={pairedNft ? `${pairedNft.collection.label} #${pairedNft.tokenId}` : agentName}
+              alt={pairedNft ? `${pairedNft.collection.label} #${tokenIdInput}` : agentName}
               className="h-full w-full object-cover"
             />
           </div>
@@ -408,7 +408,7 @@ export default function Erc8048Dashboard() {
               <h1 className="text-lg font-bold tracking-tight">{agentName || agentParam}</h1>
               {pairedNft && (
                 <span className="rounded border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 font-mono text-xs text-cyan-400">
-                  {pairedNft.collection.label} #{pairedNft.tokenId}
+                  {pairedNft.collection.label}{tokenIdInput ? ` #${tokenIdInput}` : ''}
                 </span>
               )}
             </div>
