@@ -109,6 +109,9 @@ async function fetchNftImage(key: VerifiedCollectionKey, tokenId: string): Promi
       const d = await r.json() as { image?: { cachedUrl?: string; pngUrl?: string; contentType?: string } };
       return d?.image?.cachedUrl ?? d?.image?.pngUrl ?? null;
     }
+    if (key === 'fakenormie') {
+      return `/FakeNormies/SVGS/${String(parseInt(tokenId)).padStart(2, '0')}.svg`;
+    }
   } catch { /* fall through */ }
   return null;
 }
@@ -275,6 +278,8 @@ export default function Erc8048Dashboard() {
       } else {
         const matrix = await fetchSovereignSidecarMatrix(contract, ids);
         setSidecars(matrix);
+        // Auto-select first owned token if none selected yet
+        if (ids.length > 0) setTokenIdInput(prev => prev || String(ids[0]));
       }
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : 'Failed to load sidecar matrix');
@@ -525,7 +530,7 @@ export default function Erc8048Dashboard() {
             {sidecars.length > 0 && (
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 {sidecars.map((sc) => (
-                  <div key={sc.tokenId} className="rounded-lg border border-slate-800 bg-slate-900/50 p-4 font-mono text-xs">
+                  <div key={sc.tokenId} onClick={() => setTokenIdInput(String(sc.tokenId))} className={`rounded-lg border bg-slate-900/50 p-4 font-mono text-xs cursor-pointer transition hover:border-indigo-500/50 ${String(sc.tokenId) === tokenIdInput ? 'border-indigo-500/60 bg-indigo-500/5' : 'border-slate-800'}`}>
                     <div className="mb-2 flex items-center justify-between">
                       <span className="font-bold text-slate-200">{sc.name}</span>
                       {sc.hasSidecarState
