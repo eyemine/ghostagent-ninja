@@ -352,7 +352,7 @@ export default function Erc8048Dashboard() {
   if (!ready) return null;
 
   // ── Gate: only paired legacy NFT agents may use this page ────────────────
-  if (agentParam && !pairedNft) {
+  if (agentParam && !pairedNft && !collectionParam) {
     return (
       <div className="min-h-screen bg-slate-950 p-6 text-white lg:p-8">
         <Link href={`/dashboard/agent/${agentParam}`} className="text-xs text-slate-500 transition hover:text-slate-300">← {agentParam}</Link>
