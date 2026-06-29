@@ -67,7 +67,7 @@ const KNOWN_DECODED_DRAW = {
   scopeId:   '0xb111dc70dda0cd9874046258b157c898cdd891483d954b1fc8231ada010e4a34' as `0x${string}`,
   subCap:    100_000_000_000_000_000n, // 0x16345785d8a0000 → 0.1 xDAI
   amountWei: 500_000_000_000_000n,    // 0x1c6bf52634000   → 0.0005 xDAI, at offset 288 in proof
-  issuer:    '0xb51441f05717e0321ac6c72271989bffd07a8a12c1364ccc51119c6ff46a80c5',
+  issuer:    '0xb51441f05717e0321ac6c72271989bffd07a8a12c1364ccc51119c6ff46a80c5', // 32-byte x-only pubkey
   chainId:   10200n,
 } as const;
 

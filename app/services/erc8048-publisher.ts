@@ -30,7 +30,7 @@ export function getSubCapFromMandate(mandate: string): bigint {
 
 export const CURSOR_CONTRACT  = '0x5235249f1409a315349036af4ea914a9efdb7cbf' as const;
 export const CURSOR_CHIADO_RPC = 'https://rpc.chiado.gnosis.gateway.fm' as const;
-export const CURSOR_ISSUER    = '0x00b51441f05717e0321ac6c72271989bffd07a8a12c1364ccc51119c6ff46a80c5' as `0x${string}`;
+export const CURSOR_ISSUER    = '0xb51441f05717e0321ac6c72271989bffd07a8a12c1364ccc51119c6ff46a80c5' as `0x${string}`;
 
 export const CURSOR_ABI = [
   {
