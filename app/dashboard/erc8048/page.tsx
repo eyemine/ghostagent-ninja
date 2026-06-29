@@ -293,18 +293,20 @@ export default function Erc8048Dashboard() {
           const owner = ('0x' + data.result.slice(26)).toLowerCase();
           return owner === userAddress.toLowerCase() ? id : null;
         }));
-        ids = checks
+        const ownedIds = checks
           .map(r => r.status === 'fulfilled' ? r.value : null)
           .filter((v): v is number => v !== null);
+        // If none found (e.g. Safe-owned), show all tokens so user can browse + select
+        ids = ownedIds.length > 0 ? ownedIds : FAKENORMIE_IDS;
       } else {
         ids = await fetchTokenIdsForWallet(userAddress, contract, rpc);
       }
       if (ids.length === 0) {
         setSidecars([]);
       } else {
-        const matrix = await fetchSovereignSidecarMatrix(contract, ids);
+        const matrix = await fetchSovereignSidecarMatrix(contract, ids, pairedNft.key);
         setSidecars(matrix);
-        // Auto-select first owned token if none selected yet
+        // Auto-select first token (owned first, or first in list)
         if (ids.length > 0) setTokenIdInput(prev => prev || String(ids[0]));
       }
     } catch (err) {
@@ -564,9 +566,18 @@ export default function Erc8048Dashboard() {
                         : <span className="rounded bg-slate-800 px-2 py-0.5 text-slate-500">empty</span>}
                     </div>
                     <div className="space-y-1 text-slate-400">
-                      <div><span className="text-indigo-400">story[ip_id]:</span> {sc.storyIpId ? short(sc.storyIpId) : 'None'}</div>
-                      <div><span className="text-indigo-400">story[license_id]:</span> {sc.storyLicenseId ?? 'None'}</div>
-                      <div><span className="text-indigo-400">cdr[vault_id]:</span> {sc.cdrVaultId ?? 'None'}</div>
+                      {pairedNft?.key === 'fakenormie' ? (
+                        <>
+                          <div><span className="text-violet-400">cursor[mandate]:</span> {sc.cursorMandate ?? <span className="text-slate-600">None</span>}</div>
+                          <div><span className="text-violet-400">cursor[agreement_hash]:</span> {sc.cursorAgreementHash ? short(sc.cursorAgreementHash) : <span className="text-slate-600">None</span>}</div>
+                        </>
+                      ) : (
+                        <>
+                          <div><span className="text-indigo-400">story[ip_id]:</span> {sc.storyIpId ? short(sc.storyIpId) : 'None'}</div>
+                          <div><span className="text-indigo-400">story[license_id]:</span> {sc.storyLicenseId ?? 'None'}</div>
+                          <div><span className="text-indigo-400">cdr[vault_id]:</span> {sc.cdrVaultId ?? 'None'}</div>
+                        </>
+                      )}
                     </div>
                   </div>
                 ))}

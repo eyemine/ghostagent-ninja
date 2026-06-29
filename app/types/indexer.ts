@@ -16,6 +16,8 @@ export interface TokenSidecarState {
   storyIpId?: `0x${string}`;
   storyLicenseId?: string;
   cdrVaultId?: string;
+  cursorMandate?: string;
+  cursorAgreementHash?: string;
   isRegistered: boolean;
   hasSidecarState: boolean;
 }

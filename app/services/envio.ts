@@ -172,6 +172,7 @@ const GET_SIDECAR_METADATA_QUERY = `
 export async function fetchSovereignSidecarMatrix(
   tokenContract: `0x${string}`,
   tokenIds: number[],
+  collectionKey?: string,
 ): Promise<TokenSidecarState[]> {
   if (!ENDPOINT || tokenIds.length === 0) return [];
 
@@ -186,15 +187,39 @@ export async function fetchSovereignSidecarMatrix(
     const rawIpId = tokenRecords.find((r) => r.key === 'story[ip_id]')?.value;
     const rawLicenseId = tokenRecords.find((r) => r.key === 'story[license_id]')?.value;
     const rawVaultId = tokenRecords.find((r) => r.key === 'cdr[vault_id]')?.value;
+    const rawMandate = tokenRecords.find((r) => r.key === 'cursor[mandate]')?.value;
+    const rawAgreementHash = tokenRecords.find((r) => r.key === 'cursor[agreement_hash]')?.value;
+
+    const isFakeNormie = collectionKey === 'fakenormie';
+    const isChonk = collectionKey === 'chonk';
+
+    const name = isFakeNormie
+      ? `FakeNormie #${id}`
+      : isChonk
+      ? `Chonk #${id}`
+      : collectionKey
+      ? `${collectionKey} #${id}`
+      : `Asset #${id}`;
+
+    const image = isFakeNormie
+      ? `/FakeNormies/SVGS/${String(id).padStart(2, '0')}.svg`
+      : isChonk
+      ? `https://api.chonks.carbonlocks.xyz/images/${id}.png`
+      : '';
+
+    const cursorMandate = rawMandate ? decodeStringValue(rawMandate) : undefined;
+    const cursorAgreementHash = rawAgreementHash ? decodeStringValue(rawAgreementHash) : undefined;
 
     return {
       contractAddress: tokenContract,
       tokenId: id,
-      name: `Asset Identifier #${id}`,
-      image: `https://api.chonks.carbonlocks.xyz/images/${id}.png`,
+      name,
+      image,
       storyIpId: rawIpId ? normalizeHexAddress(rawIpId) : undefined,
       storyLicenseId: rawLicenseId ? decodeStringValue(rawLicenseId) : undefined,
       cdrVaultId: rawVaultId ? decodeStringValue(rawVaultId) : undefined,
+      cursorMandate,
+      cursorAgreementHash,
       isRegistered: !!rawIpId,
       hasSidecarState: tokenRecords.length > 0,
     };
