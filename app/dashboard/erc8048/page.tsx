@@ -335,6 +335,7 @@ export default function Erc8048Dashboard() {
       const { createWalletClient, custom, encodeFunctionData } = await import('viem');
       const { gnosis } = await import('viem/chains');
       const walletClient = createWalletClient({ chain: gnosis, transport: custom(provider as Parameters<typeof custom>[0]) });
+      await walletClient.switchChain({ id: 100 });
       const [account] = await walletClient.requestAddresses();
       const data = encodeFunctionData({
         abi: [{

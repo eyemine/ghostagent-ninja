@@ -37,6 +37,7 @@ interface MintResult {
 function agentActions(agent: string, tokenId: number | null): Array<{ key: string; label: string; href: string; color: string }> {
   return [
     { key: 'agent-profile', label: 'Agent Profile', href: `/dashboard/agent-profile?agent=${agent}`, color: 'border-amber-500/30 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20' },
+    { key: 'upgrade',       label: '⬆ Upgrade',    href: `#upgrade`,                                color: 'border-emerald-500/40 bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25 font-bold' },
     { key: 'molt',          label: 'Molt',          href: `/molt?agent=${agent}`,                    color: 'border-fuchsia-500/30 bg-fuchsia-500/10 text-fuchsia-300 hover:bg-fuchsia-500/20' },
     { key: 'ghost-tier',    label: 'Ghost Tier',    href: `/dashboard/settings/ghost?agent=${agent}`, color: 'border-zinc-500/30 bg-zinc-500/10 text-zinc-300 hover:bg-zinc-500/20' },
     { key: 'delegate-nft',  label: 'Delegate NFT',  href: '/dashboard/delegate',                      color: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20' },
@@ -59,6 +60,15 @@ export function FakeNormieLab() {
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [agentInfo, setAgentInfo] = useState<{ safe?: string; tier?: string; principal?: string } | null>(null);
   const [aboutExpanded, setAboutExpanded] = useState(false);
+  const [couponCode, setCouponCode] = useState('');
+  const [couponState, setCouponState] = useState<{ status: 'idle' | 'loading' | 'ok' | 'error'; message?: string }>({ status: 'idle' });
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.location.hash === '#upgrade') {
+      setShowUpgrade(true);
+      setTimeout(() => document.getElementById('upgrade')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 300);
+    }
+  }, []);
 
   const wallet = user?.wallet?.address ?? null;
 
@@ -296,7 +306,7 @@ export function FakeNormieLab() {
 
       {/* UPGRADE accordion — full width, only when owned */}
       {isOwned && (
-        <div className="rounded-2xl border border-fuchsia-500/30 bg-fuchsia-500/5 overflow-hidden">
+        <div id="upgrade" className="rounded-2xl border border-fuchsia-500/30 bg-fuchsia-500/5 overflow-hidden">
             <button
               onClick={() => setShowUpgrade(v => !v)}
               className="w-full flex items-center justify-between px-5 py-3 text-sm font-bold text-fuchsia-300 hover:bg-fuchsia-500/10 transition"
@@ -305,7 +315,53 @@ export function FakeNormieLab() {
               <span className="text-[10px] font-normal text-[var(--muted)]">{showUpgrade ? '▲ collapse' : '▼ choose tier'}</span>
             </button>
             {showUpgrade && (
-              <div className="px-4 pb-4 grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-fuchsia-500/20">
+              <div className="px-4 pb-4 space-y-4 border-t border-fuchsia-500/20">
+                {/* Coupon redemption */}
+                <div className="mt-4 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 space-y-2">
+                  <div className="text-xs font-bold text-amber-300">🎟 Redeem Upgrade Coupon</div>
+                  <p className="text-[11px] text-[var(--muted)]">Have a coupon code? Enter it below to activate PRO or PREMIUM instantly.</p>
+                  <div className="flex gap-2">
+                    <input
+                      value={couponCode}
+                      onChange={e => setCouponCode(e.target.value)}
+                      placeholder="paste coupon code…"
+                      className="flex-1 rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-xs font-mono text-white placeholder-zinc-600 focus:outline-none focus:border-amber-500/60"
+                    />
+                    <button
+                      disabled={!couponCode.trim() || couponState.status === 'loading'}
+                      onClick={async () => {
+                        const slug = agentRef.replace(/\..*/, '');
+                        setCouponState({ status: 'loading' });
+                        try {
+                          const res = await fetch('/api/fakenormies/redeem-coupon', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ coupon: couponCode.trim() }),
+                          });
+                          const data = await res.json() as { ok?: boolean; message?: string; tier?: string; beacon?: string; error?: string };
+                          if (data.ok) {
+                            setCouponState({ status: 'ok', message: data.message ?? `Upgraded to ${data.tier}! Re-claim below to activate.` });
+                            setCouponCode('');
+                          } else {
+                            setCouponState({ status: 'error', message: data.error ?? 'Redemption failed' });
+                          }
+                        } catch {
+                          setCouponState({ status: 'error', message: 'Network error — try again' });
+                        }
+                      }}
+                      className="rounded-lg bg-amber-500/20 border border-amber-500/40 px-4 py-1.5 text-xs font-bold text-amber-300 hover:bg-amber-500/30 disabled:opacity-40 transition"
+                    >
+                      {couponState.status === 'loading' ? '…' : 'Redeem'}
+                    </button>
+                  </div>
+                  {couponState.status === 'ok' && (
+                    <div className="text-[11px] text-emerald-400">✓ {couponState.message}</div>
+                  )}
+                  {couponState.status === 'error' && (
+                    <div className="text-[11px] text-red-400">✗ {couponState.message}</div>
+                  )}
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/5 p-4 space-y-3 mt-4">
                   <div className="text-center">
                     <div className="inline-flex items-center justify-center rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-bold text-emerald-300 mb-2">PRO</div>
@@ -351,6 +407,7 @@ export function FakeNormieLab() {
                   </Link>
                 </div>
               </div>
+            </div>
             )}
           </div>
       )}

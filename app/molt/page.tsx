@@ -105,6 +105,31 @@ export default function MoltPage() {
           </div>
         )}
 
+        {/* FakeNormie upgrade nudge — shown when source is basic tier */}
+        {source && (source.tier === 'basic' || !source.tier) && source.name && /\.(agent|fakenormie)/.test(source.name) && (
+          <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 px-5 py-4 flex items-start gap-4">
+            <span className="text-2xl shrink-0">⬆</span>
+            <div className="flex-1">
+              <div className="text-sm font-bold text-emerald-300 mb-1">Upgrade your tier before molting</div>
+              <p className="text-xs text-[var(--muted)]">
+                <span className="font-mono text-white">{source.name}_</span> is on the <strong className="text-white">Basic</strong> tier.
+                Molt changes your identity, but <strong className="text-white">PRO</strong> gives you a Gnosis Safe + ERC-8004 on-chain identity and
+                <strong className="text-white"> PREMIUM</strong> adds auto-forwarding and persistent history.
+                Upgrade first, then molt for maximum impact.
+              </p>
+              <div className="mt-3 flex items-center gap-3">
+                <a
+                  href={`/normies-lab#upgrade`}
+                  className="rounded-lg bg-emerald-500/20 border border-emerald-500/40 px-4 py-2 text-xs font-bold text-emerald-300 hover:bg-emerald-500/30 transition"
+                >
+                  Upgrade tier → PRO / PREMIUM
+                </a>
+                <span className="text-[10px] text-[var(--muted)]">or continue with identity-only molt below</span>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Step panels */}
         <div className="rounded-2xl border border-[rgba(176,128,92,0.2)] bg-[var(--card)] p-6">
 
