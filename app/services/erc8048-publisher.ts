@@ -28,9 +28,11 @@ export function getSubCapFromMandate(mandate: string): bigint {
   }
 }
 
-export const CURSOR_CONTRACT  = '0x5235249f1409a315349036af4ea914a9efdb7cbf' as const;
+export const CURSOR_CONTRACT   = '0x5235249f1409a315349036af4ea914a9efdb7cbf' as const;
 export const CURSOR_CHIADO_RPC = 'https://rpc.chiado.gnosis.gateway.fm' as const;
-export const CURSOR_ISSUER    = '0xb51441f05717e0321ac6c72271989bffd07a8a12c1364ccc51119c6ff46a80c5' as `0x${string}`;
+export const CURSOR_ISSUER     = '0xb51441f05717e0321ac6c72271989bffd07a8a12c1364ccc51119c6ff46a80c5' as `0x${string}`;
+/** keccak256(utf8("default")) — the leaf-level scopeId committed at registration time */
+export const LEAF_SCOPE_ID     = '0xcfee7c08a98f4b565d124c7e4e28acc52e1bc780e3887db0a02a7d2d5bc66728' as `0x${string}`;
 
 export const CURSOR_ABI = [
   {
@@ -45,7 +47,7 @@ export const CURSOR_ABI = [
   },
   {
     name: 'leafSpent', type: 'function', stateMutability: 'view',
-    inputs:  [{ name: 'id', type: 'bytes32' }],
+    inputs:  [{ name: 'id', type: 'bytes32' }, { name: 'scopeId', type: 'bytes32' }],
     outputs: [{ name: '', type: 'uint256' }],
   },
 ] as const;

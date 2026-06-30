@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import Image from 'next/image';
 import {
-  CURSOR_CONTRACT, CURSOR_CHIADO_RPC, CURSOR_ABI, CURSOR_ISSUER, REGISTRY_ABI,
+  CURSOR_CONTRACT, CURSOR_CHIADO_RPC, CURSOR_ABI, CURSOR_ISSUER, LEAF_SCOPE_ID, REGISTRY_ABI,
   getSubCapFromMandate, decodeStringValue, MANDATE_OPTIONS,
 } from '../services/erc8048-publisher';
 
@@ -168,7 +168,7 @@ export function WitnessChamber({ compact = false, terminal = false, initialToken
 
       const [capRoot, spent] = await Promise.all([
         cClient.readContract({ address: CURSOR_CONTRACT, abi: CURSOR_ABI, functionName: 'capabilityRoot', args: [scopeId] }).catch(() => NULL_ROOT as `0x${string}`),
-        cClient.readContract({ address: CURSOR_CONTRACT, abi: CURSOR_ABI, functionName: 'leafSpent',      args: [scopeId] }).catch(() => 0n),
+        cClient.readContract({ address: CURSOR_CONTRACT, abi: CURSOR_ABI, functionName: 'leafSpent',      args: [scopeId, LEAF_SCOPE_ID] }).catch(() => 0n),
       ]);
 
       const registered = (capRoot as string) !== NULL_ROOT;

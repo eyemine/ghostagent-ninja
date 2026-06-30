@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { fetchSovereignSidecarMatrix, fetchTokenIdsForWallet } from '../../services/envio';
-import { encodeStringValue, decodeStringValue, KNOWN_KEYS, MANDATE_OPTIONS, getSubCapFromMandate, CURSOR_CONTRACT, CURSOR_CHIADO_RPC, CURSOR_ISSUER, CURSOR_ABI, REGISTRY_ABI } from '../../services/erc8048-publisher';
+import { encodeStringValue, decodeStringValue, KNOWN_KEYS, MANDATE_OPTIONS, getSubCapFromMandate, CURSOR_CONTRACT, CURSOR_CHIADO_RPC, CURSOR_ISSUER, LEAF_SCOPE_ID, CURSOR_ABI, REGISTRY_ABI } from '../../services/erc8048-publisher';
 import type { TokenSidecarState } from '../../types/indexer';
 
 const REGISTRY = process.env.NEXT_PUBLIC_ERC8048_REGISTRY ?? '0x0106341056a8790f4b924c380ed5B81B2a062bCE';
@@ -164,6 +164,10 @@ export default function Erc8048Dashboard() {
   const [ceilingStatus, setCeilingStatus] = useState<string | null>(null);
   const [ceilingError, setCeilingError] = useState<string | null>(null);
 
+  const [syncingMandate, setSyncingMandate] = useState(false);
+  const [syncMandateStatus, setSyncMandateStatus] = useState<string | null>(null);
+  const [syncMandateError, setSyncMandateError] = useState<string | null>(null);
+
   const userAddress = useMemo(() => wallets[0]?.address ?? '', [wallets]);
 
   const loadCursorState = useCallback(async () => {
@@ -193,7 +197,7 @@ export default function Erc8048Dashboard() {
       const cursorScopeId = keccak256(scopeBytes) as `0x${string}`;
       const [capRoot, spent] = await Promise.all([
         chiadoClient.readContract({ address: CURSOR_CONTRACT, abi: CURSOR_ABI, functionName: 'capabilityRoot', args: [cursorScopeId] }).catch(() => '0x0000000000000000000000000000000000000000000000000000000000000000' as `0x${string}`),
-        chiadoClient.readContract({ address: CURSOR_CONTRACT, abi: CURSOR_ABI, functionName: 'leafSpent',      args: [cursorScopeId] }).catch(() => 0n),
+        chiadoClient.readContract({ address: CURSOR_CONTRACT, abi: CURSOR_ABI, functionName: 'leafSpent',      args: [cursorScopeId, LEAF_SCOPE_ID] }).catch(() => 0n),
       ]);
       const nullRoot = '0x0000000000000000000000000000000000000000000000000000000000000000';
       setCursorRegistered(capRoot !== nullRoot);
@@ -330,6 +334,20 @@ export default function Erc8048Dashboard() {
     setPublishStatus(null);
     setPublishError(null);
     try {
+      // FakeNormies: registry is operator-only — route through server-side API
+      if (pairedNft?.key === 'fakenormie') {
+        const res = await fetch('/api/fakenormies/set-sidecar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tokenId: Number(tokenIdInput), key: metaKey, value: metaValue }),
+        });
+        const json = await res.json() as { txHash?: string; error?: string };
+        if (!res.ok) throw new Error(json.error ?? 'API error');
+        setPublishStatus(`Broadcast: ${json.txHash}`);
+        void loadMatrix();
+        return;
+      }
+      // Other collections: user wallet tx on Gnosis
       const provider = (window as unknown as { ethereum?: unknown }).ethereum;
       if (!provider) throw new Error('No wallet provider found');
       const { createWalletClient, custom, encodeFunctionData } = await import('viem');
@@ -355,6 +373,64 @@ export default function Erc8048Dashboard() {
       setPublishError(err instanceof Error ? err.message : 'Transaction failed');
     } finally {
       setPublishing(false);
+    }
+  }
+
+  async function handleSyncMandate() {
+    if (!pairedNft || !tokenIdInput) return;
+    setSyncingMandate(true);
+    setSyncMandateStatus(null);
+    setSyncMandateError(null);
+    try {
+      const { createPublicClient, http, keccak256, encodeAbiParameters } = await import('viem');
+      const chiado = {
+        id: 10200, name: 'Gnosis Chiado',
+        nativeCurrency: { name: 'Chiado xDAI', symbol: 'xDAI', decimals: 18 },
+        rpcUrls: { default: { http: [CURSOR_CHIADO_RPC] } },
+      } as const;
+      const chiadoClient = createPublicClient({ chain: chiado, transport: http(CURSOR_CHIADO_RPC) });
+      const scopeKey = `erc8048:${pairedNft.key}:${tokenIdInput}`;
+      const cursorScopeId = keccak256(new TextEncoder().encode(scopeKey)) as `0x${string}`;
+      const registeredCapRoot = await chiadoClient.readContract({
+        address: CURSOR_CONTRACT, abi: CURSOR_ABI,
+        functionName: 'capabilityRoot', args: [cursorScopeId],
+      }).catch(() => '0x0000000000000000000000000000000000000000000000000000000000000000' as `0x${string}`);
+      const NULL_ROOT = '0x0000000000000000000000000000000000000000000000000000000000000000';
+      if (registeredCapRoot === NULL_ROOT) {
+        throw new Error('No cursor leaf registered on Chiado for this token — apply a ceiling first');
+      }
+      // Reverse-engineer mandate by matching capRoot against known mandate subCaps
+      const leafScopeId = keccak256(new TextEncoder().encode('default')) as `0x${string}`;
+      const ZERO_ADDR = '0x0000000000000000000000000000000000000000' as `0x${string}`;
+      let detectedMandate: string | null = null;
+      for (const opt of [{ value: 'restricted', subCap: 1_000_000_000_000n }, { value: 'worker', subCap: 20_000_000_000_000n }, { value: 'executive', subCap: 100_000_000_000_000n }]) {
+        const encoded = encodeAbiParameters(
+          [{ type: 'bytes32' }, { type: 'uint256' }, { type: 'address' }, { type: 'bytes32' }],
+          [leafScopeId, opt.subCap, ZERO_ADDR, CURSOR_ISSUER],
+        );
+        const expectedRoot = keccak256(encoded);
+        if (expectedRoot.toLowerCase() === registeredCapRoot.toLowerCase()) {
+          detectedMandate = opt.value;
+          break;
+        }
+      }
+      if (!detectedMandate) {
+        throw new Error(`capRoot ${registeredCapRoot.slice(0, 10)}… does not match any known mandate — was a custom subCap used?`);
+      }
+      const res = await fetch('/api/fakenormies/set-sidecar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tokenId: Number(tokenIdInput), key: 'cursor[mandate]', value: detectedMandate }),
+      });
+      const json = await res.json() as { txHash?: string; error?: string };
+      if (!res.ok) throw new Error(json.error ?? 'API error');
+      setSyncMandateStatus(`cursor[mandate]=${detectedMandate} written · tx ${json.txHash?.slice(0, 14)}…`);
+      void loadMatrix();
+      void loadCursorState();
+    } catch (err) {
+      setSyncMandateError(err instanceof Error ? err.message : 'Sync failed');
+    } finally {
+      setSyncingMandate(false);
     }
   }
 
@@ -592,6 +668,21 @@ export default function Erc8048Dashboard() {
           <div className="space-y-4">
             <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-5 font-mono text-xs">
               <h2 className="mb-4 border-b border-slate-800 pb-3 text-sm font-bold text-slate-200">Sidecar Registry Toolkit</h2>
+              {pairedNft?.key === 'fakenormie' && (
+                <div className="mb-4 rounded border border-violet-500/30 bg-violet-500/8 px-3 py-2 text-[10px] text-violet-300">
+                  FakeNormie writes are relayed through the protocol operator key — no wallet tx required.
+                  <button
+                    type="button"
+                    onClick={() => void handleSyncMandate()}
+                    disabled={syncingMandate || !tokenIdInput}
+                    className="mt-2 flex w-full items-center justify-center gap-2 rounded bg-violet-700/60 py-1.5 font-bold text-white transition hover:bg-violet-700 disabled:opacity-50"
+                  >
+                    {syncingMandate ? 'Syncing…' : '⬆ Sync cursor[mandate] from Chiado'}
+                  </button>
+                  {syncMandateStatus && <div className="mt-1 text-emerald-400">{syncMandateStatus}</div>}
+                  {syncMandateError  && <div className="mt-1 text-red-400">{syncMandateError}</div>}
+                </div>
+              )}
               <form onSubmit={(e) => void handlePublish(e)} className="space-y-4">
                 <div>
                   <label className="mb-1 block text-slate-400">Token ID</label>
