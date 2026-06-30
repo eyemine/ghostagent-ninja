@@ -114,6 +114,77 @@ export const REGISTRY_ABI = [
   },
 ] as const;
 
+/**
+ * Read all KNOWN_KEYS for a batch of tokenIds directly from the registry contract.
+ * Bypasses the Envio indexer — works even if NEXT_PUBLIC_ENVIO_ENDPOINT is unset
+ * and is immune to the indexed-string-key-hash issue in the MetadataSet event.
+ */
+export async function fetchSidecarViaRpc(
+  registryAddress: `0x${string}`,
+  rpcUrl: string,
+  tokenIds: number[],
+  collectionKey?: string,
+): Promise<import('../types/indexer').TokenSidecarState[]> {
+  const { createPublicClient, http } = await import('viem');
+  const { gnosis } = await import('viem/chains');
+  const client = createPublicClient({ chain: gnosis, transport: http(rpcUrl) });
+
+  const keys = KNOWN_KEYS.map(k => k.key);
+
+  const rows = await Promise.allSettled(
+    tokenIds.flatMap(id =>
+      keys.map(key =>
+        client.readContract({
+          address: registryAddress,
+          abi: REGISTRY_ABI,
+          functionName: 'metadata',
+          args: [BigInt(id), key],
+        }).then(val => ({ id, key, val: val as `0x${string}` }))
+      )
+    )
+  );
+
+  const byToken: Record<number, Record<string, string>> = {};
+  tokenIds.forEach(id => { byToken[id] = {}; });
+  rows.forEach(r => {
+    if (r.status === 'fulfilled' && r.value.val && r.value.val !== '0x') {
+      byToken[r.value.id][r.value.key] = decodeStringValue(r.value.val);
+    }
+  });
+
+  const isFakeNormie = collectionKey === 'fakenormie';
+  const isChonk = collectionKey === 'chonk';
+
+  return tokenIds.map(id => {
+    const kv = byToken[id];
+    const name = isFakeNormie
+      ? `FakeNormie #${id}`
+      : isChonk
+      ? `Chonk #${id}`
+      : collectionKey
+      ? `${collectionKey} #${id}`
+      : `Asset #${id}`;
+    const image = isFakeNormie
+      ? `/FakeNormies/SVGS/${String(id).padStart(2, '0')}.svg`
+      : isChonk
+      ? `https://api.chonks.carbonlocks.xyz/images/${id}.png`
+      : '';
+    return {
+      contractAddress: registryAddress,
+      tokenId: id,
+      name,
+      image,
+      storyIpId: undefined,
+      storyLicenseId: kv['story[license_id]'],
+      cdrVaultId: kv['cdr[vault_id]'],
+      cursorMandate: kv['cursor[mandate]'],
+      cursorAgreementHash: kv['cursor[agreement_hash]'],
+      isRegistered: false,
+      hasSidecarState: Object.keys(kv).length > 0,
+    };
+  });
+}
+
 export interface PublishEntry {
   key: string;
   value: string;

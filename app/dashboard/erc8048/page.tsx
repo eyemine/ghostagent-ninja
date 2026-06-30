@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { fetchSovereignSidecarMatrix, fetchTokenIdsForWallet } from '../../services/envio';
-import { encodeStringValue, decodeStringValue, KNOWN_KEYS, MANDATE_OPTIONS, getSubCapFromMandate, CURSOR_CONTRACT, CURSOR_CHIADO_RPC, CURSOR_ISSUER, LEAF_SCOPE_ID, CURSOR_ABI, REGISTRY_ABI } from '../../services/erc8048-publisher';
+import { encodeStringValue, decodeStringValue, KNOWN_KEYS, MANDATE_OPTIONS, getSubCapFromMandate, CURSOR_CONTRACT, CURSOR_CHIADO_RPC, CURSOR_ISSUER, LEAF_SCOPE_ID, CURSOR_ABI, REGISTRY_ABI, fetchSidecarViaRpc } from '../../services/erc8048-publisher';
 import type { TokenSidecarState } from '../../types/indexer';
 
 const REGISTRY = process.env.NEXT_PUBLIC_ERC8048_REGISTRY ?? '0x0106341056a8790f4b924c380ed5B81B2a062bCE';
@@ -310,7 +310,18 @@ export default function Erc8048Dashboard() {
       if (ids.length === 0) {
         setSidecars([]);
       } else {
-        const matrix = await fetchSovereignSidecarMatrix(contract, ids, pairedNft.key);
+        const GNOSIS_RPC = 'https://rpc.gnosischain.com';
+        let matrix: TokenSidecarState[];
+        if (pairedNft.key === 'fakenormie') {
+          // Always read direct from contract — Envio indexed-key-hash issue makes it unreliable
+          matrix = await fetchSidecarViaRpc(REGISTRY as `0x${string}`, GNOSIS_RPC, ids, pairedNft.key);
+        } else {
+          // Try Envio first; fall back to RPC if all tokens show no sidecar state
+          matrix = await fetchSovereignSidecarMatrix(contract, ids, pairedNft.key);
+          if (matrix.every(t => !t.hasSidecarState)) {
+            matrix = await fetchSidecarViaRpc(REGISTRY as `0x${string}`, GNOSIS_RPC, ids, pairedNft.key);
+          }
+        }
         setSidecars(matrix);
         // Auto-select first token (owned first, or first in list)
         if (ids.length > 0) setTokenIdInput(prev => prev || String(ids[0]));
