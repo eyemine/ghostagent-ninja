@@ -18,23 +18,7 @@ const geistMono = Roboto_Mono({
 
 export const dynamic = 'force-dynamic';
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://ghostagent.ninja';
 const LOGO_URL = 'https://moccasin-useful-vole-840.mypinata.cloud/ipfs/bafkreicx5r5qfonzdmnhkeblrfbhaj7gcbgc34g6kvkh7hbxypd54qqx3a';
-
-const miniAppEmbed = JSON.stringify({
-  version: '1',
-  imageUrl: `${APP_URL}/api/og?title=GhostAgent&description=Trustless+AI+agent+protocol`,
-  button: {
-    title: '👻 Open GhostAgent',
-    action: {
-      type: 'launch_frame',
-      name: 'GhostAgent',
-      url: `${APP_URL}/mini`,
-      splashImageUrl: LOGO_URL,
-      splashBackgroundColor: '#000000',
-    },
-  },
-});
 
 export const metadata: Metadata = {
   title: "GhostAgent Ninja",
@@ -43,10 +27,6 @@ export const metadata: Metadata = {
     icon: LOGO_URL,
     shortcut: LOGO_URL,
     apple: LOGO_URL,
-  },
-  other: {
-    'fc:miniapp': miniAppEmbed,
-    'fc:frame': miniAppEmbed,
   },
 };
 
