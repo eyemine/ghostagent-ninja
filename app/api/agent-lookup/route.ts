@@ -312,8 +312,17 @@ export async function GET(req: NextRequest) {
     let resolved: any = primary.data;
     if (secondary) {
       resolved = { ...secondary };
+      const TIER_RANK: Record<string, number> = { basic: 0, pupa: 1, lite: 1, premium: 2, ghost: 3 };
       for (const [k, v] of Object.entries(primary.data)) {
-        if (v !== null && v !== undefined) resolved[k] = v;
+        if (v !== null && v !== undefined) {
+          if (k === 'accountTier') {
+            const pRank = TIER_RANK[(v as string)] ?? 0;
+            const sRank = TIER_RANK[(resolved[k] as string)] ?? 0;
+            if (pRank >= sRank) resolved[k] = v;
+          } else {
+            resolved[k] = v;
+          }
+        }
       }
       resolved.exists = primary.data.exists || secondary.exists;
     }
