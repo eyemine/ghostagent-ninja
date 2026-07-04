@@ -2316,12 +2316,11 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
         // Editable fields: description, webUrl, socialLinks (X, GitHub, etc.)
         // agentWallet is NOT editable here — it is the agent's Safe, set on-chain.
         //
-        // Auth: TODO - caller must provide an EIP-191 personal_sign signature over the
+        // Auth: caller must provide an EIP-191 personal_sign signature over the
         // canonical message "GhostAgent profile update: {agentName} at {timestamp}"
         // Signer is recovered and checked against ownerOf(agentId) on the ERC-8004
         // Identity Registry on Gnosis (chainId 100).
-        // TEMPORARILY DISABLED: Frontend does not yet implement signature generation.
-        // Re-enable auth once frontend is updated to handle wallet signing.
+        // Fallback: WEBHOOK_SECRET accepted for server-side / admin calls.
 
         if (email.action === 'setAgentProfile') {
           const agentName = ((email as any).agentName || '').toLowerCase().trim();
@@ -2329,68 +2328,69 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
             return corsify(Response.json({ error: 'Missing agentName' }, { status: 400 }), request);
           }
 
-          // ── Signature verification (TEMPORARILY DISABLED) ─────────────────────
-          // TODO: Re-enable this block once frontend implements wallet signing
-          /*
-          const signature  = ((email as any).signature  || '').trim();
-          const sigMessage = ((email as any).sigMessage || '').trim();
-          const agentIdNum = Number((email as any).agentId ?? 0);
+          // ── Admin bypass via WEBHOOK_SECRET ───────────────────────────────────
+          const adminSecret = (email as any).secret || request.headers.get('X-Webhook-Secret') || '';
+          const isAdminCall = env.WEBHOOK_SECRET && adminSecret === env.WEBHOOK_SECRET;
 
-          if (!signature || !sigMessage || !agentIdNum) {
-            return corsify(Response.json({
-              error: 'Missing signature, sigMessage, or agentId — sign the message in your wallet first',
-            }, { status: 401 }), request);
-          }
+          if (!isAdminCall) {
+            // ── EIP-191 personal_sign verification ──────────────────────────────
+            const signature  = ((email as any).signature  || '').trim();
+            const sigMessage = ((email as any).sigMessage || '').trim();
+            const agentIdNum = Number((email as any).agentId ?? 0);
 
-          // Validate message format to prevent replay with arbitrary messages
-          const expectedPrefix = `GhostAgent profile update: ${agentName} at `;
-          if (!sigMessage.startsWith(expectedPrefix)) {
-            return corsify(Response.json({ error: 'Invalid sigMessage format' }, { status: 401 }), request);
-          }
-          // Timestamp must be within 10 minutes
-          const ts = Number(sigMessage.replace(expectedPrefix, ''));
-          if (!ts || Math.abs(Date.now() - ts) > 10 * 60 * 1000) {
-            return corsify(Response.json({ error: 'Signature expired — regenerate and retry' }, { status: 401 }), request);
-          }
+            if (!signature || !sigMessage || !agentIdNum) {
+              return corsify(Response.json({
+                error: 'Missing signature, sigMessage, or agentId — sign the message in your wallet first',
+              }, { status: 401 }), request);
+            }
 
-          // Recover signer from EIP-191 personal_sign
-          let recoveredAddress: string;
-          try {
-            recoveredAddress = await recoverPersonalSignSigner(sigMessage, signature);
-          } catch (e) {
-            return corsify(Response.json({ error: 'Invalid signature' }, { status: 401 }), request);
-          }
+            // Validate message format to prevent replay with arbitrary messages
+            const expectedPrefix = `GhostAgent profile update: ${agentName} at `;
+            if (!sigMessage.startsWith(expectedPrefix)) {
+              return corsify(Response.json({ error: 'Invalid sigMessage format' }, { status: 401 }), request);
+            }
+            // Timestamp must be within 10 minutes
+            const sigTs = Number(sigMessage.replace(expectedPrefix, ''));
+            if (!sigTs || Math.abs(Date.now() - sigTs) > 10 * 60 * 1000) {
+              return corsify(Response.json({ error: 'Signature expired — regenerate and retry' }, { status: 401 }), request);
+            }
 
-          // Check ownerOf(agentId) on Gnosis ERC-8004 Identity Registry
-          const GNOSIS_RPC = 'https://rpc.gnosischain.com';
-          const ERC8004_REGISTRY = '0x8004A169FB4a3325136EB29fA0ceB6D2e539a432';
-          // ownerOf(uint256) = 0x6352211e
-          const ownerOfData = '0x6352211e' + agentIdNum.toString(16).padStart(64, '0');
-          let tokenOwner: string;
-          try {
-            const rpcRes = await fetch(GNOSIS_RPC, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                jsonrpc: '2.0', id: 1, method: 'eth_call',
-                params: [{ to: ERC8004_REGISTRY, data: ownerOfData }, 'latest'],
-              }),
-            });
-            const rpcJson = await rpcRes.json() as { result?: string; error?: unknown };
-            if (!rpcJson.result || rpcJson.result === '0x') throw new Error('No result');
-            // result is 32-byte padded address
-            tokenOwner = '0x' + rpcJson.result.slice(-40);
-          } catch {
-            return corsify(Response.json({ error: 'Failed to verify token ownership on-chain' }, { status: 500 }), request);
-          }
+            // Recover signer from EIP-191 personal_sign
+            let recoveredAddress: string;
+            try {
+              recoveredAddress = await recoverPersonalSignSigner(sigMessage, signature);
+            } catch {
+              return corsify(Response.json({ error: 'Invalid signature' }, { status: 401 }), request);
+            }
 
-          if (tokenOwner.toLowerCase() !== recoveredAddress.toLowerCase()) {
-            return corsify(Response.json({
-              error: `Signer ${recoveredAddress} does not own ERC-8004 token #${agentIdNum} (owner: ${tokenOwner})`,
-            }, { status: 403 }), request);
+            // Check ownerOf(agentId) on Gnosis ERC-8004 Identity Registry
+            const GNOSIS_RPC = 'https://rpc.gnosischain.com';
+            const ERC8004_REGISTRY = '0x8004A169FB4a3325136EB29fA0ceB6D2e539a432';
+            const ownerOfData = '0x6352211e' + agentIdNum.toString(16).padStart(64, '0');
+            let tokenOwner: string;
+            try {
+              const rpcRes = await fetch(GNOSIS_RPC, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  jsonrpc: '2.0', id: 1, method: 'eth_call',
+                  params: [{ to: ERC8004_REGISTRY, data: ownerOfData }, 'latest'],
+                }),
+              });
+              const rpcJson = await rpcRes.json() as { result?: string; error?: unknown };
+              if (!rpcJson.result || rpcJson.result === '0x') throw new Error('No result');
+              tokenOwner = '0x' + rpcJson.result.slice(-40);
+            } catch {
+              return corsify(Response.json({ error: 'Failed to verify token ownership on-chain' }, { status: 500 }), request);
+            }
+
+            if (tokenOwner.toLowerCase() !== recoveredAddress.toLowerCase()) {
+              return corsify(Response.json({
+                error: `Signer ${recoveredAddress} does not own ERC-8004 token #${agentIdNum} (owner: ${tokenOwner})`,
+              }, { status: 403 }), request);
+            }
           }
-          */
-          // ── End signature verification ──────────────────────────────────────
+          // ── End auth ──────────────────────────────────────────────────────────
 
           const existing = await env.INBOX_KV.get(`agentprofile:${agentName}`);
           let profile: Record<string, unknown> = {};
@@ -2404,7 +2404,7 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
           }
 
           await env.INBOX_KV.put(`agentprofile:${agentName}`, JSON.stringify(profile));
-          return corsify(Response.json({ status: 'updated', agentName, profile, verifiedOwner: 'auth-disabled' }), request);
+          return corsify(Response.json({ status: 'updated', agentName, profile, verifiedOwner: isAdminCall ? 'admin' : 'on-chain' }), request);
         }
 
         if (email.action === 'getAgentProfile') {
@@ -5822,14 +5822,23 @@ Mint a BYO NFT on nftmail.box to claim this tier.
                 const recipTtl = ttlMap[recipTier] ?? 8 * 86400;
                 const internalTs = Date.now();
                 const internalBlindId = `blind-${internalTs}-${crypto.randomUUID().slice(0, 8)}`;
-                const internalEnvelope = JSON.stringify({
-                  type: 'human-cleartext', encrypted: false,
-                  payload: { from: `${agentName}@nftmail.box`, to: `${recipLocal}@nftmail.box`, subject, body, timestamp: internalTs },
-                  receivedAt: internalTs, channel: 'internal',
-                });
+                const internalPlaintext = JSON.stringify({ from: `${agentName}@nftmail.box`, to: `${recipLocal}@nftmail.box`, subject, body, timestamp: internalTs });
+                // Encrypt with recipient ECIES key if available — matches inbound mail pattern
+                const recipPubKey = await env.INBOX_KV.get(`ecies-pubkey:${recipLocal}`);
+                let internalEnvelope: string;
+                if (recipPubKey) {
+                  try {
+                    const encEnv = await eciesEncrypt(internalPlaintext, recipPubKey);
+                    internalEnvelope = JSON.stringify({ type: 'agent-ecies-blind', encrypted: true, envelope: encEnv, receivedAt: internalTs, channel: 'internal' });
+                  } catch {
+                    internalEnvelope = JSON.stringify({ type: 'human-cleartext-warning', encrypted: false, warning: 'ECIES encrypt failed — stored cleartext.', payload: JSON.parse(internalPlaintext), receivedAt: internalTs, channel: 'internal' });
+                  }
+                } else {
+                  internalEnvelope = JSON.stringify({ type: 'human-cleartext-warning', encrypted: false, warning: 'No ECIES key registered.', payload: JSON.parse(internalPlaintext), receivedAt: internalTs, channel: 'internal' });
+                }
                 await env.INBOX_KV.put(`blind:${recipLocal}:${internalBlindId}`, internalEnvelope, { expirationTtl: recipTtl });
                 await updateBlindIndex(env, recipLocal, internalBlindId, '', recipTtl);
-                // Shadow-write to D1 for LITE+ agents so getInbox D1-first path finds it
+                // Shadow-write to D1/SQLite for LITE+ agents so getInbox D1-first path finds it
                 if (recipTier !== 'basic' && env.NFTMAIL_DB) {
                   try {
                     const d1 = new D1Store(env.NFTMAIL_DB);
@@ -5850,7 +5859,7 @@ Mint a BYO NFT on nftmail.box to claim this tier.
                     console.error('[sendOutbound] D1 shadow write failed (non-fatal):', d1Err);
                   }
                 }
-                console.log(`[sendOutbound] internal delivery → ${recipLocal} (tier:${recipTier})`);
+                console.log(`[sendOutbound] internal delivery → ${recipLocal} (tier:${recipTier}, encrypted:${!!recipPubKey})`);
               }
             } catch (e) {
               console.error('[sendOutbound] internal delivery failed (non-fatal):', e);
@@ -5858,6 +5867,187 @@ Mint a BYO NFT on nftmail.box to claim this tier.
           }
           await env.INBOX_KV.put(`acct-tier:${agentName}`, JSON.stringify(tierData));
           return corsify(Response.json({ status: 'sent', sendsRemaining: sendsRemainingOut }), request);
+        }
+
+        // ── Agent Transmission: bitmap-only secure channel ────────────────────
+        // Allowed types: PNG, JPEG, BMP, TIFF. No PDFs, SVGs, or executables.
+        // 1 transmission = 1 send consumed from sender quota.
+        // For @nftmail.box recipients: direct KV tray + Mailgun notification.
+        // For external recipients: Mailgun with bitmap attachment.
+        if (email.action === 'sendTransmission') {
+          const txFromName: string = ((email as any).fromName || '').toLowerCase().trim();
+          const txToEmail: string = ((email as any).toEmail || '').trim();
+          const txImageData: string = ((email as any).imageData || '').trim(); // base64
+          const txMimeType: string = ((email as any).mimeType || '').toLowerCase().trim();
+          const txFileName: string = ((email as any).fileName || 'transmission').trim();
+
+          const ALLOWED_MIME = ['image/png', 'image/jpeg', 'image/jpg', 'image/bmp', 'image/tiff'];
+          if (!txFromName || !txToEmail || !txImageData || !txMimeType) {
+            return corsify(Response.json({ error: 'Missing fromName, toEmail, imageData or mimeType' }, { status: 400 }), request);
+          }
+          if (!ALLOWED_MIME.includes(txMimeType)) {
+            return corsify(Response.json({ error: `Unsupported type: ${txMimeType}. Allowed: PNG, JPEG, BMP, TIFF.` }, { status: 415 }), request);
+          }
+          if (txImageData.length > 7 * 1024 * 1024) {
+            return corsify(Response.json({ error: 'Image exceeds 5MB limit' }, { status: 413 }), request);
+          }
+          const txTierRaw = await env.INBOX_KV.get(`acct-tier:${txFromName}`);
+          if (!txTierRaw) {
+            return corsify(Response.json({ error: 'Sender agent not found' }, { status: 404 }), request);
+          }
+          const txTierData = JSON.parse(txTierRaw);
+          const txTier: string = txTierData.tier || 'basic';
+          if (txTier === 'basic') {
+            return corsify(Response.json({ error: 'Basic tier cannot send transmissions. Upgrade to send.' }, { status: 402 }), request);
+          }
+          const txNowMs = Date.now();
+          const txTodayUtcMs = txNowMs - (txNowMs % 86400000);
+          let txSendsRemaining: number | string = 'unlimited';
+          if (txTier === 'lite') {
+            const DAILY_LIMIT = 100;
+            if ((txTierData.dailySendWindowStart || 0) < txTodayUtcMs) {
+              txTierData.dailySendCount = 0;
+              txTierData.dailySendWindowStart = txTodayUtcMs;
+            }
+            const txUsed = txTierData.dailySendCount || 0;
+            if (txUsed >= DAILY_LIMIT) {
+              return corsify(Response.json({ error: 'Daily send limit reached', sendsRemaining: 0 }, { status: 429 }), request);
+            }
+            txTierData.dailySendCount = txUsed + 1;
+            txTierData.dailySendWindowStart = txTodayUtcMs;
+            txSendsRemaining = DAILY_LIMIT - txTierData.dailySendCount;
+          }
+          const txId = `tx-${txNowMs}-${crypto.randomUUID().slice(0, 8)}`;
+          const txRecord = JSON.stringify({
+            id: txId,
+            from: `${txFromName}@nftmail.box`,
+            to: txToEmail,
+            mimeType: txMimeType,
+            fileName: txFileName,
+            imageData: txImageData,
+            sentAt: txNowMs,
+            acknowledged: false,
+          });
+          const txSendApiKey = env.MG_SENDING_MAILGUN_API_KEY || env.MG_MAILGUN_API_KEY || env.GM_MAILGUN_API_KEY || env.SEND_MAILGUN_API_KEY || env.MAILGUN_API_KEY;
+          const txSubject = `[TRANSMISSION] ${txId.slice(0, 20)} from ${txFromName}@nftmail.box`;
+          const txCoverHtml = `<!DOCTYPE html><html><body style="background:#111;color:#d4d4aa;font-family:monospace;padding:24px;max-width:520px"><pre style="border:1px solid #444;padding:16px;font-size:12px;line-height:1.6">================================
+  AGENT TRANSMISSION RECEIVED
+================================
+FROM  : ${txFromName}@nftmail.box
+TO    : ${txToEmail}
+TX ID : ${txId}
+DATE  : ${new Date(txNowMs).toISOString().replace('T', ' ').slice(0, 19)} UTC
+TYPE  : ${txMimeType}
+================================
+Visit your Document Tray to view
+and acknowledge this transmission.
+================================</pre><p style="color:#888;font-size:11px;margin-top:16px">Bitmap-only secure channel. No executables. No macros. No scripts.</p></body></html>`;
+          const txToNorm = txToEmail.toLowerCase().trim();
+          if (txToNorm.endsWith('@nftmail.box')) {
+            const txRecipLocal = txToNorm.slice(0, -'@nftmail.box'.length);
+            const txRecipTierRaw = await env.INBOX_KV.get(`acct-tier:${txRecipLocal}`);
+            if (!txRecipTierRaw) {
+              return corsify(Response.json({ error: 'Recipient not found on nftmail.box' }, { status: 404 }), request);
+            }
+            const txRecipTier: string = (JSON.parse(txRecipTierRaw) as { tier?: string }).tier || 'basic';
+            const txTtlMap: Record<string, number> = { basic: 8 * 86400, lite: 30 * 86400, professional: 365 * 86400, vault: 365 * 86400 };
+            const txRecipTtl = txTtlMap[txRecipTier] ?? 8 * 86400;
+            await env.INBOX_KV.put(`tray:${txRecipLocal}:${txId}`, txRecord, { expirationTtl: txRecipTtl });
+            if (txSendApiKey) {
+              try {
+                const txNotifForm = new URLSearchParams();
+                txNotifForm.append('from', `${txFromName} <${txFromName}@nftmail.box>`);
+                txNotifForm.append('to', txToEmail);
+                txNotifForm.append('subject', txSubject);
+                txNotifForm.append('html', txCoverHtml);
+                txNotifForm.append('text', `Transmission received from ${txFromName}@nftmail.box. Visit your Document Tray to collect.`);
+                await fetch('https://api.eu.mailgun.net/v3/mg.nftmail.box/messages', {
+                  method: 'POST',
+                  headers: { Authorization: `Basic ${btoa(`api:${txSendApiKey}`)}` },
+                  body: txNotifForm,
+                });
+              } catch (txNotifErr) {
+                console.error('[sendTransmission] notification email failed (non-fatal):', txNotifErr);
+              }
+            }
+          } else {
+            if (!txSendApiKey) {
+              return corsify(Response.json({ error: 'Email sending not configured' }, { status: 503 }), request);
+            }
+            const txBinaryStr = atob(txImageData);
+            const txBytes = new Uint8Array(txBinaryStr.length);
+            for (let i = 0; i < txBinaryStr.length; i++) txBytes[i] = txBinaryStr.charCodeAt(i);
+            const txBlob = new Blob([txBytes], { type: txMimeType });
+            const txForm = new FormData();
+            txForm.append('from', `${txFromName} <${txFromName}@nftmail.box>`);
+            txForm.append('to', txToEmail);
+            txForm.append('subject', txSubject);
+            txForm.append('html', txCoverHtml);
+            txForm.append('text', `Transmission from ${txFromName}@nftmail.box — bitmap attachment enclosed.`);
+            txForm.append('attachment', txBlob, txFileName);
+            const txMgRes = await fetch('https://api.eu.mailgun.net/v3/mg.nftmail.box/messages', {
+              method: 'POST',
+              headers: { Authorization: `Basic ${btoa(`api:${txSendApiKey}`)}` },
+              body: txForm,
+            });
+            if (!txMgRes.ok) {
+              const txErr = await txMgRes.text();
+              return corsify(Response.json({ error: `Mailgun error: ${txErr.slice(0, 100)}` }, { status: 502 }), request);
+            }
+          }
+          await env.INBOX_KV.put(`acct-tier:${txFromName}`, JSON.stringify(txTierData));
+          return corsify(Response.json({ status: 'transmitted', txId, sendsRemaining: txSendsRemaining }), request);
+        }
+
+        // ── Document Tray: list uncollected transmissions (metadata only) ──────
+        if (email.action === 'getDocumentTray') {
+          const trayLocal: string = ((email as any).localPart || '').toLowerCase().trim();
+          if (!trayLocal) {
+            return corsify(Response.json({ error: 'Missing localPart' }, { status: 400 }), request);
+          }
+          const trayListed = await env.INBOX_KV.list({ prefix: `tray:${trayLocal}:` });
+          const trayItems = await Promise.all(
+            trayListed.keys.map(async (k) => {
+              const raw = await env.INBOX_KV.get(k.name);
+              if (!raw) return null;
+              const { imageData: _img, ...meta } = JSON.parse(raw) as Record<string, unknown>;
+              return meta;
+            })
+          );
+          return corsify(Response.json({ transmissions: trayItems.filter(Boolean) }), request);
+        }
+
+        // ── Document Tray: fetch full transmission record (includes imageData) ─
+        if (email.action === 'getTransmission') {
+          const gtLocal: string = ((email as any).localPart || '').toLowerCase().trim();
+          const gtTxId: string = ((email as any).txId || '').trim();
+          if (!gtLocal || !gtTxId) {
+            return corsify(Response.json({ error: 'Missing localPart or txId' }, { status: 400 }), request);
+          }
+          const gtRaw = await env.INBOX_KV.get(`tray:${gtLocal}:${gtTxId}`);
+          if (!gtRaw) {
+            return corsify(Response.json({ error: 'Transmission not found' }, { status: 404 }), request);
+          }
+          return corsify(Response.json(JSON.parse(gtRaw)), request);
+        }
+
+        // ── Document Tray: acknowledge (collect) a transmission ────────────────
+        if (email.action === 'acknowledgeTransmission') {
+          const ackLocal: string = ((email as any).localPart || '').toLowerCase().trim();
+          const ackTxId: string = ((email as any).txId || '').trim();
+          if (!ackLocal || !ackTxId) {
+            return corsify(Response.json({ error: 'Missing localPart or txId' }, { status: 400 }), request);
+          }
+          const ackKey = `tray:${ackLocal}:${ackTxId}`;
+          const ackRaw = await env.INBOX_KV.get(ackKey);
+          if (!ackRaw) {
+            return corsify(Response.json({ error: 'Transmission not found or already acknowledged' }, { status: 404 }), request);
+          }
+          const ackRecord = JSON.parse(ackRaw);
+          ackRecord.acknowledged = true;
+          ackRecord.acknowledgedAt = Date.now();
+          await env.INBOX_KV.put(ackKey, JSON.stringify(ackRecord), { expirationTtl: 86400 });
+          return corsify(Response.json({ status: 'acknowledged', txId: ackTxId }), request);
         }
 
         // --- sendWelcomeEmail: send welcome email to any address (webhook-protected) ---

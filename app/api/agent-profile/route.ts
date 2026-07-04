@@ -22,19 +22,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing agent name' }, { status: 400 });
     }
 
-    // Call worker to set agent profile
+    // Call worker to set agent profile (admin bypass via secret)
     const res = await fetch(WORKER_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         action: 'setAgentProfile',
-        name: name.toLowerCase(),
-        profile: {
-          description,
-          webUrl,
-          socialLinks,
-          updatedAt: new Date().toISOString(),
-        },
+        secret: WORKER_SECRET,
+        agentName: name.toLowerCase(),
+        description,
+        webUrl,
+        socialLinks,
       }),
     });
 
