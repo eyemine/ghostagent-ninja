@@ -2374,6 +2374,9 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
             // Check ownerOf(agentId) on Gnosis ERC-8004 Identity Registry
             const GNOSIS_RPC = 'https://rpc.gnosischain.com';
             const ERC8004_REGISTRY = '0x8004A169FB4a3325136EB29fA0ceB6D2e539a432';
+            // Base VR — differential singleton deriving existence from Gnosis ERC-8004
+            const BASE_VR = '0x13C120d5b289012467E18Be44652D675bD3B23EE';
+            const BASE_RPC = 'https://mainnet.base.org';
             const ownerOfData = '0x6352211e' + agentIdNum.toString(16).padStart(64, '0');
             let tokenOwner: string;
             try {

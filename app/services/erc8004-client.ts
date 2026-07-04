@@ -314,16 +314,36 @@ export async function requestValidation(
     agentId: bigint;
     requestURI: string;
     requestHash: Hex;
+    chainId?: number;  // 100 = Gnosis, 8453 = Base
   },
 ): Promise<Hex> {
   const [account] = await walletClient.getAddresses();
-  return walletClient.writeContract({
-    address: GNOSIS_ADDRESSES.validationRegistry,
+  const chainId = params.chainId ?? 100;
+  const isBase = chainId === 8453;
+  
+  // Base VR — differential singleton on Base deriving existence from Gnosis ERC-8004
+  const registryAddress = isBase 
+    ? ('0x13C120d5b289012467E18Be44652D675bD3B23EE' as Address)
+    : GNOSIS_ADDRESSES.validationRegistry;
+  
+  const chain = isBase ? (await import('viem/chains')).base : gnosis;
+  const rpc = isBase 
+    ? process.env.NEXT_PUBLIC_BASE_RPC ?? 'https://mainnet.base.org'
+    : process.env.NEXT_PUBLIC_GNOSIS_RPC ?? 'https://rpc.gnosischain.com';
+  
+  // Create a new wallet client with the correct chain
+  const chainWalletClient = createWalletClient({
+    account,
+    chain,
+    transport: http(rpc),
+  });
+  
+  return chainWalletClient.writeContract({
+    address: registryAddress,
     abi: ValidationRegistryABI,
     functionName: 'validationRequest',
     args: [params.validatorAddress, params.agentId, params.requestURI, params.requestHash],
     account,
-    chain: gnosis,
   });
 }
 

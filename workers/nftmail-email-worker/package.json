@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "deploy": "wrangler deploy --keep-vars",
-    "dev": "wrangler dev"
+    "dev": "wrangler dev",
+    "start:bun": "bun run src/bun-entry.ts"
   },
   "dependencies": {
     "@noble/hashes": "^1.4.0",

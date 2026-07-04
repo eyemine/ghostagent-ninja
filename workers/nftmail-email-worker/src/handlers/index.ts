@@ -18,6 +18,11 @@ import {
   getTransmission,
   acknowledgeTransmission,
 } from './transmission';
+import {
+  registerEciesKey,
+  generateEciesKey,
+  getEciesPublicKey,
+} from './ecies-key';
 
 export const handlers: Record<string, HandlerFn> = {
   // ── Transmission (NFTfax) ────────────────────────────────────────────────
@@ -25,6 +30,11 @@ export const handlers: Record<string, HandlerFn> = {
   getDocumentTray,
   getTransmission,
   acknowledgeTransmission,
+
+  // ── ECIES key management ─────────────────────────────────────────────────
+  registerEciesKey,
+  generateEciesKey,
+  getEciesPublicKey,
 };
 
 export type { HandlerFn };

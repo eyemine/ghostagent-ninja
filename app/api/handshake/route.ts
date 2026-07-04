@@ -335,12 +335,17 @@ export async function POST(req: NextRequest) {
         const agentId     = BigInt(signed.certificate.initiatorAgentId);
         const requestHash = signed.certificateHash as `0x${string}`;
         const payloadHash = hashPayload(JSON.stringify(signed));
+        
+        // Detect chain from agentId range (Base: 30000+, Gnosis: <30000)
+        // ghostagent Base agentId = 32756, Gnosis = 3199
+        const chainId = agentId >= 30000n ? 8453 : 100;
 
         onChainTx = await requestValidation(walletClient, {
           validatorAddress: account.address,
           agentId,
           requestURI:   requestUri,
           requestHash:  payloadHash,
+          chainId,
         });
       } catch (e: unknown) {
         onChainError = e instanceof Error ? e.message : String(e);
@@ -373,6 +378,14 @@ export async function POST(req: NextRequest) {
     });
 
     const portalUrl = `https://notapaperclip.red/verify/${certHash}`;
+    
+    // Determine chain from agentId for response
+    const responseChainId = BigInt(signed.certificate.initiatorAgentId) >= 30000n ? 8453 : 100;
+    const isBase = responseChainId === 8453;
+    const explorer = isBase ? 'https://basescan.org' : 'https://gnosisscan.io';
+    const validationRegistry = isBase 
+      ? '0x13C120d5b289012467E18Be44652D675bD3B23EE' 
+      : GNOSIS_ADDRESSES.validationRegistry;
 
     return NextResponse.json({
       ok:          true,
@@ -383,10 +396,10 @@ export async function POST(req: NextRequest) {
       onChainTx,
       onChainError,
       portalUrl,
-      validationRegistry: GNOSIS_ADDRESSES.validationRegistry,
-      explorer:    onChainTx ? `https://gnosisscan.io/tx/${onChainTx}` : null,
+      validationRegistry,
+      explorer:    onChainTx ? `${explorer}/tx/${onChainTx}` : null,
       onChainNote: onChainTx
-        ? `validationRequest() submitted: https://gnosisscan.io/tx/${onChainTx}`
+        ? `validationRequest() submitted: ${explorer}/tx/${onChainTx}`
         : onChainError ?? 'TREASURY_PRIVATE_KEY not set — skipped on-chain submission',
     });
   }

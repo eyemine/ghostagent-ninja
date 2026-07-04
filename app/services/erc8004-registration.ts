@@ -25,6 +25,9 @@ export const ERC8004_ADDRESSES = {
   },
 } as const;
 
+// Base VR — differential singleton on Base deriving existence from Gnosis ERC-8004
+export const BASE_VR = '0x13C120d5b289012467E18Be44652D675bD3B23EE' as const;
+
 // Per-chain address lookup
 export const GNOSIS_ADDRESSES      = ERC8004_ADDRESSES.mainnet;  // chainId 100
 export const BASE_ADDRESSES        = ERC8004_ADDRESSES.mainnet;  // chainId 8453 (same mainnet addrs)
