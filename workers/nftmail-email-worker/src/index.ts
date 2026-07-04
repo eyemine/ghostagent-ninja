@@ -1,6 +1,7 @@
 /// <reference types="@cloudflare/workers-types" />
 
 import { createApp } from './router';
+import { handlers } from './handlers';
 import MailStorageAdapter, { CalendarInvite } from './storage';
 import { D1Store } from './d1';
 import { archiveBundleToZeroG, fetchBundleFromZeroG } from './zerog';
@@ -1736,6 +1737,13 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
             }
           })());
         }
+
+        // ── Dispatch router: new handlers extracted from if-chain ────────────
+        {
+          const handler = handlers[email.action as string];
+          if (handler) return handler(email as Record<string, unknown>, env as unknown as Record<string, unknown>, request, corsify);
+        }
+        // ── End dispatch ──────────────────────────────────────────────────────
 
         if (email.action === 'getInbox') {
           const rawAgent = email.localPart || email.email?.split('@')[0] || '';
@@ -5869,12 +5877,10 @@ Mint a BYO NFT on nftmail.box to claim this tier.
           return corsify(Response.json({ status: 'sent', sendsRemaining: sendsRemainingOut }), request);
         }
 
-        // ── Agent Transmission: bitmap-only secure channel ────────────────────
-        // Allowed types: PNG, JPEG, BMP, TIFF. No PDFs, SVGs, or executables.
-        // 1 transmission = 1 send consumed from sender quota.
-        // For @nftmail.box recipients: direct KV tray + Mailgun notification.
-        // For external recipients: Mailgun with bitmap attachment.
-        if (email.action === 'sendTransmission') {
+        // ── Transmission actions — handled by dispatch router above ──────────
+        // sendTransmission | getDocumentTray | getTransmission | acknowledgeTransmission
+        // See handlers/transmission.ts
+        if (false && email.action === 'sendTransmission') {
           const txFromName: string = ((email as any).fromName || '').toLowerCase().trim();
           const txToEmail: string = ((email as any).toEmail || '').trim();
           const txImageData: string = ((email as any).imageData || '').trim(); // base64
@@ -5999,8 +6005,7 @@ and acknowledge this transmission.
           return corsify(Response.json({ status: 'transmitted', txId, sendsRemaining: txSendsRemaining }), request);
         }
 
-        // ── Document Tray: list uncollected transmissions (metadata only) ──────
-        if (email.action === 'getDocumentTray') {
+        if (false && email.action === 'getDocumentTray') {
           const trayLocal: string = ((email as any).localPart || '').toLowerCase().trim();
           if (!trayLocal) {
             return corsify(Response.json({ error: 'Missing localPart' }, { status: 400 }), request);
@@ -6017,8 +6022,7 @@ and acknowledge this transmission.
           return corsify(Response.json({ transmissions: trayItems.filter(Boolean) }), request);
         }
 
-        // ── Document Tray: fetch full transmission record (includes imageData) ─
-        if (email.action === 'getTransmission') {
+        if (false && email.action === 'getTransmission') {
           const gtLocal: string = ((email as any).localPart || '').toLowerCase().trim();
           const gtTxId: string = ((email as any).txId || '').trim();
           if (!gtLocal || !gtTxId) {
@@ -6031,8 +6035,7 @@ and acknowledge this transmission.
           return corsify(Response.json(JSON.parse(gtRaw)), request);
         }
 
-        // ── Document Tray: acknowledge (collect) a transmission ────────────────
-        if (email.action === 'acknowledgeTransmission') {
+        if (false && email.action === 'acknowledgeTransmission') {
           const ackLocal: string = ((email as any).localPart || '').toLowerCase().trim();
           const ackTxId: string = ((email as any).txId || '').trim();
           if (!ackLocal || !ackTxId) {

@@ -11,8 +11,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-
-const WORKER_URL = 'https://nftmail-email-worker.richard-159.workers.dev';
+import { useWallets } from '@privy-io/react-auth';
+import { workerClient } from '../../utils/worker-client';
 const GHOST_LOGO = '/ghost-logo.png';
 
 interface AgentIdentity { name: string; tld: string; safe: string; }
@@ -49,6 +49,7 @@ export default function AgentProfilePage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
+  const { wallets } = useWallets();
   const [liveCard, setLiveCard] = useState<Record<string, unknown> | null>(null);
 
   // Load agent identity from ?agent= query param
@@ -105,24 +106,38 @@ export default function AgentProfilePage() {
     setSaved(false);
     setError('');
     try {
-      const res = await fetch('/api/agent-profile', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name:        agent.name,
-          description: profile.description || undefined,
-          webUrl:      profile.webUrl       || undefined,
-          socialLinks: Object.fromEntries(
-            Object.entries(profile.socialLinks).filter(([, v]) => v),
-          ),
-        }),
-      });
-      if (!res.ok) {
-        const errText = await res.text();
-        console.error('Worker error:', errText);
-        throw new Error(errText || 'Save failed');
+      // Resolve Gnosis agentId from live card registrations
+      const registrations = (liveCard?.registrations ?? []) as Array<{ agentId: number; agentRegistry: string }>;
+      const gnosisReg = registrations.find(r => r.agentRegistry?.toLowerCase().includes('gnosis') || r.agentRegistry?.includes('8004'));
+      const agentId = gnosisReg?.agentId ?? 0;
+
+      if (!agentId) {
+        setError('No ERC-8004 agentId found for this agent — cannot verify ownership.');
+        return;
       }
-      const data = await res.json();
+
+      // EIP-191 canonical message (must match worker validation)
+      const sigMessage = `GhostAgent profile update: ${agent.name} at ${Date.now()}`;
+
+      // Sign with connected wallet
+      const wallet = wallets[0];
+      if (!wallet) {
+        setError('No wallet connected — connect your wallet to save.');
+        return;
+      }
+      const provider = await wallet.getEthereumProvider();
+      const signature: string = await provider.request({
+        method: 'personal_sign',
+        params: [sigMessage, wallet.address],
+      }) as string;
+
+      const profilePayload: Record<string, unknown> = {};
+      if (profile.description) profilePayload.description = profile.description;
+      if (profile.webUrl)       profilePayload.webUrl      = profile.webUrl;
+      const filteredSocial = Object.fromEntries(Object.entries(profile.socialLinks).filter(([, v]) => v));
+      if (Object.keys(filteredSocial).length) profilePayload.socialLinks = filteredSocial;
+
+      const data = await workerClient.setAgentProfile(agent.name, profilePayload, signature, sigMessage, agentId);
       console.log('Worker response:', data);
       setSaved(true);
       // Reload live card to show merged result
