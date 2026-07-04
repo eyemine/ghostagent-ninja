@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
       method:  'POST',
       headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
       body:    JSON.stringify({ action: 'listAgents' }),
-      next:    { revalidate: 60 },
+      cache:   'no-store',
     });
 
     if (!res.ok) {
@@ -81,7 +81,7 @@ export async function GET(req: NextRequest) {
     return new NextResponse(JSON.stringify(registry, null, 2), {
       headers: {
         'Content-Type':                'application/json',
-        'Cache-Control':               'public, max-age=60, stale-while-revalidate=120',
+        'Cache-Control':               'no-store',
         'Access-Control-Allow-Origin': '*',
       },
     });
