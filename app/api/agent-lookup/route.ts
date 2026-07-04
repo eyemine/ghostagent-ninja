@@ -23,6 +23,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { WORKER_URL } from '../../utils/config';
 import { getAgentBySafe } from '../../services/envio';
 
+export const dynamic = 'force-dynamic';
+
 const WORKER_SECRET = process.env.WORKER_SECRET || process.env.WEBHOOK_SECRET || '';
 
 
@@ -281,6 +283,7 @@ export async function GET(req: NextRequest) {
           headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
           body: JSON.stringify({ action: 'resolveAddress', name: `${base}_` }),
           signal: AbortSignal.timeout(6000),
+          cache: 'no-store',
         });
         return { base, data: r.ok ? await r.json() as any : null };
       } catch {
@@ -466,7 +469,9 @@ export async function GET(req: NextRequest) {
       ...(resolved.availability ? { availability: resolved.availability } : {}),
     };
 
-    return NextResponse.json(graph);
+    return NextResponse.json(graph, {
+      headers: { 'Cache-Control': 'no-store' },
+    });
   } catch (err: any) {
     return NextResponse.json({ error: err?.message ?? 'Lookup failed' }, { status: 500 });
   }

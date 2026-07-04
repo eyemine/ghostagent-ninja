@@ -7212,7 +7212,9 @@ Mint a BYO NFT on nftmail.box to claim this tier.
           const hasBaseTld = resolvedBaseName !== resolvedName && !!baseTldValue;
           // _@ aliases are always valid (registered pattern alongside base agent)
           const isAlias = resolvedBaseName !== resolvedName;
-          const exists = isAlias || hasMessages || hasEciesKey || hasZohoSeat || hasAcctTier || hasBaseTld;
+          // KV-only agents (FakeNormies, chonk NFTs) have tld: and erc8004:gnosis: keys
+          // but no acct-tier or nftmailgno. Include these signals so they register as existing.
+          const exists = isAlias || hasMessages || hasEciesKey || hasZohoSeat || hasAcctTier || hasBaseTld || !!tldValue || !!erc8004Raw;
 
           // Privacy tier — for aliases, fall back to base agent privacy if alias has none
           const basePrivacyStatus = (resolvedBaseName !== resolvedName && !privacyStatus)
@@ -7246,6 +7248,31 @@ Mint a BYO NFT on nftmail.box to claim this tier.
             } catch {
               onChainOwner = nftmailGnoRaw; // legacy flat string = owner address
             }
+          }
+          // For KV-only agents (no nftmailgno entry): backfill onChainOwner from ERC-8004
+          // ownerOf — covers FakeNormies and other NFT-collection agents registered via
+          // setErc8004AgentId but never through provisionAgent.
+          if (!onChainOwner && erc8004Raw) {
+            try {
+              const erc8004Parsed = JSON.parse(erc8004Raw) as { agentId?: number };
+              const erc8004AgentIdNum = erc8004Parsed.agentId ?? 0;
+              if (erc8004AgentIdNum) {
+                const ownerOfData = '0x6352211e' + erc8004AgentIdNum.toString(16).padStart(64, '0');
+                const ownerRpcRes = await fetch('https://rpc.gnosischain.com', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    jsonrpc: '2.0', id: 1, method: 'eth_call',
+                    params: [{ to: '0x8004A169FB4a3325136EB29fA0ceB6D2e539a432', data: ownerOfData }, 'latest'],
+                  }),
+                  signal: AbortSignal.timeout(3000),
+                });
+                const ownerRpc = await ownerRpcRes.json() as { result?: string };
+                if (ownerRpc.result && ownerRpc.result !== '0x') {
+                  onChainOwner = '0x' + ownerRpc.result.slice(-40);
+                }
+              }
+            } catch { /* non-fatal — leave onChainOwner null */ }
           }
 
           // Parse acct-tier — aliases inherit from base agent for all display fields
