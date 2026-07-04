@@ -50,14 +50,18 @@ export async function GET(req: NextRequest) {
       cache:   'no-store',
     });
 
+    console.log('[/api/agents] worker status:', res.status, 'ok:', res.ok);
+    const bodyText = await res.text();
+    console.log('[/api/agents] worker body:', bodyText.slice(0, 500));
+
     if (!res.ok) {
       return NextResponse.json(
-        { error: `Worker error: ${res.status}` },
+        { error: `Worker error: ${res.status}`, body: bodyText },
         { status: 502 },
       );
     }
 
-    const data = await res.json() as { agents: AgentRegistryEntry[]; total: number };
+    const data = JSON.parse(bodyText) as { agents: AgentRegistryEntry[]; total: number };
     let agents: AgentRegistryEntry[] = data.agents ?? [];
 
     // Filter: only agents with at least one ERC-8004 registration
