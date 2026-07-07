@@ -285,9 +285,21 @@ const BRAIN_ACTIONS = [
 ];
 
 export default function DashboardHome() {
-  const { authenticated } = usePrivy();
+  const { authenticated, user } = usePrivy();
   const { wallets } = useWallets();
-  const connectedWallet = wallets[0]?.address ?? null;
+  const connectedWallet = wallets[0]?.address ?? user?.wallet?.address ?? null;
+  // All wallets tied to this Privy session (embedded + linked external) — used for
+  // ownership checks so agents owned by any wallet in the session are never hidden
+  // just because a different wallet happens to be wallets[0].
+  const allWalletAddresses = Array.from(new Set(
+    [
+      ...wallets.map(w => w.address),
+      user?.wallet?.address,
+      ...((user?.linkedAccounts as any[])?.filter(a => a?.type === 'wallet' && a?.address).map((a: any) => a.address) ?? []),
+    ]
+      .filter(Boolean)
+      .map((a: string) => a.toLowerCase())
+  ));
 
   // agent loading: null = not started, [] = loading-started
   type AgentEntry = { name: string; tld: string | null; data: DemoAgent | null };
@@ -304,7 +316,7 @@ export default function DashboardHome() {
 
   // Fetch agents — skeleton-first progressive loading
   useEffect(() => {
-    if (!connectedWallet) { setAgentEntries(null); return; }
+    if (allWalletAddresses.length === 0) { setAgentEntries(null); return; }
     loadingWallet.current = connectedWallet;
     setAgentEntries([]);   // triggers skeleton state
 
@@ -337,7 +349,7 @@ export default function DashboardHome() {
             const safeAddr = identity.safeAddress ?? identity.safe ?? null;
             const isOwner  = [owner, ctrl, safeAddr]
               .filter(Boolean)
-              .some(c => c!.toLowerCase() === connectedWallet.toLowerCase());
+              .some(c => allWalletAddresses.includes(c!.toLowerCase()));
             if (!isOwner) {
               setAgentEntries(prev => prev?.filter(e => e.name !== a.name) ?? null);
               return;
@@ -408,7 +420,7 @@ export default function DashboardHome() {
         });
       })
       .catch(() => setAgentEntries([]));
-  }, [connectedWallet]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [allWalletAddresses.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch bodies = beacon NFTs (real on-chain data)
   useEffect(() => {
