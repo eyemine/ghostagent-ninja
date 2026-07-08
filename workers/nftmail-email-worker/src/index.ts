@@ -1797,7 +1797,7 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
           // ── KV path: BASIC accounts only ──
           const blindIdxRaw = await env.INBOX_KV.get(`blind-index:${kvKeyName}`);
           if (blindIdxRaw) {
-            const blindIds: string[] = JSON.parse(blindIdxRaw);
+            const blindIds: string[] = (() => { try { return JSON.parse(blindIdxRaw); } catch { return []; } })();
             const messages: any[] = [];
             await Promise.all(blindIds.map(async (id) => {
               const data = await env.INBOX_KV.get(`blind:${kvKeyName}:${id}`);
@@ -1993,7 +1993,7 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
           if (!blindIdxRaw) {
             return corsify(Response.json({ status: 'no_data', agentName, inserted: 0 }), request);
           }
-          const blindIds: string[] = JSON.parse(blindIdxRaw);
+          const blindIds: string[] = (() => { try { return JSON.parse(blindIdxRaw); } catch { return []; } })();
           const d1 = new D1Store(env.NFTMAIL_DB);
           let inserted = 0;
           let skipped  = 0;
@@ -5689,7 +5689,7 @@ Mint a BYO NFT on nftmail.box to claim this tier.
             msgPayload = JSON.stringify(plainPayload);
           }
           const blindIdxRaw = await env.INBOX_KV.get(`blind-index:${agentName}`);
-          const blindIds: string[] = blindIdxRaw ? JSON.parse(blindIdxRaw) : [];
+          const blindIds: string[] = blindIdxRaw ? (() => { try { return JSON.parse(blindIdxRaw); } catch { return []; } })() : [];
           blindIds.unshift(msgId);
           await Promise.all([
             env.INBOX_KV.put(`blind:${agentName}:${msgId}`, msgPayload),
@@ -6633,6 +6633,85 @@ Mint a BYO NFT on nftmail.box to claim this tier.
           }
         }
 
+        // --- Document Tray Actions ---
+        // The Tray is a separate secure channel for image/bitmap transmission between
+        // agents. It is NEVER embedded in HTML email — the inbox only ever receives a
+        // plaintext/markup pointer notification. This keeps the entire HTML tracking
+        // surface (pixels, remote loads, CSS tricks) out of the transmission path.
+        //
+        // setTrayDocument: store a bitmap-only document (PNG/BMP) and inject a terse
+        //   plaintext notification into the recipient's inbox pointing at /tray/{id}.
+        // getTrayDocument: public read of a bitmap-only document by ID, for rendering
+        //   as a static <img> in the Document Tray viewer (no HTML parsing required).
+        if (email.action === 'setTrayDocument') {
+          const secret = (email as any).secret;
+          if (!secret || secret !== env.WEBHOOK_SECRET) {
+            return corsify(Response.json({ error: 'Unauthorized' }, { status: 401 }), request);
+          }
+          const from = ((email as any).from || '').toLowerCase().trim();
+          const to = ((email as any).to || '').toLowerCase().trim();
+          const format = ((email as any).format || '').toLowerCase().trim();
+          const dataBase64 = (email as any).dataBase64 as string | undefined;
+          if (!from || !to || !dataBase64) {
+            return corsify(Response.json({ error: 'Missing from, to, or dataBase64' }, { status: 400 }), request);
+          }
+          if (format !== 'png' && format !== 'bmp') {
+            return corsify(Response.json({ error: 'Only PNG or BMP formats are permitted' }, { status: 400 }), request);
+          }
+          // Cap stored size to prevent KV value-size abuse (~1.4MB base64 ≈ 1MB binary)
+          if (dataBase64.length > 1_400_000) {
+            return corsify(Response.json({ error: 'Document too large (max ~1MB)' }, { status: 413 }), request);
+          }
+
+          const id = crypto.randomUUID().replace(/-/g, '').slice(0, 12);
+          const record = { id, from, to, format, dataBase64, createdAt: Date.now() };
+          await env.INBOX_KV.put(`tray:${id}`, JSON.stringify(record));
+
+          // Inject a terse plaintext notification — never the bitmap itself — into the
+          // recipient's inbox. Safe for both the HTML inbox and the markup-only mini app.
+          const recipientLocal = to.split('@')[0];
+          const blindId = crypto.randomUUID().replace(/-/g, '').slice(0, 10);
+          const trayUrl = `https://nftmail.box/tray/${id}`;
+          const notification = {
+            payload: {
+              from,
+              subject: `T/#${id.slice(0, 4).toUpperCase()} — Secure Transmission`,
+              body: `T/#${id} FROM:${from} [VIEW: ${trayUrl}]`,
+            },
+            receivedAt: Date.now(),
+            encrypted: false,
+            type: 'tray-notification',
+            channel: 'tray',
+            trayId: id,
+          };
+          await env.INBOX_KV.put(`blind:${recipientLocal}:${blindId}`, JSON.stringify(notification));
+          const idxRaw = await env.INBOX_KV.get(`blind-index:${recipientLocal}`);
+          const idx: string[] = idxRaw ? (() => { try { return JSON.parse(idxRaw); } catch { return []; } })() : [];
+          idx.unshift(blindId);
+          await env.INBOX_KV.put(`blind-index:${recipientLocal}`, JSON.stringify(idx));
+
+          return corsify(Response.json({ status: 'ok', id, trayUrl }), request);
+        }
+
+        if (email.action === 'getTrayDocument') {
+          const id = ((email as any).id || '').trim();
+          if (!id) {
+            return corsify(Response.json({ error: 'Missing id' }, { status: 400 }), request);
+          }
+          const raw = await env.INBOX_KV.get(`tray:${id}`);
+          if (!raw) {
+            return corsify(Response.json({ error: 'Document not found' }, { status: 404 }), request);
+          }
+          const record = JSON.parse(raw);
+          return corsify(Response.json({
+            id: record.id,
+            from: record.from,
+            format: record.format,
+            dataBase64: record.dataBase64,
+            createdAt: record.createdAt,
+          }), request);
+        }
+
         // setBeaconNft: store NFT contract/tokenId for an agent's beacon
         if (email.action === 'setBeaconNft') {
           const secret = (email as any).secret;
@@ -6993,7 +7072,7 @@ Mint a BYO NFT on nftmail.box to claim this tier.
             const sErc8004 = sErc8004Raw ? (() => { try { const d = JSON.parse(sErc8004Raw); return { erc8004AgentId: d.agentId, erc8004AgentURI: d.agentURI, erc8004ChainId: d.chainId ?? 100, erc8004RegisteredAt: d.registeredAt }; } catch { return {}; } })() : {};
             const sErc8004Base = sErc8004BaseRaw ? (() => { try { const d = JSON.parse(sErc8004BaseRaw); return { erc8004Base: { agentId: d.agentId, agentURI: d.agentURI, chainId: 8453, registeredAt: d.registeredAt } }; } catch { return {}; } })() : {};
 
-            const sHasMessages = !!sBlindIndex && JSON.parse(sBlindIndex).length > 0;
+            const sHasMessages = !!sBlindIndex && (() => { try { return JSON.parse(sBlindIndex).length > 0; } catch { return false; } })();
             const sHasEciesKey = !!sEciesKey;
             const sHasZohoSeat = !!sZohoSeat;
 
@@ -7208,7 +7287,7 @@ Mint a BYO NFT on nftmail.box to claim this tier.
           const erc8004BaseRaw = erc8004BaseMainnet;
           const erc8004BaseSepoliaRawFinal = erc8004BaseSepoliaRaw;
 
-          const hasMessages = !!blindIndex && JSON.parse(blindIndex).length > 0;
+          const hasMessages = !!blindIndex && (() => { try { return JSON.parse(blindIndex).length > 0; } catch { return false; } })();
           const hasEciesKey = !!eciesKey;
           const hasZohoSeat = !!zohoSeat;
           const hasAcctTier = !!(acctTierRaw || baseAcctTierRaw);
@@ -7505,7 +7584,13 @@ Mint a BYO NFT on nftmail.box to claim this tier.
           const kvKeyName = domainPfx ? `${domainPfx}:${agent}` : agent;
           const blindIndexKey = `blind-index:${kvKeyName}`;
           const raw = await env.INBOX_KV.get(blindIndexKey);
-          const blindIds: string[] = raw ? JSON.parse(raw) : [];
+          let blindIds: string[] = [];
+          try {
+            blindIds = raw ? JSON.parse(raw) : [];
+          } catch {
+            console.error(`[getBlindInbox] Corrupted blind-index for ${kvKeyName}, treating as empty`);
+            blindIds = [];
+          }
 
           const messages: any[] = [];
           const fetches = blindIds.map(async (id) => {
