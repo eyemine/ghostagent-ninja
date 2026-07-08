@@ -7,7 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 const GNOSIS_RPC = 'https://rpc.gnosischain.com';
-const WORKER_URL = process.env.NEXT_PUBLIC_WORKER_URL ?? 'https://nftmail-email-worker.richard-159.workers.dev';
+const WORKER_URL = process.env.NEXT_PUBLIC_WORKER_URL ?? 'https://worker.nftmail.box';
 const WORKER_SECRET = process.env.WORKER_SECRET || process.env.WEBHOOK_SECRET || '';
 
 // For ERC-6551 TBAs: call owner() to find the controlling EOA
@@ -170,7 +170,8 @@ async function isAgentRegistered(name: string): Promise<boolean> {
     if (!res.ok) return false;
     const data = await res.json() as { tier?: string; error?: string };
     // Agent = LITE (lite) tier or above; basic = basic (body only)
-    return !!(data.tier && data.tier !== 'basic' && !data.error);
+    const tier = data.tier?.toLowerCase() || '';
+    return !!(tier && tier !== 'basic' && !data.error);
   } catch {
     return false;
   }
