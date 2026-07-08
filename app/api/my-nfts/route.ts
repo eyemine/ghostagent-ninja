@@ -7,7 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 const GNOSIS_RPC = 'https://rpc.gnosischain.com';
-const WORKER_URL = process.env.NEXT_PUBLIC_WORKER_URL ?? 'https://worker.nftmail.box';
+const WORKER_URL = process.env.NEXT_PUBLIC_WORKER_URL ?? 'https://nftmail-email-worker.richard-159.workers.dev';
 const WORKER_SECRET = process.env.WORKER_SECRET || process.env.WEBHOOK_SECRET || '';
 
 // For ERC-6551 TBAs: call owner() to find the controlling EOA
