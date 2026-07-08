@@ -36,10 +36,17 @@ A module is recognized as a gating module if and only if:
 
 This is a structural test: the evaluator does not care who deployed the module or whether it is in a list. It only cares whether the bytecode at that address structurally behaves like a gate.
 
-## Example Implementation
+## Conformant Example
+
+Copy-paste this minimal implementation to get started:
 
 ```solidity
-contract SpendLimitGate is IAgentGate {
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import "./IAgentGate.sol";
+
+contract MockSpendGate is IAgentGate {
     uint256 public spendLimit;
     bool public active;
 
