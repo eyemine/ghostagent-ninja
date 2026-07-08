@@ -3,17 +3,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 const WORKER_URL = process.env.NEXT_PUBLIC_WORKER_URL || 'https://nftmail-email-worker.richard-159.workers.dev';
-const WORKER_SECRET = process.env.WORKER_SECRET || '';
+const WORKER_SECRET = process.env.WORKER_SECRET || process.env.WEBHOOK_SECRET || '';
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.text();
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (WORKER_SECRET) {
+      headers['X-Worker-Secret'] = WORKER_SECRET;
+    }
     const res = await fetch(WORKER_URL, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Worker-Secret': WORKER_SECRET,
-      },
+      headers,
       body,
     });
     const data = await res.text();
