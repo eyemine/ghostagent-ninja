@@ -92,12 +92,13 @@ contract SREEvaluator {
     }
 
     /**
-     * @notice Get the controller/owner of an address
-     * @dev Tries Safe.owner(), ERC-721.ownerOf(), ERC-1155 balanceOf check
+     * @notice Get the controller/owner of an address (CONTROL RAIL ONLY)
+     * @dev Tries ERC-6551 TBA.owner(), Safe.owner(), ERC-721.ownerOf()
+     * @dev Gas-stipended to prevent griefing attacks
      */
     function _getController(address addr) private view returns (address) {
-        // Try Safe owner (common for agent Safes)
-        (bool success, bytes memory data) = addr.staticcall(
+        // Try ERC-6551 TBA owner() or Safe owner()
+        (bool success, bytes memory data) = addr.staticcall{gas: 30000}(
             abi.encodeWithSignature("owner()")
         );
         if (success && data.length == 32) {
@@ -106,7 +107,7 @@ contract SREEvaluator {
 
         // Try ERC-721 ownerOf (if addr is an NFT)
         // This is a simplified check; production should verify ERC-165 first
-        (success, data) = addr.staticcall(
+        (success, data) = addr.staticcall{gas: 30000}(
             abi.encodeWithSignature("ownerOf(uint256)", uint256(0))
         );
         if (success && data.length == 32) {
@@ -119,9 +120,10 @@ contract SREEvaluator {
     /**
      * @notice Check if an address is a Gnosis Safe
      * @dev Simplified check via ERC-165 for ISafe interface
+     * @dev Gas-stipended to prevent griefing attacks
      */
     function _isSafe(address addr) private view returns (bool) {
-        (bool success, bytes memory data) = addr.staticcall(
+        (bool success, bytes memory data) = addr.staticcall{gas: 20000}(
             abi.encodeWithSignature(
                 "supportsInterface(bytes4)",
                 0xd5506725 // ISafe interface ID (simplified)
@@ -133,10 +135,11 @@ contract SREEvaluator {
     /**
      * @notice Check if a Safe has at least one enabled IAgentGate module
      * @dev Iterates through enabled modules and checks IAgentGate conformance
+     * @dev Gas-stipended to prevent griefing attacks
      */
     function _hasGatingModule(address safeAddr) private view returns (bool) {
         // Get enabled modules from Safe
-        (bool success, bytes memory data) = safeAddr.staticcall(
+        (bool success, bytes memory data) = safeAddr.staticcall{gas: 30000}(
             abi.encodeWithSignature("getModules()")
         );
         if (!success || data.length == 0) {
@@ -156,10 +159,11 @@ contract SREEvaluator {
 
     /**
      * @notice Check if a module implements IAgentGate and is active with constraints
+     * @dev Gas-stipended to prevent griefing attacks
      */
     function _isGatingModule(address module) private view returns (bool) {
         // Check ERC-165 support for IAgentGate
-        (bool success, bytes memory data) = module.staticcall(
+        (bool success, bytes memory data) = module.staticcall{gas: 20000}(
             abi.encodeWithSignature(
                 "supportsInterface(bytes4)",
                 AGENT_GATE_INTERFACE_ID
@@ -170,7 +174,7 @@ contract SREEvaluator {
         }
 
         // Check isActive()
-        (success, data) = module.staticcall(
+        (success, data) = module.staticcall{gas: 20000}(
             abi.encodeWithSignature("isActive()")
         );
         if (!success || data.length != 32 || !abi.decode(data, (bool))) {
@@ -178,7 +182,7 @@ contract SREEvaluator {
         }
 
         // Check spendLimit() or executionDelay() > 0
-        (success, data) = module.staticcall(
+        (success, data) = module.staticcall{gas: 20000}(
             abi.encodeWithSignature("spendLimit()")
         );
         if (success && data.length == 32) {
@@ -186,7 +190,7 @@ contract SREEvaluator {
             if (spendLimit > 0) return true;
         }
 
-        (success, data) = module.staticcall(
+        (success, data) = module.staticcall{gas: 20000}(
             abi.encodeWithSignature("executionDelay()")
         );
         if (success && data.length == 32) {
@@ -195,5 +199,28 @@ contract SREEvaluator {
         }
 
         return false;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // IDENTITY RAIL (Optional Provenance Check)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /**
+     * @notice Walk the binding graph for optional namespace provenance
+     * @dev This is NOT used for SRE classification. It validates namespace sanity
+     * @dev and optionally surfaces "this agent claims to be part of the Org-X fleet"
+     * @param start The starting agent name (e.g., "ghostagent.agent.gno")
+     * @param registry The GNS registry address for bindingOf queries
+     * @return provenance Array of bound parent names (empty if no bindings)
+     * @return hasCycle Whether a cycle was detected in the binding graph
+     */
+    function walkBindingGraph(
+        string calldata start,
+        address registry
+    ) external view returns (string[] memory provenance, bool hasCycle) {
+        // This is a placeholder for the binding graph traversal
+        // Implementation would call registry.bindingOf() to walk parent bindings
+        // This is OPTIONAL and does NOT feed into SRE classification
+        revert("Binding graph traversal not yet implemented");
     }
 }

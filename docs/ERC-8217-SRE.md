@@ -17,33 +17,55 @@ ERC-8217 separates these layers. Structural classification is recomputable from 
 
 ## Specification
 
-### 1. Structural Risk Exposure Classification
+### 1. Two-Rail Architecture
 
-An agent's SRE classification is derived from its controller graph and module configuration. The evaluator walks the controller graph starting from the agent's ERC-6551 TBA, following `controller` pointers until reaching an EOA or hitting a limit.
+ERC-8217 enforces a strict separation between the **Control Rail** (execution authority) and the **Identity Rail** (namespace provenance). This separation is mandatory:
 
-#### 1.1 Controller Graph Traversal
+- **Control Rail**: `ownerOf()` / `controllerOf()` traversal. Used for SRE classification. Answers "whose keys or Safe modules can validate, delay, or hijack execution?"
+- **Identity Rail**: `bindingOf()` traversal. Used for optional namespace provenance. Answers "what org chart does this agent claim to be part of?"
+
+**The evaluator MUST NOT mix these rails.** SRE classification derives exclusively from the Control Rail. The Identity Rail is optional and used only for metadata resolution (e.g., "this agent claims to be part of the Org-X fleet"). It never feeds into `EOA_ROOTED` / `SAFE_ROOTED` / `SAFE_ROOTED_GATED` classification.
+
+**Rationale**: `bindingOf` is provenance, not authority. An attacker can mint `malicious-agent.agent.gno`, set `bindingOf` to `ghostagent.agent.gno` (pretending to be your child), while keeping `ownerOf` as their own EOA. If the evaluator walked the binding graph for classification, it would incorrectly classify the attacker's agent as `SAFE_ROOTED_GATED`. Binding is not control.
+
+### 2. Structural Risk Exposure Classification (Control Rail Only)
+
+An agent's SRE classification is derived from its controller graph and module configuration. The evaluator walks the controller graph starting from the agent's ERC-6551 TBA, following `ownerOf()` / `controllerOf()` pointers until reaching an EOA or hitting a limit.
+
+#### 2.1 Controller Graph Traversal
 
 The traversal follows these rules:
 - Start at the agent's ERC-6551 TBA address
-- For each address, query its `controller` (if it's a Safe) or `owner` (if it's an ERC-721/ERC-1155)
+- For each address, query its `owner()` (ERC-6551 TBA), `owner()` (Safe), or `ownerOf()` (ERC-721)
 - Track visited addresses to detect cycles
 - Stop when reaching an EOA, hitting the depth limit, or detecting a cycle
+- **NEVER** call `bindingOf()` during classification traversal
 
 **Depth limit**: 8 hops (configurable by evaluator implementation)
 
 **Cycle detection**: Cycles are detected via a bounded visited-array check before the depth limit is reached. Cycles return `MALFORMED_GRAPH` immediately. Depth limits are a second-layer safety net for linear chains, not the first line of defense.
 
-#### 1.2 Classification Outcomes
+#### 2.2 Gas-Hardening Guardrails
+
+All external staticcalls MUST be gas-stipended to prevent griefing attacks. Malicious controller modules could otherwise run gas-exhaustion attacks against the evaluation client.
+
+Recommended gas stipends:
+- `owner()` / `ownerOf()` calls: 30,000 gas
+- `supportsInterface()` calls: 20,000 gas
+- `isActive()` / `spendLimit()` / `executionDelay()` calls: 20,000 gas
+- `getModules()` calls: 30,000 gas
+
+#### 2.3 Classification Outcomes
 
 | Outcome | Description |
 |---------|-------------|
 | `EOA_ROOTED` | Traversal ends at an EOA within the depth limit |
 | `SAFE_ROOTED` | Traversal ends at a Safe with no recognized gating modules |
-| `SAFE_ROOTED_GATED` | Traversal ends at a Safe with at least one enabled gating module (see §2) |
+| `SAFE_ROOTED_GATED` | Traversal ends at a Safe with at least one enabled gating module (see §2.4) |
 | `UNRESOLVABLE` | Depth limit reached without finding an EOA or Safe |
 | `MALFORMED_GRAPH` | Cycle detected in controller graph |
 
-#### 1.3 Module Recognition: IAgentGate Interface
+#### 2.4 Module Recognition: IAgentGate Interface
 
 To classify as `SAFE_ROOTED_GATED`, a Safe must have at least one enabled module that implements the `IAgentGate` interface. Classification derives from bytecode/interface conformance, not from registry membership.
 
@@ -81,7 +103,20 @@ interface IAgentGate is IERC165 {
 
 This is a structural test: the evaluator does not care who deployed the module or whether it is in a list. It only cares whether the bytecode at that address structurally behaves like a gate.
 
-### 2. Attestations (Optional)
+### 3. Identity Rail: Optional Provenance Check (Optional)
+
+The Identity Rail (`bindingOf()` traversal) is OPTIONAL and used only for metadata resolution. It validates namespace sanity and optionally surfaces "this agent claims to be part of the Org-X fleet."
+
+**This MUST NOT feed into SRE classification.** The evaluator may implement `walkBindingGraph()` as a separate function that returns provenance information (e.g., array of bound parent names, cycle detection in binding graph), but this data is separate from the Control Rail classification.
+
+**Implementation note**: `walkBindingGraph()` would call `registry.bindingOf()` to walk parent bindings. This is useful for:
+- Validating that an agent's binding graph is acyclic
+- Surfacing organizational hierarchy for UI display
+- Computing a "namespace provenance score" (e.g., "this agent is bound to a premium root that has existed for 2 years")
+
+But it is purely informational. It never changes `EOA_ROOTED` / `SAFE_ROOTED` / `SAFE_ROOTED_GATED`.
+
+### 5. Attestations (Optional)
 
 Attestations are oracle assertions about an agent. They are **not** part of structural classification. A conformant implementation:
 
@@ -94,9 +129,9 @@ Attestations are oracle assertions about an agent. They are **not** part of stru
 - SRE classification: deterministic badge (e.g., "SAFE_ROOTED_GATED" in neutral color)
 - Attestations: separate section with attestor identity, timestamp, and distinct visual treatment (e.g., border, background color, or separate panel)
 
-### 3. Extensions Appendix
+### 6. Extensions Appendix
 
-#### 3.1 UI Rendering Requirements
+#### 6.1 UI Rendering Requirements
 
 Conformant UIs MUST:
 1. Display SRE classification as the primary trust signal
@@ -106,13 +141,21 @@ Conformant UIs MUST:
    - Visual distinction from SRE classification (different color, border, or panel)
 3. Never combine SRE classification and attestations into a single trust badge or score
 
-#### 3.2 Evaluator Implementation Notes
+#### 6.2 Evaluator Implementation Notes
 
 - Depth limit of 8 hops is a RECOMMENDED default; implementations MAY configure this value
 - Cycle detection MUST be performed before depth traversal to prevent DoS via shallow-but-long chains
 - The `IAgentGate` interface ID is computed as `bytes4(keccak256("isActive()spendLimit()executionDelay()INTERFACE_ID()"))`
 
 ## Rationale
+
+### Why separate Control Rail from Identity Rail?
+
+`bindingOf` is provenance, not authority. An attacker can mint `malicious-agent.agent.gno`, set `bindingOf` to `ghostagent.agent.gno` (pretending to be your child), while keeping `ownerOf` as their own EOA. If the evaluator walked the binding graph for classification, it would incorrectly classify the attacker's agent as `SAFE_ROOTED_GATED`.
+
+The Control Rail (`ownerOf()` / `controllerOf()`) answers "whose keys or Safe modules can validate, delay, or hijack execution?" This is the security question SRE must answer.
+
+The Identity Rail (`bindingOf()`) answers "what org chart does this agent claim to be part of?" This is useful for routing mail, branding namespaces, and metadata inheritance. But it is purely informational and never feeds into classification.
 
 ### Why IAgentGate instead of a registry?
 
@@ -125,6 +168,10 @@ By deriving classification from ERC-165 interface conformance, we make it recomp
 The 8-hop bound was doing double duty: semantic classification and DoS protection. A malicious identity can chain shallow-but-many controller pointers specifically to force evaluators to burn near-max RPC cost before returning UNRESOLVABLE.
 
 Detecting cycles first (O(n²) via visited-array check) makes MALFORMED_GRAPH cheap to return. Depth limits remain as a second-layer safety net for linear deep chains.
+
+### Why gas-stipended staticcalls?
+
+Malicious controller modules could run gas-exhaustion attacks against the evaluation client. By stipending gas on all external staticcalls (30,000 for `owner()` calls, 20,000 for interface checks), we bound the worst-case cost of evaluation and prevent griefing.
 
 ### Why MUST disclose attestor identity?
 
