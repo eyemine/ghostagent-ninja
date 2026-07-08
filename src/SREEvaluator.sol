@@ -13,7 +13,9 @@ contract SREEvaluator {
     error Unresolvable_DepthLimitReached();
 
     uint256 public constant MAX_DEPTH = 8;
+    uint256 public constant MAX_MODULES = 32;
     bytes4 public constant AGENT_GATE_INTERFACE_ID = type(IAgentGate).interfaceId;
+    bytes4 public constant ERC721_INTERFACE_ID = 0x80ac58cd;
 
     enum Classification {
         EOA_ROOTED,          // Traversal ends at EOA
@@ -95,6 +97,7 @@ contract SREEvaluator {
      * @notice Get the controller/owner of an address (CONTROL RAIL ONLY)
      * @dev Tries ERC-6551 TBA.owner(), Safe.owner(), ERC-721.ownerOf()
      * @dev Gas-stipended to prevent griefing attacks
+     * @dev ERC-721 probe gated on supportsInterface(0x80ac58cd) to prevent controller spoofing
      */
     function _getController(address addr) private view returns (address) {
         // Try ERC-6551 TBA owner() or Safe owner()
@@ -106,12 +109,21 @@ contract SREEvaluator {
         }
 
         // Try ERC-721 ownerOf (if addr is an NFT)
-        // This is a simplified check; production should verify ERC-165 first
-        (success, data) = addr.staticcall{gas: 30000}(
-            abi.encodeWithSignature("ownerOf(uint256)", uint256(0))
+        // Gated on ERC-165 to prevent controller spoofing via decoy contracts
+        (success, data) = addr.staticcall{gas: 20000}(
+            abi.encodeWithSignature(
+                "supportsInterface(bytes4)",
+                ERC721_INTERFACE_ID
+            )
         );
-        if (success && data.length == 32) {
-            return abi.decode(data, (address));
+        if (success && data.length >= 32 && abi.decode(data, (bool))) {
+            (success, data) = addr.staticcall{gas: 30000}(
+                abi.encodeWithSignature("ownerOf(uint256)", uint256(0))
+            );
+            if (success && data.length >= 32) {
+                address owner = abi.decode(data, (address));
+                if (owner != address(0)) return owner;
+            }
         }
 
         return address(0);
@@ -136,6 +148,7 @@ contract SREEvaluator {
      * @notice Check if a Safe has at least one enabled IAgentGate module
      * @dev Iterates through enabled modules and checks IAgentGate conformance
      * @dev Gas-stipended to prevent griefing attacks
+     * @dev Bounded by MAX_MODULES to prevent DoS via inflated module lists
      */
     function _hasGatingModule(address safeAddr) private view returns (bool) {
         // Get enabled modules from Safe
@@ -148,10 +161,12 @@ contract SREEvaluator {
 
         address[] memory modules = abi.decode(data, (address[]));
 
-        for (uint256 i = 0; i < modules.length; i++) {
+        uint256 checked = 0;
+        for (uint256 i = 0; i < modules.length && checked < MAX_MODULES; i++) {
             if (_isGatingModule(modules[i])) {
                 return true;
             }
+            unchecked { ++checked; }
         }
 
         return false;
