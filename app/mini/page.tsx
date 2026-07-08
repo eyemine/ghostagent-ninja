@@ -422,11 +422,11 @@ export default function MiniApp() {
         const sovereignRes = await fetch(WORKER_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'getAgentProfile', label: name }),
+          body: JSON.stringify({ action: 'getAgentProfile', agentName: name }),
         });
         const sovereignData = await sovereignRes.json();
-        if (sovereignData?.tier && sovereignData.tier !== 'basic' && sovereignData.tier !== 'free') {
-          sovereignTier = sovereignData.tier;
+        if (sovereignData?.profile?.tier && sovereignData.profile.tier !== 'basic' && sovereignData.profile.tier !== 'free') {
+          sovereignTier = sovereignData.profile.tier;
         }
       } catch {
         // Ignore errors, use FID tier
@@ -684,7 +684,7 @@ export default function MiniApp() {
 
   if (step === 'signin') {
     const handleSignin = async () => {
-      const label = signinEmail.trim().toLowerCase().replace(/@nftmail\.box$/, '').replace(/[^a-z0-9-]/g, '');
+      const label = signinEmail.trim().toLowerCase().replace(/@nftmail\.box$/, '');
       if (!label) { setSigninError('Please enter a valid email or label'); return; }
       setSigninLoading(true);
       setSigninError('');
@@ -693,17 +693,17 @@ export default function MiniApp() {
         const res = await fetch(WORKER_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'getAgentProfile', label }),
+          body: JSON.stringify({ action: 'getAgentProfile', agentName: label }),
         });
         const data = await res.json();
-        if (data && data.label) {
-          setAgentName(data.label);
-          setHumanEmail(`${data.label}@nftmail.box`);
-          if (data.tier) setInboxTier(normaliseTier(data.tier));
+        if (data && data.agentName) {
+          setAgentName(data.agentName);
+          setHumanEmail(`${data.agentName}@nftmail.box`);
+          if (data.profile?.tier) setInboxTier(normaliseTier(data.profile.tier));
           let privKey: string | null = null;
-          try { privKey = localStorage.getItem(`ecies-priv:${data.label}`); } catch {}
+          try { privKey = localStorage.getItem(`ecies-priv:${data.agentName}`); } catch {}
           if (privKey) setEciesPrivKey(privKey);
-          await loadInboxDirect(data.label, privKey);
+          await loadInboxDirect(data.agentName, privKey);
         } else {
           setSigninError('Account not found. Check the email or claim a new inbox.');
         }
