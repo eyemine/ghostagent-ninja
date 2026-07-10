@@ -6655,8 +6655,8 @@ Mint a BYO NFT on nftmail.box to claim this tier.
           if (!from || !to || !dataBase64) {
             return corsify(Response.json({ error: 'Missing from, to, or dataBase64' }, { status: 400 }), request);
           }
-          if (format !== 'png' && format !== 'bmp') {
-            return corsify(Response.json({ error: 'Only PNG or BMP formats are permitted' }, { status: 400 }), request);
+          if (format !== 'png' && format !== 'bmp' && format !== 'jpg') {
+            return corsify(Response.json({ error: 'Only PNG, JPG, or BMP formats are permitted' }, { status: 400 }), request);
           }
           // Cap stored size to prevent KV value-size abuse (~1.4MB base64 ≈ 1MB binary)
           if (dataBase64.length > 1_400_000) {
@@ -6675,8 +6675,8 @@ Mint a BYO NFT on nftmail.box to claim this tier.
           const notification = {
             payload: {
               from,
-              subject: `T/#${id.slice(0, 4).toUpperCase()} — Secure Transmission`,
-              body: `T/#${id} FROM:${from} [VIEW: ${trayUrl}]`,
+              subject: `nftFax T/#${id.slice(0, 4).toUpperCase()} — Secure Transmission`,
+              body: `nftFax T/#${id} FROM:${from} [VIEW: ${trayUrl}]`,
             },
             receivedAt: Date.now(),
             encrypted: false,
