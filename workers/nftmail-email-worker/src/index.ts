@@ -6678,6 +6678,7 @@ Mint a BYO NFT on nftmail.box to claim this tier.
               subject: `NFTfax T/#${id.slice(0, 4).toUpperCase()} — Secure Transmission`,
               body: `NFTfax T/#${id} FROM:${from} [VIEW: ${trayUrl}]`,
             },
+            receivedTime: Date.now(),
             receivedAt: Date.now(),
             encrypted: false,
             type: 'tray-notification',
