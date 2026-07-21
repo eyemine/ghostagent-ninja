@@ -98,15 +98,27 @@ export class BunD1PreparedStatement {
 export class BunSQLiteD1 {
   private readonly db: Database;
 
-  constructor(dbPath: string) {
-    const dir = path.dirname(dbPath);
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    this.db = new Database(dbPath, { create: true });
-    this.db.exec('PRAGMA journal_mode = WAL;');
-    this.db.exec('PRAGMA foreign_keys = ON;');
+  /**
+   * Accepts either a file path (opens/creates the DB) or an already-open
+   * bun:sqlite Database (so the KV shim and D1 store can share ONE handle to
+   * ONE file — the single-process/single-file sovereign target).
+   */
+  constructor(dbPathOrDb: string | Database) {
+    if (typeof dbPathOrDb === 'string') {
+      const dir = path.dirname(dbPathOrDb);
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      this.db = new Database(dbPathOrDb, { create: true });
+      this.db.exec('PRAGMA journal_mode = WAL;');
+      this.db.exec('PRAGMA foreign_keys = ON;');
+      console.log(`[bun-sqlite-d1] opened ${dbPathOrDb}`);
+    } else {
+      this.db = dbPathOrDb;
+    }
     this.initSchema();
-    console.log(`[bun-sqlite-d1] opened ${dbPath}`);
   }
+
+  /** Expose the underlying handle so a shared Database can back the KV shim too. */
+  get database(): Database { return this.db; }
 
   prepare(sql: string): BunD1PreparedStatement {
     return new BunD1PreparedStatement(this.db, sql);
@@ -147,6 +159,14 @@ export class BunSQLiteD1 {
 
   private initSchema(): void {
     this.db.exec(`
+      CREATE TABLE IF NOT EXISTS kv (
+        key         TEXT PRIMARY KEY,
+        value       TEXT NOT NULL,
+        expires_at  INTEGER
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_kv_expires ON kv (expires_at);
+
       CREATE TABLE IF NOT EXISTS agents (
         label           TEXT PRIMARY KEY,
         controller      TEXT NOT NULL DEFAULT '',

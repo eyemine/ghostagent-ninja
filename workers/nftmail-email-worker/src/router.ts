@@ -63,14 +63,14 @@ export function createApp(handlers: RouterHandlers) {
       }
     }
 
-    // 4. Bypass auth for public agent lookup actions (resolveAddress, getBeacon, getMoltPath, getAgentProfile)
-    // getAgentProfile is public for mini app sign-in flow
+    // 4. Bypass auth for public agent lookup actions (resolveAddress, getBeacon, getMoltPath)
+    // getAgentProfile is NOT public - it requires auth for mini app sign-in flow
     // kvGet is NOT public - it requires auth to prevent reading private inbox data
     if (method === 'POST' && path === '/') {
       try {
         const clonedReq = c.req.raw.clone();
         const body = await clonedReq.json().catch(() => ({})) as { action?: string };
-        const publicActions = ['resolveAddress', 'getBeacon', 'getMoltPath', 'getAgentProfile'];
+        const publicActions = ['resolveAddress', 'getBeacon', 'getMoltPath'];
         if (body.action && publicActions.includes(body.action)) {
           await next();
           return;
