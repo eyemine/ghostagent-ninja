@@ -3,6 +3,14 @@
   "version": "1.0.0",
   "type": "module",
   "dependencies": {
-    "envio": "^3.0.0"
+    "envio": "3.2.1"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "codegen": "envio codegen",
+    "dev": "envio dev",
+    "start": "envio start"
   }
 }
