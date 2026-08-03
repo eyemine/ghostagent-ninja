@@ -834,7 +834,7 @@ export default function MiniApp() {
             </div>
           ) : (
             <div className="space-y-2 mb-4">
-              {messages.slice(0, 10).map(msg => {
+              {messages.map(msg => {
                 const isOpen = openMsgId === msg.id;
                 const body = msg.content || msg.body || '';
                 return (
