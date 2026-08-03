@@ -1741,7 +1741,7 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
         // ── Dispatch router: new handlers extracted from if-chain ────────────
         {
           const handler = handlers[email.action as string];
-          if (handler) return handler(email as Record<string, unknown>, env as unknown as Record<string, unknown>, request, corsify);
+          if (handler) return handler(email as unknown as Record<string, unknown>, env as unknown as Record<string, unknown>, request, corsify);
         }
         // ── End dispatch ──────────────────────────────────────────────────────
 
@@ -1787,7 +1787,11 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
                     frozen: !!r.frozen,
                   };
                 });
-                return corsify(Response.json({ agent, messages, count: messages.length, source: 'd1' }), request);
+                // D1 shadow-writes are not guaranteed. Only trust D1 when it has rows,
+                // otherwise fall through to the KV belt-and-braces path.
+                if (messages.length > 0) {
+                  return corsify(Response.json({ agent, messages, count: messages.length, source: 'd1' }), request);
+                }
               }
             } catch (e) {
               console.error('[D1 read] getInbox fallback to KV:', e);
@@ -5904,7 +5908,7 @@ Mint a BYO NFT on nftmail.box to claim this tier.
           if (!txTierRaw) {
             return corsify(Response.json({ error: 'Sender agent not found' }, { status: 404 }), request);
           }
-          const txTierData = JSON.parse(txTierRaw);
+          const txTierData = JSON.parse(txTierRaw as string);
           const txTier: string = txTierData.tier || 'basic';
           if (txTier === 'basic') {
             return corsify(Response.json({ error: 'Basic tier cannot send transmissions. Upgrade to send.' }, { status: 402 }), request);
@@ -5958,7 +5962,7 @@ and acknowledge this transmission.
             if (!txRecipTierRaw) {
               return corsify(Response.json({ error: 'Recipient not found on nftmail.box' }, { status: 404 }), request);
             }
-            const txRecipTier: string = (JSON.parse(txRecipTierRaw) as { tier?: string }).tier || 'basic';
+            const txRecipTier: string = (JSON.parse(txRecipTierRaw as string) as { tier?: string }).tier || 'basic';
             const txTtlMap: Record<string, number> = { basic: 8 * 86400, lite: 30 * 86400, professional: 365 * 86400, vault: 365 * 86400 };
             const txRecipTtl = txTtlMap[txRecipTier] ?? 8 * 86400;
             await env.INBOX_KV.put(`tray:${txRecipLocal}:${txId}`, txRecord, { expirationTtl: txRecipTtl });
@@ -6035,7 +6039,7 @@ and acknowledge this transmission.
           if (!gtRaw) {
             return corsify(Response.json({ error: 'Transmission not found' }, { status: 404 }), request);
           }
-          return corsify(Response.json(JSON.parse(gtRaw)), request);
+          return corsify(Response.json(JSON.parse(gtRaw as string)), request);
         }
 
         if (false && email.action === 'acknowledgeTransmission') {
@@ -6049,7 +6053,7 @@ and acknowledge this transmission.
           if (!ackRaw) {
             return corsify(Response.json({ error: 'Transmission not found or already acknowledged' }, { status: 404 }), request);
           }
-          const ackRecord = JSON.parse(ackRaw);
+          const ackRecord = JSON.parse(ackRaw as string);
           ackRecord.acknowledged = true;
           ackRecord.acknowledgedAt = Date.now();
           await env.INBOX_KV.put(ackKey, JSON.stringify(ackRecord), { expirationTtl: 86400 });
@@ -6633,6 +6637,46 @@ Mint a BYO NFT on nftmail.box to claim this tier.
           }
         }
 
+        // --- Telegraph Radar / Pre-Registration Actions ---
+        // Off-chain, zero-gas player directory for the NFTfax chain game.
+        // setTelegraph: stores a pre-registration entry keyed by the player's handle.
+        // listTelegraph: returns the public directory, optionally filtered by collection.
+        if (email.action === 'setTelegraph') {
+          const secret = (email as any).secret;
+          if (!secret || secret !== env.WEBHOOK_SECRET) {
+            return corsify(Response.json({ error: 'Unauthorized' }, { status: 401 }), request);
+          }
+          const handle = ((email as any).handle || '').toLowerCase().trim();
+          const wallet = ((email as any).wallet || '').toLowerCase().trim();
+          const collection = ((email as any).collection || '').toLowerCase().trim();
+          const ready = (email as any).ready === true;
+          const readyUntil = Number((email as any).readyUntil) || 0;
+          if (!handle || !wallet || !collection) {
+            return corsify(Response.json({ error: 'Missing handle, wallet, or collection' }, { status: 400 }), request);
+          }
+          const record = { handle, wallet, collection, ready, readyUntil, createdAt: Date.now() };
+          await env.INBOX_KV.put(`telegraph:${handle}`, JSON.stringify(record));
+          return corsify(Response.json({ status: 'ok', handle, ready }), request);
+        }
+
+        if (email.action === 'listTelegraph') {
+          const collection = ((email as any).collection || '').toLowerCase().trim();
+          const limit = Math.min(Number((email as any).limit) || 1000, 1000);
+          const listed = await env.INBOX_KV.list({ prefix: 'telegraph:' });
+          const items: Record<string, unknown>[] = [];
+          for (const k of listed.keys) {
+            const raw = await env.INBOX_KV.get(k.name);
+            if (!raw) continue;
+            try {
+              const r = JSON.parse(raw) as Record<string, unknown>;
+              if (!collection || (r.collection as string | undefined) === collection) {
+                items.push(r);
+              }
+            } catch { /* ignore corrupt entries */ }
+          }
+          return corsify(Response.json({ items: items.slice(0, limit) }), request);
+        }
+
         // --- Document Tray Actions ---
         // The Tray is a separate secure channel for image/bitmap transmission between
         // agents. It is NEVER embedded in HTML email — the inbox only ever receives a
@@ -6676,16 +6720,16 @@ Mint a BYO NFT on nftmail.box to claim this tier.
               return corsify(Response.json({ error: 'Private faxes can only be sent to @nftmail.box recipients' }, { status: 400 }), request);
             }
             const envLen = JSON.stringify(envelope).length;
-            if (envLen > 2_400_000) {
-              return corsify(Response.json({ error: 'Encrypted document too large (max ~1.5MB image)' }, { status: 413 }), request);
+            if (envLen > 5_000_000) {
+              return corsify(Response.json({ error: 'Encrypted document too large (max ~3MB image)' }, { status: 413 }), request);
             }
           } else {
             if (!dataBase64) {
               return corsify(Response.json({ error: 'Missing from, to, or dataBase64' }, { status: 400 }), request);
             }
-            // Cap stored size to prevent KV value-size abuse (~1.4MB base64 ≈ 1MB binary)
-            if (dataBase64.length > 1_400_000) {
-              return corsify(Response.json({ error: 'Document too large (max ~1MB)' }, { status: 413 }), request);
+            // Cap stored size to prevent KV value-size abuse (~2.8MB base64 ≈ 2MB binary)
+            if (dataBase64.length > 2_800_000) {
+              return corsify(Response.json({ error: 'Document too large (max ~2MB)' }, { status: 413 }), request);
             }
           }
 
