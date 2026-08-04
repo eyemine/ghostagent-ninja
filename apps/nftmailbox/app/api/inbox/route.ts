@@ -2,6 +2,17 @@ import { NextRequest, NextResponse } from 'next/server';
 
 const ZOHO_MAIL_API = 'https://mail.zoho.com.au/api';
 
+function normalizeTimestamp(ts: unknown): number {
+  if (ts == null) return Date.now();
+  const n = typeof ts === 'number' ? ts : Number(ts);
+  if (Number.isFinite(n) && n > 0) {
+    // Timestamps < 1e11 ms are in the year 5138 in ms, so they are almost certainly Unix seconds.
+    return n < 1e11 ? n * 1000 : n;
+  }
+  const parsed = typeof ts === 'string' ? Date.parse(ts) : NaN;
+  return Number.isNaN(parsed) ? Date.now() : parsed;
+}
+
 async function getZohoAccessToken(): Promise<string | null> {
   const existing = process.env.ZOHO_OAUTH_TOKEN;
   if (existing) return existing;
@@ -71,15 +82,26 @@ export async function GET(req: NextRequest) {
         const workerData = await workerRes.json() as Record<string, any>;
         // decayDays from resolveAddress: 8 for Basic, 30 for Lite, null for Premium/Agent
         const acctDecayDays: number | null = workerData.decayDays ?? null;
+        const accountTier = (workerData.accountTier || 'basic').toLowerCase();
+        // Tier defaults: basic 8 days, pro/pupa/lite 30 days, premium/imago/ghost never decay
+        const tierDefaultDays: number | null =
+          accountTier === 'basic' ? 8 :
+          ['pro', 'pupa', 'lite'].includes(accountTier) ? 30 :
+          null;
         kvMessages = (workerData.messages || []).map((m: any) => {
           const isEnc = m.encrypted === true;
           const now = Date.now();
-          const receivedMs = m.receivedAt || now;
+          const receivedMs = normalizeTimestamp(m.receivedAt || m.timestamp || now);
           const frozen = m.frozen === true;
           // Frozen emails never decay; use per-message decayDays if available, else account default
-          const msgDecayDays = m.decayDays ?? acctDecayDays ?? 8;
-          const decayMs = msgDecayDays * 24 * 60 * 60 * 1000;
+          const msgDecayDays: number | null = m.decayDays ?? acctDecayDays ?? tierDefaultDays;
           const ageMs = now - receivedMs;
+          // null decayDays means persistent history (never decay)
+          const hasDecay = !frozen && msgDecayDays != null;
+          const decayMs = hasDecay ? msgDecayDays * 24 * 60 * 60 * 1000 : null;
+          const expired = hasDecay && decayMs != null && ageMs >= decayMs;
+          const expiresAt = hasDecay && decayMs != null ? new Date(receivedMs + decayMs).toISOString() : null;
+          const decayPct = hasDecay && decayMs != null ? Math.min(100, Math.round((ageMs / decayMs) * 100)) : 0;
 
           return {
             id: m.id,
@@ -98,9 +120,9 @@ export async function GET(req: NextRequest) {
             contentHash: m.envelope?.contentHash || m.plaintextHash || '',
             frozen,
             decayDays: frozen ? null : msgDecayDays,
-            decayPct: frozen ? 0 : Math.min(100, Math.round((ageMs / decayMs) * 100)),
-            expiresAt: frozen ? null : new Date(receivedMs + decayMs).toISOString(),
-            expired: !frozen && ageMs >= decayMs,
+            decayPct,
+            expiresAt,
+            expired,
           };
         });
       } else {
@@ -194,7 +216,7 @@ export async function GET(req: NextRequest) {
     const EIGHT_DAYS_MS = 8 * 24 * 60 * 60 * 1000;
 
     const messages = rawMessages.map((m: any) => {
-      const receivedMs = parseInt(m.receivedTime, 10) || Date.parse(m.receivedTime) || now;
+      const receivedMs = normalizeTimestamp(m.receivedTime || now);
       const ageMs = now - receivedMs;
       const decayPct = Math.min(100, Math.round((ageMs / EIGHT_DAYS_MS) * 100));
       const expiresAt = new Date(receivedMs + EIGHT_DAYS_MS).toISOString();

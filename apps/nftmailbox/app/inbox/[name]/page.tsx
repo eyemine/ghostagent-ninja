@@ -14,6 +14,17 @@ function isAgentAddress(addr: string): boolean {
   return local.endsWith('_');
 }
 
+function normalizeTimestamp(ts: unknown): number {
+  if (ts == null || ts === '') return 0;
+  const n = typeof ts === 'number' ? ts : Number(ts);
+  if (Number.isFinite(n) && n > 0) {
+    // Values below 1e11 ms are in the year 5138 in ms, so treat as Unix seconds.
+    return n < 1e11 ? n * 1000 : n;
+  }
+  const parsed = typeof ts === 'string' ? Date.parse(ts) : NaN;
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
 function BlurFrom({ from, reveal = false }: { from: string; reveal?: boolean }) {
   if (!from || from === 'unknown') return <span className="text-white/70">unknown</span>;
   if (reveal || isAgentAddress(from)) return <span className="text-white/70">{from}</span>;
@@ -346,9 +357,7 @@ export default function InboxPage() {
           if (kvRes.ok) {
             const kvData = await kvRes.json() as { messages?: any[] };
             const kvMessages = (kvData.messages || []).map((m: any) => {
-              const rawRa = m.receivedAt || 0;
-              // Guard: receivedAt may be seconds if < 1e12 (pre-2001 in ms = likely seconds)
-              const receivedMs = rawRa > 0 && rawRa < 1e12 ? rawRa * 1000 : rawRa;
+              const receivedMs = normalizeTimestamp(m.receivedAt);
               return {
                 id: m.id || `msg-${Math.random().toString(36).slice(2)}`,
                 subject: m.subject || '(no subject)',
@@ -485,8 +494,11 @@ export default function InboxPage() {
     setDeletingId(null);
   };
 
-  const formatTimeAgo = (ts: string) => {
-    const ms = Date.now() - new Date(ts).getTime();
+  const formatTimeAgo = (ts: string | number | undefined) => {
+    if (ts == null || ts === '') return '';
+    const epochMs = normalizeTimestamp(ts);
+    if (!epochMs) return '';
+    const ms = Date.now() - epochMs;
     const mins = Math.floor(ms / 60000);
     if (mins < 1) return 'just now';
     if (mins < 60) return `${mins}m ago`;
@@ -497,7 +509,9 @@ export default function InboxPage() {
   };
 
   const formatTimestamp = (ts: number | string) => {
-    const d = typeof ts === 'number' ? new Date(ts) : new Date(ts);
+    const epochMs = normalizeTimestamp(ts);
+    if (!epochMs) return '—';
+    const d = new Date(epochMs);
     return d.toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
   };
 
