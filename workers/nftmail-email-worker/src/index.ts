@@ -49,6 +49,79 @@ async function recoverPersonalSignSigner(message: string, signature: string): Pr
   return pubKeyToAddress(pubKey);
 }
 
+// ── NFT-ownership guard for self-service worker actions ──────────────────────
+// Mirrors the setAgentProfile auth model without mutating that path:
+//   1. Admin bypass via WEBHOOK_SECRET (body `secret` or X-Webhook-Secret header)
+//   2. EIP-191 personal_sign over a timestamped message, signer must own the
+//      ERC-8004 agentId on the Gnosis Identity Registry.
+// Returns { authorized: true, via } on success, or a typed error to corsify.
+interface OwnershipResult {
+  authorized: boolean;
+  via?: 'admin' | 'on-chain';
+  error?: string;
+  status?: number;
+}
+
+async function verifyNftOwnershipForAction(
+  email: Record<string, unknown>,
+  env: Env,
+  request: Request,
+  agentName: string,
+  expectedPrefix: string,
+): Promise<OwnershipResult> {
+  const adminSecret = String((email as any).secret || '') || request.headers.get('X-Webhook-Secret') || '';
+  if (env.WEBHOOK_SECRET && adminSecret === env.WEBHOOK_SECRET) {
+    return { authorized: true, via: 'admin' };
+  }
+
+  const signature  = String((email as any).signature  || '').trim();
+  const sigMessage = String((email as any).sigMessage || '').trim();
+  const agentIdNum = Number((email as any).agentId ?? 0);
+
+  if (!signature || !sigMessage || !agentIdNum) {
+    return { authorized: false, error: 'Missing signature, sigMessage, or agentId — sign the message in your wallet first', status: 401 };
+  }
+  if (!sigMessage.startsWith(expectedPrefix)) {
+    return { authorized: false, error: 'Invalid sigMessage format', status: 401 };
+  }
+  const sigTs = Number(sigMessage.slice(expectedPrefix.length));
+  if (!sigTs || Math.abs(Date.now() - sigTs) > 10 * 60 * 1000) {
+    return { authorized: false, error: 'Signature expired — regenerate and retry', status: 401 };
+  }
+
+  let recoveredAddress: string;
+  try {
+    recoveredAddress = await recoverPersonalSignSigner(sigMessage, signature);
+  } catch {
+    return { authorized: false, error: 'Invalid signature', status: 401 };
+  }
+
+  const GNOSIS_RPC = 'https://rpc.gnosischain.com';
+  const ERC8004_REGISTRY = '0x8004A169FB4a3325136EB29fA0ceB6D2e539a432';
+  const ownerOfData = '0x6352211e' + agentIdNum.toString(16).padStart(64, '0');
+  let tokenOwner: string;
+  try {
+    const rpcRes = await fetch(GNOSIS_RPC, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0', id: 1, method: 'eth_call',
+        params: [{ to: ERC8004_REGISTRY, data: ownerOfData }, 'latest'],
+      }),
+    });
+    const rpcJson = await rpcRes.json() as { result?: string };
+    if (!rpcJson.result || rpcJson.result === '0x') throw new Error('No result');
+    tokenOwner = '0x' + rpcJson.result.slice(-40);
+  } catch {
+    return { authorized: false, error: 'Failed to verify token ownership on-chain', status: 500 };
+  }
+
+  if (tokenOwner.toLowerCase() !== recoveredAddress.toLowerCase()) {
+    return { authorized: false, error: `Signer ${recoveredAddress} does not own ERC-8004 token #${agentIdNum} (owner: ${tokenOwner})`, status: 403 };
+  }
+  return { authorized: true, via: 'on-chain' };
+}
+
 // Minimal keccak256 (Cloudflare Workers compatible — no Node crypto)
 function keccak256(data: Uint8Array): Uint8Array {
   // RC constants for keccak-f[1600]
@@ -648,14 +721,24 @@ async function getAgentTtlSecs(env: Env, agentName: string): Promise<number | nu
     env.INBOX_KV.get(`acct-tier:${baseName}`),
   ]);
   const effective = tierRaw || baseTierRaw;
-  if (!effective) return TIER_TTL.basic as number;
-  try {
-    const td = JSON.parse(effective);
-    const tier = (td.tier || 'basic') as string;
-    return tier in TIER_TTL ? TIER_TTL[tier] : (TIER_TTL.basic as number);
-  } catch {
-    return TIER_TTL.basic as number;
+  const ttlForTier = (tier: string): number | null =>
+    tier in TIER_TTL ? TIER_TTL[tier] : (TIER_TTL.basic as number);
+  if (effective) {
+    try {
+      const td = JSON.parse(effective);
+      return ttlForTier((td.tier || 'basic') as string);
+    } catch { /* corrupt KV record — fall through to D1 */ }
   }
+  // KV acct-tier missing/corrupt (e.g. dropped during a backend migration). Consult the
+  // D1/SQLite agents table before assuming basic — otherwise a paid inbox silently gets
+  // an 8-day TTL and its history decays even though the tier is premium/lite.
+  if (env.NFTMAIL_DB) {
+    try {
+      const row = await new D1Store(env.NFTMAIL_DB).getAgent(baseName);
+      if (row?.tier) return ttlForTier(row.tier);
+    } catch { /* non-fatal — fall through to basic */ }
+  }
+  return TIER_TTL.basic as number;
 }
 
 // --- Blind Index Helper ---
@@ -1274,8 +1357,8 @@ async function _handleEmail(message: EmailMessage, env: Env, ctx: ExecutionConte
     const subject = message.headers.get('subject') || '';
     const rawMime = await new Response(message.raw).text();
     const body = extractBodyFromMime(rawMime);
-    // Extract attachments for DMARC reports and testing (<100KB limit for KV storage)
-    const attachments = extractAttachmentsFromMime(rawMime, 100000);
+    // Extract attachments (500KB limit for KV storage — supports Pro/Premium attachment feature)
+    const attachments = extractAttachmentsFromMime(rawMime, 500000);
     const hasAttachments = attachments.length > 0;
     if (hasAttachments) {
       console.log(`[inbound] Extracted ${attachments.length} attachment(s) for ${originalRecipient}: ${attachments.map(a => `${a.filename} (${a.size} bytes)`).join(', ')}`);
@@ -1329,7 +1412,8 @@ async function _handleEmail(message: EmailMessage, env: Env, ctx: ExecutionConte
         ...(ownerAddress ? { owner: ownerAddress } : {}),
         ...(collection ? { collection: collection.displayName, tokenId } : {}),
         receivedAt: timestamp,
-        // Store attachment data inline for small files (DMARC reports)
+        hasAttachment: hasAttachments,
+        // Store attachment data inline (base64) for retrieval on demand
         ...(hasAttachments ? { 
           attachments: attachments.map(a => ({ 
             filename: a.filename, 
@@ -1798,12 +1882,42 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
             }
           }
 
-          // ── KV path: BASIC accounts only ──
-          const blindIdxRaw = await env.INBOX_KV.get(`blind-index:${kvKeyName}`);
-          if (blindIdxRaw) {
-            const blindIds: string[] = (() => { try { return JSON.parse(blindIdxRaw); } catch { return []; } })();
+          // ── KV path: BASIC accounts (and belt-and-braces for any tier) ──
+          // Self-heal: historically the read path trusted blind-index:{inbox} alone, so a
+          // truncated/desynced index (e.g. dropped during a backend migration) would hide
+          // messages that still exist as blind:{inbox}:{id} rows. Reconcile the index from the
+          // actual message rows on every read so a bad index can never hide history again.
+          const blindPrefix = `blind:${kvKeyName}:`;
+          const storedIds: string[] = await (async () => {
+            const raw = await env.INBOX_KV.get(`blind-index:${kvKeyName}`);
+            try { return raw ? JSON.parse(raw) : []; } catch { return []; }
+          })();
+
+          // Enumerate the real message rows for this inbox (paginated; scoped to one inbox).
+          const discoveredIds: string[] = [];
+          let listCursor: string | undefined;
+          do {
+            const page: any = await env.INBOX_KV.list({ prefix: blindPrefix, cursor: listCursor, limit: 1000 });
+            for (const k of page.keys) discoveredIds.push(String(k.name).slice(blindPrefix.length));
+            listCursor = page.list_complete ? undefined : page.cursor;
+          } while (listCursor);
+
+          // Union, ordered chronologically by the ms embedded in the blindId.
+          const tsOfBlindId = (id: string): number => { const m = /^blind-(\d+)-/.exec(id); return m ? Number(m[1]) : 0; };
+          const unionIds = Array.from(new Set([...storedIds, ...discoveredIds])).sort((a, b) => tsOfBlindId(a) - tsOfBlindId(b));
+
+          if (unionIds.length > 0) {
+            // Persist the reconciled index if we found rows the index was missing (additive only).
+            const missingFromIndex = discoveredIds.filter((id) => !storedIds.includes(id));
+            if (missingFromIndex.length > 0) {
+              const healTtlSecs = await getAgentTtlSecs(env, baseAgent);
+              const healPutOpts = healTtlSecs != null ? { expirationTtl: healTtlSecs } : {};
+              await env.INBOX_KV.put(`blind-index:${kvKeyName}`, JSON.stringify(unionIds.slice(-100)), healPutOpts);
+              console.log(`[getInbox] self-heal ${kvKeyName}: recovered +${missingFromIndex.length} (index ${storedIds.length} → ${unionIds.length})`);
+            }
+
             const messages: any[] = [];
-            await Promise.all(blindIds.map(async (id) => {
+            await Promise.all(unionIds.map(async (id) => {
               const data = await env.INBOX_KV.get(`blind:${kvKeyName}:${id}`);
               if (data) {
                 try {
@@ -2323,6 +2437,43 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
           return corsify(Response.json({ status: 'updated', agentName, updated: updates }), request);
         }
 
+        // ── Attachment Settings (Pro/Premium) ──────────────────────────────────
+        // setAttachmentSettings: toggle per-account attachment send/receive permissions.
+        // Stored in acct-tier:{name} KV alongside tier data.
+        if (email.action === 'setAttachmentSettings') {
+          const secret = (email as any).secret || request.headers.get('X-Webhook-Secret') || '';
+          if (env.WEBHOOK_SECRET && secret !== env.WEBHOOK_SECRET) {
+            return corsify(Response.json({ error: 'Unauthorized' }, { status: 401 }), request);
+          }
+          const agentName = ((email as any).agentName || '').toLowerCase().trim();
+          if (!agentName) {
+            return corsify(Response.json({ error: 'Missing agentName' }, { status: 400 }), request);
+          }
+          const { canSendAttachments, canReceiveAttachments } = email as any;
+          if (canSendAttachments === undefined && canReceiveAttachments === undefined) {
+            return corsify(Response.json({ error: 'No attachment settings to update' }, { status: 400 }), request);
+          }
+          const existing = await env.INBOX_KV.get(`acct-tier:${agentName}`);
+          let record: Record<string, unknown> = {};
+          if (existing) { try { record = JSON.parse(existing); } catch {} }
+          // Only Pro/Premium can enable attachments
+          const tier = String(record.tier || 'basic').toLowerCase();
+          const isProOrAbove = ['pro', 'pupa', 'premium', 'imago', 'ghost', 'lite'].includes(tier);
+          if (!isProOrAbove) {
+            return corsify(Response.json({ error: 'Attachments require Pro or Premium tier' }, { status: 403 }), request);
+          }
+          if (canSendAttachments !== undefined) record.canSendAttachments = Boolean(canSendAttachments);
+          if (canReceiveAttachments !== undefined) record.canReceiveAttachments = Boolean(canReceiveAttachments);
+          record.attachmentSettingsUpdatedAt = Date.now();
+          await env.INBOX_KV.put(`acct-tier:${agentName}`, JSON.stringify(record));
+          return corsify(Response.json({
+            status: 'updated',
+            agentName,
+            canSendAttachments: record.canSendAttachments ?? false,
+            canReceiveAttachments: record.canReceiveAttachments ?? false,
+          }), request);
+        }
+
         // ── Agent Profile (ERC-8004 off-chain overrides) ─────────────────────────
         // KV key: agentprofile:{agentName}
         // Editable fields: description, webUrl, socialLinks (X, GitHub, etc.)
@@ -2439,6 +2590,113 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
             } catch {}
           }
           return corsify(Response.json({ agentName, profile }), request);
+        }
+
+        // ── ERC-8048 PGP key registry (Phase A) ──────────────────────────────
+        // setPgpKey: register/rotate an agent's OpenPGP public key. This is the
+        //   off-chain cache that WKD + send/receive read; the canonical copy is
+        //   the ERC-8048 metadata key `pgp` written on-chain by the owner. Both
+        //   carry the same armored key. Auth: NFT ownership (admin or EIP-191).
+        // getPgpKey: public read used for key discovery / encryption.
+        //
+        // KV key: pgp-pubkey:{agentName} → JSON { publicKey, fingerprint?,
+        //   keyId?, algo?, updatedAt, verifiedOwner }
+        if (email.action === 'setPgpKey') {
+          const agentName = ((email as any).agentName || '').toLowerCase().trim();
+          const publicKey = String((email as any).publicKey || '').trim();
+          if (!agentName) {
+            return corsify(Response.json({ error: 'Missing agentName' }, { status: 400 }), request);
+          }
+          if (!publicKey) {
+            return corsify(Response.json({ error: 'Missing publicKey (ASCII-armored OpenPGP public key block)' }, { status: 400 }), request);
+          }
+          // Lightweight armor validation — full packet parsing happens client-side (OpenPGP.js).
+          const ARMOR_HEAD = '-----BEGIN PGP PUBLIC KEY BLOCK-----';
+          const ARMOR_TAIL = '-----END PGP PUBLIC KEY BLOCK-----';
+          if (!publicKey.includes(ARMOR_HEAD) || !publicKey.includes(ARMOR_TAIL)) {
+            return corsify(Response.json({ error: 'publicKey must be an ASCII-armored OpenPGP public key block' }, { status: 400 }), request);
+          }
+          if (publicKey.length > 64 * 1024) {
+            return corsify(Response.json({ error: 'publicKey exceeds 64KB limit' }, { status: 413 }), request);
+          }
+
+          const auth = await verifyNftOwnershipForAction(
+            email as unknown as Record<string, unknown>, env, request, agentName,
+            `nftmail PGP key registration: ${agentName} at `,
+          );
+          if (!auth.authorized) {
+            return corsify(Response.json({ error: auth.error }, { status: auth.status ?? 401 }), request);
+          }
+
+          // Optional client-supplied metadata (from OpenPGP.js key.getFingerprint()).
+          const fingerprint = String((email as any).fingerprint || '').trim().toLowerCase() || undefined;
+          const keyId = String((email as any).keyId || '').trim().toLowerCase() || undefined;
+          const algo = String((email as any).algo || '').trim() || undefined;
+          const ownerWallet = String((email as any).ownerWallet || '').trim().toLowerCase() || undefined;
+
+          // Optional recoverable custody: the private key is AES-GCM-wrapped with a
+          // wallet-signature-derived key the server never sees. Storing the ciphertext
+          // lets the owner recover their PGP key on any device by re-signing. Never
+          // accept a raw (unwrapped) private key here.
+          const wrappedPrivateKey = String((email as any).wrappedPrivateKey || '').trim() || undefined;
+          const wrapIv = String((email as any).wrapIv || '').trim() || undefined;
+          if ((wrappedPrivateKey && !wrapIv) || (!wrappedPrivateKey && wrapIv)) {
+            return corsify(Response.json({ error: 'wrappedPrivateKey and wrapIv must be provided together' }, { status: 400 }), request);
+          }
+          if (wrappedPrivateKey && wrappedPrivateKey.length > 64 * 1024) {
+            return corsify(Response.json({ error: 'wrappedPrivateKey exceeds 64KB limit' }, { status: 413 }), request);
+          }
+
+          const record = {
+            publicKey,
+            ...(fingerprint ? { fingerprint } : {}),
+            ...(keyId ? { keyId } : {}),
+            ...(algo ? { algo } : {}),
+            ...(ownerWallet ? { ownerWallet } : {}),
+            ...(wrappedPrivateKey && wrapIv ? { wrappedPrivateKey, wrapIv } : {}),
+            updatedAt: Date.now(),
+            verifiedOwner: auth.via,
+          };
+          await env.INBOX_KV.put(`pgp-pubkey:${agentName}`, JSON.stringify(record));
+          // Store WKD reverse mapping: SHA-1(localPart) -> agentName
+          // so the WKD endpoint can resolve hashed lookups
+          try {
+            const { crypto: webCrypto } = globalThis as unknown as { crypto: Crypto };
+            const hashBuf = await webCrypto.subtle.digest('SHA-1', new TextEncoder().encode(agentName));
+            const hashHex = Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, '0')).join('');
+            await env.INBOX_KV.put(`pgp-wkd:${hashHex}`, agentName);
+          } catch (e) { console.error('[setPgpKey] WKD mapping write failed (non-fatal):', e); }
+          console.log(`[setPgpKey] registered PGP key for ${agentName} (via ${auth.via}${fingerprint ? `, fp ${fingerprint}` : ''}${wrappedPrivateKey ? ', +vault' : ''})`);
+          return corsify(Response.json({ status: 'registered', agentName, fingerprint, keyId, hasVault: !!wrappedPrivateKey, verifiedOwner: auth.via }), request);
+        }
+
+        if (email.action === 'getPgpKey') {
+          const agentName = ((email as any).agentName || '').toLowerCase().trim();
+          if (!agentName) {
+            return corsify(Response.json({ error: 'Missing agentName' }, { status: 400 }), request);
+          }
+          const raw = await env.INBOX_KV.get(`pgp-pubkey:${agentName}`);
+          if (!raw) {
+            return corsify(Response.json({ error: `No PGP key registered for ${agentName}`, hasKey: false }, { status: 404 }), request);
+          }
+          let record: Record<string, unknown>;
+          try { record = JSON.parse(raw); } catch {
+            return corsify(Response.json({ error: 'Corrupt PGP key record' }, { status: 500 }), request);
+          }
+          return corsify(Response.json({ agentName, hasKey: true, ...record }), request);
+        }
+
+        // WKD reverse mapping: resolve SHA-1(localPart) -> agentName
+        if (email.action === 'getWkdMapping') {
+          const hashHex = String((email as any).hashHex || '').toLowerCase().trim();
+          if (!hashHex) {
+            return corsify(Response.json({ error: 'Missing hashHex' }, { status: 400 }), request);
+          }
+          const localPart = await env.INBOX_KV.get(`pgp-wkd:${hashHex}`);
+          if (!localPart) {
+            return corsify(Response.json({ error: 'No WKD mapping found', hasKey: false }, { status: 404 }), request);
+          }
+          return corsify(Response.json({ localPart, hasKey: true }), request);
         }
 
         // Agent Registry: set TLD for an agent (seeds tld: KV key for listAgents)
@@ -4302,13 +4560,17 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
             subject, body, timestamp, via: 'x402',
             ...(agentId !== null ? { agentId } : {}),
           };
-          await env.INBOX_KV.put(`blind:${toAgent}:${blindId}`, JSON.stringify(envelope), { expirationTtl: 30 * 24 * 60 * 60 });
+          // TTL must follow the recipient's tier — premium/ghost = no expiry. Hard-coding
+          // 30 days here silently decayed paid inboxes' A2A history after a month.
+          const a2aTtlSecs = await getAgentTtlSecs(env, toAgent);
+          const a2aPutOpts = a2aTtlSecs != null ? { expirationTtl: a2aTtlSecs } : {};
+          await env.INBOX_KV.put(`blind:${toAgent}:${blindId}`, JSON.stringify(envelope), a2aPutOpts);
           // update blind index
           const idxKey = `blind-index:${toAgent}`;
           const idxRaw = await env.INBOX_KV.get(idxKey);
           const idx: string[] = idxRaw ? JSON.parse(idxRaw) : [];
           idx.push(blindId);
-          await env.INBOX_KV.put(idxKey, JSON.stringify(idx.slice(-200)));
+          await env.INBOX_KV.put(idxKey, JSON.stringify(idx.slice(-200)), a2aPutOpts);
           return corsify(Response.json({ status: 'delivered', messageId: blindId, toAgent }), request);
         }
 
@@ -6734,22 +6996,33 @@ Mint a BYO NFT on nftmail.box to claim this tier.
           }
 
           const id = crypto.randomUUID().replace(/-/g, '').slice(0, 12);
+          const DEFAULT_CHAIN_TIMER_MS = 72 * 60 * 60 * 1000;
+          const MIN_CHAIN_TIMER_MS = 3 * 60 * 1000;
           const chainTrayId = ((email as any).chainTrayId || '').trim();
           let chainDepth = 1;
           let sourceTrayId: string | null = null;
+          let chainTimerDuration = DEFAULT_CHAIN_TIMER_MS;
           if (chainTrayId) {
             try {
               const srcRaw = await env.INBOX_KV.get(`tray:${chainTrayId}`);
               if (srcRaw) {
-                const src = JSON.parse(srcRaw) as { chainDepth?: number; id?: string };
+                const src = JSON.parse(srcRaw) as { chainDepth?: number; id?: string; chainTimerDuration?: number; mintedBase?: unknown };
                 chainDepth = (typeof src.chainDepth === 'number' ? src.chainDepth : 1) + 1;
                 sourceTrayId = src.id || chainTrayId;
+                const srcTimer = typeof src.chainTimerDuration === 'number' ? src.chainTimerDuration : DEFAULT_CHAIN_TIMER_MS;
+                const srcMintedRaw = await env.INBOX_KV.get(`tray-mint:base:${chainTrayId}`);
+                const srcMinted = !!src.mintedBase || !!srcMintedRaw;
+                if (srcMinted) {
+                  chainTimerDuration = DEFAULT_CHAIN_TIMER_MS;
+                } else {
+                  chainTimerDuration = Math.max(Math.floor(srcTimer / 2), MIN_CHAIN_TIMER_MS);
+                }
               }
             } catch { /* source missing — start a new root chain */ }
           }
           const record = isPrivate
-            ? { id, from, to, format, channel: 'private', encrypted: true, envelope, createdAt: Date.now(), chainDepth, sourceTrayId }
-            : { id, from, to, format, channel: 'public', encrypted: false, dataBase64, createdAt: Date.now(), chainDepth, sourceTrayId };
+            ? { id, from, to, format, channel: 'private', encrypted: true, envelope, createdAt: Date.now(), chainDepth, sourceTrayId, chainTimerDuration }
+            : { id, from, to, format, channel: 'public', encrypted: false, dataBase64, createdAt: Date.now(), chainDepth, sourceTrayId, chainTimerDuration };
           // 8-day decay: an unsaved fax (document + gallery index) is purged after
           // 8 days to keep the In-Tray gallery uncluttered. "Saving" a fax (mint to
           // Gnosis) rewrites tray:{id} without a TTL to make it permanent.
@@ -6797,6 +7070,7 @@ Mint a BYO NFT on nftmail.box to claim this tier.
               createdAt: Date.now(),
               chainDepth,
               sourceTrayId,
+              chainTimerDuration,
             };
             await env.INBOX_KV.put(`tray-in:${recipientLocal}:${id}`, JSON.stringify(trayInMeta), { expirationTtl: TRAY_TTL });
           } else if (to.endsWith('@fax')) {
@@ -6811,6 +7085,7 @@ Mint a BYO NFT on nftmail.box to claim this tier.
               createdAt: Date.now(),
               chainDepth,
               sourceTrayId,
+              chainTimerDuration,
             };
             await env.INBOX_KV.put(`tray-in:${recipientLocal}:${id}`, JSON.stringify(trayInMeta), { expirationTtl: TRAY_TTL });
           } else {
@@ -6851,31 +7126,40 @@ Mint a BYO NFT on nftmail.box to claim this tier.
             return corsify(Response.json({ error: 'Document not found' }, { status: 404 }), request);
           }
           const record = JSON.parse(raw);
+          // The `to` field is private metadata (recipient address). It is only exposed to
+          // authenticated backend callers (e.g. the send/forward route that must verify the
+          // forwarder was the recipient). Unauthenticated public /tray/{id} viewers see only
+          // `from` and the public envelope/image, so a leaked tray URL for a private fax does
+          // not reveal the recipient's address.
+          const trayAuthed = !!env.WEBHOOK_SECRET &&
+            ((email as any).secret || request.headers.get('X-Webhook-Secret') || request.headers.get('X-Worker-Secret') || '') === env.WEBHOOK_SECRET;
           // Private faxes return the encrypted envelope — never plaintext. The
           // recipient decrypts client-side with their wallet-unwrapped key.
           if (record.encrypted || record.channel === 'private') {
-            return corsify(Response.json({
+            const privateResp: Record<string, any> = {
               id: record.id,
               from: record.from,
-              to: record.to,
               format: record.format,
               channel: 'private',
               encrypted: true,
               envelope: record.envelope,
               createdAt: record.createdAt,
-            }), request);
+            };
+            if (trayAuthed) privateResp.to = record.to;
+            return corsify(Response.json(privateResp), request);
           }
-          return corsify(Response.json({
+          const publicResp: Record<string, any> = {
             id: record.id,
             from: record.from,
-            to: record.to,
             format: record.format,
             channel: 'public',
             encrypted: false,
             dataBase64: record.dataBase64,
             createdAt: record.createdAt,
             chainDepth: typeof record.chainDepth === 'number' ? record.chainDepth : 1,
-          }), request);
+          };
+          if (trayAuthed) publicResp.to = record.to;
+          return corsify(Response.json(publicResp), request);
         }
 
         // --- In-Tray gallery listing (standalone NFTfax app) ---
@@ -6923,14 +7207,25 @@ Mint a BYO NFT on nftmail.box to claim this tier.
             return corsify(Response.json({ error: 'Unauthorized' }, { status: 401 }), request);
           }
           const trayId = ((email as any).trayId || '').trim();
+          const forwardedTrayId = ((email as any).forwardedTrayId || '').trim();
           if (!trayId) {
             return corsify(Response.json({ error: 'Missing trayId' }, { status: 400 }), request);
           }
           await env.INBOX_KV.put(
             `tray-fwd:${trayId}`,
-            JSON.stringify({ forwardedAt: Date.now() }),
+            JSON.stringify({ forwardedAt: Date.now(), ...(forwardedTrayId ? { forwardedTrayId } : {}) }),
             { expirationTtl: 8 * 86400 },
           );
+          if (forwardedTrayId) {
+            try {
+              const childrenRaw = await env.INBOX_KV.get(`tray-children:${trayId}`);
+              const children: string[] = childrenRaw ? (() => { try { return JSON.parse(childrenRaw); } catch { return []; } })() : [];
+              if (!children.includes(forwardedTrayId)) {
+                children.push(forwardedTrayId);
+                await env.INBOX_KV.put(`tray-children:${trayId}`, JSON.stringify(children), { expirationTtl: 8 * 86400 });
+              }
+            } catch { /* non-fatal */ }
+          }
           return corsify(Response.json({ status: 'ok', trayId }), request);
         }
 
@@ -6974,7 +7269,8 @@ Mint a BYO NFT on nftmail.box to claim this tier.
         // markTrayMinted: record that the fax was minted to Base (tradeable
         // collectible). Gated upstream by the forward flag. Stores the tx/token
         // so the gallery can badge it and link to the mint. Minting a fax also
-        // implies it should persist, so we drop the TTL like a save.
+        // implies it should persist, so we drop the TTL like a save. A mint resets
+        // the timer for any faxes forwarded from this one back to 72 hours.
         if (email.action === 'markTrayMinted') {
           const secret = (email as any).secret || request.headers.get('x-webhook-secret') || '';
           if (!secret || secret !== env.WEBHOOK_SECRET) {
@@ -6989,10 +7285,16 @@ Mint a BYO NFT on nftmail.box to claim this tier.
           if (!docRaw) {
             return corsify(Response.json({ error: 'Fax not found or already decayed' }, { status: 404 }), request);
           }
-          await env.INBOX_KV.put(`tray:${trayId}`, docRaw);
+          const doc = JSON.parse(docRaw) as Record<string, unknown>;
+          doc.mintedBase = true;
+          await env.INBOX_KV.put(`tray:${trayId}`, JSON.stringify(doc));
           if (recipientLocal) {
             const idxRaw = await env.INBOX_KV.get(`tray-in:${recipientLocal}:${trayId}`);
-            if (idxRaw) await env.INBOX_KV.put(`tray-in:${recipientLocal}:${trayId}`, idxRaw);
+            if (idxRaw) {
+              const meta = JSON.parse(idxRaw) as Record<string, unknown>;
+              meta.mintedBase = true;
+              await env.INBOX_KV.put(`tray-in:${recipientLocal}:${trayId}`, JSON.stringify(meta));
+            }
           }
           const minted = {
             mintedAt: Date.now(),
@@ -7001,6 +7303,43 @@ Mint a BYO NFT on nftmail.box to claim this tier.
             ipfsCid: (email as any).ipfsCid || null,
           };
           await env.INBOX_KV.put(`tray-mint:base:${trayId}`, JSON.stringify(minted));
+
+          // Reset downstream faxes' chain timer to 72h.
+          const DEFAULT_CHAIN_TIMER_MS = 72 * 60 * 60 * 1000;
+          const resetAt = Date.now();
+          const resetChild = async (childId: string) => {
+            try {
+              const childRaw = await env.INBOX_KV.get(`tray:${childId}`);
+              if (!childRaw) return;
+              const child = JSON.parse(childRaw) as { to?: string; chainTimerDuration?: number; createdAt?: number };
+              child.chainTimerDuration = DEFAULT_CHAIN_TIMER_MS;
+              child.createdAt = resetAt;
+              await env.INBOX_KV.put(`tray:${childId}`, JSON.stringify(child), { expirationTtl: 8 * 86400 });
+              const childTo = (child.to || '').toLowerCase().trim();
+              let childLocal = '';
+              if (childTo.endsWith('@nftmail.box')) childLocal = childTo.slice(0, -'@nftmail.box'.length);
+              else if (childTo.endsWith('@fax')) childLocal = childTo.slice(0, -'@fax'.length);
+              if (childLocal) {
+                const childMetaRaw = await env.INBOX_KV.get(`tray-in:${childLocal}:${childId}`);
+                if (childMetaRaw) {
+                  const childMeta = JSON.parse(childMetaRaw) as { chainTimerDuration?: number; createdAt?: number };
+                  childMeta.chainTimerDuration = DEFAULT_CHAIN_TIMER_MS;
+                  childMeta.createdAt = resetAt;
+                  await env.INBOX_KV.put(`tray-in:${childLocal}:${childId}`, JSON.stringify(childMeta), { expirationTtl: 8 * 86400 });
+                }
+              }
+            } catch { /* non-fatal */ }
+          };
+          const forwardedTrayId = ((email as any).forwardedTrayId || '').trim();
+          if (forwardedTrayId) await resetChild(forwardedTrayId);
+          try {
+            const childrenRaw = await env.INBOX_KV.get(`tray-children:${trayId}`);
+            if (childrenRaw) {
+              const children = JSON.parse(childrenRaw) as string[];
+              await Promise.all(children.map(resetChild));
+            }
+          } catch { /* non-fatal */ }
+
           return corsify(Response.json({ status: 'ok', trayId, minted }), request);
         }
 
@@ -7044,6 +7383,7 @@ Mint a BYO NFT on nftmail.box to claim this tier.
         }
 
         if (email.action === 'getTelegraphLog') {
+          const domainFilter = ((email as any).domainFilter || '').toLowerCase().trim();
           const listed = await env.INBOX_KV.list({ prefix: 'tray:' });
           const oneDay = 24 * 60 * 60 * 1000;
           const now = Date.now();
@@ -7058,10 +7398,15 @@ Mint a BYO NFT on nftmail.box to claim this tier.
               if (!raw) return;
               const rec = JSON.parse(raw) as Record<string, unknown>;
               if (rec.channel !== 'public') return;
-              const createdAt = typeof rec.createdAt === 'number' ? rec.createdAt : 0;
-              if (now - createdAt <= oneDay) velocity24h += 1;
               const from = String(rec.from || '');
               const to = String(rec.to || '');
+              if (domainFilter) {
+                const fd = from.includes('@') ? (from.split('@').pop() || '') : '';
+                const td = to.includes('@') ? (to.split('@').pop() || '') : '';
+                if (fd !== domainFilter && td !== domainFilter) return;
+              }
+              const createdAt = typeof rec.createdAt === 'number' ? rec.createdAt : 0;
+              if (now - createdAt <= oneDay) velocity24h += 1;
               publicEntries.push({
                 id: rec.id,
                 from,
@@ -7088,6 +7433,25 @@ Mint a BYO NFT on nftmail.box to claim this tier.
             velocity24h,
             topChains,
           }), request);
+        }
+
+        // --- Clear Test Data (pre-launch reset) ---
+        // Deletes all tray: and telegraph: KV keys to reset the game state.
+        // Protected by WEBHOOK_SECRET so only the owner can call it.
+        if (email.action === 'clearTestData') {
+          const secret = (email as any).secret;
+          if (!secret || secret !== env.WEBHOOK_SECRET) {
+            return corsify(Response.json({ error: 'Unauthorized' }, { status: 401 }), request);
+          }
+          let deleted = 0;
+          for (const prefix of ['tray:', 'telegraph:']) {
+            const listed = await env.INBOX_KV.list({ prefix });
+            await Promise.all(listed.keys.map(async (k) => {
+              await env.INBOX_KV.delete(k.name);
+              deleted++;
+            }));
+          }
+          return corsify(Response.json({ status: 'ok', deleted }), request);
         }
 
         // --- Private Fax Key Vault ---
@@ -7536,6 +7900,10 @@ Mint a BYO NFT on nftmail.box to claim this tier.
               } catch {}
             }
 
+            // Attachment settings from acct-tier KV
+            const sCanSendAttachments = sAcctTier ? (() => { try { return JSON.parse(sAcctTier).canSendAttachments === true; } catch { return false; } })() : false;
+            const sCanReceiveAttachments = sAcctTier ? (() => { try { return JSON.parse(sAcctTier).canReceiveAttachments === true; } catch { return false; } })() : false;
+
             // ── SLD-based tier overrides ──
             // picoclaw.gno = basic email tier (even with Safe + ERC-8004)
             // vault.gno = premium (always premium regardless of parity)
@@ -7592,6 +7960,8 @@ Mint a BYO NFT on nftmail.box to claim this tier.
                 canRenew: true,
                 onChainOwner: sGnoController,
                 originNft: sGnoOriginNft,
+                canSendAttachments: sCanSendAttachments,
+                canReceiveAttachments: sCanReceiveAttachments,
               }), request);
             }
             if (sExists) {
@@ -7620,6 +7990,8 @@ Mint a BYO NFT on nftmail.box to claim this tier.
                 originNft: sGnoOriginNft,
                 legacyIdentity: sGnoLegacyIdentity,
                 mintedTokenId: sGnoMintedTokenId,
+                canSendAttachments: sCanSendAttachments,
+                canReceiveAttachments: sCanReceiveAttachments,
                 ...sErc8004,
                 ...sErc8004Base,
               }), request);
@@ -7859,6 +8231,10 @@ Mint a BYO NFT on nftmail.box to claim this tier.
           const recencyFactor = lastBeat ? Math.max(0, 1 - (Date.now() - lastBeat) / (24 * 60 * 60 * 1000)) : 0;
           const surgeScore = Math.min(100, inboxCount * 8.3 * (0.3 + 0.7 * recencyFactor));
 
+          // Attachment settings from acct-tier KV (aliases inherit from base)
+          const agentCanSendAttachments = effectiveAcctTierRaw ? (() => { try { return JSON.parse(effectiveAcctTierRaw).canSendAttachments === true; } catch { return false; } })() : false;
+          const agentCanReceiveAttachments = effectiveAcctTierRaw ? (() => { try { return JSON.parse(effectiveAcctTierRaw).canReceiveAttachments === true; } catch { return false; } })() : false;
+
           return corsify(Response.json({
             name: resolvedName,
             exists,
@@ -7879,6 +8255,8 @@ Mint a BYO NFT on nftmail.box to claim this tier.
             accountTier,
             expiresAt,
             canSend,
+            canSendAttachments: agentCanSendAttachments,
+            canReceiveAttachments: agentCanReceiveAttachments,
             // Telemetry for Audit Card
             surgeScore: Math.round(surgeScore * 10) / 10,
             inbox: { count: inboxCount },
