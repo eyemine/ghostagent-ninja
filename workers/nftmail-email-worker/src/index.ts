@@ -6996,6 +6996,12 @@ Mint a BYO NFT on nftmail.box to claim this tier.
           const chainTrayId = ((email as any).chainTrayId || '').trim();
           let chainDepth = 1;
           let sourceTrayId: string | null = null;
+          // rootTrayId is the immutable anchor of this chain — set to self on the
+          // very first link, then inherited UNCHANGED at every subsequent hop.
+          // This makes chain-root lookups (per-chain mint gate) O(1) and durable
+          // even if an intermediate sourceTrayId pointer is ever lost, instead of
+          // requiring a live walk back through every ancestor.
+          let rootTrayId: string = id;
           let chainTimerDuration = 72 * 60 * 60 * 1000; // 72h default, halves each unminted hop
           let chainParticipants: string[] = [];
           let chainCollections: string[] = [];
@@ -7009,12 +7015,32 @@ Mint a BYO NFT on nftmail.box to claim this tier.
             return prefix;
           };
           if (chainTrayId) {
+            // FAIL CLOSED: forwarding a fax whose parent record can't be found or
+            // parsed must never silently fall back to starting a fresh root chain
+            // (chainDepth=1, sourceTrayId=null) — that phantom reset is exactly the
+            // "crossed wires" failure mode that has previously corrupted chain
+            // lineage and produced incorrect tiers/leaderboard data. If the parent
+            // is gone, the forward is rejected and the caller is told explicitly.
+            const srcRaw = await env.INBOX_KV.get(`tray:${chainTrayId}`);
+            if (!srcRaw) {
+              return corsify(Response.json({
+                error: 'Cannot forward: the fax you are replying to could not be found (it may have decayed or been re-routed). Ask the sender to resend it.',
+                code: 'CHAIN_PARENT_MISSING',
+              }, { status: 409 }), request);
+            }
+            let src: { chainDepth?: number; id?: string; chainTimerDuration?: number; chainParticipants?: string[]; from?: string; to?: string; rootTrayId?: string };
             try {
-              const srcRaw = await env.INBOX_KV.get(`tray:${chainTrayId}`);
-              if (srcRaw) {
-                const src = JSON.parse(srcRaw) as { chainDepth?: number; id?: string; chainTimerDuration?: number; chainParticipants?: string[]; from?: string; to?: string };
+              src = JSON.parse(srcRaw);
+            } catch {
+              return corsify(Response.json({
+                error: 'Cannot forward: the fax you are replying to is corrupted on the server. Ask the sender to resend it.',
+                code: 'CHAIN_PARENT_CORRUPT',
+              }, { status: 500 }), request);
+            }
+            {
                 chainDepth = (typeof src.chainDepth === 'number' ? src.chainDepth : 1) + 1;
                 sourceTrayId = src.id || chainTrayId;
+                rootTrayId = src.rootTrayId || sourceTrayId;
                 // Halving timer: if the source fax was NOT minted, halve the timer.
                 // If it WAS minted, reset to 72h. Check tray-mint:base:{chainTrayId}.
                 const srcMintRaw = await env.INBOX_KV.get(`tray-mint:base:${chainTrayId}`);
@@ -7052,8 +7078,7 @@ Mint a BYO NFT on nftmail.box to claim this tier.
                 if (to === src.from) {
                   return corsify(Response.json({ error: 'Loop prevented: cannot send back to the original sender.' }, { status: 409 }), request);
                 }
-              }
-            } catch { /* source missing — start a new root chain */ }
+            }
           }
           // Add current hop's collections
           const fromLocal = from.split('@')[0];
@@ -7063,8 +7088,8 @@ Mint a BYO NFT on nftmail.box to claim this tier.
           const toCol = inferCollection(toLocal);
           if (toCol && !chainCollections.includes(toCol)) chainCollections.push(toCol);
           const record = isPrivate
-            ? { id, from, to, format, channel: 'private', encrypted: true, envelope, createdAt: Date.now(), chainDepth, sourceTrayId, chainTimerDuration, chainParticipants, chainCollections }
-            : { id, from, to, format, channel: 'public', encrypted: false, dataBase64, createdAt: Date.now(), chainDepth, sourceTrayId, chainTimerDuration, chainParticipants, chainCollections };
+            ? { id, from, to, format, channel: 'private', encrypted: true, envelope, createdAt: Date.now(), chainDepth, sourceTrayId, rootTrayId, chainTimerDuration, chainParticipants, chainCollections }
+            : { id, from, to, format, channel: 'public', encrypted: false, dataBase64, createdAt: Date.now(), chainDepth, sourceTrayId, rootTrayId, chainTimerDuration, chainParticipants, chainCollections };
           // 8-day decay: an unsaved fax (document + gallery index) is purged after
           // 8 days to keep the In-Tray gallery uncluttered. "Saving" a fax (mint to
           // Gnosis) rewrites tray:{id} without a TTL to make it permanent.
@@ -7112,6 +7137,7 @@ Mint a BYO NFT on nftmail.box to claim this tier.
               createdAt: Date.now(),
               chainDepth,
               sourceTrayId,
+              rootTrayId,
               chainTimerDuration,
               chainParticipants,
               chainCollections,
@@ -7119,7 +7145,7 @@ Mint a BYO NFT on nftmail.box to claim this tier.
             await env.INBOX_KV.put(`tray-in:${recipientLocal}:${id}`, JSON.stringify(trayInMeta), { expirationTtl: TRAY_TTL });
             // Sent-tray index for the sender (standalone NFTfax app).
             const senderLocal = from.split('@')[0];
-            const trayOutMeta = { id, from, to, format, channel: isPrivate ? 'private' : 'public', encrypted: isPrivate, createdAt: Date.now(), chainDepth, sourceTrayId, chainTimerDuration, chainCollections };
+            const trayOutMeta = { id, from, to, format, channel: isPrivate ? 'private' : 'public', encrypted: isPrivate, createdAt: Date.now(), chainDepth, sourceTrayId, rootTrayId, chainTimerDuration, chainCollections };
             await env.INBOX_KV.put(`tray-out:${senderLocal}:${id}`, JSON.stringify(trayOutMeta), { expirationTtl: TRAY_TTL });
           } else if (to.endsWith('@fax')) {
             const recipientLocal = to.slice(0, -'@fax'.length);
@@ -7133,6 +7159,7 @@ Mint a BYO NFT on nftmail.box to claim this tier.
               createdAt: Date.now(),
               chainDepth,
               sourceTrayId,
+              rootTrayId,
               chainTimerDuration,
               chainParticipants,
               chainCollections,
@@ -7141,7 +7168,7 @@ Mint a BYO NFT on nftmail.box to claim this tier.
             // Sent-tray index for the sender (standalone NFTfax app) so forwarded
             // @fax transmissions surface in the sender's Sent tab.
             const faxSenderLocal = from.split('@')[0];
-            const faxOutMeta = { id, from, to, format, channel: 'public', encrypted: false, createdAt: Date.now(), chainDepth, sourceTrayId, chainTimerDuration, chainParticipants, chainCollections };
+            const faxOutMeta = { id, from, to, format, channel: 'public', encrypted: false, createdAt: Date.now(), chainDepth, sourceTrayId, rootTrayId, chainTimerDuration, chainParticipants, chainCollections };
             await env.INBOX_KV.put(`tray-out:${faxSenderLocal}:${id}`, JSON.stringify(faxOutMeta), { expirationTtl: TRAY_TTL });
           } else {
             const sendKey = env.MG_SENDING_MAILGUN_API_KEY || env.MG_MAILGUN_API_KEY || env.GM_MAILGUN_API_KEY || env.SEND_MAILGUN_API_KEY || env.MAILGUN_API_KEY;
@@ -7213,6 +7240,7 @@ Mint a BYO NFT on nftmail.box to claim this tier.
             createdAt: record.createdAt,
             chainDepth: typeof record.chainDepth === 'number' ? record.chainDepth : 1,
             chainTimerDuration: typeof record.chainTimerDuration === 'number' ? record.chainTimerDuration : 72 * 60 * 60 * 1000,
+            rootTrayId: typeof record.rootTrayId === 'string' ? record.rootTrayId : null,
           };
           if (trayAuthed) publicResp.to = record.to;
           return corsify(Response.json(publicResp), request);
@@ -7226,18 +7254,34 @@ Mint a BYO NFT on nftmail.box to claim this tier.
 
         // --- Per-chain mint helpers -------------------------------------------------
         async function getChainRoot(trayId: string): Promise<string | null> {
+          const startRaw = await env.INBOX_KV.get(`tray:${trayId}`);
+          if (!startRaw) return null;
+          try {
+            const startDoc = JSON.parse(startRaw) as { rootTrayId?: string };
+            // Fast path: records written after the rootTrayId migration carry an
+            // immutable anchor set once at hop 1 and inherited unchanged at every
+            // subsequent hop — O(1), and durable even if intermediate
+            // sourceTrayId pointers are later lost to decay/corruption.
+            if (startDoc.rootTrayId) return startDoc.rootTrayId;
+          } catch { return null; }
+
+          // Legacy fallback: pre-migration records have no rootTrayId, so walk
+          // the sourceTrayId chain. FAIL CLOSED — if any link in the walk is
+          // missing or unparseable, return null (unknown root) rather than
+          // misreporting a dead/broken id as the root, which would silently key
+          // future per-chain mint checks against a chain that doesn't exist.
           const visited = new Set<string>();
           let current = trayId;
           while (current) {
-            if (visited.has(current)) break;
+            if (visited.has(current)) return null;
             visited.add(current);
             const raw = await env.INBOX_KV.get(`tray:${current}`);
-            if (!raw) break;
+            if (!raw) return null;
             try {
               const doc = JSON.parse(raw) as { sourceTrayId?: string };
               if (!doc.sourceTrayId) return current;
               current = doc.sourceTrayId;
-            } catch { break; }
+            } catch { return null; }
           }
           return current;
         }
