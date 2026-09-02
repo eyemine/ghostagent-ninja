@@ -7315,10 +7315,12 @@ Mint a BYO NFT on nftmail.box to claim this tier.
             let meta: Record<string, unknown>;
             try { meta = JSON.parse(raw); } catch { return null; }
             const trayId = meta.id as string;
-            const [fwd, mintedBase, savedGnosis] = await Promise.all([
+            const sourceTrayId = (meta.sourceTrayId as string) || null;
+            const [fwd, mintedBase, savedGnosis, sourceMintRaw] = await Promise.all([
               env.INBOX_KV.get(`tray-fwd:${trayId}`),
               env.INBOX_KV.get(`tray-mint:base:${trayId}`),
               env.INBOX_KV.get(`tray-saved:gnosis:${trayId}`),
+              sourceTrayId ? env.INBOX_KV.get(`tray-mint:base:${sourceTrayId}`) : null,
             ]);
             let forwardedTrayId: string | undefined;
             if (fwd) { try { forwardedTrayId = (JSON.parse(fwd) as any).forwardedTrayId; } catch { /* ignore */ } }
@@ -7328,6 +7330,7 @@ Mint a BYO NFT on nftmail.box to claim this tier.
               forwardedTrayId,
               mintedBase: mintedBase ? (() => { try { return JSON.parse(mintedBase); } catch { return true; } })() : null,
               savedGnosis: savedGnosis ? (() => { try { return JSON.parse(savedGnosis); } catch { return true; } })() : null,
+              sourceMintedBase: !!sourceMintRaw,
             };
           }));
           const faxes = items.filter(Boolean).sort((a, b) => ((b as any).createdAt || 0) - ((a as any).createdAt || 0));
@@ -7591,6 +7594,19 @@ Mint a BYO NFT on nftmail.box to claim this tier.
             participants: Array.isArray(doc.chainParticipants) ? doc.chainParticipants.length : 0,
           };
           await env.INBOX_KV.put(`tray-mint:base:${trayId}`, JSON.stringify(minted));
+          // Propagate mint to the forwarded fax: reset its timer to 72h
+          // (mint resets the chain timer for the next hop).
+          if (forwardedTrayId) {
+            const fwdDocRaw = await env.INBOX_KV.get(`tray:${forwardedTrayId}`);
+            if (fwdDocRaw) {
+              try {
+                const fwdDoc = JSON.parse(fwdDocRaw) as Record<string, unknown>;
+                fwdDoc.chainTimerDuration = 72 * 60 * 60 * 1000;
+                fwdDoc.createdAt = Date.now();
+                await env.INBOX_KV.put(`tray:${forwardedTrayId}`, JSON.stringify(fwdDoc));
+              } catch { /* ignore */ }
+            }
+          }
           // Increment global mint counter (for mint cap enforcement)
           const prevCount = Number(await env.INBOX_KV.get('tray-mint-count')) || 0;
           await env.INBOX_KV.put('tray-mint-count', String(prevCount + 1));
