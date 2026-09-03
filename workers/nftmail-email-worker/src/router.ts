@@ -13,6 +13,7 @@
 
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
+import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import type { Env } from './index';
 import { AgentMemoryStore } from './memory';
 
@@ -70,7 +71,7 @@ export function createApp(handlers: RouterHandlers) {
       try {
         const clonedReq = c.req.raw.clone();
         const body = await clonedReq.json().catch(() => ({})) as { action?: string };
-        const publicActions = ['resolveAddress', 'getBeacon', 'getMoltPath'];
+        const publicActions = ['resolveAddress', 'getBeacon', 'getMoltPath', 'getPgpKey', 'getWkdMapping', 'getMintCount', 'getMintLeaderboard', 'getTelegraphLog', 'listTrayInbox', 'listTraySent', 'getRelaySuggestion'];
         if (body.action && publicActions.includes(body.action)) {
           await next();
           return;
@@ -145,7 +146,7 @@ export function createApp(handlers: RouterHandlers) {
       return c.json(result);
     };
 
-    const sendError = (code: number, message: string, status = 400) => {
+    const sendError = (code: number, message: string, status: ContentfulStatusCode = 400) => {
       if (isJsonRpc) {
         return c.json({ jsonrpc: '2.0', id: reqId, error: { code, message } }, status);
       }
