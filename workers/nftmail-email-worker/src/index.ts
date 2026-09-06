@@ -7093,7 +7093,7 @@ Mint a BYO NFT on nftmail.box to claim this tier.
           // 8-day decay: an unsaved fax (document + gallery index) is purged after
           // 8 days to keep the In-Tray gallery uncluttered. "Saving" a fax (mint to
           // Gnosis) rewrites tray:{id} without a TTL to make it permanent.
-          const TRAY_TTL = 4 * 86400; // 96-hour decay: unsaved faxes are purged after 4 days
+          const TRAY_TTL = 8 * 86400; // 8-day decay: unsaved faxes are purged after 8 days
           await env.INBOX_KV.put(`tray:${id}`, JSON.stringify(record), { expirationTtl: TRAY_TTL });
 
           // Inject a terse plaintext notification — never the bitmap itself — into the
@@ -7426,7 +7426,7 @@ Mint a BYO NFT on nftmail.box to claim this tier.
           await env.INBOX_KV.put(
             `tray-fwd:${trayId}`,
             JSON.stringify({ forwardedAt: Date.now(), forwardedTrayId: forwardedTrayId || undefined }),
-            { expirationTtl: 4 * 86400 },
+            { expirationTtl: 8 * 86400 },
           );
           // Forwarding a link resets the source's mint window to 72h so the
           // sender can still mint after the chain has been passed on.
@@ -7497,6 +7497,15 @@ Mint a BYO NFT on nftmail.box to claim this tier.
           const recipientLocal = ((email as any).local || '').toLowerCase().trim();
           if (!trayId) {
             return corsify(Response.json({ error: 'Missing trayId' }, { status: 400 }), request);
+          }
+          // Guard: never delete a fax that has been minted (Base) or saved
+          // (Gnosis) — those are permanent records backing on-chain metadata.
+          const [mintedRaw, savedRaw] = await Promise.all([
+            env.INBOX_KV.get(`tray-mint:base:${trayId}`),
+            env.INBOX_KV.get(`tray-saved:gnosis:${trayId}`),
+          ]);
+          if (mintedRaw || savedRaw) {
+            return corsify(Response.json({ error: 'Cannot delete a minted or saved fax' }, { status: 409 }), request);
           }
           await env.INBOX_KV.delete(`tray:${trayId}`);
           if (recipientLocal) {
@@ -7631,7 +7640,7 @@ Mint a BYO NFT on nftmail.box to claim this tier.
           await env.INBOX_KV.put(
             `tray-rerouted:${trayId}`,
             JSON.stringify({ reroutedAt, newRecipient }),
-            { expirationTtl: 4 * 86400 },
+            { expirationTtl: 8 * 86400 },
           );
           return corsify(Response.json({ status: 'ok', trayId, reroutedAt, newRecipient }), request);
         }
