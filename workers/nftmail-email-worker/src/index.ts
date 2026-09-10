@@ -7195,6 +7195,49 @@ Mint a BYO NFT on nftmail.box to claim this tier.
             }
           }
 
+          // ── First-@fax inbox activation: sending your first @fax creates a free
+          //     @nftmail.box basic inbox with 10 private sends.
+          if (from.endsWith('@fax')) {
+            const faxLocal = from.slice(0, -4);
+            const ownerWallet = ((email as any).ownerWallet || '').toLowerCase().trim();
+            if (faxLocal && /^0x[a-f0-9]{40}$/.test(ownerWallet)) {
+              try {
+                const [existingTier, existingGno] = await Promise.all([
+                  env.INBOX_KV.get(`acct-tier:${faxLocal}`),
+                  env.INBOX_KV.get(`nftmailgno:${faxLocal}`),
+                ]);
+                const now = Date.now();
+                if (!existingTier) {
+                  await env.INBOX_KV.put(`acct-tier:${faxLocal}`, JSON.stringify({
+                    tier: 'basic',
+                    expires_at: null,
+                    upgraded_at: null,
+                    safe: null,
+                    retention: '8-day',
+                    account_ttl: 'never',
+                    story_ip: null,
+                    sendsRemaining: 10,
+                    sendsUsed: 0,
+                  }));
+                }
+                if (!existingGno) {
+                  await env.INBOX_KV.put(`nftmailgno:${faxLocal}`, JSON.stringify({
+                    controller: ownerWallet,
+                    type: 'basic',
+                    origin_nft: faxLocal,
+                    legacy_identity: null,
+                    minted_tokenId: null,
+                    registrar: null,
+                    chain: null,
+                    registered_at: now,
+                  }));
+                }
+              } catch (activationErr) {
+                console.error('[setTrayDocument] first-@fax activation failed:', activationErr);
+              }
+            }
+          }
+
           return corsify(Response.json({ status: 'ok', id, trayUrl }), request);
         }
 
@@ -7620,6 +7663,54 @@ Mint a BYO NFT on nftmail.box to claim this tier.
           const prevCount = Number(await env.INBOX_KV.get('tray-mint-count')) || 0;
           await env.INBOX_KV.put('tray-mint-count', String(prevCount + 1));
           return corsify(Response.json({ status: 'ok', trayId, minted, mintCount: prevCount + 1 }), request);
+        }
+
+        // --- Chain-letter game: Unmint (reset a mistakenly-recorded mint) ---
+        // markTrayUnminted: removes the on-chain mint record for a given tray
+        // so a failed/invalid mint can be retried. Drops the per-chain claim
+        // gate and decrements the global mint counter, then restores the 8-day
+        // decay TTL unless the fax has been saved to Gnosis.
+        if (email.action === 'markTrayUnminted') {
+          const secret = (email as any).secret || request.headers.get('x-webhook-secret') || '';
+          if (!secret || secret !== env.WEBHOOK_SECRET) {
+            return corsify(Response.json({ error: 'Unauthorized' }, { status: 401 }), request);
+          }
+          const trayId = ((email as any).trayId || '').trim();
+          const recipientLocal = ((email as any).local || '').toLowerCase().trim();
+          if (!trayId) {
+            return corsify(Response.json({ error: 'Missing trayId' }, { status: 400 }), request);
+          }
+          const docRaw = await env.INBOX_KV.get(`tray:${trayId}`);
+          if (!docRaw) {
+            return corsify(Response.json({ error: 'Fax not found or already decayed' }, { status: 404 }), request);
+          }
+          const doc = JSON.parse(docRaw) as { to?: string };
+          const toLocal = String(doc.to || '').toLowerCase().replace(/@fax$/, '').replace(/@nftmail\.box$/, '');
+          if (recipientLocal && toLocal !== recipientLocal) {
+            return corsify(Response.json({ error: 'Recipient mismatch' }, { status: 403 }), request);
+          }
+          // Remove the mint record.
+          await env.INBOX_KV.delete(`tray-mint:base:${trayId}`);
+          // Remove per-chain claim gate if it was set.
+          const identity = parseFaxIdentity(toLocal);
+          const chainRoot = await getChainRoot(trayId);
+          if (identity && chainRoot) {
+            await env.INBOX_KV.delete(`tray-mint:chain:${chainRoot}:${identity.collection}:${identity.tokenId}`);
+          }
+          // Decrement global mint counter (best-effort, never below 0).
+          const prevCount = Number(await env.INBOX_KV.get('tray-mint-count')) || 0;
+          if (prevCount > 0) await env.INBOX_KV.put('tray-mint-count', String(prevCount - 1));
+          // Restore 8-day decay TTL unless the fax has been saved to Gnosis.
+          const savedRaw = await env.INBOX_KV.get(`tray-saved:gnosis:${trayId}`);
+          const TRAY_TTL = 8 * 86400;
+          if (!savedRaw) {
+            await env.INBOX_KV.put(`tray:${trayId}`, docRaw, { expirationTtl: TRAY_TTL });
+            if (toLocal) {
+              const idxRaw = await env.INBOX_KV.get(`tray-in:${toLocal}:${trayId}`);
+              if (idxRaw) await env.INBOX_KV.put(`tray-in:${toLocal}:${trayId}`, idxRaw, { expirationTtl: TRAY_TTL });
+            }
+          }
+          return corsify(Response.json({ status: 'ok', trayId, unminted: true, mintCount: Math.max(0, prevCount - 1) }), request);
         }
 
         // --- Chain-letter game: Re-route (relay window) ---
