@@ -7669,7 +7669,9 @@ Mint a BYO NFT on nftmail.box to claim this tier.
         // markTrayUnminted: removes the on-chain mint record for a given tray
         // so a failed/invalid mint can be retried. Drops the per-chain claim
         // gate and decrements the global mint counter, then restores the 8-day
-        // decay TTL unless the fax has been saved to Gnosis.
+        // decay TTL unless the fax has been saved to Gnosis. The tray document
+        // may already be missing, so we still delete the mint record even if
+        // only the index/key remains.
         if (email.action === 'markTrayUnminted') {
           const secret = (email as any).secret || request.headers.get('x-webhook-secret') || '';
           if (!secret || secret !== env.WEBHOOK_SECRET) {
@@ -7680,14 +7682,26 @@ Mint a BYO NFT on nftmail.box to claim this tier.
           if (!trayId) {
             return corsify(Response.json({ error: 'Missing trayId' }, { status: 400 }), request);
           }
-          const docRaw = await env.INBOX_KV.get(`tray:${trayId}`);
-          if (!docRaw) {
-            return corsify(Response.json({ error: 'Fax not found or already decayed' }, { status: 404 }), request);
+          let toLocal = '';
+          let docRaw: string | null = null;
+          try {
+            docRaw = await env.INBOX_KV.get(`tray:${trayId}`);
+            if (docRaw) {
+              const doc = JSON.parse(docRaw) as { to?: string };
+              toLocal = String(doc.to || '').toLowerCase().replace(/@fax$/, '').replace(/@nftmail\.box$/, '');
+            }
+          } catch { /* ignore missing/corrupt doc */ }
+          // If the caller supplied a local, use it as the authoritative recipient
+          // (fallback if the tray document is gone), and optionally verify it
+          // matches the stored doc.
+          if (recipientLocal) {
+            if (toLocal && toLocal !== recipientLocal) {
+              return corsify(Response.json({ error: 'Recipient mismatch' }, { status: 403 }), request);
+            }
+            if (!toLocal) toLocal = recipientLocal;
           }
-          const doc = JSON.parse(docRaw) as { to?: string };
-          const toLocal = String(doc.to || '').toLowerCase().replace(/@fax$/, '').replace(/@nftmail\.box$/, '');
-          if (recipientLocal && toLocal !== recipientLocal) {
-            return corsify(Response.json({ error: 'Recipient mismatch' }, { status: 403 }), request);
+          if (!toLocal) {
+            return corsify(Response.json({ error: 'Could not determine recipient for this tray' }, { status: 404 }), request);
           }
           // Remove the mint record.
           await env.INBOX_KV.delete(`tray-mint:base:${trayId}`);
@@ -7703,7 +7717,7 @@ Mint a BYO NFT on nftmail.box to claim this tier.
           // Restore 8-day decay TTL unless the fax has been saved to Gnosis.
           const savedRaw = await env.INBOX_KV.get(`tray-saved:gnosis:${trayId}`);
           const TRAY_TTL = 8 * 86400;
-          if (!savedRaw) {
+          if (docRaw && !savedRaw) {
             await env.INBOX_KV.put(`tray:${trayId}`, docRaw, { expirationTtl: TRAY_TTL });
             if (toLocal) {
               const idxRaw = await env.INBOX_KV.get(`tray-in:${toLocal}:${trayId}`);
