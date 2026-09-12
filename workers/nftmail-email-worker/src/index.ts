@@ -1969,7 +1969,8 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
         // ── Sentbox: store a sent message copy in KV ──────────────────────────────
         if (email.action === 'storeSentMessage') {
           const localPart = ((email as any).localPart || '').toLowerCase().trim();
-          const msg = (email as any).message;
+          // Accept both `message` (legacy) and `payload` (current nftmail app) fields.
+          const msg = (email as any).message || (email as any).payload;
           if (!localPart || !msg) {
             return corsify(Response.json({ error: 'Missing localPart or message' }, { status: 400 }), request);
           }
@@ -6956,6 +6957,11 @@ Mint a BYO NFT on nftmail.box to claim this tier.
           const format = ((email as any).format || '').toLowerCase().trim();
           const channel = (((email as any).channel || 'public') as string).toLowerCase().trim();
           const dataBase64 = (email as any).dataBase64 as string | undefined;
+          // Cover note: optional 140-char plaintext note attached to the fax.
+          // Stored in the tray record, displayed in the tray page and InTray,
+          // NOT rendered on the fax image (image stays clean). Sanitized to
+          // plain text and capped at 140 chars.
+          const coverNoteRaw = ((email as any).coverNote || '').toString().trim().slice(0, 140);
           // Private channel: the bitmap is ECIES-encrypted client/server-side and
           // arrives as an envelope. KV never stores the plaintext image, and the
           // public /tray/{id} URL can never reveal it — only the recipient wallet
@@ -7088,8 +7094,8 @@ Mint a BYO NFT on nftmail.box to claim this tier.
           const toCol = inferCollection(toLocal);
           if (toCol && !chainCollections.includes(toCol)) chainCollections.push(toCol);
           const record = isPrivate
-            ? { id, from, to, format, channel: 'private', encrypted: true, envelope, createdAt: Date.now(), chainDepth, sourceTrayId, rootTrayId, chainTimerDuration, chainParticipants, chainCollections }
-            : { id, from, to, format, channel: 'public', encrypted: false, dataBase64, createdAt: Date.now(), chainDepth, sourceTrayId, rootTrayId, chainTimerDuration, chainParticipants, chainCollections };
+            ? { id, from, to, format, channel: 'private', encrypted: true, envelope, createdAt: Date.now(), chainDepth, sourceTrayId, rootTrayId, chainTimerDuration, chainParticipants, chainCollections, coverNote: coverNoteRaw || undefined }
+            : { id, from, to, format, channel: 'public', encrypted: false, dataBase64, createdAt: Date.now(), chainDepth, sourceTrayId, rootTrayId, chainTimerDuration, chainParticipants, chainCollections, coverNote: coverNoteRaw || undefined };
           // 8-day decay: an unsaved fax (document + gallery index) is purged after
           // 8 days to keep the In-Tray gallery uncluttered. "Saving" a fax (mint to
           // Gnosis) rewrites tray:{id} without a TTL to make it permanent.
@@ -7284,6 +7290,7 @@ Mint a BYO NFT on nftmail.box to claim this tier.
             chainDepth: typeof record.chainDepth === 'number' ? record.chainDepth : 1,
             chainTimerDuration: typeof record.chainTimerDuration === 'number' ? record.chainTimerDuration : 72 * 60 * 60 * 1000,
             rootTrayId: typeof record.rootTrayId === 'string' ? record.rootTrayId : null,
+            coverNote: typeof record.coverNote === 'string' ? record.coverNote : undefined,
           };
           if (trayAuthed) publicResp.to = record.to;
           return corsify(Response.json(publicResp), request);
@@ -7359,7 +7366,7 @@ Mint a BYO NFT on nftmail.box to claim this tier.
             try { meta = JSON.parse(raw); } catch { return null; }
             const trayId = meta.id as string;
             const sourceTrayId = (meta.sourceTrayId as string) || null;
-            const [fwd, mintedBase, savedGnosis, sourceMintRaw] = await Promise.all([
+            const [fwd, mintedBaseRaw, savedGnosis, sourceMintRaw] = await Promise.all([
               env.INBOX_KV.get(`tray-fwd:${trayId}`),
               env.INBOX_KV.get(`tray-mint:base:${trayId}`),
               env.INBOX_KV.get(`tray-saved:gnosis:${trayId}`),
@@ -7367,13 +7374,29 @@ Mint a BYO NFT on nftmail.box to claim this tier.
             ]);
             let forwardedTrayId: string | undefined;
             if (fwd) { try { forwardedTrayId = (JSON.parse(fwd) as any).forwardedTrayId; } catch { /* ignore */ } }
+            // Distinguish "I minted this" (mintedBase) from "the sender minted
+            // the source fax" (sourceMintedBase). The mint record includes
+            // minterLocal — if it doesn't match the inbox owner, the mint was
+            // done by the upstream sender, not this user.
+            let parsedMint: any = null;
+            let isOwnMint = false;
+            if (mintedBaseRaw) {
+              try {
+                parsedMint = JSON.parse(mintedBaseRaw);
+                isOwnMint = !parsedMint.minterLocal || parsedMint.minterLocal === local;
+              } catch { parsedMint = true; isOwnMint = true; }
+            }
+            // sourceMintedBase is true if the SOURCE fax was minted by anyone
+            // (upstream sender). Also true if this fax itself was minted by
+            // someone else (not the inbox owner).
+            const sourceMinted = !!sourceMintRaw || (parsedMint && !isOwnMint);
             return {
               ...meta,
               forwarded: !!fwd,
               forwardedTrayId,
-              mintedBase: mintedBase ? (() => { try { return JSON.parse(mintedBase); } catch { return true; } })() : null,
+              mintedBase: isOwnMint ? parsedMint : null,
               savedGnosis: savedGnosis ? (() => { try { return JSON.parse(savedGnosis); } catch { return true; } })() : null,
-              sourceMintedBase: !!sourceMintRaw,
+              sourceMintedBase: sourceMinted,
             };
           }));
           const faxes = items.filter(Boolean).sort((a, b) => ((b as any).createdAt || 0) - ((a as any).createdAt || 0));
@@ -7428,11 +7451,12 @@ Mint a BYO NFT on nftmail.box to claim this tier.
             const trayId = meta.id as string;
             if (!trayId) return meta;
             const sourceTrayId = (meta.sourceTrayId as string) || null;
-            const [fwd, reroutedRaw, sourceMintRaw, sourceDocRaw] = await Promise.all([
+            const [fwd, reroutedRaw, sourceMintRaw, sourceDocRaw, ownMintRaw] = await Promise.all([
               env.INBOX_KV.get(`tray-fwd:${trayId}`),
               env.INBOX_KV.get(`tray-rerouted:${trayId}`),
               sourceTrayId ? env.INBOX_KV.get(`tray-mint:base:${sourceTrayId}`) : null,
               sourceTrayId ? env.INBOX_KV.get(`tray:${sourceTrayId}`) : null,
+              env.INBOX_KV.get(`tray-mint:base:${trayId}`),
             ]);
             let sourceTimer: { chainTimerDuration?: number; createdAt?: number } | null = null;
             if (sourceDocRaw) {
@@ -7444,6 +7468,7 @@ Mint a BYO NFT on nftmail.box to claim this tier.
               recipientForwarded: !!fwd,
               reroutedAt: reroutedRaw ? (() => { try { return JSON.parse(reroutedRaw).reroutedAt; } catch { return null; } })() : null,
               sourceMintedBase: !!sourceMintRaw,
+              mintedBase: ownMintRaw ? (() => { try { return JSON.parse(ownMintRaw); } catch { return true; } })() : null,
             };
           }));
           const faxes = items.filter(Boolean).sort((a, b) => ((b as any).createdAt || 0) - ((a as any).createdAt || 0));
@@ -7632,20 +7657,44 @@ Mint a BYO NFT on nftmail.box to claim this tier.
             }
             await env.INBOX_KV.put(key, JSON.stringify({ mintedAt: Date.now(), trayId }));
           }
+          // For NFT traits (hops, communities, participants), use the FORWARDED
+          // fax document when available — the collectible represents the player's
+          // own composited hop, not the received fax they were merely a relay for.
+          // The forwarded fax has the correct chainDepth (e.g. 2 for hop 1).
+          let traitDoc = doc;
+          if (forwardedTrayId) {
+            const fwdDocRaw = await env.INBOX_KV.get(`tray:${forwardedTrayId}`);
+            if (fwdDocRaw) {
+              try { traitDoc = JSON.parse(fwdDocRaw) as typeof doc; } catch { /* fall back to received doc */ }
+            }
+          }
           const minted = {
             mintedAt: Date.now(),
             baseTx: (email as any).baseTx || null,
             baseTokenId: (email as any).baseTokenId ?? null,
             ipfsCid: (email as any).ipfsCid || null,
+            // Who minted this — used by listTrayInbox to distinguish "I minted
+            // this" (mintedBase) from "someone else minted the source fax"
+            // (sourceMintedBase). Without this, a received fax that the SENDER
+            // minted would show as mintedBase in the RECIPIENT's inbox, blocking
+            // the recipient from minting their own hop.
+            minterLocal: recipientLocal || undefined,
             // NFT traits. chainDepth is 1-indexed (the origin fax is link 1),
             // so the number of forward-hops taken to reach this content is
             // chainDepth - 1 (e.g. link 4 == 3 hops from the origin).
-            hops: Math.max(0, (typeof doc.chainDepth === 'number' ? doc.chainDepth : 1) - 1),
-            communitiesBridged: Array.isArray(doc.chainCollections) ? doc.chainCollections.length : 1,
-            collections: Array.isArray(doc.chainCollections) ? doc.chainCollections : [],
-            participants: Array.isArray(doc.chainParticipants) ? doc.chainParticipants.length : 0,
+            hops: Math.max(0, (typeof traitDoc.chainDepth === 'number' ? traitDoc.chainDepth : 1) - 1),
+            communitiesBridged: Array.isArray(traitDoc.chainCollections) ? traitDoc.chainCollections.length : 1,
+            collections: Array.isArray(traitDoc.chainCollections) ? traitDoc.chainCollections : [],
+            participants: Array.isArray(traitDoc.chainParticipants) ? traitDoc.chainParticipants.length : 0,
           };
-          await env.INBOX_KV.put(`tray-mint:base:${trayId}`, JSON.stringify(minted));
+          // Store the mint record against the FORWARDED fax ID when available,
+          // not the received fax. The forwarded fax is the player's own
+          // composited contribution — the collectible should represent what
+          // they actually created, not what they merely received and relayed.
+          // This prevents the recurring "received fax gets minted" bug where
+          // the inbox fax shows a mint badge instead of the sent fax.
+          const mintRecordKey = forwardedTrayId || trayId;
+          await env.INBOX_KV.put(`tray-mint:base:${mintRecordKey}`, JSON.stringify(minted));
           // Propagate mint to the forwarded fax: reset its timer to 72h
           // (mint resets the chain timer for the next hop).
           if (forwardedTrayId) {
@@ -7662,7 +7711,35 @@ Mint a BYO NFT on nftmail.box to claim this tier.
           // Increment global mint counter (for mint cap enforcement)
           const prevCount = Number(await env.INBOX_KV.get('tray-mint-count')) || 0;
           await env.INBOX_KV.put('tray-mint-count', String(prevCount + 1));
-          return corsify(Response.json({ status: 'ok', trayId, minted, mintCount: prevCount + 1 }), request);
+          return corsify(Response.json({ status: 'ok', trayId: mintRecordKey, minted, mintCount: prevCount + 1 }), request);
+        }
+
+        // --- Maintenance: patch minterLocal into an existing mint record ---
+        // patchMintMinter: adds minterLocal to a pre-existing tray-mint:base
+        // record so listTrayInbox can distinguish own-mint from source-mint.
+        if (email.action === 'patchMintMinter') {
+          const secret = (email as any).secret || request.headers.get('x-webhook-secret') || '';
+          if (!secret || secret !== env.WEBHOOK_SECRET) {
+            return corsify(Response.json({ error: 'Unauthorized' }, { status: 401 }), request);
+          }
+          const trayId = ((email as any).trayId || '').trim();
+          const minterLocal = ((email as any).minterLocal || '').toLowerCase().trim();
+          if (!trayId || !minterLocal) {
+            return corsify(Response.json({ error: 'Missing trayId or minterLocal' }, { status: 400 }), request);
+          }
+          const key = `tray-mint:base:${trayId}`;
+          const raw = await env.INBOX_KV.get(key);
+          if (!raw) {
+            return corsify(Response.json({ error: 'Mint record not found' }, { status: 404 }), request);
+          }
+          try {
+            const record = JSON.parse(raw) as Record<string, unknown>;
+            record.minterLocal = minterLocal;
+            await env.INBOX_KV.put(key, JSON.stringify(record));
+            return corsify(Response.json({ status: 'ok', trayId, minterLocal }), request);
+          } catch {
+            return corsify(Response.json({ error: 'Failed to parse mint record' }, { status: 500 }), request);
+          }
         }
 
         // --- Chain-letter game: Unmint (reset a mistakenly-recorded mint) ---
