@@ -7147,11 +7147,12 @@ Mint a BYO NFT on nftmail.box to claim this tier.
               chainTimerDuration,
               chainParticipants,
               chainCollections,
+              coverNote: coverNoteRaw || undefined,
             };
             await env.INBOX_KV.put(`tray-in:${recipientLocal}:${id}`, JSON.stringify(trayInMeta), { expirationTtl: TRAY_TTL });
             // Sent-tray index for the sender (standalone NFTfax app).
             const senderLocal = from.split('@')[0];
-            const trayOutMeta = { id, from, to, format, channel: isPrivate ? 'private' : 'public', encrypted: isPrivate, createdAt: Date.now(), chainDepth, sourceTrayId, rootTrayId, chainTimerDuration, chainCollections };
+            const trayOutMeta = { id, from, to, format, channel: isPrivate ? 'private' : 'public', encrypted: isPrivate, createdAt: Date.now(), chainDepth, sourceTrayId, rootTrayId, chainTimerDuration, chainCollections, coverNote: coverNoteRaw || undefined };
             await env.INBOX_KV.put(`tray-out:${senderLocal}:${id}`, JSON.stringify(trayOutMeta), { expirationTtl: TRAY_TTL });
           } else if (to.endsWith('@fax')) {
             const recipientLocal = to.slice(0, -'@fax'.length);
@@ -7169,12 +7170,13 @@ Mint a BYO NFT on nftmail.box to claim this tier.
               chainTimerDuration,
               chainParticipants,
               chainCollections,
+              coverNote: coverNoteRaw || undefined,
             };
             await env.INBOX_KV.put(`tray-in:${recipientLocal}:${id}`, JSON.stringify(trayInMeta), { expirationTtl: TRAY_TTL });
             // Sent-tray index for the sender (standalone NFTfax app) so forwarded
             // @fax transmissions surface in the sender's Sent tab.
             const faxSenderLocal = from.split('@')[0];
-            const faxOutMeta = { id, from, to, format, channel: 'public', encrypted: false, createdAt: Date.now(), chainDepth, sourceTrayId, rootTrayId, chainTimerDuration, chainParticipants, chainCollections };
+            const faxOutMeta = { id, from, to, format, channel: 'public', encrypted: false, createdAt: Date.now(), chainDepth, sourceTrayId, rootTrayId, chainTimerDuration, chainParticipants, chainCollections, coverNote: coverNoteRaw || undefined };
             await env.INBOX_KV.put(`tray-out:${faxSenderLocal}:${id}`, JSON.stringify(faxOutMeta), { expirationTtl: TRAY_TTL });
           } else {
             const sendKey = env.MG_SENDING_MAILGUN_API_KEY || env.MG_MAILGUN_API_KEY || env.GM_MAILGUN_API_KEY || env.SEND_MAILGUN_API_KEY || env.MAILGUN_API_KEY;
