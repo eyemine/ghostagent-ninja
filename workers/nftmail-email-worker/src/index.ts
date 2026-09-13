@@ -7281,6 +7281,25 @@ Mint a BYO NFT on nftmail.box to claim this tier.
             if (trayAuthed) privateResp.to = record.to;
             return corsify(Response.json(privateResp), request);
           }
+          // The forward marker lives in its own key (tray-fwd:{id}), not on the
+          // tray document, so it must be read separately. Without this, any
+          // consumer that only has getTrayDocument cannot tell that a fax was
+          // forwarded or find the hop it was forwarded to — which silently
+          // disabled the forwarded-hop artwork/provenance branch in nftfax's
+          // /api/metadata/[tokenId] route (it reads forwardedTrayId from here).
+          // Both fields describe the public chain (public tray pages and the
+          // leaderboard already expose these hops), so they are safe to return
+          // unauthenticated for a public fax. Deliberately NOT added to the
+          // private/encrypted response above: encrypted faxes cannot be
+          // forwarded into the public chain at all.
+          let forwardedTrayId: string | undefined;
+          const fwdRaw = await env.INBOX_KV.get(`tray-fwd:${id}`);
+          if (fwdRaw) {
+            try {
+              const parsed = JSON.parse(fwdRaw) as { forwardedTrayId?: string };
+              if (typeof parsed.forwardedTrayId === 'string') forwardedTrayId = parsed.forwardedTrayId;
+            } catch { /* malformed marker — treat as "forwarded, hop unknown" */ }
+          }
           const publicResp: Record<string, any> = {
             id: record.id,
             from: record.from,
@@ -7293,6 +7312,8 @@ Mint a BYO NFT on nftmail.box to claim this tier.
             chainTimerDuration: typeof record.chainTimerDuration === 'number' ? record.chainTimerDuration : 72 * 60 * 60 * 1000,
             rootTrayId: typeof record.rootTrayId === 'string' ? record.rootTrayId : null,
             coverNote: typeof record.coverNote === 'string' ? record.coverNote : undefined,
+            forwarded: !!fwdRaw,
+            forwardedTrayId,
           };
           if (trayAuthed) publicResp.to = record.to;
           return corsify(Response.json(publicResp), request);
