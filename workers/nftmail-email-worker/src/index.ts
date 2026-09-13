@@ -7742,6 +7742,53 @@ Mint a BYO NFT on nftmail.box to claim this tier.
         }
 
         // --- Maintenance: patch minterLocal into an existing mint record ---
+        // --- Arweave mirror pointers -----------------------------------------
+        // setTrayArweave: records the ar:// txIds of a fax's Arweave backup so a
+        // token can be repointed via setTokenURI if IPFS becomes unavailable.
+        // Written by the nftfax pin route's detached mirror task. Keyed by tray
+        // id because the tokenId does not exist yet at pin time; recovery goes
+        // tokenId -> tray-mint:base record -> trayId -> here.
+        if (email.action === 'setTrayArweave') {
+          const secret = (email as any).secret || request.headers.get('x-webhook-secret') || '';
+          if (!secret || secret !== env.WEBHOOK_SECRET) {
+            return corsify(Response.json({ error: 'Unauthorized' }, { status: 401 }), request);
+          }
+          const trayId = ((email as any).trayId || '').trim();
+          const arweaveUri = ((email as any).arweaveUri || '').trim();
+          if (!trayId || !arweaveUri) {
+            return corsify(Response.json({ error: 'Missing trayId or arweaveUri' }, { status: 400 }), request);
+          }
+          const arweaveImageUri = ((email as any).arweaveImageUri || '').trim() || null;
+          // No TTL: the point of this record is to outlive the fax's decay
+          // window, since the collectible it backs is permanent.
+          await env.INBOX_KV.put(`tray-arweave:${trayId}`, JSON.stringify({
+            trayId,
+            arweaveUri,
+            arweaveImageUri,
+            // Whether the mirror is usable without IPFS.
+            selfContained: !!arweaveImageUri,
+            storedAt: Date.now(),
+          }));
+          return corsify(Response.json({ status: 'ok', trayId, arweaveUri, arweaveImageUri }), request);
+        }
+
+        // getTrayArweave: reads back the mirror pointers for a tray.
+        if (email.action === 'getTrayArweave') {
+          const trayId = ((email as any).trayId || '').trim();
+          if (!trayId) {
+            return corsify(Response.json({ error: 'Missing trayId' }, { status: 400 }), request);
+          }
+          const raw = await env.INBOX_KV.get(`tray-arweave:${trayId}`);
+          if (!raw) {
+            return corsify(Response.json({ error: 'No Arweave mirror recorded' }, { status: 404 }), request);
+          }
+          try {
+            return corsify(Response.json(JSON.parse(raw)), request);
+          } catch {
+            return corsify(Response.json({ error: 'Malformed record' }, { status: 500 }), request);
+          }
+        }
+
         // patchMintMinter: adds minterLocal to a pre-existing tray-mint:base
         // record so listTrayInbox can distinguish own-mint from source-mint.
         if (email.action === 'patchMintMinter') {
