@@ -7696,6 +7696,10 @@ Mint a BYO NFT on nftmail.box to claim this tier.
             baseTx: (email as any).baseTx || null,
             baseTokenId: (email as any).baseTokenId ?? null,
             ipfsCid: (email as any).ipfsCid || null,
+            // ar://<txId> of the self-contained Arweave metadata backup. Stored
+            // so a token can be repointed via setTokenURI if IPFS becomes
+            // unavailable — without it the backup exists but is unreachable.
+            arweaveUri: (email as any).arweaveUri || null,
             // Who minted this — used by listTrayInbox to distinguish "I minted
             // this" (mintedBase) from "someone else minted the source fax"
             // (sourceMintedBase). Without this, a received fax that the SENDER

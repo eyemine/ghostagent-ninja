@@ -1,0 +1,6 @@
+ssh root@46.225.158.75
+cd /opt/nftfax
+nano .env
+# add: RELAYER_PRIVATE_KEY=0x...
+docker compose up -d
+

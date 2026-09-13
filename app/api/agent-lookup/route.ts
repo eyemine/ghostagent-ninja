@@ -280,7 +280,7 @@ export async function GET(req: NextRequest) {
       try {
         const r = await fetch(WORKER_URL, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'resolveAddress', name: `${base}_` }),
           signal: AbortSignal.timeout(6000),
           cache: 'no-store',
@@ -362,14 +362,14 @@ export async function GET(req: NextRequest) {
         // Beacon
         fetch(WORKER_URL, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'getBeacon', name: resolvedBase }),
         }).then(r => r.json()),
 
         // Molt path
         fetch(WORKER_URL, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'getMoltPath', name: resolvedBase }),
         }).then(r => r.json()),
 
