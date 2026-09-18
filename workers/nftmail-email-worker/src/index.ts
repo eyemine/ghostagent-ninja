@@ -7397,15 +7397,23 @@ Mint a BYO NFT on nftmail.box to claim this tier.
             ]);
             let forwardedTrayId: string | undefined;
             if (fwd) { try { forwardedTrayId = (JSON.parse(fwd) as any).forwardedTrayId; } catch { /* ignore */ } }
+            // Minting from the inbox targets the FORWARDED hop, not the fax as
+            // received — see InTray, which mints `forwardedTrayId || id`. The
+            // mint record therefore lives under the forwarded tray id, so
+            // reading only tray-mint:base:{trayId} reported "not minted" for a
+            // hop that had already been minted and the tray offered Mint a
+            // second time.
+            const ownMintRaw = mintedBaseRaw
+              || (forwardedTrayId ? await env.INBOX_KV.get(`tray-mint:base:${forwardedTrayId}`) : null);
             // Distinguish "I minted this" (mintedBase) from "the sender minted
             // the source fax" (sourceMintedBase). The mint record includes
             // minterLocal — if it doesn't match the inbox owner, the mint was
             // done by the upstream sender, not this user.
             let parsedMint: any = null;
             let isOwnMint = false;
-            if (mintedBaseRaw) {
+            if (ownMintRaw) {
               try {
-                parsedMint = JSON.parse(mintedBaseRaw);
+                parsedMint = JSON.parse(ownMintRaw);
                 isOwnMint = !parsedMint.minterLocal || parsedMint.minterLocal === local;
               } catch { parsedMint = true; isOwnMint = true; }
             }
