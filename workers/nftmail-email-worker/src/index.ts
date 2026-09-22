@@ -7650,6 +7650,20 @@ Mint a BYO NFT on nftmail.box to claim this tier.
             if (!dryRun) await env.INBOX_KV.put(key, JSON.stringify({ mintedAt: Date.now(), trayId, minterLocal: minter, backfilled: true }));
             out.push({ trayId, minter, chainRoot, key, action: dryRun ? 'would write' : 'written' });
           }
+          // Overrides whose tray has NO mint record (the record may live under a
+          // pre-migration received-tray id). The chain has proven the mint, so
+          // gate it directly.
+          const seen = new Set(out.map((r) => r.trayId.toLowerCase()));
+          for (const [trayId, minter] of Object.entries(overrides)) {
+            if (seen.has(trayId)) continue;
+            const identity = parseFaxIdentity(minter);
+            const chainRoot = await getChainRoot(trayId);
+            if (!identity || !chainRoot) { out.push({ trayId, minter, chainRoot, key: null, action: 'skip: override unresolvable' }); continue; }
+            const key = `tray-mint:chain:${chainRoot}:${identity.collection}:${identity.tokenId}`;
+            if (await env.INBOX_KV.get(key)) { out.push({ trayId, minter, chainRoot, key, action: 'exists (override)' }); continue; }
+            if (!dryRun) await env.INBOX_KV.put(key, JSON.stringify({ mintedAt: Date.now(), trayId, minterLocal: minter, backfilled: true, source: 'on-chain override' }));
+            out.push({ trayId, minter, chainRoot, key, action: dryRun ? 'would write (override)' : 'written (override)' });
+          }
           return corsify(Response.json({ dryRun, count: out.length, results: out }), request);
         }
 
