@@ -7613,6 +7613,39 @@ Mint a BYO NFT on nftmail.box to claim this tier.
           return corsify(Response.json({ status: 'ok', trayId }), request);
         }
 
+        // --- Chain-letter game: one-off backfill of minter-keyed chain gates ---------
+        // The per-chain gate used to be keyed on the tray's recipient rather than
+        // the minter. Existing mint records carry minterLocal, so the correct
+        // keys can be reconstructed. Idempotent: never overwrites. Secret-gated.
+        if (email.action === 'backfillMinterChainGates') {
+          const secret = (email as any).secret || request.headers.get('x-webhook-secret') || '';
+          if (!env.WEBHOOK_SECRET || secret !== env.WEBHOOK_SECRET) {
+            return corsify(Response.json({ error: 'Unauthorized' }, { status: 401 }), request);
+          }
+          const dryRun = !!(email as any).dryRun;
+          const listed = await env.INBOX_KV.list({ prefix: 'tray-mint:base:' });
+          const out: { trayId: string; minter: string | null; chainRoot: string | null; key: string | null; action: string }[] = [];
+          for (const k of listed.keys) {
+            const trayId = k.name.slice('tray-mint:base:'.length);
+            const raw = await env.INBOX_KV.get(k.name);
+            let rec: { minterLocal?: string } = {};
+            try { rec = raw ? JSON.parse(raw) : {}; } catch { /* keep empty */ }
+            const minter = (rec.minterLocal || '').toLowerCase().trim().replace(/@fax$/, '') || null;
+            const identity = minter ? parseFaxIdentity(minter) : null;
+            const chainRoot = await getChainRoot(trayId);
+            if (!identity || !chainRoot) {
+              out.push({ trayId, minter, chainRoot, key: null, action: 'skip: no minter identity or chain root' });
+              continue;
+            }
+            const key = `tray-mint:chain:${chainRoot}:${identity.collection}:${identity.tokenId}`;
+            const exists = await env.INBOX_KV.get(key);
+            if (exists) { out.push({ trayId, minter, chainRoot, key, action: 'exists' }); continue; }
+            if (!dryRun) await env.INBOX_KV.put(key, JSON.stringify({ mintedAt: Date.now(), trayId, minterLocal: minter, backfilled: true }));
+            out.push({ trayId, minter, chainRoot, key, action: dryRun ? 'would write' : 'written' });
+          }
+          return corsify(Response.json({ dryRun, count: out.length, results: out }), request);
+        }
+
         // --- Chain-letter game: Mint eligibility (per-chain check) ------------------
         if (email.action === 'checkFaxMintEligibility') {
           const trayId = ((email as any).trayId || '').trim();
@@ -7627,10 +7660,20 @@ Mint a BYO NFT on nftmail.box to claim this tier.
           try { doc = JSON.parse(docRaw); } catch {
             return corsify(Response.json({ eligible: false, reason: 'Malformed fax document.' }, { status: 500 }), request);
           }
-          const toLocal = String(doc.to || '').toLowerCase().replace(/@fax$/, '').replace(/@nftmail\.box$/, '');
-          const identity = parseFaxIdentity(toLocal);
+          // The one-per-chain rule is about the MINTER's token, so the gate must
+          // key on whoever is minting — passed explicitly as `local`. It used to
+          // derive the identity from doc.to, the tray's recipient. For the
+          // normal mint target (a forwarded hop) the recipient is the NEXT
+          // player, not the minter, so the gate checked and recorded the wrong
+          // token: a minter could mint again in the same chain (their own key
+          // was never written) while an innocent recipient could be blocked.
+          const clean = (v: unknown) => String(v || '').toLowerCase().trim().replace(/@fax$/, '').replace(/@nftmail\.box$/, '');
+          const minterLocal = clean((email as any).local || (email as any).minterLocal);
+          // Fallback for callers that predate the `local` parameter: the sender of
+          // the minted hop is the minter in every legitimate flow.
+          const identity = parseFaxIdentity(minterLocal || clean(doc.from) || clean(doc.to));
           if (!identity) {
-            return corsify(Response.json({ eligible: false, reason: 'Could not parse source token identity.' }, { status: 400 }), request);
+            return corsify(Response.json({ eligible: false, reason: 'Could not parse minter token identity.' }, { status: 400 }), request);
           }
           const chainRoot = await getChainRoot(trayId);
           if (!chainRoot) {
@@ -7639,7 +7682,7 @@ Mint a BYO NFT on nftmail.box to claim this tier.
           const key = `tray-mint:chain:${chainRoot}:${identity.collection}:${identity.tokenId}`;
           const existing = await env.INBOX_KV.get(key);
           if (existing) {
-            return corsify(Response.json({ eligible: false, reason: 'Source token already minted in this chain.' }), request);
+            return corsify(Response.json({ eligible: false, reason: `${identity.collection}.${identity.tokenId} has already minted in this chain.`, chainRoot }), request);
           }
           return corsify(Response.json({ eligible: true, chainRoot }), request);
         }
@@ -7676,17 +7719,21 @@ Mint a BYO NFT on nftmail.box to claim this tier.
             if (idxRaw) await env.INBOX_KV.put(`tray-in:${recipientLocal}:${trayId}`, idxRaw);
           }
           const doc = JSON.parse(docRaw) as { chainDepth?: number; chainCollections?: string[]; chainParticipants?: string[]; from?: string; to?: string };
-          // Per-chain single-claim gate: same source token can mint in many
-          // different chains, but only once inside any one chain.
-          const toLocal = String(doc.to || '').toLowerCase().replace(/@fax$/, '').replace(/@nftmail\.box$/, '');
-          const identity = parseFaxIdentity(toLocal);
+          // Per-chain single-claim gate: the same token can mint in many chains
+          // but only once inside any one chain. Keyed on the MINTER
+          // (recipientLocal is the `local` sent by the mint route — the account
+          // doing the minting, despite the variable name). It was keyed on
+          // doc.to, which for a forwarded hop is the next player, not the minter
+          // — see checkFaxMintEligibility for why that was wrong.
+          const cleanLocal = (v: unknown) => String(v || '').toLowerCase().trim().replace(/@fax$/, '').replace(/@nftmail\.box$/, '');
+          const minterIdentity = parseFaxIdentity(recipientLocal || cleanLocal(doc.from) || cleanLocal(doc.to));
           const chainRoot = await getChainRoot(trayId);
-          if (identity && chainRoot) {
-            const key = `tray-mint:chain:${chainRoot}:${identity.collection}:${identity.tokenId}`;
+          if (minterIdentity && chainRoot) {
+            const key = `tray-mint:chain:${chainRoot}:${minterIdentity.collection}:${minterIdentity.tokenId}`;
             if (await env.INBOX_KV.get(key)) {
-              return corsify(Response.json({ error: 'Source token already minted in this chain.' }, { status: 409 }), request);
+              return corsify(Response.json({ error: `${minterIdentity.collection}.${minterIdentity.tokenId} has already minted in this chain.` }, { status: 409 }), request);
             }
-            await env.INBOX_KV.put(key, JSON.stringify({ mintedAt: Date.now(), trayId }));
+            await env.INBOX_KV.put(key, JSON.stringify({ mintedAt: Date.now(), trayId, minterLocal: recipientLocal || undefined }));
           }
           // For NFT traits (hops, communities, participants), use the FORWARDED
           // fax document when available — the collectible represents the player's
