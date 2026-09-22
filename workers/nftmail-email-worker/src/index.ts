@@ -7623,6 +7623,13 @@ Mint a BYO NFT on nftmail.box to claim this tier.
             return corsify(Response.json({ error: 'Unauthorized' }, { status: 401 }), request);
           }
           const dryRun = !!(email as any).dryRun;
+          // Optional explicit minters, e.g. derived from the on-chain FaxMinted
+          // events (sourceTokenId + community), for records that predate
+          // minterLocal. On-chain is authoritative and overrides the record.
+          const overrides: Record<string, string> = {};
+          for (const o of ((email as any).overrides || []) as { trayId?: string; minterLocal?: string }[]) {
+            if (o?.trayId && o?.minterLocal) overrides[o.trayId.toLowerCase()] = o.minterLocal.toLowerCase();
+          }
           const listed = await env.INBOX_KV.list({ prefix: 'tray-mint:base:' });
           const out: { trayId: string; minter: string | null; chainRoot: string | null; key: string | null; action: string }[] = [];
           for (const k of listed.keys) {
@@ -7630,7 +7637,7 @@ Mint a BYO NFT on nftmail.box to claim this tier.
             const raw = await env.INBOX_KV.get(k.name);
             let rec: { minterLocal?: string } = {};
             try { rec = raw ? JSON.parse(raw) : {}; } catch { /* keep empty */ }
-            const minter = (rec.minterLocal || '').toLowerCase().trim().replace(/@fax$/, '') || null;
+            const minter = (overrides[trayId.toLowerCase()] || rec.minterLocal || '').toLowerCase().trim().replace(/@fax$/, '') || null;
             const identity = minter ? parseFaxIdentity(minter) : null;
             const chainRoot = await getChainRoot(trayId);
             if (!identity || !chainRoot) {
