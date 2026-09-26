@@ -7670,7 +7670,22 @@ Mint a BYO NFT on nftmail.box to claim this tier.
                 if ((meta.sourceTrayId || '').toLowerCase() === trayId) { hop = (meta.id || k.name.split(':').pop() || '').toLowerCase(); break; }
               } catch { /* ignore */ }
             }
-            if (!hop) { out.push({ trayId, minter, action: 'skip: no sent hop found' }); continue; }
+            if (!hop) {
+              // The sent index (tray-out:*) also carried the 8-day TTL and has
+              // expired for older mints. Fall back to scanning the documents
+              // themselves: the minter's hop is the tray they SENT whose
+              // sourceTrayId is this received tray.
+              const all = await env.INBOX_KV.list({ prefix: 'tray:' });
+              for (const k of all.keys) {
+                const raw = await env.INBOX_KV.get(k.name);
+                if (!raw) continue;
+                try {
+                  const d = JSON.parse(raw) as { id?: string; from?: string; sourceTrayId?: string };
+                  if ((d.sourceTrayId || '').toLowerCase() === trayId && clean(d.from) === minter) { hop = (d.id || k.name.slice(5)).toLowerCase(); break; }
+                } catch { /* ignore */ }
+              }
+            }
+            if (!hop) { out.push({ trayId, minter, action: 'skip: hop document gone from KV (expired before mint made it permanent)' }); continue; }
             if (!dryRun) {
               await env.INBOX_KV.put(`tray-fwd:${trayId}`, JSON.stringify({ forwardedAt: Date.now(), forwardedTrayId: hop, repaired: true }));
               const hopRaw = await env.INBOX_KV.get(`tray:${hop}`);
