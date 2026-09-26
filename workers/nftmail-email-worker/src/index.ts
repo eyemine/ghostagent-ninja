@@ -7300,6 +7300,20 @@ Mint a BYO NFT on nftmail.box to claim this tier.
               if (typeof parsed.forwardedTrayId === 'string') forwardedTrayId = parsed.forwardedTrayId;
             } catch { /* malformed marker — treat as "forwarded, hop unknown" */ }
           }
+          // Mint state is public: the token is on Base for anyone to see. The
+          // permalink page needs it because a minted fax is permanent — the
+          // thermal-paper decay and "LINE JAMMED" state must not apply to a hop
+          // that has been collected. Without this every minted fax on a public
+          // display faded and jammed after 72h like an abandoned one.
+          let minted: { tokenId: number | null; tx: string | null; at: number | null } | null = null;
+          const mintRaw = await env.INBOX_KV.get(`tray-mint:base:${id}`);
+          if (mintRaw) {
+            try {
+              const m = JSON.parse(mintRaw) as { baseTokenId?: number | string | null; baseTx?: string | null; mintedAt?: number };
+              minted = { tokenId: m.baseTokenId != null ? Number(m.baseTokenId) : null, tx: m.baseTx || null, at: m.mintedAt ?? null };
+            } catch { minted = { tokenId: null, tx: null, at: null }; }
+          }
+
           const publicResp: Record<string, any> = {
             id: record.id,
             from: record.from,
@@ -7314,6 +7328,7 @@ Mint a BYO NFT on nftmail.box to claim this tier.
             coverNote: typeof record.coverNote === 'string' ? record.coverNote : undefined,
             forwarded: !!fwdRaw,
             forwardedTrayId,
+            minted,
           };
           if (trayAuthed) publicResp.to = record.to;
           return corsify(Response.json(publicResp), request);
