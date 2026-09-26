@@ -7628,6 +7628,61 @@ Mint a BYO NFT on nftmail.box to claim this tier.
           return corsify(Response.json({ status: 'ok', trayId }), request);
         }
 
+        // --- Chain-letter game: repair expired forward markers on minted faxes -----
+        // Input: on-chain mints as [{ trayId, minterLocal }]. For each whose tray
+        // was RECEIVED by the minter and has no tray-fwd marker, find the hop the
+        // minter sent from it (tray-out:{minter}:* with sourceTrayId == trayId)
+        // and write the marker back permanently, along with the hop document.
+        // Idempotent; dry-run capable; secret-gated.
+        if (email.action === 'repairMintForwardMarkers') {
+          const secret = (email as any).secret || request.headers.get('x-webhook-secret') || '';
+          if (!env.WEBHOOK_SECRET || secret !== env.WEBHOOK_SECRET) {
+            return corsify(Response.json({ error: 'Unauthorized' }, { status: 401 }), request);
+          }
+          const dryRun = !!(email as any).dryRun;
+          const mints = ((email as any).mints || []) as { trayId?: string; minterLocal?: string }[];
+          const out: Record<string, unknown>[] = [];
+          for (const m of mints) {
+            const trayId = (m.trayId || '').toLowerCase().trim();
+            const minter = (m.minterLocal || '').toLowerCase().trim().replace(/@fax$/, '');
+            if (!trayId || !minter) continue;
+            const docRaw = await env.INBOX_KV.get(`tray:${trayId}`);
+            if (!docRaw) { out.push({ trayId, minter, action: 'skip: tray gone' }); continue; }
+            let doc: { from?: string; to?: string } = {};
+            try { doc = JSON.parse(docRaw); } catch { /* keep empty */ }
+            const clean = (v?: string) => (v || '').toLowerCase().replace(/@fax$/, '');
+            if (clean(doc.from) === minter) { out.push({ trayId, minter, action: 'ok: minter is sender' }); continue; }
+            if (clean(doc.to) !== minter) { out.push({ trayId, minter, action: 'skip: minter neither party' }); continue; }
+            const existing = await env.INBOX_KV.get(`tray-fwd:${trayId}`);
+            if (existing) {
+              // Present but on a TTL — renew it permanently.
+              if (!dryRun) await env.INBOX_KV.put(`tray-fwd:${trayId}`, existing);
+              out.push({ trayId, minter, action: dryRun ? 'would renew marker' : 'renewed marker' });
+              continue;
+            }
+            const outs = await env.INBOX_KV.list({ prefix: `tray-out:${minter}:` });
+            let hop: string | null = null;
+            for (const k of outs.keys) {
+              const raw = await env.INBOX_KV.get(k.name);
+              if (!raw) continue;
+              try {
+                const meta = JSON.parse(raw) as { id?: string; sourceTrayId?: string };
+                if ((meta.sourceTrayId || '').toLowerCase() === trayId) { hop = (meta.id || k.name.split(':').pop() || '').toLowerCase(); break; }
+              } catch { /* ignore */ }
+            }
+            if (!hop) { out.push({ trayId, minter, action: 'skip: no sent hop found' }); continue; }
+            if (!dryRun) {
+              await env.INBOX_KV.put(`tray-fwd:${trayId}`, JSON.stringify({ forwardedAt: Date.now(), forwardedTrayId: hop, repaired: true }));
+              const hopRaw = await env.INBOX_KV.get(`tray:${hop}`);
+              if (hopRaw) await env.INBOX_KV.put(`tray:${hop}`, hopRaw);
+              const outRaw = await env.INBOX_KV.get(`tray-out:${minter}:${hop}`);
+              if (outRaw) await env.INBOX_KV.put(`tray-out:${minter}:${hop}`, outRaw);
+            }
+            out.push({ trayId, minter, hop, action: dryRun ? 'would write marker' : 'wrote marker' });
+          }
+          return corsify(Response.json({ dryRun, results: out }), request);
+        }
+
         // --- Chain-letter game: one-off backfill of minter-keyed chain gates ---------
         // The per-chain gate used to be keyed on the tray's recipient rather than
         // the minter. Existing mint records carry minterLocal, so the correct
@@ -7753,6 +7808,27 @@ Mint a BYO NFT on nftmail.box to claim this tier.
           if (recipientLocal) {
             const idxRaw = await env.INBOX_KV.get(`tray-in:${recipientLocal}:${trayId}`);
             if (idxRaw) await env.INBOX_KV.put(`tray-in:${recipientLocal}:${trayId}`, idxRaw);
+          }
+          // A mint makes the fax permanent — but "the fax" is a received tray
+          // PLUS the forward marker pointing at the minter's own hop PLUS that
+          // hop's document. The marker was written with an 8-day TTL by
+          // markTrayForwarded and never renewed, so every minted fax older than
+          // eight days silently lost the pointer to its artwork and fell back to
+          // the received image (tokens #1, #7, #12, #14, #16). Re-put all three
+          // without expiry.
+          const fwdMarkerRaw = await env.INBOX_KV.get(`tray-fwd:${trayId}`);
+          if (fwdMarkerRaw) {
+            await env.INBOX_KV.put(`tray-fwd:${trayId}`, fwdMarkerRaw);
+          } else if (forwardedTrayId) {
+            await env.INBOX_KV.put(`tray-fwd:${trayId}`, JSON.stringify({ forwardedAt: Date.now(), forwardedTrayId }));
+          }
+          if (forwardedTrayId) {
+            const hopRaw = await env.INBOX_KV.get(`tray:${forwardedTrayId}`);
+            if (hopRaw) await env.INBOX_KV.put(`tray:${forwardedTrayId}`, hopRaw);
+            if (recipientLocal) {
+              const outRaw = await env.INBOX_KV.get(`tray-out:${recipientLocal}:${forwardedTrayId}`);
+              if (outRaw) await env.INBOX_KV.put(`tray-out:${recipientLocal}:${forwardedTrayId}`, outRaw);
+            }
           }
           const doc = JSON.parse(docRaw) as { chainDepth?: number; chainCollections?: string[]; chainParticipants?: string[]; from?: string; to?: string };
           // Per-chain single-claim gate: the same token can mint in many chains
