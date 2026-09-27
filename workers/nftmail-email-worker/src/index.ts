@@ -7329,6 +7329,9 @@ Mint a BYO NFT on nftmail.box to claim this tier.
             forwarded: !!fwdRaw,
             forwardedTrayId,
             minted,
+            // Set by repairTrayBitmap. Consumers use it to version image URLs so
+            // a bitmap replaced in place is a new URL to every cache.
+            bitmapRepairedAt: typeof record.bitmapRepairedAt === 'number' ? record.bitmapRepairedAt : undefined,
           };
           // `to` is public for public-channel faxes: an @fax handle is a public
           // identity, and the permalink header shows From → To. Private
