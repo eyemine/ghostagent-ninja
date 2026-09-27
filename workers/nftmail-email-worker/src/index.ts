@@ -7330,7 +7330,10 @@ Mint a BYO NFT on nftmail.box to claim this tier.
             forwardedTrayId,
             minted,
           };
-          if (trayAuthed) publicResp.to = record.to;
+          // `to` is public for public-channel faxes: an @fax handle is a public
+          // identity, and the permalink header shows From → To. Private
+          // (encrypted) documents never reach this branch.
+          if (trayAuthed || record.channel !== 'private') publicResp.to = record.to;
           return corsify(Response.json(publicResp), request);
         }
 
@@ -7626,6 +7629,35 @@ Mint a BYO NFT on nftmail.box to claim this tier.
             await env.INBOX_KV.delete(`tray-in:${recipientLocal}:${trayId}`);
           }
           return corsify(Response.json({ status: 'ok', trayId }), request);
+        }
+
+        // --- Admin: replace a tray document's bitmap in place ---------------------
+        // For a minted fax whose stored bitmap is wrong (observed on f4085910ec1d,
+        // whose correct art is the pinned ipfs://QmZLDT… image). Swaps ONLY
+        // dataBase64/format; every other field - from, to, chain position,
+        // createdAt - is preserved. Re-put without TTL: a minted fax is permanent.
+        // Secret-gated; refuses non-image payloads.
+        if (email.action === 'repairTrayBitmap') {
+          const secret = (email as any).secret || request.headers.get('x-webhook-secret') || '';
+          if (!env.WEBHOOK_SECRET || secret !== env.WEBHOOK_SECRET) {
+            return corsify(Response.json({ error: 'Unauthorized' }, { status: 401 }), request);
+          }
+          const id = String((email as any).id || '').toLowerCase().trim();
+          const dataBase64 = String((email as any).dataBase64 || '');
+          const format = String((email as any).format || '').toLowerCase();
+          if (!id || !dataBase64 || !['png', 'jpg', 'jpeg', 'bmp'].includes(format)) {
+            return corsify(Response.json({ error: 'id, dataBase64 and format (png|jpg|bmp) required' }, { status: 400 }), request);
+          }
+          const raw = await env.INBOX_KV.get(`tray:${id}`);
+          if (!raw) return corsify(Response.json({ error: 'Tray not found' }, { status: 404 }), request);
+          let doc: Record<string, unknown>;
+          try { doc = JSON.parse(raw); } catch { return corsify(Response.json({ error: 'Malformed tray' }, { status: 500 }), request); }
+          const before = { bytes: Math.floor(String(doc.dataBase64 || '').length * 3 / 4), format: doc.format };
+          doc.dataBase64 = dataBase64;
+          doc.format = format === 'jpeg' ? 'jpg' : format;
+          doc.bitmapRepairedAt = Date.now();
+          await env.INBOX_KV.put(`tray:${id}`, JSON.stringify(doc));
+          return corsify(Response.json({ id, before, after: { bytes: Math.floor(dataBase64.length * 3 / 4), format: doc.format } }), request);
         }
 
         // --- Chain-letter game: repair expired forward markers on minted faxes -----
