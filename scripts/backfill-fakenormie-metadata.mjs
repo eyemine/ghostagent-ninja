@@ -33,7 +33,8 @@ const WORKER_URL = process.env.NEXT_PUBLIC_WORKER_URL || 'https://nftmail-email-
 const WORKER_SECRET = process.env.WORKER_SECRET || '';
 const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || '';
 
-const FN_SVG_BASE = 'https://ipfs.io/ipfs/bafybeibn726tei6kue2ixjqfyeiefjnlvd5wm3cc6r76qqwixebvqlfaga';
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://ghostagent.ninja';
+const FN_SVG_BASE = `${APP_URL}/FakeNormies/SVGS`;
 const FAKENORMIES_ADDRESS = '0x1d6b9e2af40322d2311ff0df66dade4490ac4c29';
 
 if (!WORKER_SECRET) {

@@ -24,6 +24,7 @@ const gnosis = defineChain({
 const FAKENORMIES_ADDRESS = (
   process.env.NEXT_PUBLIC_FAKE_NORMIE_CONTRACT || '0x1d6b9e2af40322d2311ff0df66dade4490ac4c29'
 ) as Address;
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://ghostagent.ninja';
 
 const ERC721_ABI = [
   {
@@ -215,7 +216,7 @@ export async function POST(req: NextRequest) {
     });
 
     // Store FakeNormies IPFS SVG image so agent-card shows correct NFT image (byo-origin-image:{slug})
-    const FN_SVG_BASE = 'https://ipfs.io/ipfs/bafybeibn726tei6kue2ixjqfyeiefjnlvd5wm3cc6r76qqwixebvqlfaga';
+    const FN_SVG_BASE = `${APP_URL}/FakeNormies/SVGS`;
     const svgFilename = String(tokenId).padStart(2, '0') + '.svg';
     const fnImageUrl = `${FN_SVG_BASE}/${svgFilename}`;
     fetch(workerUrl, {

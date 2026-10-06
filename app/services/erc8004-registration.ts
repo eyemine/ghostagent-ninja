@@ -201,10 +201,13 @@ export function buildErc8004RegistrationFile(params: {
   } = params;
 
   const visual    = SLD_VISUAL[sld];
-  const fullName  = `${agentName.replace(/\./g, '-')}.${sld}.${tld}`;
+  const beaconName = agentName.replace(/\./g, '-');
+  const fullName  = `${beaconName}.${sld}.${tld}`;
   const agentEmail = `${agentName}_@nftmail.box`;
-  const agentWeb   = `https://ghostagent.ninja/agent/${agentName}`;
-  const resolvedImageCid = imageCid ?? visual.imageCid;
+  const agentWeb   = `${APP_DOMAIN}/agent/${agentName}`;
+  const imageUrl   = imageCid
+    ? `${IPFS_GATEWAY}/${imageCid}`
+    : `${APP_DOMAIN}/api/genome-image?sld=${sld}&name=${encodeURIComponent(beaconName)}`;
   const registryAddr = GNOSIS_ADDRESSES.identityRegistry;
 
   const services: Erc8004Service[] = [
@@ -214,7 +217,7 @@ export function buildErc8004RegistrationFile(params: {
     },
     {
       name:     'A2A',
-      endpoint: `https://ghostagent.ninja/api/agent-card?agent=${agentName}`,
+      endpoint: `${APP_DOMAIN}/api/agent-card?agent=${agentName}`,
       version:  '0.3.0',
     },
     {
@@ -223,7 +226,7 @@ export function buildErc8004RegistrationFile(params: {
     },
     {
       name:     'x402',
-      endpoint: `https://ghostagent.ninja/api/trade-intent`,
+      endpoint: `${APP_DOMAIN}/api/trade-intent`,
     },
   ];
 
@@ -235,7 +238,7 @@ export function buildErc8004RegistrationFile(params: {
     type: 'https://eips.ethereum.org/EIPS/eip-8004#registration-v1',
     name: fullName,
     description: `${visual.label} AI Agent on GhostAgent Protocol. Sovereign identity: ${fullName}. ${visual.tagline}`,
-    image: `${IPFS_GATEWAY}/${resolvedImageCid}`,
+    image: imageUrl,
     services,
     mcpServers: MCP_BY_SLD[sld] ?? MCP_CORE,
     x402Support: true,

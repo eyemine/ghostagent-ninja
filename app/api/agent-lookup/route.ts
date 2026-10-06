@@ -21,6 +21,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { WORKER_URL } from '../../utils/config';
+import { normalizeGnoTld, sldFromGnoName } from '../../utils/gno-identity';
 import { getAgentBySafe } from '../../services/envio';
 
 export const dynamic = 'force-dynamic';
@@ -332,6 +333,8 @@ export async function GET(req: NextRequest) {
     // The format that resolved — use this for KV-keyed enrichment (beacon/molt/tba)
     // so we read from the same namespace the primary record was written under.
     const resolvedBase = primary.base;
+    const originSld = sldFromGnoName(resolved.originNft);
+    const resolvedTld = originSld ? `${originSld}.gno` : normalizeGnoTld(resolved.tld);
 
     // ── 2–4. Parallel: beacon CID + molt path + TBA derivation ───────────
     let beaconCid: string | null = null;
@@ -385,7 +388,7 @@ export async function GET(req: NextRequest) {
 
         // TBA derivation — read impl from registrar on-chain, try old registrars if needed
         needsTbaDerivation ? (() => {
-          const sld = (resolved.tld as string | undefined)?.split('.')?.[0] ?? 'nftmail';
+          const sld = resolvedTld?.split('.')?.[0] ?? 'nftmail';
           const registrar = SLD_REGISTRARS[sld] ?? SLD_REGISTRARS['nftmail'];
           return deriveTbaWithFallback(mintedTokenId!, registrar, sld);
         })() : Promise.resolve(null),
@@ -445,12 +448,12 @@ export async function GET(req: NextRequest) {
       storyIp: resolved.storyIp ?? null,
 
       accountTier: resolved.accountTier ?? 'basic',
-      tld: resolved.tld ?? null,
+      tld: resolvedTld,
       // BYO dot-format agents: GNS name is the beacon NFT (e.g. atom-158.agent.gno)
       // Native agents: name with dots replaced by hyphens + TLD (e.g. normie-100.agent.gno, NOT normie.100.agent.gno)
       gnsName: name.includes('.')
         ? (resolved.originNft ?? null)
-        : (resolved.tld ? `${name.replace(/\./g, '-')}.${resolved.tld}` : null),
+        : (resolvedTld ? `${name.replace(/\./g, '-')}.${resolvedTld}` : null),
       isPublic: resolved.isPublic ?? false,
       canSend: resolved.canSend ?? false,
       expiresAt: resolved.expiresAt ?? null,

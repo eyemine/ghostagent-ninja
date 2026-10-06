@@ -22,6 +22,7 @@ import { SLD_VISUAL, type SldKey } from '../../../../services/genome-metadata';
 import { WORKER_URL } from '../../../../utils/config';
 
 const APP_URL    = process.env.NEXT_PUBLIC_APP_URL || 'https://ghostagent.ninja';
+const WORKER_SECRET = process.env.WORKER_SECRET || process.env.WEBHOOK_SECRET || '';
 
 const VALID_SLDS: SldKey[] = ['agent', 'openclaw', 'molt', 'picoclaw', 'vault', 'nftmail'];
 
@@ -46,7 +47,7 @@ export async function GET(
   try {
     const kvRes = await fetch(WORKER_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
       body: JSON.stringify({ action: 'kvGet', key: `nft-token:${sld}:${tokenId}` }),
     });
     if (kvRes.ok) {

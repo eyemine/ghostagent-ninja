@@ -11,12 +11,18 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import {
+  APP_DOMAIN,
   buildErc8004RegistrationFile,
   type Erc8004RegistrationFile,
   type Erc8004Registration,
   ERC8004_ADDRESSES,
 } from '../../services/erc8004-registration';
 import { type SldKey } from '../../services/genome-metadata';
+import {
+  normalizeGnoTld,
+  sldFromGnoName,
+  VALID_GNO_SLDS,
+} from '../../utils/gno-identity';
 import { WORKER_URL } from '../../utils/config';
 
 const WORKER_SECRET = process.env.WORKER_SECRET || process.env.WEBHOOK_SECRET || '';
@@ -28,7 +34,21 @@ const CHAIN_IDS: Record<string, number> = {
 };
 
 
-const VALID_SLDS: SldKey[] = ['agent', 'molt', 'vault', 'nftmail', 'picoclaw', 'openclaw'];
+const VALID_SLDS = VALID_GNO_SLDS;
+const FAKENORMIES_CONTRACT = '0x1d6b9e2af40322d2311ff0df66dade4490ac4c29';
+const FAKENORMIES_CID = 'bafybeibn726tei6kue2ixjqfyeiefjnlvd5wm3cc6r76qqwixebvqlfaga';
+
+function fakeNormieTokenId(imageUrl: string | null, tokenId: unknown): number | null {
+  const numericId = typeof tokenId === 'number' ? tokenId : Number(tokenId);
+  if (Number.isInteger(numericId) && numericId >= 0) return numericId;
+  const filename = imageUrl?.match(/(\d+)\.svg(?:[?#]|$)/i)?.[1];
+  const parsed = filename ? Number(filename) : NaN;
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
+}
+
+function fakeNormieImageUrl(tokenId: number): string {
+  return `${APP_DOMAIN}/FakeNormies/SVGS/${String(tokenId).padStart(2, '0')}.svg`;
+}
 
 export async function GET(req: NextRequest) {
   let agentName = req.nextUrl.searchParams.get('agent') ?? '';
@@ -101,38 +121,49 @@ export async function GET(req: NextRequest) {
   const profileHyphenText = await profileHyphen.text().catch(() => '');
   const profileResText = profileDotText || profileHyphenText;
 
-  // Process: TLD / SLD
+  // Process: TLD / SLD. Some legacy KV records contain base64-encoded TLDs.
   let sld: SldKey = sldFallback;
   if (kvRes.status === 'fulfilled' && kvRes.value.ok) {
     try {
       const kvData = await kvRes.value.json() as Record<string, unknown>;
-      const kvTld = kvData?.tld as string | undefined;
-      if (kvTld) {
-        const kvSld = kvTld.split('.')[0] as SldKey;
-        if (VALID_SLDS.includes(kvSld)) sld = kvSld;
+      const kvTld = normalizeGnoTld(kvData?.tld);
+      if (kvTld) sld = kvTld.split('.')[0] as SldKey;
+    } catch { /* Non-fatal */ }
+  }
+
+  let identityData: Record<string, unknown> | null = null;
+  if (idResText) {
+    try {
+      identityData = JSON.parse(idResText) as Record<string, unknown>;
+      const identityNft = identityData.identityNft && typeof identityData.identityNft === 'object'
+        ? identityData.identityNft as Record<string, unknown>
+        : null;
+      const originSld = sldFromGnoName(identityNft?.name);
+      const identityTld = normalizeGnoTld(identityNft?.tld ?? identityData.tld);
+      if (originSld) {
+        sld = originSld;
+      } else if (identityTld) {
+        sld = identityTld.split('.')[0] as SldKey;
       }
     } catch { /* Non-fatal */ }
   }
 
   // Process: ERC-8004 registrations
   let allRegistrations: Erc8004Registration[] = [];
-  if (idResText) {
-    try {
-      const idData = JSON.parse(idResText) as Record<string, unknown>;
-      const erc8004 = idData?.erc8004 as Record<string, { agentId?: number; chainId?: number }> | undefined;
-      if (erc8004) {
-        const registryMain = ERC8004_ADDRESSES.mainnet.identityRegistry;
-        const registryTest = ERC8004_ADDRESSES.testnet.identityRegistry;
-        for (const [chainKey, info] of Object.entries(erc8004)) {
-          const aid = info?.agentId;
-          if (!aid || aid <= 0) continue;
-          const cid = info?.chainId ?? CHAIN_IDS[chainKey];
-          if (!cid) continue;
-          const registryAddr = cid === 84532 ? registryTest : registryMain;
-          allRegistrations.push({ agentId: aid, agentRegistry: `eip155:${cid}:${registryAddr}` });
-        }
+  if (identityData) {
+    const erc8004 = identityData.erc8004 as Record<string, { agentId?: number; chainId?: number }> | undefined;
+    if (erc8004) {
+      const registryMain = ERC8004_ADDRESSES.mainnet.identityRegistry;
+      const registryTest = ERC8004_ADDRESSES.testnet.identityRegistry;
+      for (const [chainKey, info] of Object.entries(erc8004)) {
+        const aid = info?.agentId;
+        if (!aid || aid <= 0) continue;
+        const cid = info?.chainId ?? CHAIN_IDS[chainKey];
+        if (!cid) continue;
+        const registryAddr = cid === 84532 ? registryTest : registryMain;
+        allRegistrations.push({ agentId: aid, agentRegistry: `eip155:${cid}:${registryAddr}` });
       }
-    } catch { /* Non-fatal — serve with empty registrations */ }
+    }
   }
 
   // Build base registration file
@@ -142,9 +173,11 @@ export async function GET(req: NextRequest) {
   }
 
   // Process: agent profile overrides
+  let profileData: Record<string, unknown> | null = null;
   if (profileResText) {
     try {
       const { profile } = JSON.parse(profileResText) as { profile: Record<string, unknown> };
+      profileData = profile ?? null;
       if (profile.description && typeof profile.description === 'string') {
         regFile = { ...regFile, description: profile.description };
       }
@@ -182,13 +215,15 @@ export async function GET(req: NextRequest) {
   // Process: BYO origin image (already fetched in parallel above)
   let originImageUrl: string | null = null;
   let byoNftType: string | null = null;
+  let byoTokenId: unknown = null;
   if (byoRes.status === 'fulfilled' && byoRes.value.ok) {
     try {
       const { value } = await byoRes.value.json() as { value?: string | null };
       if (value) {
-        const parsed = JSON.parse(value) as { imageUrl?: string; nftType?: string };
+        const parsed = JSON.parse(value) as { imageUrl?: string; nftType?: string; tokenId?: unknown };
         if (parsed.imageUrl) originImageUrl = parsed.imageUrl;
         if (parsed.nftType) byoNftType = parsed.nftType;
+        if (parsed.tokenId !== undefined) byoTokenId = parsed.tokenId;
       }
     } catch { /* Non-fatal */ }
   }
@@ -198,12 +233,27 @@ export async function GET(req: NextRequest) {
     try {
       const { value } = await byoResFallback.value.json() as { value?: string | null };
       if (value) {
-        const parsed = JSON.parse(value) as { imageUrl?: string; nftType?: string };
+        const parsed = JSON.parse(value) as { imageUrl?: string; nftType?: string; tokenId?: unknown };
         if (parsed.imageUrl) originImageUrl = parsed.imageUrl;
         if (parsed.nftType) byoNftType = parsed.nftType;
+        if (parsed.tokenId !== undefined) byoTokenId = parsed.tokenId;
       }
     } catch { /* Non-fatal */ }
   }
+
+  const profileContract = typeof profileData?.contractAddress === 'string'
+    ? profileData.contractAddress.toLowerCase()
+    : null;
+  const rawNftType = byoNftType ?? (typeof profileData?.nftType === 'string' ? profileData.nftType : null);
+  const nftType = rawNftType?.toLowerCase();
+  const isFakeNormie = nftType === 'fakenormie' || nftType === 'fakenormies'
+    || profileContract === FAKENORMIES_CONTRACT
+    || Boolean(originImageUrl?.includes(FAKENORMIES_CID))
+    || Boolean(originImageUrl?.includes('/FakeNormies/SVGS/'));
+  const fakeNormieId = isFakeNormie
+    ? fakeNormieTokenId(originImageUrl, byoTokenId ?? profileData?.tokenId)
+    : null;
+  if (fakeNormieId !== null) originImageUrl = fakeNormieImageUrl(fakeNormieId);
 
   // ENS fallback: if nftType is 'ens' but no imageUrl stored, use ENS avatar API (no tokenId needed)
   if (!originImageUrl && byoNftType === 'ens') {
@@ -256,21 +306,17 @@ export async function GET(req: NextRequest) {
   // These are not part of the ERC-8004 spec but are read by the OSINT footprint Phase 0.
   const regFileExt = regFile as unknown as Record<string, unknown>;
   regFileExt.tld = `${sld}.gno`;
-  if (idResText) {
-    try {
-      const idExtra = JSON.parse(idResText) as Record<string, unknown>;
-      // tld: prefer getAgentIdentity (reads tld:{name} KV directly) over resolveAddress-derived sld
-      const idTld = idExtra?.tld as string | undefined;
-      if (idTld) {
-        const idSld = idTld.split('.')[0] as SldKey;
-        if (VALID_SLDS.includes(idSld)) regFileExt.tld = idTld;
-      }
-      if (idExtra?.accountTier) regFileExt.tier = idExtra.accountTier;
-      const safeAddr = (idExtra?.safe ?? idExtra?.safeAddress) as string | undefined;
-      if (safeAddr) { regFileExt.safe = safeAddr; regFileExt.safeAddress = safeAddr; }
-      const tbaAddr = idExtra?.tbaAddress as string | undefined;
-      if (tbaAddr) regFileExt.tbaAddress = tbaAddr;
-    } catch { /* non-fatal */ }
+  if (fakeNormieId !== null) {
+    regFileExt.originNftType = 'fakenormie';
+    regFileExt.originTokenId = fakeNormieId;
+    regFileExt.imageMetadataUrl = `${APP_DOMAIN}/api/nft-metadata/fakenormie/${fakeNormieId}`;
+  }
+  if (identityData) {
+    if (identityData.accountTier) regFileExt.tier = identityData.accountTier;
+    const safeAddr = (identityData.safe ?? identityData.safeAddress) as string | undefined;
+    if (safeAddr) { regFileExt.safe = safeAddr; regFileExt.safeAddress = safeAddr; }
+    const tbaAddr = identityData.tbaAddress as string | undefined;
+    if (tbaAddr) regFileExt.tbaAddress = tbaAddr;
   }
 
   // Content negotiation: browsers get a human-readable agent profile page;
