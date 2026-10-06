@@ -1,11 +1,82 @@
 
 # nftmail.box Ecosystem — Full Roadmap & Strategic Overview
 
-**Prepared for:** Bitpixi / Agent Phosphor Analysis  
-**Date:** July 17, 2026  
-**Author:** GhostAgent  
+- **Prepared for:** Bitpixi / Agent Phosphor Analysis
+- **Current roadmap:** October 6, 2026
+- **Original analysis date:** July 17, 2026
+- **Author:** GhostAgent
 
 ---
+
+## Current Operating Roadmap — October 2026
+
+This section supersedes the July timeline below. The strategic thesis is unchanged — use real
+consumer traffic to harden identity-bound communication, then carry the evidence into DAO and
+ecosystem funding — but the immediate sequencing has changed.
+
+### A. Funding and publication
+
+| Workstream | Status | Next action | Blocker / dependency |
+|---|---|---|---|
+| **Pipes public repository** | Published | Keep `main` as the reviewed reference implementation | Production relay still needs the v2 migration before it can be called operator-blind |
+| **TheDAO ETHSecurity Initiative** | Ready to submit | Connect `eyemine.eth` or `ghostagent.eth` at `initiatives.thedao.fund/submit`, inspect the live fields, and paste `pipes/docs/THEDAO_INITIATIVE_DRAFT.md` | Decide named-team grant vs RFP in the form; begin pledge conversations after submission |
+| **GnosisDAO GIP** | Forum post already updated | Monitor and answer delegate questions; no generic bump needed | Keep all production claims tied to the status matrix |
+| **Octant Privacy Round** | **Out for Epoch 13** | Wait for the team's response to the late-eligibility DM; otherwise prepare for a future round | Application deadline passed September 10; accelerator began October 6 |
+| **nftbackpack MetaMask Snap proposal** | New proposal path | Draft as wallet-native NFT media/identity tooling, reusing the NFTFax backpack work where genuinely applicable | Needs scope, user flow, threat model and whether funding is sought from MetaMask/Consensys or ecosystem grants |
+
+### B. OgarVerse / archive work
+
+| Item | Status | Next action | Guardrail |
+|---|---|---|---|
+| **Archive client** | Invitation verified; client installed; stopped | Wait for `ogar.ogarverse.org` to return a healthy endpoint, then restart only with explicit approval | Ogar's endpoint currently returns Cloudflare 530 / error 1033 |
+| **Robot DJ module preparation** | Standalone preview works; supplied engine validation passed | Continue adapting placement, scale and animation in `ogarverse-dev` | No claim of OgarVerse compatibility until a real runtime/module test exists |
+| **Possible Pipes proof-of-concept** | Possible, not agreed | Court Ogar after he returns; ask about actual governance/coordination needs before proposing Pipes | Ogar is away for roughly two weeks; the archive invitation is not endorsement |
+| **OgarVerse push for NFTFax** | Planned | Invite former Voxels/OgarVerse artists to create `@fax` identities and participate in chains | Present this as artist outreach, not an official OgarVerse integration |
+
+### C. NFTFax growth and revenue
+
+| Item | Status | Next action | Notes |
+|---|---|---|---|
+| **Marfa exhibit promotion** | Active opportunity | Promote `nftfax.app/exhibit`, remote participation and the physical Australia printer/webcam loop | Public faxes and mints are the safest adoption metrics; avoid claiming private-relay properties from public traffic |
+| **FAX CHAIN mint growth** | Live | Convert exhibit and community pushes into mints; refresh public numbers before funding submissions | Current check: 29 mints, 16 wallets, 0.058 ETH pool |
+| **OgarVerse artist onboarding** | Planned | Prepare a short artist-facing flow once Ogar is reachable or once archive/module work progresses | Do not present this as OgarVerse adoption unless Ogar says so |
+| **ayeAyeLove NFT collection** | Upcoming | Define launch date, mint mechanics, treasury allocation and whether it uses NFTFax/Pipes as evidence | Keep treasury and prize-pool custody claims precise |
+
+### D. Immediate sequence
+
+1. **Submit TheDAO initiative.** The repository has now been pushed; the remaining work is form
+   entry, wallet signature and pledge outreach.
+2. **Draft the nftbackpack Snap proposal.** Keep it separate from Pipes so one funding path does not
+   contaminate another.
+3. **Run the Marfa exhibit push.** Use live NFTFax metrics and the physical-printer story as the
+   proof of work.
+4. **Prepare Ogar follow-up.** While Ogar is away, finish the offline module adapter and a concise
+   ask: local runtime access, supported module path, and whether OgarVerse wants any coordination
+   infrastructure at all.
+5. **Revisit OgarVerse Pipes only after explicit interest.** The right offer is a scoped
+   proof-of-concept for whatever coordination problem Ogar actually reports, not a pre-decided DAO
+   governance deployment.
+6. **Schedule ayeAyeLove after the funding/exhibit push.** Its launch can reuse NFTFax and Pipes as
+   evidence, but should not distract from the TheDAO submission window.
+
+### E. Claims discipline
+
+- **Operator-blind:** true of the published reference library's design; **not yet true of the live
+  relay**, which still needs the v2 migration.
+- **OgarVerse adoption:** not established. Current evidence is an archive invitation and separate
+  artwork compatibility work.
+- **NFTFax metrics:** safe evidence of live usage, authorization and incident response; they do not
+  prove private-message properties.
+- **Metadata privacy:** do not claim it. Content encryption, routing metadata, timing and network
+  identity are distinct properties.
+- **Audit:** not done. Upstream dependencies having audit history is not an audit of Pipes.
+
+---
+
+## Historical Strategic Overview — July 17, 2026
+
+The material below is retained for context. Dates, product status, contact status, revenue targets
+and security claims there are historical and should be checked before reuse.
 
 ## 1. Executive Summary
 
