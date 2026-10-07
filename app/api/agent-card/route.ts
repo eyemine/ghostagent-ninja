@@ -10,6 +10,8 @@
 /// If the agent has an on-chain agentId stored in KV, it is patched in.
 
 import { NextRequest, NextResponse } from 'next/server';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import {
   APP_DOMAIN,
   buildErc8004RegistrationFile,
@@ -19,6 +21,7 @@ import {
 } from '../../services/erc8004-registration';
 import { type SldKey } from '../../services/genome-metadata';
 import {
+  decodeStoredTld,
   normalizeGnoTld,
   sldFromGnoName,
   VALID_GNO_SLDS,
@@ -44,6 +47,20 @@ function fakeNormieTokenId(imageUrl: string | null, tokenId: unknown): number | 
   const filename = imageUrl?.match(/(\d+)\.svg(?:[?#]|$)/i)?.[1];
   const parsed = filename ? Number(filename) : NaN;
   return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
+}
+
+let fakeNormieSlugIndex: Record<string, number> | null = null;
+function fakeNormieTokenForSlug(slug: string): number | null {
+  if (!fakeNormieSlugIndex) {
+    try {
+      const raw = JSON.parse(readFileSync(join(process.cwd(), 'public', 'FakeNormies', 'manifest.json'), 'utf-8')) as { slugIndex?: Record<string, number> };
+      fakeNormieSlugIndex = raw.slugIndex ?? {};
+    } catch {
+      fakeNormieSlugIndex = {};
+    }
+  }
+  const id = fakeNormieSlugIndex[slug];
+  return typeof id === 'number' ? id : null;
 }
 
 function fakeNormieImageUrl(tokenId: number): string {
@@ -246,13 +263,20 @@ export async function GET(req: NextRequest) {
     : null;
   const rawNftType = byoNftType ?? (typeof profileData?.nftType === 'string' ? profileData.nftType : null);
   const nftType = rawNftType?.toLowerCase();
+  const identityNftRec = identityData?.identityNft && typeof identityData.identityNft === 'object'
+    ? identityData.identityNft as Record<string, unknown>
+    : null;
+  const storedTld = decodeStoredTld(identityNftRec?.tld ?? identityData?.tld);
+  const originName = typeof identityNftRec?.name === 'string' ? identityNftRec.name : '';
+  const isFakeNormieIdentity = storedTld === 'fakenormie' || originName.endsWith('.fakenormie')
+    || (typeof identityNftRec?.registrar === 'string' && identityNftRec.registrar.toLowerCase() === FAKENORMIES_CONTRACT);
   const isFakeNormie = nftType === 'fakenormie' || nftType === 'fakenormies'
     || profileContract === FAKENORMIES_CONTRACT
     || Boolean(originImageUrl?.includes(FAKENORMIES_CID))
     || Boolean(originImageUrl?.includes('/FakeNormies/SVGS/'));
   const fakeNormieId = isFakeNormie
     ? fakeNormieTokenId(originImageUrl, byoTokenId ?? profileData?.tokenId)
-    : null;
+    : (!originImageUrl && isFakeNormieIdentity ? fakeNormieTokenForSlug(dotName) : null);
   if (fakeNormieId !== null) originImageUrl = fakeNormieImageUrl(fakeNormieId);
 
   // ENS fallback: if nftType is 'ens' but no imageUrl stored, use ENS avatar API (no tokenId needed)

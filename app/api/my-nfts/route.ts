@@ -200,8 +200,16 @@ async function getAgentMeta(name: string): Promise<{ safeAddress: string | null;
         signal: AbortSignal.timeout(4000),
       });
       if (imgRes.ok) {
+        // KV value is JSON: { imageUrl, nftType, tokenId, ... }
         const imgData = await imgRes.json() as { value?: string | null };
-        imageUrl = imgData.value ?? null;
+        if (imgData.value) {
+          try {
+            const parsed = JSON.parse(imgData.value) as { imageUrl?: string };
+            imageUrl = parsed.imageUrl ?? null;
+          } catch {
+            imageUrl = /^(https?|ipfs):\/\//.test(imgData.value) ? imgData.value : null;
+          }
+        }
       }
     } catch { /* non-fatal */ }
     return { safeAddress, tbaAddress, imageUrl };

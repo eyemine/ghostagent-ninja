@@ -11,6 +11,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { WORKER_URL } from '../../utils/config';
+import { decodeStoredTld } from '../../utils/gno-identity';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://ghostagent.ninja';
 const WORKER_SECRET = process.env.WORKER_SECRET || process.env.WEBHOOK_SECRET || '';
@@ -62,7 +63,8 @@ export async function GET(req: NextRequest) {
     }
 
     const data = JSON.parse(bodyText) as { agents: AgentRegistryEntry[]; total: number };
-    let agents: AgentRegistryEntry[] = data.agents ?? [];
+    // Legacy KV records store some TLDs base64-encoded — decode for clients
+    let agents: AgentRegistryEntry[] = (data.agents ?? []).map(a => ({ ...a, tld: decodeStoredTld(a.tld) }));
 
     // Filter: only agents with at least one ERC-8004 registration
     if (erc8004Only) {

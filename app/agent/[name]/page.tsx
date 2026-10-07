@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { usePrivy } from '@privy-io/react-auth';
 import { type EnsExpiryInfo, shouldWarnExpiry } from '../../utils/ens-expiry';
+import { NftImage } from '../../components/NftImage';
 
 const SLD_META: Record<string, { label: string; color: string; bg: string; ring: string }> = {
   molt:     { label: 'Molt',     color: 'text-fuchsia-300', bg: 'bg-fuchsia-500/10', ring: 'ring-fuchsia-500/20' },
@@ -186,8 +187,15 @@ export default function AgentPublicProfilePage() {
             <div className="flex items-start gap-4">
               <div className="h-20 w-20 shrink-0 rounded-xl border border-[rgba(176,128,92,0.2)] bg-black/40 overflow-hidden">
                 {imageUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={imageUrl} alt={name} className="h-full w-full object-cover" />
+                  <div className="flex h-full w-full items-center justify-center">
+                    <NftImage
+                      src={imageUrl}
+                      fallbacks={sldFromName && SLD_META[sldFromName] ? [`/sld-images/${sldFromName}.png`] : []}
+                      alt={name}
+                      label={sldFromName ?? 'NFT'}
+                      className="h-full w-full object-cover"
+                    />
+                  </div>
                 ) : (
                   <div className="flex h-full w-full flex-col items-center justify-center gap-1">
                     <svg className="h-8 w-8 text-zinc-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">

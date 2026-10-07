@@ -3,6 +3,26 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
+import { NftImage } from '../components/NftImage';
+import { decodeStoredTld, sldFromGnoName, VALID_GNO_SLDS } from '../utils/gno-identity';
+
+const AGENT_TIERS: AgentTier[] = ['basic', 'lite', 'premium', 'ghost'];
+function toAgentTier(raw: string | null | undefined, fallback: AgentTier = 'basic'): AgentTier {
+  const t = (raw ?? '').toLowerCase();
+  if (t === 'pro' || t === 'pupa') return 'lite';
+  return AGENT_TIERS.includes(t as AgentTier) ? (t as AgentTier) : fallback;
+}
+
+async function fetchJsonWithRetry<T>(url: string, init: RequestInit = {}, timeouts = [8000, 15000]): Promise<T | null> {
+  for (const ms of timeouts) {
+    try {
+      const res = await fetch(url, { ...init, signal: AbortSignal.timeout(ms) });
+      if (res.ok) return await res.json() as T;
+      if (res.status < 500) return null;
+    } catch { /* retry */ }
+  }
+  return null;
+}
 
 const WORKER_URL = process.env.NEXT_PUBLIC_WORKER_URL ?? 'https://nftmail-email-worker.richard-159.workers.dev';
 
@@ -134,20 +154,12 @@ function AgentCard({ agent, onSelect, selected }: { agent: DemoAgent; onSelect: 
       <div className="flex gap-3">
         {/* NFT image — real agent card image or SLD-coloured placeholder */}
         <div className={`w-1/2 shrink-0 aspect-square rounded-xl border ${ns.imgBorder} ${ns.placeholder} overflow-hidden flex items-center justify-center`}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={agent.imageUrl ?? `/sld-images/${sld}.png`}
+          <NftImage
+            src={agent.imageUrl}
+            fallbacks={(VALID_GNO_SLDS as string[]).includes(sld) ? [`/sld-images/${sld}.png`] : []}
             alt={`${agent.name}.${agent.namespace}`}
+            label={sld}
             className="h-full w-full object-cover"
-            onError={(e) => {
-              const el = e.target as HTMLImageElement;
-              if (agent.imageUrl && el.src !== `/sld-images/${sld}.png`) {
-                el.src = `/sld-images/${sld}.png`;
-              } else {
-                el.style.display = 'none';
-                el.parentElement!.innerHTML = `<span class="text-[9px] font-bold tracking-widest opacity-30 uppercase">${sld}</span>`;
-              }
-            }}
           />
         </div>
 
@@ -331,17 +343,23 @@ export default function DashboardHome() {
         // Independently resolve each agent — fill in cards as they arrive
         allAgents.forEach(async (a) => {
           try {
-            const idRes = await fetch(`/api/agent-lookup?q=${a.name}`, { signal: AbortSignal.timeout(5000) });
-            if (!idRes.ok) throw new Error('identity fetch failed');
-            const identity = await idRes.json() as {
+            // Start the card fetch in parallel — it carries the NFT image
+            const cardPromise = fetchJsonWithRetry<{ image?: string }>(
+              `/api/agent-card?agent=${encodeURIComponent(a.name)}`,
+              { headers: { 'Accept': 'application/json' } },
+            );
+            const identity = await fetchJsonWithRetry<{
               onChainOwner?: string;
               identityNft?: { owner?: string; tld?: string | null; name?: string | null } | null;
+              originNft?: string | null;
+              tld?: string | null;
               principal?: string | null;
               safe?: string | null;
               safeAddress?: string | null;
               tbaAddress?: string | null;
               accountTier?: string;
-            };
+            }>(`/api/agent-lookup?q=${encodeURIComponent(a.name)}`);
+            if (!identity) throw new Error('identity fetch failed');
 
             // Ownership check — drop agent if wallet doesn't match any candidate
             const owner    = identity.onChainOwner ?? identity.identityNft?.owner ?? null;
@@ -355,16 +373,17 @@ export default function DashboardHome() {
               return;
             }
 
-            // Derive namespace: prefer stored tld, then parse identityNft.name, then fall back
-            const nftName  = identity.identityNft?.name ?? '';
+            // Derive namespace: origin NFT (e.g. ghostagent.molt.gno) is authoritative,
+            // then the decoded stored TLD (legacy KV values may be base64-encoded).
+            const originNft = identity.originNft ?? identity.identityNft?.name ?? null;
+            const originSld = sldFromGnoName(originNft);
             const namespace =
-              identity.identityNft?.tld ??
-              (nftName ? nftName.replace(/^[^.]+\./, '') : null) ??
-              a.tld ?? 'nftmail.gno';
+              (originSld ? `${originSld}.gno` : null) ??
+              decodeStoredTld(identity.tld ?? identity.identityNft?.tld) ??
+              decodeStoredTld(a.tld) ??
+              'nftmail.gno';
 
-            const tierRaw = (identity.accountTier ?? 'basic').toLowerCase();
-            const tier: AgentTier = (['basic', 'lite', 'premium', 'ghost'] as AgentTier[]).includes(tierRaw as AgentTier)
-              ? (tierRaw as AgentTier) : 'basic';
+            const tier = toAgentTier(identity.accountTier);
 
             const basicCard: DemoAgent = {
               name:        a.name,
@@ -390,30 +409,14 @@ export default function DashboardHome() {
               return updated;
             });
 
-            // Enrich with image + authoritative tier in background
-            const [cardRes, lookupRes] = await Promise.allSettled([
-              fetch(`/api/agent-card?agent=${a.name}`, { headers: { 'Accept': 'application/json' }, signal: AbortSignal.timeout(10000) }),
-              fetch(`/api/agent-lookup?q=${a.name}`, { signal: AbortSignal.timeout(10000) }),
-            ]);
-            let imageUrl: string | undefined;
-            let lookupTier: string | null = null;
-            if (cardRes.status === 'fulfilled' && cardRes.value.ok) {
-              const card = await cardRes.value.json() as { image?: string };
-              if (card.image) imageUrl = card.image;
+            // Enrich with the NFT image once the card arrives
+            const card = await cardPromise;
+            const imageUrl = card?.image || undefined;
+            if (imageUrl) {
+              setAgentEntries(prev => prev?.map(e =>
+                e.name === a.name && e.data ? { ...e, data: { ...e.data, imageUrl } } : e
+              ) ?? null);
             }
-            if (lookupRes.status === 'fulfilled' && lookupRes.value.ok) {
-              const lu = await lookupRes.value.json() as { accountTier?: string };
-              if (lu.accountTier) lookupTier = lu.accountTier;
-            }
-            const finalTierRaw = (lookupTier ?? tierRaw).toLowerCase();
-            const finalTier: AgentTier = (['basic', 'lite', 'premium', 'ghost'] as AgentTier[]).includes(finalTierRaw as AgentTier)
-              ? (finalTierRaw as AgentTier) : tier;
-
-            setAgentEntries(prev => prev?.map(e =>
-              e.name === a.name && e.data
-                ? { ...e, data: { ...e.data, imageUrl, tier: finalTier } }
-                : e
-            ) ?? null);
           } catch {
             setAgentEntries(prev => prev?.filter(e => e.name !== a.name) ?? null);
           }
