@@ -7,7 +7,11 @@
 import { Database } from 'bun:sqlite';
 
 const CF_WORKER_URL = 'https://nftmail-email-worker.richard-159.workers.dev';
-const CF_WORKER_SECRET = 'bF2Nz7QzDGHh3jefxHUxnXpUzsQD';
+const CF_WORKER_SECRET = process.env.CF_WORKER_SECRET || process.env.WORKER_SECRET;
+if (!CF_WORKER_SECRET) {
+  console.error('CF_WORKER_SECRET (or WORKER_SECRET) env var required');
+  process.exit(1);
+}
 const DB_PATH = '/opt/ghostagent/bun-worker/data/nftmail.db';
 
 const INBOXES = ['ghostagent', 'ghostagent_', 'eyemine', 'eyemine_', 'victor', 'victor_'];
