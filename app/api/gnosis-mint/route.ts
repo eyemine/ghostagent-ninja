@@ -19,6 +19,8 @@ import {
 import { namehash } from 'viem/ens';
 import { privateKeyToAccount } from 'viem/accounts';
 import { defineChain } from 'viem';
+import { WORKER_URL } from '../../utils/config';
+import { checkEnsGuard } from '../../utils/ens-guard';
 
 const gnosis = defineChain({
   id: 100,
@@ -28,7 +30,7 @@ const gnosis = defineChain({
   blockExplorers: { default: { name: 'Gnosisscan', url: 'https://gnosisscan.io' } },
 });
 
-const NFTMAIL_WORKER_URL = process.env.NFTMAIL_WORKER_URL || 'https://nftmail-email-worker.richard-159.workers.dev';
+const NFTMAIL_WORKER_URL = WORKER_URL;
 
 // Registrar contracts per TLD
 const REGISTRAR_CONTRACTS: Record<string, Address> = {
@@ -120,6 +122,12 @@ export async function POST(req: NextRequest) {
     }
     if (!ownerWallet || !/^0x[a-fA-F0-9]{40}$/.test(ownerWallet)) {
       return NextResponse.json({ error: 'Invalid ownerWallet address' }, { status: 400 });
+    }
+
+    // ── ENS reservation guard (server-side; client checks are advisory) ────
+    const guard = await checkEnsGuard(label, ownerWallet);
+    if (!guard.allowed) {
+      return NextResponse.json({ error: guard.reason }, { status: 403 });
     }
 
     const account = privateKeyToAccount(treasuryKey as `0x${string}`);
@@ -216,12 +224,28 @@ export async function POST(req: NextRequest) {
         secret: webhookSecret,
         label,
         controller: ownerWallet,
-        origin_nft: `${label}.${tld}`,
+        originNft,
+        mintedTokenId,
+        tba: tbaAddress ?? undefined,
+        registrar: registrarContract,
         tld,
         tier: privacyTier,
       }),
     });
     const workerJson = await workerRes.json() as any;
+
+    // Reserve name globally (cross-TLD) so it appears in listAgents
+    let tldSet = false;
+    try {
+      const tldRes = await fetch(NFTMAIL_WORKER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': webhookSecret },
+        body: JSON.stringify({ action: 'setTld', agentName: label, tld }),
+        signal: AbortSignal.timeout(8000),
+      });
+      tldSet = tldRes.ok;
+    } catch { /* non-fatal — logged below */ }
+    if (!tldSet) console.error(`[gnosis-mint] setTld failed for ${originNft}`);
 
     return NextResponse.json({
       success: true,
@@ -232,7 +256,7 @@ export async function POST(req: NextRequest) {
       controller: ownerWallet,
       tbaAddress,
       privacyTier,
-      kvRegistered: workerJson?.status === 'registered',
+      kvRegistered: workerJson?.status === 'registered' && tldSet,
       explorer: `https://gnosisscan.io/tx/${hash}`,
     });
   } catch (err: any) {

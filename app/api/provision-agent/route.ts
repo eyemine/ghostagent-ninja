@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { mintCreationIP } from '../../lib/story-mint';
+import { WORKER_URL } from '../../utils/config';
 
 /// POST /api/provision-agent
 /// Called after user mints [name].agent.gno on Gnosis and gets a TBA address.
@@ -9,8 +10,6 @@ import { mintCreationIP } from '../../lib/story-mint';
 ///
 /// Body: { agentName: string, tbaAddress: `0x${string}`, sld?: string, ownerWallet?: string }
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://ghostagent.ninja';
-const WORKER_URL = process.env.NEXT_PUBLIC_WORKER_URL ?? 'https://nftmail-email-worker.richard-159.workers.dev';
 const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET ?? '';
 
 export async function POST(request: Request) {
@@ -20,8 +19,9 @@ export async function POST(request: Request) {
       tbaAddress?: string;
       sld?: string;
       ownerWallet?: string;
+      mintedTokenId?: number;
     };
-    const { agentName, tbaAddress, sld = 'agent', ownerWallet } = body;
+    const { agentName, tbaAddress, sld = 'agent', ownerWallet, mintedTokenId } = body;
 
     if (!agentName || typeof agentName !== 'string') {
       return NextResponse.json({ error: 'Missing agentName' }, { status: 400 });
@@ -45,7 +45,9 @@ export async function POST(request: Request) {
         action:    'registerSovereign',
         label:     agentName,
         controller: ownerWallet ?? tbaAddress,
-        origin_nft:`${agentName}.${sld}.gno`,
+        originNft: `${agentName}.${sld}.gno`,
+        mintedTokenId: mintedTokenId ?? null,
+        tba:       tbaAddress,
         tld:       `${sld}.gno`,
         tier:      'basic',
         secret:    WEBHOOK_SECRET,

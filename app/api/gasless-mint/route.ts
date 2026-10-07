@@ -32,6 +32,8 @@ import {
 import { privateKeyToAccount } from 'viem/accounts';
 import { gnosis, mainnet } from 'viem/chains';
 import { GNO_REGISTRARS } from '../../utils/chains';
+import { WORKER_URL } from '../../utils/config';
+import { checkEnsGuard } from '../../utils/ens-guard';
 import NamespaceRegistrarABI from '../../abi/NamespaceRegistrar.json';
 
 const GNS_REGISTRY_PRIMARY   = '0xA505e447474bd1774977510e7a7C9459DA79c4b9' as const;
@@ -56,7 +58,6 @@ const ENS_ABI = [{
   outputs: [{ name: '', type: 'address' }],
 }] as const;
 
-const WORKER_URL = process.env.NEXT_PUBLIC_WORKER_URL ?? 'https://nftmail-email-worker.richard-159.workers.dev';
 const WORKER_SECRET = process.env.WORKER_SECRET || process.env.WEBHOOK_SECRET || '';
 
 // Namespaces eligible for gasless treasury-sponsored minting (coupon extends this to all)
@@ -130,6 +131,25 @@ export async function POST(req: NextRequest) {
   }
   if (!owner || !/^0x[a-fA-F0-9]{40}$/.test(owner)) {
     return NextResponse.json({ error: 'Invalid owner address' }, { status: 400 });
+  }
+
+  // ── ENS reservation guard (server-side — /api/check-name is advisory only) ──
+  // If label.eth is registered on mainnet, only its owner may mint the matching
+  // .gno name in any namespace. Coupon mints are operator-granted and skip this.
+  if (!isCouponMint) {
+    const guard = await checkEnsGuard(label, owner);
+    if (!guard.allowed) {
+      return NextResponse.json({ error: guard.reason }, { status: 403 });
+    }
+  }
+
+  // agent.gno is the ENS-reserved namespace: gasless mints there must come
+  // through the ENS-holder keystone path below.
+  if (namespace === 'agent' && !ensProof && !isCouponMint) {
+    return NextResponse.json(
+      { error: 'agent.gno gasless mints require an ENS proof (ensProof.name)' },
+      { status: 400 },
+    );
   }
 
   const ethClient = createPublicClient({
@@ -283,31 +303,68 @@ export async function POST(req: NextRequest) {
 
     const receipt = await publicClient.waitForTransactionReceipt({ hash });
 
-    // Extract TBA from events
+    // Extract TBA + tokenId from events
     let tbaAddress = '';
+    let mintedTokenId: number | null = null;
     for (const log of receipt.logs) {
       try {
         const decoded = decodeEventLog({ abi: NamespaceRegistrarABI, data: log.data, topics: log.topics });
         if (decoded.eventName === 'TokenboundAccountCreated') {
           tbaAddress = (decoded.args as unknown as Record<string, string>).account ?? '';
         }
+        if (decoded.eventName === 'SubnameMinted') {
+          mintedTokenId = Number((decoded.args as unknown as Record<string, unknown>).tokenId);
+        }
       } catch { /* not our event */ }
     }
 
-    // ── Post-mint: ERC-8004 registration + email provisioning (non-fatal) ──
-    fetch(`${APP_URL}/api/provision-agent`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ agentName: label, tbaAddress, sld: namespace, ownerWallet: owner }),
-    }).catch(() => {});
+    // ── Post-mint: write complete agent record to the worker (awaited) ────────
+    // registerSovereign writes nftmailgno:{label} (controller, origin_nft,
+    // minted_tokenId, registrar), acct-tier, and the nft-token:{sld}:{id}
+    // reverse index used by the NFT metadata endpoint. setTld reserves the
+    // name globally (cross-TLD) and makes it appear in listAgents.
+    const originNft = `${label}.${namespace}.gno`;
+    const workerPost = (body: Record<string, unknown>) =>
+      fetch(WORKER_URL, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
+        body:    JSON.stringify(body),
+        signal:  AbortSignal.timeout(8000),
+      });
+    let kvRegistered = false;
+    try {
+      const [regRes, tldRes] = await Promise.all([
+        workerPost({
+          action:        'registerSovereign',
+          secret:        WORKER_SECRET,
+          label,
+          controller:    owner,
+          originNft,
+          mintedTokenId,
+          tba:           tbaAddress || undefined,
+          registrar,
+          tld:           `${namespace}.gno`,
+          tier:          'basic',
+        }),
+        workerPost({ action: 'setTld', agentName: label, tld: `${namespace}.gno` }),
+      ]);
+      const regJson = await regRes.json().catch(() => ({})) as { status?: string };
+      kvRegistered = regRes.ok && regJson.status === 'registered' && tldRes.ok;
+      if (!kvRegistered) {
+        console.error(`[gasless-mint] worker registration incomplete for ${originNft}: reg=${regRes.status} tld=${tldRes.status}`);
+      }
+    } catch (kvErr) {
+      console.error(`[gasless-mint] worker registration failed for ${originNft}:`, kvErr);
+    }
 
-    // ── Reserve name globally in KV (cross-TLD protection) ──────────────────
-    // Blocks chonk676.agent.gno if chonk676.molt.gno is already minted.
-    fetch(WORKER_URL, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
-      body:    JSON.stringify({ action: 'setTld', agentName: label, tld: `${namespace}.gno` }),
-    }).catch(() => {});
+    // ── Story L1 creation.ip provisioning (non-fatal, fire-and-forget) ───────
+    if (tbaAddress) {
+      fetch(`${APP_URL}/api/provision-agent`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ agentName: label, tbaAddress, sld: namespace, ownerWallet: owner, mintedTokenId }),
+      }).catch(() => {});
+    }
 
     // ── Redeem coupon after successful mint (non-fatal) ───────────────────────
     if (isCouponMint) {
@@ -327,6 +384,8 @@ export async function POST(req: NextRequest) {
       fullName: `${label}.${namespace}.gno`,
       email: `${label}_@nftmail.box`,
       sponsor: account.address,
+      tokenId: mintedTokenId,
+      kvRegistered,
     });
   } finally {
     inFlightLabels.delete(mutexKey);

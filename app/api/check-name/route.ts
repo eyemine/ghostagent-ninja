@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createPublicClient, http, namehash } from 'viem';
-import { mainnet, gnosis } from 'viem/chains';
+import { gnosis } from 'viem/chains';
 import { getAllCollections } from '../../services/collection-registry';
 import { WORKER_URL } from '../../utils/config';
+import { ensOwner as lookupEnsOwner } from '../../utils/ens-guard';
 
 const WORKER_SECRET = process.env.WORKER_SECRET || process.env.WEBHOOK_SECRET || '';
 
@@ -13,20 +14,7 @@ const COLLECTION_RESERVED: Set<string> = new Set(
 );
 
 
-// ENS Registry on Ethereum mainnet
-const ENS_REGISTRY = '0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e' as const;
-const ENS_REGISTRY_ABI = [{
-  name: 'owner',
-  type: 'function',
-  stateMutability: 'view',
-  inputs: [{ name: 'node', type: 'bytes32' }],
-  outputs: [{ name: '', type: 'address' }],
-}] as const;
 
-const ethClient = createPublicClient({
-  chain: mainnet,
-  transport: http(process.env.ETH_RPC_URL || 'https://ethereum.publicnode.com'),
-});
 
 // GNS Registry on Gnosis mainnet — authoritative on-chain subname ownership
 // Check both known deployments; registrar may write to either.
@@ -154,20 +142,15 @@ export async function GET(req: NextRequest) {
   }
 
   // ── 2. ENS check: does name.eth exist on Ethereum mainnet? ──────────────────
+  // Uses the NameWrapper-aware lookup from utils/ens-guard so wrapped names
+  // resolve to their real owner.
   let ensOwner: string | null = null;
   let ensName: string | null = null;
   let ensClash = false;
 
   try {
-    const node = namehash(`${name}.eth`);
-    const owner = await ethClient.readContract({
-      address: ENS_REGISTRY,
-      abi: ENS_REGISTRY_ABI,
-      functionName: 'owner',
-      args: [node],
-    });
-    const isZero = owner === '0x0000000000000000000000000000000000000000';
-    if (!isZero) {
+    const owner = await lookupEnsOwner(name);
+    if (owner) {
       ensOwner = owner;
       ensName  = `${name}.eth`;
       ensClash = true;
@@ -180,6 +163,23 @@ export async function GET(req: NextRequest) {
   const ensOwnedByWallet = ensClash && wallet !== null
     && ensOwner !== null
     && ensOwner.toLowerCase() === wallet.toLowerCase();
+
+  // If a wallet is connected and the name is ENS-reserved to someone else,
+  // report it as unavailable — the mint endpoints enforce the same rule.
+  if (ensClash && wallet !== null && !ensOwnedByWallet) {
+    return NextResponse.json({
+      available: false,
+      reason: 'ens-reserved',
+      name,
+      tld,
+      fullName: `${name}.${tld}`,
+      ensOwner,
+      ensName,
+      ensClash,
+      ensOwnedByWallet,
+      message: `"${name}" is reserved for the owner of ${ensName}.`,
+    });
+  }
 
   return NextResponse.json({
     available: true,
