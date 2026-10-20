@@ -17,6 +17,16 @@ export async function OPTIONS() {
 
 export async function POST(req: NextRequest) {
   try {
+    // The worker's /mcp serves agent memory records. Attaching our own secret
+    // made them readable by anyone, so callers must present the credential
+    // themselves (X-Worker-Secret or Bearer) and it is only passed through.
+    const provided = req.headers.get('x-worker-secret') || (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '');
+    if (!WORKER_SECRET || provided !== WORKER_SECRET) {
+      return NextResponse.json({ jsonrpc: '2.0', id: null, error: { code: -32001, message: 'Unauthorized' } }, {
+        status: 401,
+        headers: { 'Access-Control-Allow-Origin': '*' },
+      });
+    }
     const body = await req.text();
     const res = await fetch(`${WORKER_URL}/mcp`, {
       method: 'POST',
