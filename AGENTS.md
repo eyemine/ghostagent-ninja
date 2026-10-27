@@ -71,9 +71,29 @@ KV key patterns: `erc8004:gnosis:{name}`, `tld:{name}`, `profile:{name}`, `beaco
 
 See `env.example` for all required vars. Key ones:
 - `LIGHTHOUSE_API_KEY` — Lighthouse.storage upload key
-- `WEBHOOK_SECRET` — shared secret for worker KV mutations
+- `WEBHOOK_SECRET` — worker **admin** secret (see "Worker secrets" below)
 - `NEXT_PUBLIC_WORKER_URL` — Cloudflare worker URL
 - `NEXT_PUBLIC_PRIVY_APP_ID` — Privy auth app ID
+
+## Worker secrets — two DIFFERENT values, do not conflate
+
+| Secret | What it gates | Sent as |
+|---|---|---|
+| `WORKER_SECRET` | Every non-public request to the worker (`router.ts` step 5) | `X-Worker-Secret` header |
+| `WEBHOOK_SECRET` | Admin-only actions / admin bypass (`index.ts`, e.g. backfills, 0G archive) | body `secret` or `X-Webhook-Secret` |
+
+Many app routes use `process.env.WORKER_SECRET || process.env.WEBHOOK_SECRET` — the fallback only works if
+`WORKER_SECRET` is unset; never set them to the same value to "fix" an auth error.
+
+Where each lives (rotate ALL of a secret's locations together; there is no dual-accept window):
+- Cloudflare worker `nftmail-email-worker`: both (`wrangler secret put`, from `workers/nftmail-email-worker/`)
+- Hetzner bun worker `nftmail-bun-worker.service`: both, in `/opt/ghostagent/bun-worker/.env` (`systemctl restart`)
+- Hetzner `/opt/nftfax/.env`, `/opt/nftmail/.env` (+ `.env.production`): both (`docker compose up -d --force-recreate --no-build`)
+- Netlify `ghostagent-ninja`, `nftmailbox`: both + `NFTMAIL_WEBHOOK_SECRET`; Netlify `nftmial-0g`: `WEBHOOK_SECRET` only (redeploy after change)
+- Local: `ghostagent_ninja/.env`, `.env.local`, `nftfax/.env.local`, `nftmailbox-netlify/.env.production`
+
+Verify a rotation: POST `{"action":"listAgents",...}` to the worker — new secret → 200, old/none → 401;
+then check app logs for 401s. `WORKER_SECRET` last rotated 2026-10-12 (all locations above, verified).
 
 ## Current Pending Work
 
