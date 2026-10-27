@@ -8246,9 +8246,11 @@ Mint a BYO NFT on nftmail.box to claim this tier.
           // Two views of the same scan: the deepest chains, and the most
           // recently sent. The exhibition display shows the latter as a live
           // "what just went through the machine" row, distinct from mints.
+          const recentOffset = Math.max(0, Number((email as any).recentOffset) || 0);
+          const recentLimit = Math.min(100, Math.max(1, Number((email as any).recentLimit) || 24));
           const recent = [...publicEntries]
             .sort((a, b) => (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0))
-            .slice(0, 24);
+            .slice(recentOffset, recentOffset + recentLimit);
           publicEntries.sort((a, b) => (Number(b.chainDepth) || 0) - (Number(a.chainDepth) || 0));
           const topChains = publicEntries.slice(0, 50);
           return corsify(Response.json({
