@@ -7072,7 +7072,7 @@ Mint a BYO NFT on nftmail.box to claim this tier.
                 code: 'CHAIN_PARENT_MISSING',
               }, { status: 409 }), request);
             }
-            let src: { chainDepth?: number; id?: string; chainTimerDuration?: number; chainParticipants?: string[]; from?: string; to?: string; rootTrayId?: string };
+            let src: { chainDepth?: number; id?: string; chainTimerDuration?: number; chainParticipants?: string[]; from?: string; to?: string; rootTrayId?: string; sourceTrayId?: string | null };
             try {
               src = JSON.parse(srcRaw);
             } catch {
@@ -7081,10 +7081,30 @@ Mint a BYO NFT on nftmail.box to claim this tier.
                 code: 'CHAIN_PARENT_CORRUPT',
               }, { status: 500 }), request);
             }
-            {
+            // Legacy reroute detection: pre-rerouteOf clients still send
+            // chainTrayId pointing at the sender's OWN sent fax. A sender can
+            // never legitimately forward their own outgoing document, so this
+            // can only be a re-route — inherit the original's lineage (same
+            // hop, new recipient) instead of treating it as the parent. Local
+            // parts are compared because apps mix @fax and @nftmail.box forms.
+            if (((src.from || '').split('@')[0]).toLowerCase() === from.split('@')[0]) {
+              chainDepth = typeof src.chainDepth === 'number' ? src.chainDepth : 1;
+              sourceTrayId = src.sourceTrayId || null;
+              rootTrayId = src.rootTrayId || src.id || chainTrayId;
+              if (typeof src.chainTimerDuration === 'number') chainTimerDuration = src.chainTimerDuration;
+              chainParticipants = Array.isArray(src.chainParticipants) ? [...src.chainParticipants] : [];
+              chainCollections = Array.isArray((src as any).chainCollections) ? [...(src as any).chainCollections] : [];
+              for (const p of chainParticipants) {
+                const col = inferCollection(p.split('@')[0]);
+                if (col && !chainCollections.includes(col)) chainCollections.push(col);
+              }
+              if (chainParticipants.includes(to) || to === from) {
+                return corsify(Response.json({ error: 'Loop prevented: this recipient is already in the chain. Each participant can only appear once.' }, { status: 409 }), request);
+              }
+            } else {
                 chainDepth = (typeof src.chainDepth === 'number' ? src.chainDepth : 1) + 1;
                 sourceTrayId = src.id || chainTrayId;
-                rootTrayId = src.rootTrayId || sourceTrayId;
+                rootTrayId = src.rootTrayId || src.id || chainTrayId;
                 // Halving timer: if the source fax was NOT minted, halve the timer.
                 // If it WAS minted, reset to 72h. Check tray-mint:base:{chainTrayId}.
                 const srcMintRaw = await env.INBOX_KV.get(`tray-mint:base:${chainTrayId}`);
