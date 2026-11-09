@@ -573,7 +573,7 @@ const WHITELISTED_COLLECTIONS: WhitelistedCollection[] = [
   {
     assignedName: 'atom',
     chainId: 1,
-    contractAddress: '0x3B3ee1931Dc30C1957379FAc9aba94D1C48a5405',
+    contractAddress: '0x9abb7bddc43fa67c76a62d8c016513827f59be1b',
     rpcUrl: 'https://ethereum.publicnode.com',
     displayName: 'POWNFT',
   },
@@ -6957,11 +6957,14 @@ Mint a BYO NFT on nftmail.box to claim this tier.
           const format = ((email as any).format || '').toLowerCase().trim();
           const channel = (((email as any).channel || 'public') as string).toLowerCase().trim();
           const dataBase64 = (email as any).dataBase64 as string | undefined;
-          // Cover note: optional 140-char plaintext note attached to the fax.
+          // Cover note: optional plaintext note attached to the fax.
           // Stored in the tray record, displayed in the tray page and InTray,
           // NOT rendered on the fax image (image stays clean). Sanitized to
-          // plain text and capped at 140 chars.
-          const coverNoteRaw = ((email as any).coverNote || '').toString().trim().slice(0, 140);
+          // plain text; 140-char cap, extended to 500 when the app flags
+          // coverNoteLong (set only for chain-verified POW cryptoFax senders
+          // — the app enforces that before forwarding the flag).
+          const coverNoteCap = (email as any).coverNoteLong === true ? 500 : 140;
+          const coverNoteRaw = ((email as any).coverNote || '').toString().trim().slice(0, coverNoteCap);
           // Private channel: the bitmap is ECIES-encrypted client/server-side and
           // arrives as an envelope. KV never stores the plaintext image, and the
           // public /tray/{id} URL can never reveal it — only the recipient wallet
