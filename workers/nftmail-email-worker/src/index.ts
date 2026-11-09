@@ -989,6 +989,9 @@ async function isPublicAgent(agentName: string, env: Env, parentTld?: string): P
   // Strip trailing _ (agent alias) to inherit base agent's TLD + privacy
   const baseName = agentName.replace(/_+$/, '');
 
+  // Farcaster mini-app accounts (*.cast) are always private, whatever the KV says.
+  if (baseName.endsWith('.cast')) return false;
+
   // Check privacy: KV override — respects both directions of toggle
   // Glassbox agent toggled private → darkbox; Darkbox agent toggled exposed → glassbox
   const privacyRaw = await env.INBOX_KV.get(`privacy:${agentName}`) || await env.INBOX_KV.get(`privacy:${baseName}`);
@@ -5683,8 +5686,9 @@ export async function _handleJsonPost(request: Request, env: Env, ctx: Execution
           const kvWrites: Promise<void>[] = [
             env.INBOX_KV.put(`nftmailgno:${agentName}`, kvEntry),
             env.INBOX_KV.put(`acct-tier:${agentName}`, tierEntry),
+            // Farcaster mini-app accounts are always private.
             env.INBOX_KV.put(`privacy:${agentName}`, JSON.stringify({
-              tier: 'exposed',
+              tier: 'private',
               farcasterVisibility: farcasterVis,
               emailVisibility: emailVis,
             })),
@@ -7023,7 +7027,38 @@ Mint a BYO NFT on nftmail.box to claim this tier.
             if (prefix === 'pow') return 'pow';
             return prefix;
           };
-          if (chainTrayId) {
+          // Re-route: the SENDER redirects their own fax to a new recipient. That
+          // is a sideways move — the same hop, a different recipient — so the new
+          // document inherits the original's lineage (parent, depth, root,
+          // participants) instead of treating the original as its parent. Using
+          // chainTrayId here put every rerouted fax one tier too deep and listed
+          // the bypassed recipient as a chain participant.
+          const rerouteOf = ((email as any).rerouteOf || '').trim();
+          if (rerouteOf) {
+            const origRaw = await env.INBOX_KV.get(`tray:${rerouteOf}`);
+            if (!origRaw) {
+              return corsify(Response.json({ error: 'Cannot re-route: the original fax could not be found.', code: 'REROUTE_ORIGINAL_MISSING' }, { status: 409 }), request);
+            }
+            let orig: { id?: string; from?: string; chainDepth?: number; sourceTrayId?: string | null; rootTrayId?: string; chainTimerDuration?: number; chainParticipants?: string[] };
+            try { orig = JSON.parse(origRaw); } catch {
+              return corsify(Response.json({ error: 'Cannot re-route: the original fax is corrupted on the server.', code: 'REROUTE_ORIGINAL_CORRUPT' }, { status: 500 }), request);
+            }
+            if ((orig.from || '').toLowerCase() !== from) {
+              return corsify(Response.json({ error: 'Only the original sender can re-route this fax.' }, { status: 403 }), request);
+            }
+            chainDepth = typeof orig.chainDepth === 'number' ? orig.chainDepth : 1;
+            sourceTrayId = orig.sourceTrayId || null;
+            rootTrayId = orig.rootTrayId || orig.id || rerouteOf;
+            if (typeof orig.chainTimerDuration === 'number') chainTimerDuration = orig.chainTimerDuration;
+            chainParticipants = Array.isArray(orig.chainParticipants) ? [...orig.chainParticipants] : [];
+            for (const p of chainParticipants) {
+              const col = inferCollection(p.split('@')[0]);
+              if (col && !chainCollections.includes(col)) chainCollections.push(col);
+            }
+            if (chainParticipants.includes(to) || to === from) {
+              return corsify(Response.json({ error: 'Loop prevented: this recipient is already in the chain. Each participant can only appear once.' }, { status: 409 }), request);
+            }
+          } else if (chainTrayId) {
             // FAIL CLOSED: forwarding a fax whose parent record can't be found or
             // parsed must never silently fall back to starting a fresh root chain
             // (chainDepth=1, sourceTrayId=null) — that phantom reset is exactly the
@@ -9045,6 +9080,8 @@ Mint a BYO NFT on nftmail.box to claim this tier.
           // Only molt.gno is glassbox by design — all other agents (including ghostmail.box) inherit inbox privacy
           const agentIsPublic = PUBLIC_TLDS.some(t => agentResolvedTld.endsWith(t));
           if (agentIsPublic) privacyTier = 'exposed';
+          // Farcaster mini-app accounts (*.cast) are always private.
+          if (resolvedBaseName.endsWith('.cast') && privacyTier === 'exposed') privacyTier = 'private';
 
           // Inbox message count from blind-index
           const inboxIds: string[] = blindIndex ? (() => { try { return JSON.parse(blindIndex); } catch { return []; } })() : [];
