@@ -7157,8 +7157,12 @@ Mint a BYO NFT on nftmail.box to claim this tier.
           // 8-day decay: an unsaved fax (document + gallery index) is purged after
           // 8 days to keep the In-Tray gallery uncluttered. "Saving" a fax (mint to
           // Gnosis) rewrites tray:{id} without a TTL to make it permanent.
+          // Exception: chain-initialisation faxes (chainDepth 1 — the origin of a
+          // chain) never decay; they stay in the tray until explicitly deleted.
           const TRAY_TTL = 8 * 86400; // 8-day decay: unsaved faxes are purged after 8 days
-          await env.INBOX_KV.put(`tray:${id}`, JSON.stringify(record), { expirationTtl: TRAY_TTL });
+          const noDecay = chainDepth <= 1;
+          const ttlOpts = noDecay ? undefined : { expirationTtl: TRAY_TTL };
+          await env.INBOX_KV.put(`tray:${id}`, JSON.stringify(record), ttlOpts);
 
           // Inject a terse plaintext notification — never the bitmap itself — into the
           // recipient's inbox. Safe for both the HTML inbox and the markup-only mini app.
@@ -7207,11 +7211,11 @@ Mint a BYO NFT on nftmail.box to claim this tier.
               chainCollections,
               coverNote: coverNoteRaw || undefined,
             };
-            await env.INBOX_KV.put(`tray-in:${recipientLocal}:${id}`, JSON.stringify(trayInMeta), { expirationTtl: TRAY_TTL });
+            await env.INBOX_KV.put(`tray-in:${recipientLocal}:${id}`, JSON.stringify(trayInMeta), ttlOpts);
             // Sent-tray index for the sender (standalone NFTfax app).
             const senderLocal = from.split('@')[0];
             const trayOutMeta = { id, from, to, format, channel: isPrivate ? 'private' : 'public', encrypted: isPrivate, createdAt: Date.now(), chainDepth, sourceTrayId, rootTrayId, chainTimerDuration, chainCollections, coverNote: coverNoteRaw || undefined };
-            await env.INBOX_KV.put(`tray-out:${senderLocal}:${id}`, JSON.stringify(trayOutMeta), { expirationTtl: TRAY_TTL });
+            await env.INBOX_KV.put(`tray-out:${senderLocal}:${id}`, JSON.stringify(trayOutMeta), ttlOpts);
           } else if (to.endsWith('@fax')) {
             const recipientLocal = to.slice(0, -'@fax'.length);
             const trayInMeta = {
@@ -7230,12 +7234,12 @@ Mint a BYO NFT on nftmail.box to claim this tier.
               chainCollections,
               coverNote: coverNoteRaw || undefined,
             };
-            await env.INBOX_KV.put(`tray-in:${recipientLocal}:${id}`, JSON.stringify(trayInMeta), { expirationTtl: TRAY_TTL });
+            await env.INBOX_KV.put(`tray-in:${recipientLocal}:${id}`, JSON.stringify(trayInMeta), ttlOpts);
             // Sent-tray index for the sender (standalone NFTfax app) so forwarded
             // @fax transmissions surface in the sender's Sent tab.
             const faxSenderLocal = from.split('@')[0];
             const faxOutMeta = { id, from, to, format, channel: 'public', encrypted: false, createdAt: Date.now(), chainDepth, sourceTrayId, rootTrayId, chainTimerDuration, chainParticipants, chainCollections, coverNote: coverNoteRaw || undefined };
-            await env.INBOX_KV.put(`tray-out:${faxSenderLocal}:${id}`, JSON.stringify(faxOutMeta), { expirationTtl: TRAY_TTL });
+            await env.INBOX_KV.put(`tray-out:${faxSenderLocal}:${id}`, JSON.stringify(faxOutMeta), ttlOpts);
           } else {
             const sendKey = env.MG_SENDING_MAILGUN_API_KEY || env.MG_MAILGUN_API_KEY || env.GM_MAILGUN_API_KEY || env.SEND_MAILGUN_API_KEY || env.MAILGUN_API_KEY;
             if (!sendKey) {
@@ -8110,11 +8114,13 @@ Mint a BYO NFT on nftmail.box to claim this tier.
           }
           let toLocal = '';
           let docRaw: string | null = null;
+          let docChainDepth = 2;
           try {
             docRaw = await env.INBOX_KV.get(`tray:${trayId}`);
             if (docRaw) {
-              const doc = JSON.parse(docRaw) as { to?: string };
+              const doc = JSON.parse(docRaw) as { to?: string; chainDepth?: number };
               toLocal = String(doc.to || '').toLowerCase().replace(/@fax$/, '').replace(/@nftmail\.box$/, '');
+              if (typeof doc.chainDepth === 'number') docChainDepth = doc.chainDepth;
             }
           } catch { /* ignore missing/corrupt doc */ }
           // If the caller supplied a local, use it as the authoritative recipient
@@ -8140,10 +8146,11 @@ Mint a BYO NFT on nftmail.box to claim this tier.
           // Decrement global mint counter (best-effort, never below 0).
           const prevCount = Number(await env.INBOX_KV.get('tray-mint-count')) || 0;
           if (prevCount > 0) await env.INBOX_KV.put('tray-mint-count', String(prevCount - 1));
-          // Restore 8-day decay TTL unless the fax has been saved to Gnosis.
+          // Restore 8-day decay TTL unless the fax has been saved to Gnosis —
+          // or it is a chain-initialisation fax (depth 1), which never decays.
           const savedRaw = await env.INBOX_KV.get(`tray-saved:gnosis:${trayId}`);
           const TRAY_TTL = 8 * 86400;
-          if (docRaw && !savedRaw) {
+          if (docRaw && !savedRaw && docChainDepth > 1) {
             await env.INBOX_KV.put(`tray:${trayId}`, docRaw, { expirationTtl: TRAY_TTL });
             if (toLocal) {
               const idxRaw = await env.INBOX_KV.get(`tray-in:${toLocal}:${trayId}`);
