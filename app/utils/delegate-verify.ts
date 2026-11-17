@@ -49,7 +49,11 @@ async function ethCallAddress(rpcUrl: string, contract: string, selector: string
     }),
   });
   const data = await res.json() as { result?: string };
-  return data.result && data.result !== '0x' ? ('0x' + data.result.slice(26)).toLowerCase() : null;
+  if (!data.result || data.result === '0x') return null;
+  const addr = ('0x' + data.result.slice(26)).toLowerCase();
+  // Zero-address results mean "no owner" — treat them like an empty result so
+  // fallback lookups (wrapper, ENSv2) still run.
+  return addr === '0x0000000000000000000000000000000000000000' ? null : addr;
 }
 
 async function ethCallOwnerOf(rpcUrl: string, contract: string, tokenId: bigint): Promise<string | null> {
