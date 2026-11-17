@@ -156,14 +156,22 @@ export async function verifyUsdcFeePayment(
   const treasury  = GNOSIS_TREASURY.toLowerCase();
 
   try {
-    const [txRes, rcptRes] = await Promise.all([
-      fetch(rpc, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_getTransactionByHash', params: [txHash] }) }),
-      fetch(rpc, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'eth_getTransactionReceipt', params: [txHash] }) }),
-    ]);
-    const txData   = await txRes.json()   as { result?: any };
-    const rcptData = await rcptRes.json() as { result?: any };
+    // The client submits the hash immediately after broadcast — the RPC node
+    // may not have seen the pending tx yet. Poll briefly before failing.
+    let txData: { result?: any } = {};
+    let rcptData: { result?: any } = {};
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const [txRes, rcptRes] = await Promise.all([
+        fetch(rpc, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_getTransactionByHash', params: [txHash] }) }),
+        fetch(rpc, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'eth_getTransactionReceipt', params: [txHash] }) }),
+      ]);
+      txData   = await txRes.json()   as { result?: any };
+      rcptData = await rcptRes.json() as { result?: any };
+      if (txData.result && rcptData.result) break;
+      if (attempt < 3) await new Promise(r => setTimeout(r, 2000));
+    }
 
     if (!txData.result)   return { verified: false, fromWallet: null, error: 'Transaction not found' };
     if (!rcptData.result) return { verified: false, fromWallet: null, error: 'Transaction not yet confirmed' };

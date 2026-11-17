@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
-import { keccak256, toHex, concat, createWalletClient, custom, parseUnits } from 'viem';
+import { keccak256, toHex, concat, createWalletClient, createPublicClient, custom, http, parseUnits } from 'viem';
 import { base, mainnet } from 'viem/chains';
 import { MercuryoButton } from '../components/MercuryoWidget';
 import { EmailAliasToggle } from '../components/EmailAliasToggle';
@@ -789,6 +789,10 @@ export default function OgNftMoltPage() {
         chain,
       });
       setPaymentTxHash(txHash);
+      // Wait for on-chain confirmation before submitting — writeContract
+      // returns at broadcast, but the server verifies a confirmed receipt.
+      const pubClient = createPublicClient({ chain, transport: http() });
+      await pubClient.waitForTransactionReceipt({ hash: txHash, timeout: 180_000 });
       await executeMolt(txHash);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
