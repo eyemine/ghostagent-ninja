@@ -2,11 +2,13 @@
 /// mainnet may only be minted (in any .gno namespace) to the wallet that owns it.
 /// Handles NameWrapper-wrapped names (registry owner = NameWrapper → read ownerOf).
 
-import { createPublicClient, http, namehash, type Address } from 'viem';
+import { createPublicClient, http, labelhash, namehash, type Address } from 'viem';
 import { mainnet } from 'viem/chains';
 
 const ENS_REGISTRY = '0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e' as const;
 const NAME_WRAPPER = '0xD4416b13d2b3a9aBAE7AcD5D6C2BbDBE25686401' as const;
+// ENSv2 ETHRegistry — new .eth registrations live here, invisible to v1 contracts.
+const ENS_V2_REGISTRY = '0xf60aba43e1f7f3dab1186ff03b561401c9df85e2' as const;
 const ZERO = '0x0000000000000000000000000000000000000000';
 
 const OWNER_ABI = [{
@@ -16,6 +18,10 @@ const OWNER_ABI = [{
 const OWNER_OF_ABI = [{
   name: 'ownerOf', type: 'function', stateMutability: 'view',
   inputs: [{ name: 'id', type: 'uint256' }], outputs: [{ name: '', type: 'address' }],
+}] as const;
+const GET_OWNER_ABI = [{
+  name: 'getOwner', type: 'function', stateMutability: 'view',
+  inputs: [{ name: 'anyId', type: 'uint256' }], outputs: [{ name: '', type: 'address' }],
 }] as const;
 
 const ethClient = createPublicClient({
@@ -27,10 +33,17 @@ const ethClient = createPublicClient({
 export async function ensOwner(label: string): Promise<Address | null> {
   const node = namehash(`${label}.eth`);
   const owner = await ethClient.readContract({ address: ENS_REGISTRY, abi: OWNER_ABI, functionName: 'owner', args: [node] });
-  if (!owner || owner === ZERO) return null;
-  if (owner.toLowerCase() !== NAME_WRAPPER.toLowerCase()) return owner;
-  const wrapped = await ethClient.readContract({ address: NAME_WRAPPER, abi: OWNER_OF_ABI, functionName: 'ownerOf', args: [BigInt(node)] });
-  return wrapped && wrapped !== ZERO ? wrapped : null;
+  if (owner && owner !== ZERO) {
+    if (owner.toLowerCase() !== NAME_WRAPPER.toLowerCase()) return owner;
+    const wrapped = await ethClient.readContract({ address: NAME_WRAPPER, abi: OWNER_OF_ABI, functionName: 'ownerOf', args: [BigInt(node)] });
+    if (wrapped && wrapped !== ZERO) return wrapped;
+  }
+  // ENSv2 fallback: getOwner(anyId) accepts the v1 labelhash directly.
+  const v2 = await ethClient.readContract({
+    address: ENS_V2_REGISTRY, abi: GET_OWNER_ABI, functionName: 'getOwner',
+    args: [BigInt(labelhash(label))],
+  }).catch(() => ZERO as Address);
+  return v2 && v2 !== ZERO ? v2 : null;
 }
 
 export type EnsGuardResult =

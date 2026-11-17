@@ -114,9 +114,9 @@ function paymentChainForNftType(type: NftType, _collectionSlug?: string): 'base'
   return 'mainnet';
 }
 
-async function fetchEnsImage(tokenId: string): Promise<{ name: string; imageUrl: string | null }> {
+async function fetchEnsImage(tokenId: string, contract: string = ENS_CONTRACT): Promise<{ name: string; imageUrl: string | null }> {
   try {
-    const res = await fetch(`https://metadata.ens.domains/mainnet/${ENS_CONTRACT}/${tokenId}`);
+    const res = await fetch(`https://metadata.ens.domains/mainnet/${contract}/${tokenId}`);
     if (!res.ok) return { name: `ENS #${tokenId}`, imageUrl: null };
     const meta = await res.json() as { name?: string; image?: string; image_url?: string };
     return { name: meta.name ?? `ENS #${tokenId}`, imageUrl: meta.image ?? meta.image_url ?? null };
@@ -319,7 +319,11 @@ async function fetchErc721Image(contract: string, tokenId: string): Promise<{ na
 }
 
 const ENS_NAME_WRAPPER = '0xD4416b13d2b3a9aBAE7AcD5D6C2BbDBE25686401';
+// ENSv2 ETHRegistry — new .eth registrations (ENSv2, live since Oct 2026) are
+// ERC-1155Singleton tokens here, invisible to the v1 registrar/registry/wrapper.
+const ENS_V2_REGISTRY = '0xf60aba43e1f7f3dab1186ff03b561401c9df85e2';
 const ETH_NODE = '0x93cdeb708b7545dc668eb9280176169d1c33cfd8ed6f04690a0bcc88a93fc4ae' as const;
+const ZERO_ADDR = '0x0000000000000000000000000000000000000000';
 
 async function callOwnerOf(rpc: string, contract: string, tokenIdHex: string): Promise<string | null> {
   const res = await fetch(rpc, {
@@ -333,12 +337,50 @@ async function callOwnerOf(rpc: string, contract: string, tokenIdHex: string): P
   return ('0x' + data.result.slice(26)).toLowerCase();
 }
 
+// ENSv2 ETHRegistry.getOwner(uint256 anyId) — accepts a labelhash OR a v2
+// token ID. Selector: keccak256("getOwner(uint256)")[0:4] = 0xc41a360a
+async function callGetOwner(rpc: string, registry: string, anyIdHex: string): Promise<string | null> {
+  const res = await fetch(rpc, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_call', params: [{ to: registry, data: '0xc41a360a' + anyIdHex }, 'latest'] }),
+  });
+  const data = await res.json() as { result?: string; error?: { message?: string } };
+  if (data.error) throw new Error(data.error.message ?? 'RPC error');
+  if (!data.result || data.result === '0x') return null;
+  const owner = '0x' + data.result.slice(26);
+  return owner.toLowerCase() === ZERO_ADDR.toLowerCase() ? null : owner.toLowerCase();
+}
+
+// ENSv2 ETHRegistry.findTokenId(string label) → uint256. v2 token IDs are
+// mutable (regenerated on re-registration/role changes), so resolve the live
+// token rather than assuming labelhash == tokenId.
+function encodeStringArg(s: string): string {
+  const bytes = new TextEncoder().encode(s);
+  const hex = Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+  const len = bytes.length.toString(16).padStart(64, '0');
+  const data = hex.padEnd(Math.ceil(Math.max(hex.length, 1) / 64) * 64, '0');
+  return '0000000000000000000000000000000000000000000000000000000000000020' + len + data;
+}
+async function callFindTokenId(rpc: string, registry: string, label: string): Promise<string | null> {
+  const res = await fetch(rpc, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_call', params: [{ to: registry, data: '0x91b3c037' + encodeStringArg(label) }, 'latest'] }),
+  });
+  const data = await res.json() as { result?: string };
+  if (!data.result || data.result === '0x') return null;
+  const tid = BigInt(data.result);
+  return tid === 0n ? null : tid.toString(10);
+}
+
 async function checkOwner(contract: string, tokenId: string, rpc: string): Promise<string | null> {
   const tokenIdHex = BigInt(tokenId).toString(16).padStart(64, '0');
   let owner = await callOwnerOf(rpc, contract, tokenIdHex).catch(() => null);
+  const lc = contract.toLowerCase();
   // Wrapped .eth names escrow to the NameWrapper — registrar.ownerOf returns the
   // wrapper contract (or reverts). The real holder is wrapper.ownerOf(namehash).
-  if (contract.toLowerCase() === ENS_CONTRACT.toLowerCase()) {
+  if (lc === ENS_CONTRACT.toLowerCase()) {
     const node = BigInt(keccak256(concat([ETH_NODE, ('0x' + tokenIdHex) as `0x${string}`])));
     const nodeHex = node.toString(16).padStart(64, '0');
     if (owner?.toLowerCase() === ENS_NAME_WRAPPER.toLowerCase()) {
@@ -346,6 +388,15 @@ async function checkOwner(contract: string, tokenId: string, rpc: string): Promi
     } else if (!owner) {
       owner = await callOwnerOf(rpc, ENS_NAME_WRAPPER, nodeHex).catch(() => null);
     }
+    // ENSv2 fallback: a labelhash passed as a v1 tokenId has no v1 token;
+    // getOwner(anyId) on the v2 ETHRegistry accepts the labelhash directly.
+    if (!owner) {
+      owner = await callGetOwner(rpc, ENS_V2_REGISTRY, tokenIdHex).catch(() => null);
+    }
+  } else if (lc === ENS_V2_REGISTRY.toLowerCase() && !owner) {
+    // v2: caller may have passed the labelhash rather than the mutable v2
+    // token id — getOwner(anyId) accepts both.
+    owner = await callGetOwner(rpc, ENS_V2_REGISTRY, tokenIdHex).catch(() => null);
   }
   return owner;
 }
@@ -378,6 +429,7 @@ export default function OgNftMoltPage() {
   const [ownershipVerified, setOwnershipVerified] = useState(false);
   const [nftPreview, setNftPreview]       = useState<NftPreview | null>(null);
   const [checking, setChecking]           = useState(false);
+  const [ensV2, setEnsV2]                 = useState(false);
   const [result, setResult]               = useState<MoltResult | null>(null);
   const [error, setError]                 = useState<string | null>(null);
   const [logs, setLogs]                   = useState<string[]>([]);
@@ -528,7 +580,7 @@ export default function OgNftMoltPage() {
   }, [tokenId, ownerWallet, nftType, ownershipVerified, checking]);
 
   const resolvedContract = () => {
-    if (nftType === 'ens') return ENS_CONTRACT;
+    if (nftType === 'ens') return ensV2 ? ENS_V2_REGISTRY : ENS_CONTRACT;
     if (nftType === 'chonk') return CHONK_CONTRACT;
     if (nftType === 'pownft') return POWNFT_CONTRACT;
     if (nftType === 'normie') return NORMIE_CONTRACT;
@@ -556,7 +608,9 @@ export default function OgNftMoltPage() {
 
   const [ensResolving, setEnsResolving] = useState(false);
 
-  // ENS: compute labelhash from name → token ID
+  // ENS: compute labelhash from name → token ID. New registrations are ENSv2
+  // names — they live in the v2 ETHRegistry with a mutable token ID, invisible
+  // to the v1 registrar. Probe v1 first, then v2.
   async function resolveEnsName() {
     if (!primaryName) return;
     setEnsResolving(true); setError(null);
@@ -564,6 +618,26 @@ export default function OgNftMoltPage() {
       const label = primaryName.replace(/\.eth$/i, '').toLowerCase();
       const labelHash = keccak256(toHex(label));
       const tid = BigInt(labelHash).toString(10);
+      const tokenIdHex = BigInt(tid).toString(16).padStart(64, '0');
+      const rpc = resolvedRpc();
+      const v1Owner = await callOwnerOf(rpc, ENS_CONTRACT, tokenIdHex).catch(() => null);
+      if (!v1Owner) {
+        // Not a v1 token — check the ENSv2 ETHRegistry (getOwner accepts a labelhash)
+        const v2Owner = await callGetOwner(rpc, ENS_V2_REGISTRY, tokenIdHex).catch(() => null);
+        if (v2Owner) {
+          setEnsV2(true);
+          const v2tid = await callFindTokenId(rpc, ENS_V2_REGISTRY, label).catch(() => null);
+          setTokenId(v2tid ?? tid);
+          const meta = await fetch(`https://metadata.ens.domains/mainnet/${ENS_V2_REGISTRY}/${v2tid ?? tid}`);
+          if (!meta.ok) { setError(`ENS name "${label}.eth" not found.`); }
+          return;
+        }
+        setEnsV2(false);
+        setTokenId(tid);
+        setError(`ENS name "${label}.eth" not found.`);
+        return;
+      }
+      setEnsV2(false);
       setTokenId(tid);
       // verify it exists via metadata API
       const meta = await fetch(`https://metadata.ens.domains/mainnet/${ENS_CONTRACT}/${tid}`);
@@ -619,7 +693,7 @@ export default function OgNftMoltPage() {
       }
       let preview: NftPreview;
       if (nftType === 'ens') {
-        const { name, imageUrl } = await fetchEnsImage(tokenId);
+        const { name, imageUrl } = await fetchEnsImage(tokenId, contract);
         preview = { type: 'ens', tokenId, name, imageUrl, chain: 'mainnet' };
       } else if (nftType === 'chonk') {
         const { name, imageUrl } = await fetchChonkImage(tokenId);

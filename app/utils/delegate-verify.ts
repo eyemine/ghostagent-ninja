@@ -28,6 +28,9 @@ export const DELEGATE_REGISTRY_V2 = '0x00000000000000447e69651d841bD8D104Bed493'
 // not the holder. The real owner is NameWrapper.ownerOf(namehash(label.eth)).
 const ENS_BASE_REGISTRAR = '0x57f1887a8bf19b14fc0df6fd9b2acc9af147ea85';
 const ENS_NAME_WRAPPER   = '0xd4416b13d2b3a9abae7acd5d6c2bbdbe25686401';
+// ENSv2 ETHRegistry — new .eth registrations are ERC-1155Singleton tokens here.
+// getOwner(uint256 anyId) accepts a v1 labelhash or a v2 token id.
+const ENS_V2_REGISTRY    = '0xf60aba43e1f7f3dab1186ff03b561401c9df85e2';
 // namehash('eth') — the labelhash tokenId slots under this parent node
 const ETH_NODE = '0x93cdeb708b7545dc668eb9280176169d1c33cfd8ed6f04690a0bcc88a93fc4ae' as const;
 
@@ -36,17 +39,28 @@ function ensNodeFromLabelhash(labelhash: bigint): bigint {
   return BigInt(keccak256(concat([ETH_NODE, toHex(labelhash, { size: 32 })])));
 }
 
-async function ethCallOwnerOf(rpcUrl: string, contract: string, tokenId: bigint): Promise<string | null> {
+async function ethCallAddress(rpcUrl: string, contract: string, selector: string, id: bigint): Promise<string | null> {
   const res = await fetch(rpcUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       jsonrpc: '2.0', id: 1, method: 'eth_call',
-      params: [{ to: contract, data: '0x6352211e' + tokenId.toString(16).padStart(64, '0') }, 'latest'],
+      params: [{ to: contract, data: selector + id.toString(16).padStart(64, '0') }, 'latest'],
     }),
   });
   const data = await res.json() as { result?: string };
   return data.result && data.result !== '0x' ? ('0x' + data.result.slice(26)).toLowerCase() : null;
+}
+
+async function ethCallOwnerOf(rpcUrl: string, contract: string, tokenId: bigint): Promise<string | null> {
+  return ethCallAddress(rpcUrl, contract, '0x6352211e', tokenId);
+}
+
+// ENSv2 ETHRegistry.getOwner(uint256 anyId) — selector 0xc41a360a.
+// anyId may be a labelhash, a v2 token id, or a resource id.
+async function ethCallGetOwner(rpcUrl: string, registry: string, anyId: bigint): Promise<string | null> {
+  const owner = await ethCallAddress(rpcUrl, registry, '0xc41a360a', anyId);
+  return owner === '0x0000000000000000000000000000000000000000' ? null : owner;
 }
 
 // checkDelegateForERC721(address delegate, address vault, address contract_, uint256 tokenId, bytes32 rights) → bool
@@ -165,6 +179,14 @@ export async function verifyOwnershipOrDelegate(params: {
     } else if (!actualOwner) {
       actualOwner = await ethCallOwnerOf(rpcUrl, ENS_NAME_WRAPPER, BigInt(tokenId)).catch(() => null);
     }
+    // ENSv2 fallback: a labelhash tokenId has no v1 token; the v2 ETHRegistry
+    // resolves it via getOwner(anyId).
+    if (!actualOwner) {
+      actualOwner = await ethCallGetOwner(rpcUrl, ENS_V2_REGISTRY, BigInt(tokenId)).catch(() => null);
+    }
+  } else if (contract.toLowerCase() === ENS_V2_REGISTRY && !actualOwner) {
+    // v2 token id OR labelhash — getOwner(anyId) accepts both.
+    actualOwner = await ethCallGetOwner(rpcUrl, ENS_V2_REGISTRY, BigInt(tokenId)).catch(() => null);
   }
 
   if (actualOwner === connectedWallet.toLowerCase()) {
