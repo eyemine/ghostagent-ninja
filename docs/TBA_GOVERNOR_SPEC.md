@@ -1,6 +1,6 @@
 # Agent Safe Governance: Canonical ERC-6551 + Beacon Governor Spec
 
-Status: draft for review (v0.1, 2026-11-17)
+Status: v0.2 — provisioning pipeline shipped and proven on production (2026-11-17)
 Scope: 14 agent identities, 11 existing Safes + 2 pending (chonk676, super.normie)
 
 ## 1. Canonical Tokenbound V3 on Gnosis — DEPLOYED 2026-11-17
@@ -84,9 +84,40 @@ Design (proposed — needs review before Solidity):
 - **ENS names** are keyed by namehash, not by ERC-721/1155 token — wrapping, unwrapping
   and ENSv2 migration leave the beacon stable. Ownership resolution uses the
   registry→NameWrapper hop now live in `delegate-verify.ts` (byo-molt) and
-  `ensCheck.tsx`/`check-ens` (nftmail.box).
+  `ensCheck.tsx`/`check-ens` (nftmail.box), plus the **ENSv2 ETHRegistry**
+  (`0xf60aba43e1f7f3dab1186ff03b561401c9df85e2`, live on mainnet since Oct 27 2026).
+  **ENSv2 token IDs are mutable** — regenerated on re-registration/role changes — so
+  a TBA or KV record must never bind `(registry, tokenId)` for an ENSv2 name; use
+  `getOwner(labelhash)` (`0xc41a360a`) for verification and store the label as the
+  stable identity.
 - **Safe removal of an owner only happens after the replacement is proven** — a TBA or
   controller that cannot sign brick-walls the Safe. (The 359-byte stub proves why.)
+
+### 3c. Shipped: `.gno` key NFT → canonical TBA → Safe owner (2026-11-17)
+
+The module governor in 3b is deferred. What shipped instead is simpler and was verified
+end-to-end on a Gnosis fork (`scripts/verify-key-governance.cjs`, 10 assertions) and on
+production (hopr1 recovery below):
+
+- The BYO source NFT is a **pairing identity** — verified once at molt time against the
+  exact `(contract, tokenId)` the client resolved (incl. ENSv2's registry). It does not
+  govern on-chain; selling it does not move the agent. The UI now says this plainly.
+- The agent's key is a **`.gno` key NFT minted to the verified owner's wallet** — held
+  OUTSIDE the Safe it controls (a key held inside its own Safe is circular ownership and
+  is now detected + flagged by the oracle).
+- The key NFT's **canonical V3 TBA** (AccountProxy + `initialize(V3_IMPL)`, slot verified)
+  is added as a Safe owner **alongside the key holder as recovery signer** (threshold 1).
+- Execution is proven by simulating `TBA.execute → Safe.execTransaction` with the
+  prevalidated contract signature (`r = TBA, v = 1`) — valid only when the TBA itself
+  calls the Safe, so an EOA cannot forge it (asserted on the fork).
+- The recovery signer is removed **through the TBA only**, after a real executed tx —
+  not on provisioning. Status reports `governance: 'shared-recovery'` until then.
+- Provisioning is idempotent: `findRecentKeyMint` reuses a label only while
+  `ownerOf(tokenId)` still equals the requester; Safe CREATE2 prediction + owner-set
+  verification make every step safe to retry with the same payment.
+- **Cross-chain sync** (source NFT sold → key should follow) is still the open problem
+  from 3b — `sourceNftTransferSync: false` is reported in the API response. The
+  freeze/rebind governor module remains the design for that; do not pretend otherwise.
 
 ## 4. Retrofit program (dry-run first)
 
@@ -110,14 +141,39 @@ Per-Safe sequence (each step independently verified on-chain + notapaperclip):
   Accurate phrasing: "your NFT is your login; transfer-follows-NFT governance is rolling out"
 - notapaperclip.red now says this correctly per-agent (governedBy verdict).
 
+## 6. Production recovery — hopr1 (executed 2026-11-17)
+
+First molt (old pipeline) bricked the Safe: `hopr1.agent.gno` #12 locked inside
+`0xEEe8AC0c7db48476bDA0529140b3cf496d21647c` whose sole owner was the 359-byte stub TBA
+`0x2598FAC1a5eAb3573d263F96A40117748698C732` — unrecoverable, no modules. Recovery used the
+new pipeline with a fresh key name (the old label's NFT can never move):
+
+| Component | Value | Tx |
+|---|---|---|
+| Key NFT | `hopr1.vault.gno` #2 → `0xf251…` (vault registrar `0xc6b1…`) | `0x7058ec39…` |
+| Canonical TBA | `0x1D3a56EC96Ccc6CE6bbF59a6BBdEc2e6b6Bb7D64` | deploy `0x6c0c8c58…`, init `0xdfa736cc…` |
+| Safe | `0x4ba1Dc282fbc1bea6Ee79fE485B01521BC23Da9C` — owners `[TBA, 0xf251…]` threshold 1 | — |
+| Resolver | `setSafe(hopr1.vault.gno → Safe)` on `0xc97c7166…` | `0xf111dce8…` |
+
+Verified on-chain after execution: `tba.token() = (100, 0xc6b1…, 2)`, `tba.owner() = 0xf251…`,
+Safe owners correct, execution simulation passed. notapaperclip oracle independently reports
+`governedBy: 'shared'` + `executionCheck: 'passed'` (was `tba-broken` + `cannot-sign` on the
+old Safe). ERC-8004 agentId 4187 remains with treasury (same as all agents).
+
+Recovery-signer removal is pending a signed tx from `0xf251…` through the TBA — after which
+`governedBy` flips to `nft`. The bricked Safe + `hopr1.agent.gno` #12 stay on-chain forever;
+the `tba:hopr1` KV record carries `supersedes` provenance.
+
 ## Open questions for review
 
 1. Guardian's `tokenboundSafe` owner (`0x781b6A527482828bB04F33563797d4b696ddF328`) controls
    trusted-implementation upgrades for all V3 accounts — fine for us, just know the trust edge.
 2. Beacon governor: does `rebind` need a timelock/dispute window, or is
    freeze-on-divergence + rebind sufficient?
-3. Do paired agents get a per-agent `controller` EOA recorded, or is the Safe's owner set
-   exactly `{TBA}`? (Recommend: TBA sole owner after step 5; controller lives inside the
-   governor module, not as a second Safe owner.)
-4. Should the governor module be a Safe *module* (can exec without signatures) or a Safe
-   *owner* (needs sig path)? Module is cleaner for freeze/rebind; owner is simpler to audit.
+3. ~~Owner vs module~~ — resolved by implementation: the key TBA is a Safe **owner** via the
+   prevalidated signature path (proven on fork + production); the recovery EOA is a second
+   owner until the holder removes it through the TBA. The governor *module* remains the
+   design for cross-chain sync only, not for Safe ownership.
+4. Should source-NFT transfer sync (3b) ever move the `.gno` key NFT automatically, or only
+   flag divergence + freeze? Current stance: flag only — auto-moving the key would let a
+   source-chain sale seize the agent.
