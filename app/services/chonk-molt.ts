@@ -233,6 +233,7 @@ export async function mintChonkBeacon(
       body: JSON.stringify({
         label: beaconLabel,
         ownerWallet: mintTo,
+        guardWallet: ownerWallet,
         legacyIdentity: beaconLabel,
         privacyTier: 'private',
         tld: targetTld,

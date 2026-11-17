@@ -104,12 +104,13 @@ export async function POST(req: NextRequest) {
     const body = await req.json() as {
       label?: string;
       ownerWallet?: string;
+      guardWallet?: string;
       legacyIdentity?: string;
       privacyTier?: string;
       tld?: string;
       skipInboxRegistration?: boolean;
     };
-    const { label, ownerWallet, legacyIdentity, privacyTier = 'private', tld = 'nftmail.gno', skipInboxRegistration = false } = body;
+    const { label, ownerWallet, guardWallet, legacyIdentity, privacyTier = 'private', tld = 'nftmail.gno', skipInboxRegistration = false } = body;
 
     // Validate and get registrar contract for the TLD
     const registrarContract = REGISTRAR_CONTRACTS[tld];
@@ -125,7 +126,9 @@ export async function POST(req: NextRequest) {
     }
 
     // ── ENS reservation guard (server-side; client checks are advisory) ────
-    const guard = await checkEnsGuard(label, ownerWallet);
+    // guardWallet is the verified keystone-NFT owner when ownerWallet is the
+    // mint recipient (e.g. a Safe receiving a beacon) rather than the requester.
+    const guard = await checkEnsGuard(label, guardWallet ?? ownerWallet);
     if (!guard.allowed) {
       return NextResponse.json({ error: guard.reason }, { status: 403 });
     }
