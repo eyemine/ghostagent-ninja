@@ -2,17 +2,64 @@
 # nftmail.box Ecosystem — Full Roadmap & Strategic Overview
 
 - **Prepared for:** Bitpixi / Agent Phosphor Analysis
-- **Current roadmap:** October 6, 2026
+- **Current roadmap:** November 13, 2026
 - **Original analysis date:** July 17, 2026
 - **Author:** GhostAgent
 
 ---
 
-## Current Operating Roadmap — October 2026
+## Current Operating Roadmap — November 2026
 
 This section supersedes the July timeline below. The strategic thesis is unchanged — use real
 consumer traffic to harden identity-bound communication, then carry the evidence into DAO and
 ecosystem funding — but the immediate sequencing has changed.
+
+**Reframe (Nov 2026):** the binding constraint is not technical quality — it is credibility.
+Funding and partnership decisions in this ecosystem are relationship-driven; an unknown solo
+builder must manufacture momentum signals before the proposal's logic gets read. The plan below
+orders work so each artefact produces a signal the next funding step can cite: working software,
+a recognised name, a public post, a physical thing.
+
+### D0. Immediate sequence — next two weeks
+
+1. **Complete NFTFAX CHAIN metadata corrections.** Run `scripts/apply-settokenuri.mjs --commit`
+   for the six stale tokenURIs (#1, #8, #22, #35, #36, #50 — Hop/Tier one off at mint).
+   Calldata already staged in `/tmp/tier-corrections-calldata.json`; requires owner key.
+   The collection's public record must be correct before it is promoted as evidence.
+2. **Post the Gnosis forum security write-up** (`nftfax/docs/GNOSIS_FORUM_POST_SECURITY.md`).
+   The claimed-identity spoof fix is real, verifiable work — it is the credibility artefact,
+   not just hygiene. Post in the Pipes GIP thread or Ecosystem.
+3. **Post the Cryptographics preservation ask** (`nftfax/docs/CRYPTOGRAPHICS_PRESERVATION_POST.md`)
+   to Mirror/Paragraph + relevant channels. Preservation work is the most legible,
+   non-crypto-native story we have.
+4. **HOPRI funding-map steps.** Take the HOPR funding-path actions; HOPR already knows the
+   integration exists — a public acknowledgement (post/mention) from their account is the
+   single highest-leverage credibility signal available (Signal 1).
+5. **Deadline check (~2 weeks).** If no traction on the funding map, reach out to the
+   Loki/Session team — same privacy-infra adjacency, different relationship network.
+
+### D1. Credibility manufacturing — 30-day plan
+
+| Week | Action | Signal |
+|---|---|---|
+| 1 | Metadata corrections live; security post published; welcomer agent (`atom.2222@fax`) sends first 5 faxes to people with audiences | working software + shareable demo |
+| 2 | Cryptographics post published; EEZ partner listing pursued; seed 10 faxes to recognised accounts (Ogar, Chonks/DFZ community leads) | one recognisable name + narrative |
+| 3 | Bump GIP citing EEZ status + HOPR ack + live welcomer; ask Ogar for public note on governance POC | chain reaction begins |
+| 4 | Follow up: TheDAO Fund references EEZ/HOPR; 20+ welcomer faxes sent; one third-party post about the project | fundable surface |
+
+### D2. FAX CHAIN mint-out plan
+
+- **Cadence:** 7 mints/day (~10 months to sell out the remaining ~2,165 of 2,222).
+- **Framing:** this is art practice first — 7 generative faxes composed and transmitted daily —
+  not an investment. See `nftfax/docs/MINT_ECONOMICS.md`: at 50% collection share the expected
+  draw return is roughly break-even against mint fees, *not* profit; the wallet-win-once rule
+  caps prize return at ~0.404 ETH per wallet, so cost recovery needs ≥6 winning wallets and
+  cannot be "ensured" without dominating scarce tiers — which would kill other players'
+  incentive. Concentrate on Hop 5+ tiers reached naturally in new chains; spread mints
+  across many wallets (the mint-per-NFT rules force this anyway); treat the ~0.404 ETH owner
+  remainder + royalties as the actual edge.
+- **Guardrail:** never market it as "mint to recover fees" — others must still see a fair draw.
+
 
 ### A. Funding and publication
 
@@ -336,7 +383,7 @@ None of these competitors combine:
 | Product | Revenue Type | 12-Month Target | Probability |
 |---|---|---|---|
 | nftmail.box | Premium subscriptions | $12K ARR (100 users @ $10/mo) | Medium |
-| Fax Chain Letter | 1111 collection mint fees + upgrades | $25–50K (500 mints @ avg $50–100) | Medium-High |
+| Fax Chain Letter | 2222 collection mint fees + upgrades | 0.404.eth at mint-out| Medium-High |
 | mail.locker | Enterprise subscriptions | $20–50K ARR (50–100 users @ $30–50/mo) | Medium (post fax validation) |
 | Pipes | DAO subscriptions + GIP grant | $50–100K (grant) + $10–30K ARR (5 DAOs) | Low-Medium (grant-dependent) |
 | ayeAyeLove DAO | Mint fees + treasury appreciation | $100K AUM target | Speculative (macro-dependent) |
