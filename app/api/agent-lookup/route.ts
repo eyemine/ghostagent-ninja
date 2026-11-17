@@ -192,6 +192,12 @@ export interface AgentIdentityGraph {
   safe: string | null;            // Gnosis Safe address
   storyIp: string | null;         // Story Protocol IP domain
 
+  // Key-governance layer (.gno key NFT -> TBA -> Safe)
+  keyNft: { name: string; contract: string; tokenId: string } | null;
+  pairedNft: { sourceChainId: number; contract: string; tokenId: string; nftType: string; name?: string; ensv2?: boolean } | null;
+  governance: string | null;      // e.g. 'shared-recovery' until the recovery signer is removed
+  supersedes: { keyNft?: string; safe?: string; tba?: string; reason?: string } | null;
+
   // Tier / capability
   accountTier: string;
   tld: string | null;
@@ -340,6 +346,10 @@ export async function GET(req: NextRequest) {
     let beaconCid: string | null = null;
     let beaconMetadataUrl: string | null = null;
     let moltPath: AgentIdentityGraph['moltPath'] = null;
+    let keyNft: AgentIdentityGraph['keyNft'] = null;
+    let pairedNft: AgentIdentityGraph['pairedNft'] = null;
+    let governance: string | null = null;
+    let supersedes: AgentIdentityGraph['supersedes'] = null;
     let tbaAddress: string | null = resolved.tba ?? null; // prefer KV-stored TBA
 
     if (resolved.exists) {
@@ -376,15 +386,15 @@ export async function GET(req: NextRequest) {
           body: JSON.stringify({ action: 'getMoltPath', name: resolvedBase }),
         }).then(r => r.json()),
 
-        // BYO mirror TBA — stored in tba:{name} KV by byo-molt for Gnosis mirror TBA
-        // Prefer this over derivation because derivation uses the registrar at mint time
-        // and may be wrong after registrar migrations.
-        tbaAddress === null ? fetch(WORKER_URL, {
+        // Key/TBA record — stored in tba:{name} KV by byo-molt. Always fetched:
+        // it carries the paired source NFT and governance status even when
+        // resolved.tba already supplied the address.
+        fetch(WORKER_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
           body: JSON.stringify({ action: 'kvGet', key: `tba:${resolvedBase}` }),
           signal: AbortSignal.timeout(3000),
-        }).then(r => r.json()).catch(() => null) : Promise.resolve(null),
+        }).then(r => r.json()).catch(() => null),
 
         // TBA derivation — read impl from registrar on-chain, try old registrars if needed
         needsTbaDerivation ? (() => {
@@ -412,13 +422,24 @@ export async function GET(req: NextRequest) {
         }
       }
 
-      // Prefer KV-stored TBA (BYO mirror or explicit set) over derivation
-      if (tbaAddress === null && tbaKvResult.status === 'fulfilled' && tbaKvResult.value) {
+      // Prefer KV-stored TBA (key NFT account or explicit set) over derivation;
+      // also surface the full key-governance record for the dashboard/oracle.
+      if (tbaKvResult.status === 'fulfilled' && tbaKvResult.value) {
         try {
           const kvVal = (tbaKvResult.value as any)?.value;
           if (kvVal) {
-            const parsed = JSON.parse(kvVal) as { tbaAddress?: string };
-            if (parsed.tbaAddress) tbaAddress = parsed.tbaAddress;
+            const parsed = JSON.parse(kvVal) as {
+              tbaAddress?: string; keyName?: string; contract?: string; tokenId?: string;
+              governance?: string; pairedNft?: AgentIdentityGraph['pairedNft'];
+              supersedes?: AgentIdentityGraph['supersedes'];
+            };
+            if (tbaAddress === null && parsed.tbaAddress) tbaAddress = parsed.tbaAddress;
+            if (parsed.keyName && parsed.contract && parsed.tokenId) {
+              keyNft = { name: parsed.keyName, contract: parsed.contract, tokenId: parsed.tokenId };
+            }
+            pairedNft = parsed.pairedNft ?? null;
+            governance = parsed.governance ?? null;
+            supersedes = parsed.supersedes ?? null;
           }
         } catch { /* non-fatal */ }
       }
@@ -445,6 +466,10 @@ export async function GET(req: NextRequest) {
 
       tbaAddress,
       safe: resolved.safe ?? null,
+      keyNft,
+      pairedNft,
+      governance,
+      supersedes,
       storyIp: resolved.storyIp ?? null,
 
       accountTier: resolved.accountTier ?? 'basic',

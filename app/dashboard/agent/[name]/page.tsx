@@ -105,6 +105,10 @@ interface AgentIdentity {
   safe?: string;
   tbaAddress?: string | null;
   byoTba?: { tbaAddress: string; sourceChainId: number; nftType: string; tokenId: string } | null;
+  keyNft?: { name: string; contract: string; tokenId: string } | null;
+  pairedNft?: { sourceChainId: number; contract: string; tokenId: string; nftType: string; name?: string; ensv2?: boolean } | null;
+  governance?: string | null;
+  supersedes?: { keyNft?: string; safe?: string; tba?: string; reason?: string } | null;
   erc8004?: {
     gnosis?: { agentId: number; agentURI?: string; chainId?: number };
     base?: { agentId: number; chainId?: number };
@@ -232,10 +236,18 @@ export default function AgentDetailPage() {
           .catch(() => setSafeBalance(null));
       }
 
-      // 4. BYO NFT image
-      const { type: byoType, tokenId: byoTokenId } = detectByoType(String(name));
-      if (byoType && byoTokenId) {
-        fetchByoNftImage(byoType, byoTokenId).then(img => setByoImage(img));
+      // 4. BYO NFT image — paired source NFT wins, then name-pattern BYO types
+      const paired = id?.pairedNft;
+      if (paired?.nftType === 'ens') {
+        fetch(`https://metadata.ens.domains/mainnet/${paired.contract}/${paired.tokenId}`, { signal: AbortSignal.timeout(8000) })
+          .then(r => r.ok ? r.json() : null)
+          .then((m: { image?: string } | null) => setByoImage(m?.image ?? null))
+          .catch(() => null);
+      } else {
+        const { type: byoType, tokenId: byoTokenId } = detectByoType(String(name));
+        if (byoType && byoTokenId) {
+          fetchByoNftImage(byoType, byoTokenId).then(img => setByoImage(img));
+        }
       }
     }).finally(() => setLoading(false));
   }, [name]);
@@ -324,7 +336,7 @@ export default function AgentDetailPage() {
             {([
               { label: 'Agent Name',       value: identity?.name ?? String(name) },
               { label: 'Namespace',        value: identity?.identityNft?.tld ?? (sld ? `${sld}.gno` : '—') },
-              { label: 'Beacon NFT',       value: identity?.identityNft?.name ?? '—' },
+              { label: 'Key NFT',          value: identity?.keyNft?.name ?? identity?.identityNft?.name ?? (identity as { originNft?: string } | null)?.originNft ?? '—' },
               { label: 'Safe Address',     value: identity?.safe ? shortAddr(identity.safe) : '—', href: identity?.safe ? `https://app.safe.global/home?safe=gno:${identity.safe}` : undefined, full: identity?.safe },
               { label: 'ERC-8004 (Gnosis)',value: identity?.erc8004?.gnosis ? `#${identity.erc8004.gnosis.agentId}` : '—' },
               { label: 'ERC-8004 (Base)',  value: identity?.erc8004?.base   ? `#${identity.erc8004.base.agentId}`   : '—' },
@@ -343,6 +355,39 @@ export default function AgentDetailPage() {
                 )}
               </div>
             ))}
+            {/* Paired source NFT — the BYO NFT this agent was paired with */}
+            {identity?.pairedNft && (
+              <div className="flex items-center justify-between gap-4 text-[11px] pt-1 border-t border-violet-500/20">
+                <span className="text-violet-300/80 shrink-0" title="The original NFT used to pair this agent. Selling it does not move the .gno key NFT or Safe authority.">Paired NFT ℹ</span>
+                {identity.pairedNft.nftType === 'ens' ? (
+                  <a href={`https://app.ens.domains/${identity.pairedNft.name ?? ''}`} target="_blank" rel="noopener noreferrer"
+                    className="font-mono text-violet-300 hover:underline truncate max-w-[160px]">
+                    {identity.pairedNft.name ?? 'ENS name'}{identity.pairedNft.ensv2 ? ' (v2)' : ''} ↗
+                  </a>
+                ) : (
+                  <span className="font-mono text-zinc-300 truncate max-w-[160px]">
+                    {identity.pairedNft.nftType} #{identity.pairedNft.tokenId.slice(0, 12)}
+                  </span>
+                )}
+              </div>
+            )}
+            {/* Governance state — honest until the recovery signer is removed */}
+            {identity?.governance && (
+              <div className="flex items-center justify-between gap-4 text-[11px]">
+                <span className="text-[var(--muted)] shrink-0" title="shared-recovery: the key TBA and your wallet can both act. It becomes nft-only after the recovery signer is removed through the TBA.">Governance ℹ</span>
+                <span className={`font-mono truncate max-w-[160px] ${identity.governance === 'shared-recovery' ? 'text-amber-300' : 'text-emerald-300'}`}>
+                  {identity.governance === 'shared-recovery' ? 'TBA + recovery signer' : identity.governance}
+                </span>
+              </div>
+            )}
+            {identity?.supersedes?.safe && (
+              <div className="flex items-center justify-between gap-4 text-[11px]">
+                <span className="text-[var(--muted)] shrink-0" title={identity.supersedes.reason}>Superseded ℹ</span>
+                <span className="font-mono text-red-300/80 truncate max-w-[160px]" title={identity.supersedes.safe}>
+                  {identity.supersedes.keyNft ?? 'old key'} · {shortAddr(identity.supersedes.safe)}
+                </span>
+              </div>
+            )}
             {/* BYO NFT row — only shown for BYO agents */}
             {byo.type && byo.tokenId && (
               <div className="flex items-center justify-between gap-4 text-[11px] pt-1 border-t border-amber-500/10">
