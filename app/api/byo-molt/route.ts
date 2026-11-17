@@ -193,7 +193,9 @@ export async function POST(req: NextRequest) {
 
     // ── Step 1: Verify NFT ownership ──
     const nftConfig = NFT_CONTRACTS[type];
-    const contract = nftConfig?.contract || contractAddress;
+    // Client-resolved contract wins (ENSv2 names live in a different registry);
+    // ownership below is verified against this exact (contract, tokenId) pair.
+    const contract = contractAddress || nftConfig?.contract;
     const rpc = nftConfig?.rpc || 'https://ethereum.publicnode.com';
     if (!contract) {
       return NextResponse.json({ error: 'Missing contract address for NFT type' }, { status: 400 });
@@ -292,7 +294,7 @@ export async function POST(req: NextRequest) {
       // The EOA is NOT added to the Safe — only the TBA is the signer.
       const treasuryKey = process.env.TREASURY_PRIVATE_KEY;
       if (treasuryKey) {
-        const nftContract = NFT_CONTRACTS[type]?.contract ?? contractAddress;
+        const nftContract = contractAddress ?? NFT_CONTRACTS[type]?.contract;
         const sourceChainId = NFT_SOURCE_CHAIN_ID[type] ?? 1;
 
         // ── Step 3a: Deploy Gnosis-side mirror TBA for the BYO NFT ──
@@ -380,7 +382,7 @@ export async function POST(req: NextRequest) {
     // Chonk/MoonCat/ENS: traits mutable or unavailable → lite (paid minimum).
     let accountTier = 'lite'; // minimum for any paid BYO molt
     try {
-      const nftContract = NFT_CONTRACTS[type]?.contract ?? contractAddress;
+      const nftContract = contractAddress ?? NFT_CONTRACTS[type]?.contract;
       const nftChain = (NFT_CONTRACTS[type]?.chain ?? 'mainnet') as 'base' | 'mainnet' | 'gnosis';
       if (nftContract && (type === 'pownft' || type === 'normie')) {
         const traits = await fetchNftTraitsOnChain(nftContract, tokenId, nftChain);
@@ -628,7 +630,7 @@ export async function POST(req: NextRequest) {
       } else {
         // Use on-chain tokenURI — no API key required, works from any origin
         const chain = (type === 'chonk' || type === 'normie') ? 'base' : 'mainnet';
-        const nftContract = NFT_CONTRACTS[type]?.contract ?? contractAddress;
+        const nftContract = contractAddress ?? NFT_CONTRACTS[type]?.contract;
         if (nftContract) {
           const { imageUrl } = await fetchNftImageOnChain(nftContract, tokenId, chain);
           originImageUrl = imageUrl;
