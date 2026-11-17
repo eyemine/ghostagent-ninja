@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
-import { keccak256, toHex, createWalletClient, custom, parseUnits } from 'viem';
+import { keccak256, toHex, concat, createWalletClient, custom, parseUnits } from 'viem';
 import { base, mainnet } from 'viem/chains';
 import { MercuryoButton } from '../components/MercuryoWidget';
 import { EmailAliasToggle } from '../components/EmailAliasToggle';
@@ -318,8 +318,10 @@ async function fetchErc721Image(contract: string, tokenId: string): Promise<{ na
   }
 }
 
-async function checkOwner(contract: string, tokenId: string, rpc: string): Promise<string | null> {
-  const tokenIdHex = BigInt(tokenId).toString(16).padStart(64, '0');
+const ENS_NAME_WRAPPER = '0xD4416b13d2b3a9aBAE7AcD5D6C2BbDBE25686401';
+const ETH_NODE = '0x93cdeb708b7545dc668eb9280176169d1c33cfd8ed6f04690a0bcc88a93fc4ae' as const;
+
+async function callOwnerOf(rpc: string, contract: string, tokenIdHex: string): Promise<string | null> {
   const res = await fetch(rpc, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -329,6 +331,23 @@ async function checkOwner(contract: string, tokenId: string, rpc: string): Promi
   if (data.error) throw new Error(data.error.message ?? 'RPC error');
   if (!data.result || data.result === '0x' || data.result === '0x0000000000000000000000000000000000000000000000000000000000000000') return null;
   return ('0x' + data.result.slice(26)).toLowerCase();
+}
+
+async function checkOwner(contract: string, tokenId: string, rpc: string): Promise<string | null> {
+  const tokenIdHex = BigInt(tokenId).toString(16).padStart(64, '0');
+  let owner = await callOwnerOf(rpc, contract, tokenIdHex).catch(() => null);
+  // Wrapped .eth names escrow to the NameWrapper — registrar.ownerOf returns the
+  // wrapper contract (or reverts). The real holder is wrapper.ownerOf(namehash).
+  if (contract.toLowerCase() === ENS_CONTRACT.toLowerCase()) {
+    const node = BigInt(keccak256(concat([ETH_NODE, ('0x' + tokenIdHex) as `0x${string}`])));
+    const nodeHex = node.toString(16).padStart(64, '0');
+    if (owner?.toLowerCase() === ENS_NAME_WRAPPER.toLowerCase()) {
+      owner = await callOwnerOf(rpc, ENS_NAME_WRAPPER, nodeHex).catch(() => owner);
+    } else if (!owner) {
+      owner = await callOwnerOf(rpc, ENS_NAME_WRAPPER, nodeHex).catch(() => null);
+    }
+  }
+  return owner;
 }
 
 // Build version to force cache invalidation
