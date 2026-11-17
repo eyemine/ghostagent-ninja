@@ -42,7 +42,7 @@ export async function ensOwner(label: string): Promise<Address | null> {
   const v2 = await ethClient.readContract({
     address: ENS_V2_REGISTRY, abi: GET_OWNER_ABI, functionName: 'getOwner',
     args: [BigInt(labelhash(label))],
-  }).catch(() => ZERO as Address);
+  });
   return v2 && v2 !== ZERO ? v2 : null;
 }
 

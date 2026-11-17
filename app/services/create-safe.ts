@@ -10,10 +10,15 @@ import {
   encodeFunctionData,
   keccak256,
   encodePacked,
+  encodeAbiParameters,
+  getCreate2Address,
+  concat,
+  pad,
   type Address,
 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { gnosis } from 'viem/chains';
+import { SAFE_KEY_ABI } from './safe-key';
 
 // v1.3.0 canonical Safe deployment contracts on Gnosis
 const SAFE_PROXY_FACTORY = '0xa6B71E26C5e0845f74c812102Ca7114b6a896AB2' as Address;
@@ -65,18 +70,33 @@ export async function createSafeForByoMolt(
   label: string,
   ownerWallet: string,
   treasuryPrivateKey: string,
+  recoveryWallet?: string,
 ): Promise<{ safeAddress: string | null; alreadyExisted?: boolean; error?: string }> {
   try {
     const account = privateKeyToAccount(treasuryPrivateKey as `0x${string}`);
-    const publicClient = createPublicClient({ chain: gnosis, transport: http() });
-    const walletClient = createWalletClient({ chain: gnosis, transport: http(), account });
+    const rpc = process.env.GNOSIS_RPC_URL || 'https://rpc.gnosischain.com';
+    const publicClient = createPublicClient({ chain: gnosis, transport: http(rpc) });
+    const walletClient = createWalletClient({ chain: gnosis, transport: http(rpc), account });
+    const owners = Array.from(new Set([ownerWallet, recoveryWallet].filter(
+      (owner): owner is string => !!owner,
+    ).map(owner => owner.toLowerCase()))) as Address[];
+    async function verifyOwners(safe: Address) {
+      const [actual, threshold] = await Promise.all([
+        publicClient.readContract({ address: safe, abi: SAFE_KEY_ABI, functionName: 'getOwners' }),
+        publicClient.readContract({ address: safe, abi: SAFE_KEY_ABI, functionName: 'getThreshold' }),
+      ]);
+      if (threshold !== 1n || actual.length !== owners.length ||
+          actual.some(owner => !owners.includes(owner.toLowerCase() as Address))) {
+        throw new Error('Existing Safe owner set differs from the requested key and recovery signer.');
+      }
+    }
 
     // Build Safe setup calldata: 1-of-1, owner = user's wallet
     const setupData = encodeFunctionData({
       abi: SafeSetupABI,
       functionName: 'setup',
       args: [
-        [ownerWallet as Address],       // owners
+        owners,                          // TBA + recovery wallet until signed activation
         BigInt(1),                       // threshold
         '0x0000000000000000000000000000000000000000' as Address, // to (no delegate call)
         '0x',                            // data
@@ -90,32 +110,28 @@ export async function createSafeForByoMolt(
     // saltNonce = keccak of label+owner to get a deterministic but unique address
     const saltNonce = BigInt(keccak256(encodePacked(['string', 'address'], [label, ownerWallet as Address])));
 
-    // Predict the Create2 address before attempting deployment
-    // If code already exists there, the Safe was already deployed — return it directly
-    // Use the factory's calculateCreateProxyWithNonceAddress view function
-
-    const predictRes = await publicClient.readContract({
+    // The factory's calculateCreateProxyWithNonceAddress intentionally REVERTS
+    // with the address; treating it as a normal view broke retry idempotency.
+    const creationCode = await publicClient.readContract({
       address: SAFE_PROXY_FACTORY,
       abi: [{
-        name: 'calculateCreateProxyWithNonceAddress',
+        name: 'proxyCreationCode',
         type: 'function',
-        inputs: [
-          { name: '_singleton', type: 'address' },
-          { name: 'initializer', type: 'bytes' },
-          { name: 'saltNonce', type: 'uint256' },
-        ],
-        outputs: [{ name: 'proxy', type: 'address' }],
+        inputs: [],
+        outputs: [{ type: 'bytes' }],
         stateMutability: 'nonpayable',
       }] as const,
-      functionName: 'calculateCreateProxyWithNonceAddress',
-      args: [SAFE_SINGLETON, setupData as `0x${string}`, saltNonce],
-    }).catch(() => null);
-
-    if (predictRes) {
-      const existingCode = await publicClient.getCode({ address: predictRes });
-      if (existingCode && existingCode !== '0x') {
-        return { safeAddress: predictRes, alreadyExisted: true };
-      }
+      functionName: 'proxyCreationCode',
+    });
+    const predictRes = getCreate2Address({
+      from: SAFE_PROXY_FACTORY,
+      salt: keccak256(concat([keccak256(setupData), encodeAbiParameters([{ type: 'uint256' }], [saltNonce])])),
+      bytecode: concat([creationCode, pad(SAFE_SINGLETON, { size: 32 })]),
+    });
+    const existingCode = await publicClient.getCode({ address: predictRes });
+    if (existingCode && existingCode !== '0x') {
+      await verifyOwners(predictRes);
+      return { safeAddress: predictRes, alreadyExisted: true };
     }
 
     const hash = await walletClient.writeContract({
@@ -126,6 +142,7 @@ export async function createSafeForByoMolt(
     });
 
     const receipt = await publicClient.waitForTransactionReceipt({ hash });
+    if (receipt.status !== 'success') throw new Error(`Safe deployment reverted: ${hash}`);
 
     // Parse ProxyCreation event for Safe address
     let safeAddress: string | null = null;
@@ -134,7 +151,8 @@ export async function createSafeForByoMolt(
         const { decodeEventLog } = await import('viem');
         const decoded = decodeEventLog({ abi: SafeProxyFactoryABI, data: log.data, topics: log.topics });
         if (decoded.eventName === 'ProxyCreation') {
-          safeAddress = (decoded.args as any).proxy as string;
+          if (log.address.toLowerCase() !== SAFE_PROXY_FACTORY.toLowerCase()) continue;
+          safeAddress = decoded.args.proxy;
           break;
         }
       } catch {}
@@ -143,9 +161,10 @@ export async function createSafeForByoMolt(
     if (!safeAddress) {
       return { safeAddress: null, error: 'Failed to extract Safe address from ProxyCreation event' };
     }
-
+    if (safeAddress.toLowerCase() !== predictRes.toLowerCase()) throw new Error('Unexpected Safe deployment address.');
+    await verifyOwners(safeAddress as Address);
     return { safeAddress };
-  } catch (error: any) {
-    return { safeAddress: null, error: error?.message || 'Unknown error' };
+  } catch (error: unknown) {
+    return { safeAddress: null, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 }

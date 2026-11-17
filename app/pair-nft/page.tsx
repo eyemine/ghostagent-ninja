@@ -34,6 +34,9 @@ interface MoltResult {
   beaconTokenId: number | null;
   displayEmail: 'alias';
   message: string;
+  safeAddress?: string;
+  tbaAddress?: string;
+  governance?: 'shared-recovery';
 }
 
 const CHONK_CONTRACT   = '0x07152bfde079b5319e5308C43fB1DBc9C76CB4f9';
@@ -438,6 +441,19 @@ export default function OgNftMoltPage() {
   const [selectedAgent, setSelectedAgent]   = useState<string>(preselectedAgent ?? '');
   const [selectedTier, setSelectedTier] = useState<'pro' | 'premium'>('pro');
   const [showUpgradeOptions, setShowUpgradeOptions] = useState(false);
+  const paymentStorageKey = ownerWallet && primaryName
+    ? `pair-payment:${ownerWallet.toLowerCase()}:${nftType}:${primaryName.toLowerCase()}:${moltTarget}:${selectedAgent}`
+    : '';
+  useEffect(() => {
+    try { setPaymentTxHash(paymentStorageKey ? localStorage.getItem(paymentStorageKey) ?? '' : ''); }
+    catch { setPaymentTxHash(''); }
+  }, [paymentStorageKey]);
+  function rememberPayment(hash: string) {
+    setPaymentTxHash(hash);
+    try {
+      if (paymentStorageKey) localStorage.setItem(paymentStorageKey, hash);
+    } catch { /* In-memory recovery remains available when storage is disabled. */ }
+  }
 
   // Tier and fee state
   const [currentTier, setCurrentTier] = useState<keyof typeof TIER_FEES>('basic');
@@ -745,14 +761,32 @@ export default function OgNftMoltPage() {
   }
 
   async function handlePayWithWallet() {
+    if (paymentTxHash) { await executeMolt(paymentTxHash); return; }
     setPaying(true); setError(null);
     try {
+      const preflight = await fetch('/api/byo-molt', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          preflight: true, primaryName, tokenId, ownerWallet, nftType,
+          contractAddress: resolvedContract(), nftName: nftPreview?.name,
+          ...(viaDelegate && vaultWallet ? { vaultWallet } : {}),
+          moltTarget, targetAgent: moltTarget === 'existing-agent' ? selectedAgent : undefined,
+          targetTld: moltTarget === 'existing-agent' ? 'molt.gno' : 'agent.gno',
+        }),
+      });
+      const preflightData = await preflight.json() as { status?: string; error?: string };
+      if (!preflight.ok || preflightData.status !== 'ready') {
+        throw new Error(preflightData.error ?? 'Pairing checks did not pass. No payment was sent.');
+      }
       const provider = (window as unknown as { ethereum?: unknown }).ethereum;
       if (!provider) throw new Error('No wallet provider — connect MetaMask or WalletConnect');
       const chain = paymentChainForNftType(nftType, collectionName) === 'base' ? base : mainnet;
       const usdcAddress = paymentChainForNftType(nftType, collectionName) === 'base' ? USDC_BASE : USDC_ETH;
       const walletClient = createWalletClient({ chain, transport: custom(provider as Parameters<typeof custom>[0]) });
       const [account] = await walletClient.requestAddresses();
+      if (account.toLowerCase() !== ownerWallet.toLowerCase()) {
+        throw new Error('Connect the wallet used for ownership verification before paying.');
+      }
 
       const feeUsdc = selectedTier === 'premium' ? PREMIUM_FEE_USDC : PRO_FEE_USDC;
 
@@ -788,12 +822,22 @@ export default function OgNftMoltPage() {
         args: [TREASURY as `0x${string}`, amount],
         chain,
       });
-      setPaymentTxHash(txHash);
+      rememberPayment(txHash);
       // Wait for on-chain confirmation before submitting — writeContract
       // returns at broadcast, but the server verifies a confirmed receipt.
       const pubClient = createPublicClient({ chain, transport: http() });
-      await pubClient.waitForTransactionReceipt({ hash: txHash, timeout: 180_000 });
-      await executeMolt(txHash);
+      let confirmedHash = txHash;
+      let cancelled = false;
+      const receipt = await pubClient.waitForTransactionReceipt({
+        hash: txHash, timeout: 180_000,
+        onReplaced: replacement => {
+          cancelled = replacement.reason === 'cancelled';
+          confirmedHash = replacement.transaction.hash;
+          rememberPayment(confirmedHash);
+        },
+      });
+      if (cancelled || receipt.status !== 'success') throw new Error('Payment cancelled or reverted. Check the saved transaction before trying another payment.');
+      await executeMolt(confirmedHash);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       setError(msg); setPaying(false);
@@ -822,10 +866,10 @@ export default function OgNftMoltPage() {
       });
       const data = await res.json() as any;
       if (!res.ok || data.status === 'error') { setError(data.error ?? 'Molt failed'); setStep('error'); return; }
-      addLog(moltTarget === 'existing-agent' ? 'Updating agent identity overlay…' : 'Minting beacon NFT…');
+      addLog('Gnosis key NFT held by your wallet; canonical TBA initialized.');
       addLog('Registering alias email…');
       addLog('Recording molt + upgrading agent tier…');
-      addLog('✓ Pair NFT Complete');
+      addLog('Safe execution simulation passed. Wallet recovery signer retained.');
       setResult(data as MoltResult); setStep('done');
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -851,14 +895,14 @@ export default function OgNftMoltPage() {
         <img src={ICONS.byo} alt="Pair your NFT" className="h-28 w-28 rounded object-contain drop-shadow-[0_0_18px_rgba(184,134,97,0.4)]" />
         <div>
           <h1 className="pl-1 text-2xl font-bold text-[#f2eee4]">Pair your NFT</h1>
-          <p className="pl-1 mt-0.5 text-xs text-[var(--muted)]">Use an NFT you already own — ENS, Chonk, or Verified Collection — as the governing key to your GhostAgent Safe</p>
+          <p className="pl-1 mt-0.5 text-xs text-[var(--muted)]">Pair your NFT with a Gnosis key NFT whose Tokenbound Account controls your agent Safe.</p>
         </div>
       </div>
 
       <div>
         <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 px-4 py-3 text-xs text-[var(--muted)]">
           <p className="text-[#f2eee4] font-semibold mb-1">Your NFT is the key</p>
-          <p>Your existing NFT becomes the <span className="text-violet-300 font-semibold">key</span> — it governs the agent&apos;s NFTmail.box and Safe via its Tokenbound Account (TBA). Transfer the NFT and the agent transfers with it. No migration, no re-provisioning. The Safe holds feature beacons; your NFT holds the power.</p>
+          <p>Your existing NFT identifies the agent. A separate <span className="text-violet-300 font-semibold">.gno key NFT</span> stays in your wallet and controls the Safe through its Tokenbound Account. Your wallet remains a recovery signer until you prove execution and remove it. Selling the original NFT on another chain does not automatically transfer this key or the inbox.</p>
         </div>
         <div className="mt-3 rounded-xl border border-[rgba(176,128,92,0.2)] bg-black/20 px-4 py-3 space-y-1 text-xs text-[var(--muted)]">
           <p className="text-[#f2eee4] font-semibold">What happens</p>
@@ -869,9 +913,9 @@ export default function OgNftMoltPage() {
               const slugH = slug.replace(/\./g, '-');
               return (
                 <>
-                  <p>✓ Gnosis mirror TBA deployed — your NFT&apos;s TBA becomes the Safe&apos;s sole key</p>
-                  <p>✓ Gnosis Safe created — controlled exclusively by your NFT via its TBA</p>
-                  <p>✓ Beacon NFT <span className="font-mono text-[#f2eee4]">{slugH}.agent.gno</span> minted <span className="text-violet-300">to the Safe</span> (not your wallet)</p>
+                  <p>Gnosis key NFT <span className="font-mono text-[#f2eee4]">{slugH}.agent.gno</span> minted to your wallet</p>
+                  <p>Canonical TBA created and initialized for the key NFT</p>
+                  <p>Safe created with the TBA and your wallet as recovery signer</p>
                   <p>✓ Human inbox <span className="font-mono text-[#f2eee4]">{slug}@nftmail.box</span></p>
                   <p className="ml-3">+ Agent inbox <span className="font-mono text-[#f2eee4]">{slug}_@nftmail.box</span></p>
                   <p className="text-amber-300/80">Your NFT stays in your wallet — it is the key, not the asset held</p>
@@ -882,15 +926,16 @@ export default function OgNftMoltPage() {
             // For 'other' collections use the field1 prefix
             const primary = prefix ? `${prefix}.${tid}@nftmail.box` : primaryName ? `${primaryName}@nftmail.box` : '[ENSname]@nftmail.box';
             const agent   = prefix ? `${prefix}.${tid}_@nftmail.box` : primaryName ? `${primaryName}_@nftmail.box` : '[ENSname]_@nftmail.box';
-            const beacon  = prefix ? `${prefix}-${tid}.nftmail.gno` : primaryName ? `${primaryName}.nftmail.gno` : '[ENSname].nftmail.gno';
+            const ensLabel = primaryName.replace(/\.eth$/i, '');
+            const beacon = prefix ? `${prefix}-${tid}.agent.gno` : ensLabel ? `${ensLabel}.agent.gno` : '[name].agent.gno';
             return (
               <>
-                <p>✓ Gnosis mirror TBA deployed — your NFT&apos;s TBA becomes the Safe&apos;s sole key</p>
-                <p>✓ Gnosis Safe created — controlled exclusively by your NFT via its TBA</p>
-                <p>✓ Beacon NFT <span className="font-mono text-[#f2eee4]">{beacon}</span> minted <span className="text-violet-300">to the Safe</span> (not your wallet)</p>
+                <p>Gnosis key NFT <span className="font-mono text-[#f2eee4]">{beacon}</span> minted to your wallet</p>
+                <p>Canonical TBA created and initialized for the key NFT</p>
+                <p>Safe created with the TBA and your wallet as recovery signer</p>
                 <p>✓ Human inbox <span className="font-mono text-[#f2eee4]">{primary}</span></p>
                 <p className="ml-3">+ Agent inbox <span className="font-mono text-[#f2eee4]">{agent}</span></p>
-                <p className="text-amber-300/80">Your NFT stays in your wallet — it is the key, not the asset held</p>
+                <p className="text-amber-300/80">The key NFT stays outside the Safe it controls. Transfer of the original NFT is not yet synchronized across chains.</p>
                 {collectionName === 'dxterminal' && primaryName && <p className="text-cyan-300/80">Agent address: <span className="font-mono">{primaryName}@nftmail.box</span></p>}
               </>
             );
@@ -1289,12 +1334,17 @@ export default function OgNftMoltPage() {
                       <div className="text-[10px] font-semibold tracking-wider text-[var(--muted)]">
                         PAY {selectedTier === 'premium' ? PREMIUM_FEE_USDC : PRO_FEE_USDC} USDC · {selectedTier === 'premium' ? 'Premium' : 'Pro'} Tier · {paymentChainForNftType(nftType, collectionName) === 'base' ? 'Base' : 'Ethereum'}
                       </div>
-                      <button onClick={handlePayWithWallet} disabled={paying}
+                      <label className="block text-[10px] text-[var(--muted)]">
+                        Already paid? Use the confirmed transaction hash.
+                        <input className={`${ic} mt-1 font-mono`} placeholder="0x…" value={paymentTxHash}
+                          onChange={event => rememberPayment(event.target.value.trim())} />
+                      </label>
+                      <button onClick={handleMolt} disabled={paying || (!!paymentTxHash && !/^0x[0-9a-fA-F]{64}$/.test(paymentTxHash))}
                         className={`flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-40 ${selectedTier === 'premium' ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600' : 'bg-gradient-to-r from-emerald-600 to-teal-600'}`}>
                         {paying ? (
                           <><svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Awaiting wallet…</>
                         ) : (
-                          <>Pay $USDC {selectedTier === 'premium' ? PREMIUM_FEE_USDC : PRO_FEE_USDC} to Pair {selectedTier === 'premium' ? 'Premium' : 'Pro'}</>
+                          <>{paymentTxHash ? 'Continue with saved payment — no new charge' : `Pay ${selectedTier === 'premium' ? PREMIUM_FEE_USDC : PRO_FEE_USDC} USDC to pair`}</>
                         )}
                       </button>
                       <div className="flex items-center gap-2 text-[10px] text-[var(--muted)]">
@@ -1354,7 +1404,7 @@ export default function OgNftMoltPage() {
               ) : <span className="text-2xl">🪲</span>}
               <div>
                 <p className="text-lg font-bold text-emerald-300">{result.message}</p>
-                <p className="text-xs text-[var(--muted)]">BYO NFT identity overlay active</p>
+                <p className="text-xs text-[var(--muted)]">Gnosis key provisioned. Your wallet remains a recovery signer; cross-chain transfers are not synchronized.</p>
               </div>
             </div>
             <div className="grid gap-2">
@@ -1402,9 +1452,9 @@ export default function OgNftMoltPage() {
               {logs.map((l,i) => <p key={i} className="text-[10px] font-mono text-[var(--muted)]">{l}</p>)}
             </div>
           )}
-          <button onClick={() => { setStep('confirm'); setError(null); }}
+          <button onClick={() => paymentTxHash ? executeMolt(paymentTxHash) : setStep('confirm')}
             className="w-full rounded-xl border border-[rgba(176,128,92,0.2)] py-2 text-xs text-[var(--muted)] hover:text-white transition">
-            Try again
+            {paymentTxHash ? 'Retry with saved payment — no new charge' : 'Back to pairing'}
           </button>
         </div>
       )}

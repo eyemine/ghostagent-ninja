@@ -156,34 +156,42 @@ export async function verifyUsdcFeePayment(
   const treasury  = GNOSIS_TREASURY.toLowerCase();
 
   try {
-    // The client submits the hash immediately after broadcast — the RPC node
-    // may not have seen the pending tx yet. Poll briefly before failing.
-    let txData: { result?: any } = {};
-    let rcptData: { result?: any } = {};
+    type PaymentTx = { from: string };
+    type PaymentReceipt = { status: string; logs: Array<{ address: string; topics: string[]; data: string }> };
+    async function readRpc<T>(method: string): Promise<T | null> {
+      const res = await fetch(rpc, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, cache: 'no-store',
+        signal: AbortSignal.timeout(8000),
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params: [txHash] }),
+      });
+      const response = await res.json() as { result?: T | null; error?: { message?: string } };
+      if (!res.ok || response.error || response.result === undefined) {
+        throw new Error('Payment RPC unavailable. Keep the transaction hash and retry; do not pay again.');
+      }
+      return response.result;
+    }
+    let tx: PaymentTx | null = null;
+    let receipt: PaymentReceipt | null = null;
     for (let attempt = 0; attempt < 4; attempt++) {
-      const [txRes, rcptRes] = await Promise.all([
-        fetch(rpc, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_getTransactionByHash', params: [txHash] }) }),
-        fetch(rpc, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'eth_getTransactionReceipt', params: [txHash] }) }),
+      [tx, receipt] = await Promise.all([
+        readRpc<PaymentTx>('eth_getTransactionByHash'),
+        readRpc<PaymentReceipt>('eth_getTransactionReceipt'),
       ]);
-      txData   = await txRes.json()   as { result?: any };
-      rcptData = await rcptRes.json() as { result?: any };
-      if (txData.result && rcptData.result) break;
+      if (tx && receipt) break;
       if (attempt < 3) await new Promise(r => setTimeout(r, 2000));
     }
 
-    if (!txData.result)   return { verified: false, fromWallet: null, error: 'Transaction not found' };
-    if (!rcptData.result) return { verified: false, fromWallet: null, error: 'Transaction not yet confirmed' };
-    if (rcptData.result.status !== '0x1') return { verified: false, fromWallet: null, error: 'Transaction reverted' };
+    if (!tx || !receipt) return { verified: false, fromWallet: null, error: 'Payment is not yet confirmed by this RPC. Retry with the same hash; do not pay again.' };
+    if (receipt.status !== '0x1') return { verified: false, fromWallet: null, error: 'Transaction reverted' };
 
-    const fromWallet = (txData.result.from as string).toLowerCase();
+    const fromWallet = tx.from.toLowerCase();
     const expectedWei = BigInt(Math.floor(expectedUsdc * 1e6));
-    const logs: any[] = rcptData.result.logs ?? [];
+    const logs = receipt.logs ?? [];
 
-    const match = logs.find((log: any) => {
+    const match = logs.find(log => {
       if (log.address?.toLowerCase() !== usdcAddr) return false;
       if (log.topics?.[0] !== ERC20_TRANSFER_TOPIC) return false;
+      if (log.topics.length !== 3 || !/^0x[0-9a-fA-F]{64}$/.test(log.data)) return false;
       const from = ('0x' + (log.topics[1] ?? '').slice(26)).toLowerCase();
       const to   = ('0x' + (log.topics[2] ?? '').slice(26)).toLowerCase();
       if (from !== fromWallet) return false;
@@ -195,8 +203,8 @@ export async function verifyUsdcFeePayment(
       return { verified: false, fromWallet, error: `No USDC transfer ≥${expectedUsdc} USDC to treasury found in tx` };
     }
     return { verified: true, fromWallet };
-  } catch (err: any) {
-    return { verified: false, fromWallet: null, error: err?.message ?? 'Fee verification failed' };
+  } catch (err: unknown) {
+    return { verified: false, fromWallet: null, error: err instanceof Error ? err.message : 'Fee verification failed; retain the payment hash.' };
   }
 }
 
@@ -229,7 +237,7 @@ export async function mintChonkBeacon(
   try {
     const res = await fetch(`${appUrl}/api/gnosis-mint`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Mint-Secret': webhookSecret },
       body: JSON.stringify({
         label: beaconLabel,
         ownerWallet: mintTo,

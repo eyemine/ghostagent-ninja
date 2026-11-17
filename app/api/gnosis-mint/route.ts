@@ -21,6 +21,8 @@ import { privateKeyToAccount } from 'viem/accounts';
 import { defineChain } from 'viem';
 import { WORKER_URL } from '../../utils/config';
 import { checkEnsGuard } from '../../utils/ens-guard';
+import { timingSafeEqual } from 'node:crypto';
+import { findRecentKeyMint } from '../../services/gnosis-key';
 
 const gnosis = defineChain({
   id: 100,
@@ -126,8 +128,15 @@ export async function POST(req: NextRequest) {
     }
 
     // ── ENS reservation guard (server-side; client checks are advisory) ────
-    // guardWallet is the verified keystone-NFT owner when ownerWallet is the
-    // mint recipient (e.g. a Safe receiving a beacon) rather than the requester.
+    // A public caller must not be able to claim another ENS owner's authority
+    // while minting its reserved label to an arbitrary recipient.
+    if (guardWallet && guardWallet.toLowerCase() !== ownerWallet.toLowerCase()) {
+      const supplied = new TextEncoder().encode(req.headers.get('X-Mint-Secret') || '');
+      const expected = new TextEncoder().encode(webhookSecret);
+      if (supplied.length !== expected.length || !timingSafeEqual(supplied, expected)) {
+        return NextResponse.json({ error: 'A different guard wallet requires an authenticated internal mint.' }, { status: 403 });
+      }
+    }
     const guard = await checkEnsGuard(label, guardWallet ?? ownerWallet);
     if (!guard.allowed) {
       return NextResponse.json({ error: guard.reason }, { status: 403 });
@@ -135,32 +144,30 @@ export async function POST(req: NextRequest) {
 
     const account = privateKeyToAccount(treasuryKey as `0x${string}`);
 
-    const gnosisPublic = createPublicClient({ chain: gnosis, transport: http() });
-    const gnosisWallet = createWalletClient({ chain: gnosis, transport: http(), account });
+    const rpc = process.env.GNOSIS_RPC_URL || 'https://rpc.gnosischain.com';
+    const gnosisPublic = createPublicClient({ chain: gnosis, transport: http(rpc) });
+    const gnosisWallet = createWalletClient({ chain: gnosis, transport: http(rpc), account });
 
     // ─── Idempotency check: skip mint if name already registered ───
     // Handles retries and accidental duplicate registrations gracefully.
     try {
-      const node = namehash(`${label}.${tld}`) as `0x${string}`;
-      const existingOwner = await gnosisPublic.readContract({
-        address: ENS_REGISTRY,
-        abi: EnsRegistryABI,
-        functionName: 'owner',
-        args: [node],
-      });
-      if (existingOwner && existingOwner !== '0x0000000000000000000000000000000000000000') {
-        console.log(`[gnosis-mint] ${label}.${tld} already registered (owner=${existingOwner}) — returning idempotent success`);
+      // These registrars use their own GNS registry, not the canonical ENS
+      // address. Verify the original mint and current NFT owner before reuse.
+      const existing = await findRecentKeyMint(gnosisPublic, registrarContract, label, tld, ownerWallet as Address);
+      if (existing) {
         return NextResponse.json({
-          success: true, txHash: null, tokenId: null,
+          success: true, txHash: existing.txHash, tokenId: Number(existing.tokenId),
           email: `${label}@nftmail.box`,
           originNft: `${label}.${tld}`,
           controller: ownerWallet, tbaAddress: null, privacyTier,
           kvRegistered: false, alreadyRegistered: true,
-          explorer: null,
+          explorer: `https://gnosisscan.io/tx/${existing.txHash}`,
         });
       }
-    } catch {
-      // Non-fatal — proceed with mint if pre-check fails
+    } catch (error: unknown) {
+      return NextResponse.json({
+        success: false, error: error instanceof Error ? error.message : 'Could not verify existing key ownership.',
+      }, { status: 409 });
     }
 
     // ─── Build Story IPA metadata ───
@@ -189,22 +196,30 @@ export async function POST(req: NextRequest) {
       new Promise<null>(res => setTimeout(() => res(null), 8_000)),
     ]);
     if (!receipt) {
-      return NextResponse.json({ success: true, txHash: hash, tokenId: null, timedOut: true,
+      return NextResponse.json({ success: false, pending: true, error: `Key mint submitted (${hash}); retry with the same payment after confirmation.`,
+        txHash: hash, tokenId: null, timedOut: true,
         email: `${label}@nftmail.box`, originNft: `${label}.${tld}`,
         controller: ownerWallet, tbaAddress: null, privacyTier, kvRegistered: false,
-        explorer: `https://gnosisscan.io/tx/${hash}` });
+        explorer: `https://gnosisscan.io/tx/${hash}` }, { status: 202 });
+    }
+    if (receipt.status !== 'success') {
+      return NextResponse.json({ success: false, txHash: hash, error: 'Key NFT mint reverted.' }, { status: 502 });
     }
 
     // ─── Parse SubnameMinted event ───
     let mintedTokenId: number | null = null;
     let tbaAddress: string | null = null;
     for (const log of receipt.logs) {
+      if (log.address.toLowerCase() !== registrarContract.toLowerCase()) continue;
       try {
         const decoded = decodeEventLog({ abi: MintSubnameABI, data: log.data, topics: log.topics });
         if (decoded.eventName === 'SubnameMinted') {
           mintedTokenId = Number((decoded.args as any).tokenId);
         }
       } catch {}
+    }
+    if (mintedTokenId === null) {
+      return NextResponse.json({ success: false, txHash: hash, error: 'Mint receipt did not contain a key NFT.' }, { status: 502 });
     }
 
     const originNft = `${label}.${tld}`;

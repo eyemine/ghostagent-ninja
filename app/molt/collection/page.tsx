@@ -129,7 +129,7 @@ export default function CollectionMoltPage() {
       // Fetch the collection contract from client-side
       const contracts: Record<string, string> = {
         chonk:   '0x07152bfde079b5319e5308C43fB1DBc9C76CB4f9',
-        pownft:  '0x3B3ee1931Dc30C1957379FAc9aba94D1C48a5405',
+        pownft:  '0x9abb7bddc43fa67c76a62d8c016513827f59be1b',
         punks:   '0xb47e3cd837dDF8e4c57F05d70Ab865de6e193BBB',
         normies: '0x9eb6e2025b64f340691e424b7fe7022ffde12438',
       };

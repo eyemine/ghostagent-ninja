@@ -93,7 +93,7 @@ export const COLLECTION_REGISTRY: Record<string, CollectionConfig> = {
     name: 'POWNFT',
     icon: '💥',
     description: 'POWNFT — on-chain generative art on Ethereum',
-    contract: '0x3B3ee1931Dc30C1957379FAc9aba94D1C48a5405',
+    contract: '0x9abb7bddc43fa67c76a62d8c016513827f59be1b',
     chainId: 1,
     rpcUrl: process.env.ETH_RPC_URL || 'https://ethereum.publicnode.com',
     // A: ATOM.42@nftmail.box    /  atom42.nftmail.gno

@@ -13,7 +13,7 @@ const ENS_CONTRACT = '0x57f1887a8BF19b14fC0dF6Fd9B2acc9Af147eA85';
 
 const NFT_CONTRACTS: Record<string, { contract: string; alchemy: string }> = {
   chonk:  { contract: '0x07152bfde079b5319e5308C43fB1DBc9C76CB4f9', alchemy: 'https://base-mainnet.g.alchemy.com/nft/v3' },
-  pownft: { contract: '0x3B3ee1931Dc30C1957379FAc9aba94D1C48a5405', alchemy: 'https://eth-mainnet.g.alchemy.com/nft/v3' },
+  pownft: { contract: '0x9abb7bddc43fa67c76a62d8c016513827f59be1b', alchemy: 'https://eth-mainnet.g.alchemy.com/nft/v3' },
   normie: { contract: '0x7Bc1C072742D8391817EB4Eb2317F98dc72C61dB', alchemy: 'https://base-mainnet.g.alchemy.com/nft/v3' },
 };
 

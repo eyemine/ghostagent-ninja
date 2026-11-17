@@ -12,7 +12,9 @@
 ///         nftType, contractAddress?, nftName? }
 
 import { NextRequest, NextResponse } from 'next/server';
-import { type Address } from 'viem';
+import { createWalletClient, http, type Address } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { gnosis } from 'viem/chains';
 import {
   verifyChonkOwnership,
   verifyFeePayment,
@@ -25,7 +27,9 @@ import { WORKER_URL } from '../../utils/config';
 import { fetchNftImageOnChain, fetchNftTraitsOnChain, type NftTrait } from '../../utils/nft-image';
 import { verifyOwnershipOrDelegate } from '../../utils/delegate-verify';
 import { createSafeForByoMolt } from '../../services/create-safe';
-import { deployGnosisTba } from '../../services/gnosis-tba';
+import { deployGnosisTba, TOKENBOUND_V3_IMPLEMENTATION, TOKENBOUND_V3_PROXY } from '../../services/gnosis-tba';
+import { findRecentKeyMint, gnosisKeyClient, KEY_REGISTRARS } from '../../services/gnosis-key';
+import { verifySafeKeyExecution } from '../../services/safe-key';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://ghostagent.ninja';
 const NFTMAIL_WORKER_URL = process.env.NFTMAIL_WORKER_URL || 'https://nftmail-email-worker.richard-159.workers.dev';
@@ -48,7 +52,7 @@ const NFT_CONTRACTS: Record<string, { contract: string; rpc: string; chain: stri
 // Source chain IDs for Gnosis-side mirror TBA derivation
 const NFT_SOURCE_CHAIN_ID: Record<string, number> = {
   chonk:      8453, // Base
-  normie:     8453, // Base
+  normie:     1,    // Ethereum mainnet
   ens:        1,    // Ethereum mainnet
   pownft:     1,
   mooncat:    1,
@@ -154,12 +158,13 @@ export async function POST(req: NextRequest) {
       targetAgent?: string;
       targetTld?: string;
       buildVersion?: string;
+      preflight?: boolean;
     };
 
     const {
       primaryName, tokenId, ownerWallet, vaultWallet, paymentTxHash, couponCode,
-      nftType = 'chonk', contractAddress, nftName, moltTarget = 'new-agent', targetAgent, targetTld, buildVersion
-    } = body as any;
+      nftType = 'chonk', contractAddress, nftName, moltTarget = 'new-agent', targetAgent, targetTld, buildVersion, preflight
+    } = body;
 
     // Debug: Log targetTld to verify it's being sent
     console.log('BYO MOLT DEBUG:', { 
@@ -173,6 +178,10 @@ export async function POST(req: NextRequest) {
     const type = nftType ?? 'chonk';
     const isOverlay = moltTarget === 'existing-agent' && targetAgent;
     const targetNamespace = targetTld ?? (isOverlay ? 'molt.gno' : 'agent.gno');
+    const keyRegistrar = KEY_REGISTRARS[targetNamespace];
+    if (!keyRegistrar) {
+      return NextResponse.json({ error: 'Unsupported key NFT namespace.' }, { status: 400 });
+    }
 
     if (!primaryName || typeof primaryName !== 'string') {
       return NextResponse.json({ error: 'Missing primaryName' }, { status: 400 });
@@ -187,15 +196,21 @@ export async function POST(req: NextRequest) {
     const hasCoupon = couponCode && couponCode.trim().length > 0;
     const hasTxHash = paymentTxHash && /^0x[a-fA-F0-9]{64}$/.test(paymentTxHash);
 
-    if (!hasCoupon && !hasTxHash) {
+    if (!preflight && !hasCoupon && !hasTxHash) {
       return NextResponse.json({ error: 'Either paymentTxHash or couponCode is required' }, { status: 400 });
     }
 
     // ── Step 1: Verify NFT ownership ──
     const nftConfig = NFT_CONTRACTS[type];
-    // Client-resolved contract wins (ENSv2 names live in a different registry);
-    // ownership below is verified against this exact (contract, tokenId) pair.
-    const contract = contractAddress || nftConfig?.contract;
+    // Only known ENS registries may override the collection contract. Accepting
+    // any client contract would let an attacker fake ownerOf for a named NFT.
+    const ensContracts = [
+      NFT_CONTRACTS.ens.contract.toLowerCase(),
+      '0xd4416b13d2b3a9abae7acd5d6c2bbdbe25686401',
+      '0xf60aba43e1f7f3dab1186ff03b561401c9df85e2',
+    ];
+    const contract = type === 'ens' && contractAddress && ensContracts.includes(contractAddress.toLowerCase())
+      ? contractAddress : nftConfig?.contract ?? contractAddress;
     const rpc = nftConfig?.rpc || 'https://ethereum.publicnode.com';
     if (!contract) {
       return NextResponse.json({ error: 'Missing contract address for NFT type' }, { status: 400 });
@@ -219,6 +234,38 @@ export async function POST(req: NextRequest) {
     const effectiveController = ownership.viaDelegate && ownership.vaultWallet
       ? ownership.vaultWallet
       : ownerWallet.toLowerCase();
+    if (isOverlay) {
+      // Existing Safe owner changes require the current Safe signers. The old
+      // path silently fell back to minting into an arbitrary ownerWallet.
+      return NextResponse.json({
+        status: 'error', step: 'governance',
+        error: 'Existing agents require the Safe retrofit flow. No payment was consumed by this request.',
+      }, { status: 409 });
+    }
+
+    const cleanName = primaryName.toLowerCase().replace(/_$/, '');
+    const beaconPrefix = type === 'pownft' ? 'atom' : type === 'normie' ? 'normie' : type === 'chonk' ? 'chonk' : type === 'mooncat' ? 'mooncat' : type === 'fakenormie' ? 'normie' : 'nft';
+    const emailPrefix = beaconPrefix;
+    const displayLabel = type === 'ens' ? primaryName.replace(/\.eth$/i, '').toLowerCase() : tokenId.slice(0, 20);
+    const beaconLabel = type === 'ens' ? displayLabel : type === 'fakenormie' ? cleanName.replace(/\./g, '-') : `${beaconPrefix}-${displayLabel}`;
+    const humanLocalPart = type === 'ens' ? displayLabel : type === 'fakenormie' ? cleanName : `${emailPrefix}.${displayLabel}`;
+
+    // Run before accepting a fee/coupon and expose the same checks to the UI
+    // before it asks the user to send USDC.
+    try {
+      const client = gnosisKeyClient();
+      for (const address of [TOKENBOUND_V3_PROXY, TOKENBOUND_V3_IMPLEMENTATION]) {
+        const code = await client.getCode({ address });
+        if (!code || code === '0x') throw new Error('Canonical Gnosis account contracts are unavailable.');
+      }
+      await findRecentKeyMint(client, keyRegistrar, beaconLabel, targetNamespace, effectiveController as Address);
+    } catch (error: unknown) {
+      return NextResponse.json({
+        status: 'error', step: 'preflight',
+        error: error instanceof Error ? error.message : 'Could not verify the key NFT before payment.',
+      }, { status: 409 });
+    }
+    if (preflight) return NextResponse.json({ status: 'ready', keyName: `${beaconLabel}.${targetNamespace}` });
 
     // ── Step 2: Verify payment OR redeem coupon ──
     if (hasCoupon) {
@@ -234,142 +281,48 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ status: 'error', step: 'fee', error: couponResult.error ?? 'Coupon invalid or already used' }, { status: 402 });
       }
     } else {
-      // Fees paid in USDC on the NFT's native chain (Base for chonk/normie, Ethereum for all others)
-      const feeChain: 'base' | 'mainnet' = (type === 'chonk' || type === 'normie') ? 'base' : 'mainnet';
+      const feeChain: 'base' | 'mainnet' = type === 'chonk' ? 'base' : 'mainnet';
       const BYO_FEE_USDC = 10; // $10 USDC flat fee for new agents; tier upgrades handled by mini app
       const fee = await verifyUsdcFeePayment(paymentTxHash!, feeChain, BYO_FEE_USDC);
       if (!fee.verified) {
         return NextResponse.json({ status: 'error', step: 'fee', error: fee.error ?? 'Fee verification failed' }, { status: 402 });
       }
+      if (fee.fromWallet !== ownerWallet.toLowerCase() && fee.fromWallet !== effectiveController) {
+        return NextResponse.json({ status: 'error', step: 'fee', error: 'Payment must come from the NFT owner or authorised delegate.' }, { status: 403 });
+      }
     }
-
-    // ── Step 3: Mint beacon NFT ──
-    // Beacon labels use hyphens (not dots) to avoid sub.sub.name interpretation
-    // e.g. chonk-123.nftmail.gno, atom-1234.nftmail.gno, eyemine.nftmail.gno
-    const cleanName = primaryName.toLowerCase().replace(/_$/, '');
-    const beaconPrefix = type === 'pownft' ? 'atom' : type === 'normie' ? 'normie' : type === 'chonk' ? 'chonk' : type === 'mooncat' ? 'mooncat' : type === 'fakenormie' ? 'normie' : 'nft';
-    const emailPrefix  = type === 'pownft' ? 'atom' : type === 'normie' ? 'normie' : type === 'chonk' ? 'chonk' : type === 'mooncat' ? 'mooncat' : type === 'fakenormie' ? 'normie' : 'nft';
-    const displayLabel = type === 'ens' && nftName ? nftName.replace(/\.eth$/i, '').toLowerCase() : tokenId.slice(0, 20);
-    const beaconLabel = type === 'ens' ? displayLabel : type === 'fakenormie' ? cleanName.replace(/\./g, '-') : `${beaconPrefix}-${displayLabel}`;
-
-    // Calculate humanLocalPart early - needed for Safe creation saltNonce
-    // CANONICAL RULE: the email local-part + KV/D1 label use DOTS (the delimiter),
-    // e.g. chonk.676@nftmail.box, super.normie@nftmail.box. Hyphens are reserved
-    // exclusively for the GNS beacon subname (beaconLabel above) because .gno
-    // subnames cannot contain dots. Do NOT hyphenate the email/label here.
-    const humanLocalPart = type === 'ens'
-      ? (nftName ?? `ens-${tokenId.slice(0, 8)}`)
-      : type === 'fakenormie'
-        ? cleanName  // e.g. "super.normie" → super.normie@nftmail.box (dots preserved)
-        : `${emailPrefix}.${displayLabel}`;
 
     // Safe address and TBA address for new-agent molts (set during beacon/Safe step)
     let safeAddress: string | null = null;
     let tbaAddress: string | null = null;
 
-    let beacon: { success: boolean; beaconNft?: string; txHash?: string; beaconTokenId?: number | null; error?: string };
-    if (isOverlay) {
-      // Overlay: still mint beacon NFT for provenance, but to the agent's Safe
-      safeAddress = ownerWallet; // fallback to owner if Safe lookup fails
-      try {
-        const identityRes = await fetch(NFTMAIL_WORKER_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-Worker-Secret': WORKER_SECRET },
-          body: JSON.stringify({ action: 'getAgentIdentity', name: targetAgent }),
-        });
-        if (identityRes.ok) {
-          const identity = await identityRes.json() as { safeAddress?: string };
-          if (identity.safeAddress) safeAddress = identity.safeAddress;
-        }
-      } catch {
-        // Safe lookup failed, mint to owner wallet instead
+    // The .gno NFT is the key, held OUTSIDE the Safe. The source NFT is the
+    // pairing identity; it is not a same-chain owner oracle.
+    const beacon = await mintChonkBeacon(
+      tokenId, effectiveController, APP_URL, webhookSecret, beaconLabel, effectiveController, targetNamespace,
+    );
+    if (!beacon.success || beacon.beaconTokenId == null) {
+      return NextResponse.json({ status: 'error', step: 'key-mint', error: beacon.error ?? 'Key mint not confirmed. Retry with the same payment.' }, { status: 502 });
+    }
+    try {
+      const account = privateKeyToAccount(treasuryPrivateKey as `0x${string}`);
+      const wallet = createWalletClient({ chain: gnosis, transport: http(process.env.GNOSIS_RPC_URL || 'https://rpc.gnosischain.com'), account });
+      const tba = await deployGnosisTba({
+        sourceChainId: 100, contractAddress: keyRegistrar, tokenId: BigInt(beacon.beaconTokenId),
+      }, wallet);
+      if (tba.nftOwner.toLowerCase() !== effectiveController.toLowerCase()) {
+        throw new Error('Key NFT owner changed during provisioning.');
       }
-      beacon = await mintChonkBeacon(tokenId, ownerWallet, APP_URL, webhookSecret, beaconLabel, safeAddress ?? undefined, targetNamespace);
-      if (!beacon.success) {
-        return NextResponse.json({ status: 'error', step: 'beacon-mint', error: beacon.error ?? 'Beacon mint failed' }, { status: 502 });
-      }
-    } else {
-      // New agent: deploy Gnosis-side mirror TBA for the BYO NFT, use it as sole Safe signer.
-      // This makes ownership trustless: NFT transfer → new holder controls TBA → controls Safe.
-      // The EOA is NOT added to the Safe — only the TBA is the signer.
-      const treasuryKey = process.env.TREASURY_PRIVATE_KEY;
-      if (treasuryKey) {
-        const nftContract = contractAddress ?? NFT_CONTRACTS[type]?.contract;
-        const sourceChainId = NFT_SOURCE_CHAIN_ID[type] ?? 1;
-
-        // ── Step 3a: Deploy Gnosis-side mirror TBA for the BYO NFT ──
-        // Universal: ALL keystone NFTs (ENS, BYO collections, Chonks) get a Gnosis mirror TBA.
-        // The NFT stays on its native chain — the mirror TBA controls the Safe on Gnosis.
-        // Transfer the NFT → new owner controls TBA → controls Safe → agent identity transfers.
-        if (nftContract) {
-          try {
-            const { createWalletClient, http } = await import('viem');
-            const { privateKeyToAccount } = await import('viem/accounts');
-            const { gnosis } = await import('viem/chains');
-            const account = privateKeyToAccount(treasuryKey as `0x${string}`);
-            const wc = createWalletClient({ chain: gnosis, transport: http(), account });
-
-            const tbaResult = await deployGnosisTba(
-              { sourceChainId, contractAddress: nftContract as Address, tokenId: BigInt(tokenId) },
-              wc,
-            );
-            tbaAddress = tbaResult.tbaAddress;
-            console.log(`Gnosis TBA for ${type}#${tokenId}: ${tbaAddress} (deployed=${!tbaResult.alreadyDeployed})`);
-          } catch (err) {
-            console.error('TBA deployment failed (non-fatal, falling back to EOA):', err);
-          }
-        }
-
-        // ── Step 3b: Create Safe with TBA as sole signer (or EOA fallback for ENS) ──
-        const safeOwner = tbaAddress ?? ownerWallet;
-        const safeResult = await createSafeForByoMolt(humanLocalPart, safeOwner, treasuryKey);
-        if (safeResult.safeAddress) {
-          safeAddress = safeResult.safeAddress;
-          console.log(`Safe created for ${humanLocalPart}: ${safeAddress} (owner=${safeOwner})`);
-
-          // ── Step 3c: Register BYO NFT as governor of Safe in GhostRegistry ──
-          try {
-            if (nftContract && safeAddress) {
-              const ghostRegistry = '0x194f200b2C624e27a14865292d1C50cF46211565'; // GhostRegistry v2
-              const { createWalletClient, http, encodeFunctionData } = await import('viem');
-              const { privateKeyToAccount } = await import('viem/accounts');
-              const { gnosis } = await import('viem/chains');
-
-              const account = privateKeyToAccount(treasuryKey as `0x${string}`);
-              const walletClient = createWalletClient({ chain: gnosis, transport: http(), account });
-
-              await walletClient.writeContract({
-                address: ghostRegistry as Address,
-                abi: [{
-                  name: 'registerByoGovernor',
-                  type: 'function',
-                  inputs: [
-                    { name: 'byoContract', type: 'address' },
-                    { name: 'byoTokenId', type: 'uint256' },
-                    { name: 'safe', type: 'address' },
-                  ],
-                  outputs: [],
-                  stateMutability: 'nonpayable',
-                }],
-                functionName: 'registerByoGovernor',
-                args: [nftContract as Address, BigInt(tokenId), safeAddress as Address],
-              });
-              console.log(`BYO NFT ${nftContract}#${tokenId} registered as governor of Safe ${safeAddress}`);
-            }
-          } catch (err) {
-            console.error('BYO governor registration failed (non-fatal):', err);
-          }
-        } else {
-          console.error('Safe creation failed (non-fatal):', safeResult.error);
-        }
-      }
-      // Mint beacon NFT to the Safe (not the user's wallet).
-      // The Safe holds feature beacons; the keystone NFT (in user's wallet) governs the Safe via mirror TBA.
-      const beaconRecipient = safeAddress ?? ownerWallet;
-      beacon = await mintChonkBeacon(tokenId, ownerWallet, APP_URL, webhookSecret, beaconLabel, beaconRecipient, targetNamespace);
-      if (!beacon.success) {
-        return NextResponse.json({ status: 'error', step: 'beacon-mint', error: beacon.error ?? 'Beacon mint failed' }, { status: 502 });
-      }
+      tbaAddress = tba.tbaAddress;
+      const safe = await createSafeForByoMolt(`${beaconLabel}.${targetNamespace}`, tbaAddress, treasuryPrivateKey, effectiveController);
+      if (!safe.safeAddress) throw new Error(safe.error ?? 'Safe creation failed.');
+      safeAddress = safe.safeAddress;
+      await verifySafeKeyExecution(gnosisKeyClient(), safeAddress as Address, tba.tbaAddress, tba.nftOwner);
+    } catch (error: unknown) {
+      return NextResponse.json({
+        status: 'error', step: 'governance', beaconNft: beacon.beaconNft, safeAddress, tbaAddress,
+        error: `${error instanceof Error ? error.message : 'Key governance verification failed.'} Retry with the same payment.`,
+      }, { status: 502 });
     }
 
     // controller is always the human EOA (ownerWallet) — used to show inboxes in nftmail.box
@@ -382,7 +335,7 @@ export async function POST(req: NextRequest) {
     // Chonk/MoonCat/ENS: traits mutable or unavailable → lite (paid minimum).
     let accountTier = 'lite'; // minimum for any paid BYO molt
     try {
-      const nftContract = contractAddress ?? NFT_CONTRACTS[type]?.contract;
+      const nftContract = contract;
       const nftChain = (NFT_CONTRACTS[type]?.chain ?? 'mainnet') as 'base' | 'mainnet' | 'gnosis';
       if (nftContract && (type === 'pownft' || type === 'normie')) {
         const traits = await fetchNftTraitsOnChain(nftContract, tokenId, nftChain);
@@ -481,7 +434,12 @@ export async function POST(req: NextRequest) {
           body: JSON.stringify({
             action: 'kvPut',
             key: `tba:${finalPrimaryName}`,
-            value: JSON.stringify({ tbaAddress, sourceChainId: NFT_SOURCE_CHAIN_ID[type] ?? 1, nftType: type, tokenId, storedAt: Date.now() }),
+            value: JSON.stringify({
+              tbaAddress, sourceChainId: 100, nftType: 'gno-key', tokenId: String(beacon.beaconTokenId),
+              contract: keyRegistrar, keyName: beacon.beaconNft, governance: 'shared-recovery',
+              pairedNft: { sourceChainId: NFT_SOURCE_CHAIN_ID[type] ?? 1, contract, tokenId, nftType: type },
+              storedAt: Date.now(),
+            }),
             ownerAddress: ownerWallet.toLowerCase(),
             webhookSecret,
           }),
@@ -561,7 +519,7 @@ export async function POST(req: NextRequest) {
     // ── Step 5b-ii: Generate ECIES keypair for the HITL human inbox (non-fatal) ──
     // Collection NFT molts provision a sovereign human inbox (humanLocalPart@nftmail.box).
     // upgradeTier auto-generates an ECIES keypair if none exists, enabling darkbox encryption
-    // at LITE tier. The private key is logged server-side only (not returned to client).
+    // at LITE tier. Never log generated private keys.
     if (!isOverlay) {
       try {
         const eciesRes = await fetch(NFTMAIL_WORKER_URL, {
@@ -576,10 +534,7 @@ export async function POST(req: NextRequest) {
           }),
         });
         if (eciesRes.ok) {
-          const eciesData = await eciesRes.json() as { eciesPublicKey?: string; eciesPrivateKey?: string };
-          if (eciesData.eciesPrivateKey) {
-            console.log(`[byo-molt] ECIES keypair generated for ${humanLocalPart} — store private key securely:`, eciesData.eciesPrivateKey);
-          }
+          await eciesRes.json();
         }
       } catch {
         // Non-fatal — ECIES provisioning is best-effort
@@ -621,7 +576,7 @@ export async function POST(req: NextRequest) {
     try {
       let originImageUrl: string | null = null;
       if (type === 'ens') {
-        const ENS_META_URL = `https://metadata.ens.domains/mainnet/0x57f1887a8BF19b14fC0dF6Fd9B2acc9Af147eA85/${tokenId}`;
+        const ENS_META_URL = `https://metadata.ens.domains/mainnet/${contract}/${tokenId}`;
         const imgRes = await fetch(ENS_META_URL);
         if (imgRes.ok) {
           const meta = await imgRes.json() as { image?: string; image_url?: string };
@@ -630,7 +585,7 @@ export async function POST(req: NextRequest) {
       } else {
         // Use on-chain tokenURI — no API key required, works from any origin
         const chain = (type === 'chonk' || type === 'normie') ? 'base' : 'mainnet';
-        const nftContract = contractAddress ?? NFT_CONTRACTS[type]?.contract;
+        const nftContract = contract;
         if (nftContract) {
           const { imageUrl } = await fetchNftImageOnChain(nftContract, tokenId, chain);
           originImageUrl = imageUrl;
@@ -662,9 +617,15 @@ export async function POST(req: NextRequest) {
       beaconNft: beacon.beaconNft,
       beaconTxHash: beacon.txHash,
       beaconTokenId: beacon.beaconTokenId ?? null,
+      safeAddress,
+      tbaAddress,
+      governance: 'shared-recovery',
+      keyNft: { chainId: 100, contract: keyRegistrar, tokenId: String(beacon.beaconTokenId), owner: effectiveController },
+      executionCheck: 'simulation-passed',
+      sourceNftTransferSync: false,
       erc8004AgentId,
       displayEmail: 'alias',
-      message: `BYO NFT Molt Complete: Now ${humanLocalPart}`,
+      message: `${humanLocalPart} key and Safe created — recovery signer retained`,
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
