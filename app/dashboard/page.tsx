@@ -358,6 +358,7 @@ export default function DashboardHome() {
               safeAddress?: string | null;
               tbaAddress?: string | null;
               accountTier?: string;
+              pairedNft?: { nftType?: string; contract?: string; tokenId?: string; name?: string } | null;
             }>(`/api/agent-lookup?q=${encodeURIComponent(a.name)}`);
             if (!identity) throw new Error('identity fetch failed');
 
@@ -409,9 +410,19 @@ export default function DashboardHome() {
               return updated;
             });
 
-            // Enrich with the NFT image once the card arrives
-            const card = await cardPromise;
-            const imageUrl = card?.image || undefined;
+            // Enrich with the NFT image — the paired BYO NFT (e.g. the ENS name
+            // this agent was paired with) takes precedence over the card image.
+            let imageUrl: string | undefined;
+            const paired = identity.pairedNft;
+            if (paired?.nftType === 'ens' && paired.contract && paired.tokenId) {
+              imageUrl = await fetch(
+                `https://metadata.ens.domains/mainnet/${paired.contract}/${paired.tokenId}`,
+                { signal: AbortSignal.timeout(8000) },
+              ).then(r => r.ok ? r.json() : null)
+               .then((m: { image?: string } | null) => m?.image)
+               .catch(() => undefined);
+            }
+            if (!imageUrl) imageUrl = (await cardPromise)?.image || undefined;
             if (imageUrl) {
               setAgentEntries(prev => prev?.map(e =>
                 e.name === a.name && e.data ? { ...e, data: { ...e.data, imageUrl } } : e
