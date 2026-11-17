@@ -44,6 +44,12 @@ script/          — Foundry deploy scripts
 - **openclaw.gno Registrar:** `0xbD8285A8455CCEC4bE671D9eE3924Ab1264fcbbe`
 - **HumanInTheLoopModule:** `0x012A0571d0DFd7eF85d0706875FEc39555e99A96`
 - **DailyBudgetModule:** `0xdd80e384cAc42b4e17e0edf0609573E4A16C6d4e`
+- **ERC-6551 Registry (canonical):** `0x000000006551c19487814612e58FE06813775758`
+- **Tokenbound V3 AccountProxy:** `0x55266d75D1a14E4572138116aF39863Ed6596E7F` — use THIS as `implementation` in `createAccount`
+- **Tokenbound V3 Impl:** `0x41C8f39463A868d3A88af00cd0fe7102F30E44eC` — pass to `initialize()` after `createAccount`
+- **V3 Guardian / Multicall / LZ Exec:** `0x2FE5ccb0d7Ea195FEb87987d3573F9fcCE2b5D57` / `0xcA1167915584462449EE5b4Ea51c37fE81eCDCCD` / `0x0F220412Bf22E05EBcC5070D60fd7136A08aF22C`
+- Deployed 2026-11-17 at mainnet-identical addresses — see `docs/TBA_GOVERNOR_SPEC.md`.
+- Deprecated impls (do NOT use): `0x55266d75d1A14894141022060384218151591515` (typo, no code), `0x878E703A93b6e0aaD92f9907332c68fb09765697` (359B stub, cannot sign/execute)
 
 ## Worker (Cloudflare)
 
@@ -101,6 +107,6 @@ See `CODE_HEALTH.md` for known issues and tech debt.
 
 High-priority tasks:
 - Molt `ghostagent.molt.gno → vault.gno`
-- Add victor TBA `0x56e71aa4bddfdfae7805de8f0a1f68c34748efbb` as signer on victor Safe
+- ~~Add victor TBA `0x56e71aa4bddfdfae7805de8f0a1f68c34748efbb` as signer on victor Safe~~ — that TBA is bound to the typo impl (no code); create a NEW TBA via canonical `0x55266d75D1a1…` proxy + `initialize(0x41C8f394…)` instead (see `docs/TBA_GOVERNOR_SPEC.md`)
 - Auth guard on `setAgentProfile` worker action (verify Safe ownership)
 - Swarm demo data for Swarm Verifier
